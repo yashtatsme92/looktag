@@ -236,9 +236,11 @@ export const listFashionCollections = createServerFn({ method: "GET" }).handler(
     const sql = await getSql();
     await ensureFashionLabels(sql);
     const rows = await sql<CollectionRow>`
-      select id, label_id, name, slug, caption, season, moods_json, sort_order, created_at
-      from fashion_collections
-      order by label_id asc, sort_order asc, name asc
+      select c.id, c.label_id, c.name, c.slug, c.caption, c.season, c.moods_json, c.sort_order, c.created_at
+      from fashion_collections c
+      inner join fashion_labels l on l.id = c.label_id
+      where l.status = 'approved'
+      order by c.label_id asc, c.sort_order asc, c.name asc
     `;
     span.setAttribute("looktag.collections.count", rows.length);
     return rows.map(parseCollection);
@@ -684,4 +686,3 @@ export const deleteMyCollection = createServerFn({ method: "POST" })
       return { ok: true };
     });
   });
-
