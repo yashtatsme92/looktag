@@ -6,8 +6,7 @@ import { normalizeLookTags } from "@/lib/looks/offers";
 import { withSpan } from "@/lib/observability/instrument";
 import { rankWeights } from "@/lib/settings/model";
 import { readSettings } from "@/lib/settings/store.server";
-import { authMiddleware } from "@/lib/auth/middleware";
-import { requireAdmin } from "@/lib/admin/guard.server";
+import { authMiddleware, adminMiddleware } from "@/lib/auth/middleware";
 import {
   collectionSlug,
   groupLooksByCollection,
@@ -394,9 +393,9 @@ export const listRankedLabels = createServerFn({ method: "GET" }).handler(async 
 });
 
 export const setLabelScouted = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
   .validator((input: { id: string; scouted: boolean }) => input)
   .handler(async ({ data }) => {
-    await requireAdmin();
     return withSpan("looktag.houses.scouted", async (span) => {
       span.setAttribute("looktag.house.id", data.id);
       span.setAttribute("looktag.house.scouted", data.scouted);
@@ -420,8 +419,9 @@ export type AdminHouse = FashionLabel & {
   score: number;
 };
 
-export const listAdminHouses = createServerFn({ method: "GET" }).handler(async () => {
-  await requireAdmin();
+export const listAdminHouses = createServerFn({ method: "GET" })
+  .middleware([adminMiddleware])
+  .handler(async () => {
   return withSpan("looktag.houses.admin_list", async (span) => {
     const sql = await getSql();
     await ensureFashionLabels(sql);
@@ -458,9 +458,9 @@ export const listAdminHouses = createServerFn({ method: "GET" }).handler(async (
 });
 
 export const setHouseStatus = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
   .validator((input: { id: string; status: HouseStatus }) => input)
   .handler(async ({ data }) => {
-    await requireAdmin();
     return withSpan("looktag.houses.status", async (span) => {
       span.setAttribute("looktag.house.id", data.id);
       span.setAttribute("looktag.house.status", data.status);
@@ -684,4 +684,3 @@ export const deleteMyCollection = createServerFn({ method: "POST" })
       return { ok: true };
     });
   });
-
