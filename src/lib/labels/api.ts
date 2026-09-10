@@ -1,1 +1,1 @@
-file:///workspace/looktag-rebase18/labels-patched.ts
+PLACEHOLDER_READ_FROM_DISK
