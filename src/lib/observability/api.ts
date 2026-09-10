@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireAdmin } from "@/lib/admin/guard.server";
+import { adminMiddleware } from "@/lib/auth/middleware";
 import type { ObservabilityConfig, SignalKind, TelemetrySignal } from "./model";
 import { sanitizeAttributes } from "./model";
 import { createTraceFilter, parseTraceFilter, type TraceFilter } from "./graph";
@@ -30,9 +30,9 @@ export const listObservabilitySignals = createServerFn({ method: "GET" })
   });
 
 export const saveObservability = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
   .validator((input: Partial<ObservabilityConfig> & { otlpHeaders?: string; filters?: TraceFilter[] }) => input)
   .handler(async ({ data }) => {
-    await requireAdmin();
     const patch: Partial<ObservabilityConfig> = { ...data };
     if (data.otlpHeaders === HEADER_KEEP) delete patch.otlpHeaders;
     if (data.filters) {
@@ -43,19 +43,20 @@ export const saveObservability = createServerFn({ method: "POST" })
   });
 
 export const saveObservabilityFilters = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
   .validator((input: { filters: TraceFilter[] }) => input)
   .handler(async ({ data }) => {
-    await requireAdmin();
     const filters = data.filters.map((row) => createTraceFilter(row));
     const config = await writeConfig({ filters });
     return publicConfig(config);
   });
 
-export const probeObservability = createServerFn({ method: "POST" }).handler(async () => {
-  await requireAdmin();
-  const config = await readConfig();
-  return probeOtlp(config);
-});
+export const probeObservability = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
+  .handler(async () => {
+    const config = await readConfig();
+    return probeOtlp(config);
+  });
 
 export const ingestClientSignals = createServerFn({ method: "POST" })
   .validator((input: { signals: unknown }) => input)
