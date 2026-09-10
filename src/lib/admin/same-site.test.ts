@@ -10,6 +10,7 @@ const middlewareSource = readFileSync(join(here, "../auth/middleware.ts"), "utf8
 const isolationSource = readFileSync(join(here, "../auth/isolation.server.ts"), "utf8");
 const settingsApi = readFileSync(join(here, "../settings/api.ts"), "utf8");
 const labelsApi = readFileSync(join(here, "../labels/api.ts"), "utf8");
+const labelsAdminApi = readFileSync(join(here, "../labels/labels-admin.ts"), "utf8");
 const observabilityApi = readFileSync(join(here, "../observability/api.ts"), "utf8");
 
 /** Extract the createServerFn export block for a named export. */
@@ -56,10 +57,12 @@ describe("admin same-site isolation (#4)", () => {
   });
 
   it("labels admin createServerFns use adminMiddleware", () => {
+    assert.match(labelsApi, /from \"\.\/labels-admin\"/);
     for (const name of ["setLabelScouted", "listAdminHouses", "setHouseStatus"] as const) {
-      const body = handlerBody(labelsApi, name);
+      const body = handlerBody(labelsAdminApi, name);
       assert.match(body, /\.middleware\(\[adminMiddleware\]\)/, `${name} must use adminMiddleware`);
       assert.equal(body.includes("requireAdmin()"), false, `${name} must not call bare requireAdmin`);
+      assert.match(labelsApi, new RegExp(name));
     }
   });
 
