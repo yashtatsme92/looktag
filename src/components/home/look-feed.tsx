@@ -298,6 +298,10 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
     }
   }
 
+  function browseAllStyles() {
+    setFilter(null);
+  }
+
   return (
     <div className="look-feed-stage" ref={stageRef}>
       <div
@@ -335,14 +339,34 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
 
       {filtered.length === 0 ? (
         <div className="look-feed-empty flex h-full flex-col justify-end px-5 pb-28">
-          <p className="ds-screen-title look-feed-empty-title">
-            {filter === "saved" ? "Nothing saved yet" : "No looks in this style yet."}
-          </p>
-          <p className="look-feed-empty-copy mt-2 max-w-64 text-sm">
-            {filter === "saved"
-              ? "Tap the bookmark on a look to keep it. Flick up to find the next one."
-              : "Try another style, or flick the full feed."}
-          </p>
+          {filter === "foryou" ? (
+            <>
+              <p className="ds-screen-title look-feed-empty-title">Nothing here yet</p>
+              <p className="look-feed-empty-copy mt-2 max-w-64 text-sm">
+                Browse All styles to find looks — For you fills in as you save.
+              </p>
+              <Button
+                type="button"
+                variant="default"
+                size="lg"
+                className="mt-4 h-11 w-fit min-w-44"
+                onClick={browseAllStyles}
+              >
+                Browse All styles
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="ds-screen-title look-feed-empty-title">
+                {filter === "saved" ? "Nothing saved yet" : "No looks in this style yet."}
+              </p>
+              <p className="look-feed-empty-copy mt-2 max-w-64 text-sm">
+                {filter === "saved"
+                  ? "Tap the bookmark on a look to keep it. Flick up to find the next one."
+                  : "Try another style, or flick the full feed."}
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div ref={scrollerRef} className="look-feed">
