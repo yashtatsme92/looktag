@@ -14,10 +14,6 @@ import appCss from "../styles.css?url";
 const APP_NAME = "Looktag";
 
 const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
-  const { getSql } = await import("@/lib/db");
-  const { ensureAdminUser } = await import("@/lib/admin/ensure.server");
-  const sql = await getSql();
-  await ensureAdminUser(sql).catch(() => undefined);
   const { getSessionUser } = await import("@/lib/auth/verify.server");
   const u = await getSessionUser();
   return u ? { id: u.id, email: u.email } : null;
@@ -113,7 +109,7 @@ export const Route = createRootRoute({
       <body>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}try{var sp=localStorage.getItem("looktag-splash-v1");if(sp)r.setAttribute("data-splash",sp)}catch(e){}if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone){r.classList.add("standalone")}var wide=window.matchMedia("(min-width: 768px)");var desk=window.matchMedia("(min-width: 1024px)");function layout(){if(r.classList.contains("native-app")){r.classList.remove("layout-web");r.setAttribute("data-chrome","phone");return}var w=wide.matches;r.classList.toggle("layout-web",w);r.setAttribute("data-chrome",w?(desk.matches?"desktop":"tablet"):"phone")}layout();if(wide.addEventListener){wide.addEventListener("change",layout);desk.addEventListener("change",layout)}var k="looktag-boot-v1";function go(){if(r.classList.contains("boot-done"))return;r.classList.add("boot-done");try{sessionStorage.setItem(k,"done")}catch(e){}}if(sessionStorage.getItem(k)==="done"){go();return}var p=location.pathname;if(/^\\/looks\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+\\/[^/]+$/.test(p)){go();return}document.addEventListener("pointerdown",function(e){var t=e.target;if(t&&t.closest&&t.closest(".boot-splash"))go()},true);setTimeout(go,2600)}catch(e){}})();`,
+            __html: `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}try{var sp=localStorage.getItem("looktag-splash-v1");if(sp)r.setAttribute("data-splash",sp)}catch(e){}if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone){r.classList.add("standalone")}var wide=window.matchMedia("(min-width: 768px)");var desk=window.matchMedia("(min-width: 1024px)");function layout(){if(r.classList.contains("native-app")){r.classList.remove("layout-web");r.setAttribute("data-chrome","phone");return}var w=wide.matches;r.classList.toggle("layout-web",w);r.setAttribute("data-chrome",w?(desk.matches?"desktop":"tablet"):"phone")}layout();if(wide.addEventListener){wide.addEventListener("change",layout);desk.addEventListener("change",layout)}var k="looktag-boot-v1";function go(){if(r.classList.contains("boot-done"))return;r.classList.add("boot-done");try{sessionStorage.setItem(k,"done")}catch(e){}}if(sessionStorage.getItem(k)==="done"){go();return}var p=location.pathname;if(/^\/looks\/[^/]+$/.test(p)||/^\/houses\/[^/]+$/.test(p)||/^\/houses\/[^/]+\/[^/]+$/.test(p)){go();return}document.addEventListener("pointerdown",function(e){var t=e.target;if(t&&t.closest&&t.closest(".boot-splash"))go()},true);setTimeout(go,2600)}catch(e){}})();`,
           }}
         />
         <PreviewHostBridge />
