@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAdmin } from "@/lib/admin/guard.server";
+import { assertSameSiteRequest } from "@/lib/auth/isolation.server";
 import type { ObservabilityConfig, SignalKind, TelemetrySignal } from "./model";
 import { sanitizeAttributes } from "./model";
 import { createTraceFilter, parseTraceFilter, type TraceFilter } from "./graph";
@@ -15,7 +16,14 @@ import {
 
 const HEADER_KEEP = "__keep__";
 
+/** Admin + same-site gate for observability read/ingest/write server fns. */
+async function requireObservabilityAdmin(): Promise<void> {
+  assertSameSiteRequest();
+  await requireAdmin();
+}
+
 export const getObservability = createServerFn({ method: "GET" }).handler(async () => {
+  await requireObservabilityAdmin();
   ensureTelemetrySink();
   const config = await readConfig();
   const bundle = await listTraceBundle();
@@ -25,6 +33,7 @@ export const getObservability = createServerFn({ method: "GET" }).handler(async 
 export const listObservabilitySignals = createServerFn({ method: "GET" })
   .validator((input: { kind?: SignalKind }) => input)
   .handler(async ({ data }) => {
+    await requireObservabilityAdmin();
     ensureTelemetrySink();
     return listTraceBundle(data.kind);
   });
@@ -32,7 +41,7 @@ export const listObservabilitySignals = createServerFn({ method: "GET" })
 export const saveObservability = createServerFn({ method: "POST" })
   .validator((input: Partial<ObservabilityConfig> & { otlpHeaders?: string; filters?: TraceFilter[] }) => input)
   .handler(async ({ data }) => {
-    await requireAdmin();
+    await requireObservabilityAdmin();
     const patch: Partial<ObservabilityConfig> = { ...data };
     if (data.otlpHeaders === HEADER_KEEP) delete patch.otlpHeaders;
     if (data.filters) {
@@ -45,14 +54,14 @@ export const saveObservability = createServerFn({ method: "POST" })
 export const saveObservabilityFilters = createServerFn({ method: "POST" })
   .validator((input: { filters: TraceFilter[] }) => input)
   .handler(async ({ data }) => {
-    await requireAdmin();
+    await requireObservabilityAdmin();
     const filters = data.filters.map((row) => createTraceFilter(row));
     const config = await writeConfig({ filters });
     return publicConfig(config);
   });
 
 export const probeObservability = createServerFn({ method: "POST" }).handler(async () => {
-  await requireAdmin();
+  await requireObservabilityAdmin();
   const config = await readConfig();
   return probeOtlp(config);
 });
@@ -60,6 +69,7 @@ export const probeObservability = createServerFn({ method: "POST" }).handler(asy
 export const ingestClientSignals = createServerFn({ method: "POST" })
   .validator((input: { signals: unknown }) => input)
   .handler(async ({ data }) => {
+    await requireObservabilityAdmin();
     ensureTelemetrySink();
     const signals = Array.isArray(data.signals)
       ? data.signals.map(asSignal).filter((row): row is TelemetrySignal => Boolean(row))
