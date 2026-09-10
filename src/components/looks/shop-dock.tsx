@@ -13,6 +13,7 @@ import { formatMoney, lookCurrency, lookTotal } from "@/lib/looks/format";
 import { shopTarget } from "@/lib/looks/offers";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
+import "../../styles.look-dock.css";
 
 type ShopDockProps = {
   tags: ProductTag[];
