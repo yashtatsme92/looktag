@@ -15,7 +15,9 @@ import {
 
 const HEADER_KEEP = "__keep__";
 
-export const getObservability = createServerFn({ method: "GET" }).handler(async () => {
+export const getObservability = createServerFn({ method: "GET" })
+  .middleware([adminMiddleware])
+  .handler(async () => {
   ensureTelemetrySink();
   const config = await readConfig();
   const bundle = await listTraceBundle();
@@ -23,6 +25,7 @@ export const getObservability = createServerFn({ method: "GET" }).handler(async 
 });
 
 export const listObservabilitySignals = createServerFn({ method: "GET" })
+  .middleware([adminMiddleware])
   .validator((input: { kind?: SignalKind }) => input)
   .handler(async ({ data }) => {
     ensureTelemetrySink();
@@ -59,6 +62,7 @@ export const probeObservability = createServerFn({ method: "POST" })
   });
 
 export const ingestClientSignals = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
   .validator((input: { signals: unknown }) => input)
   .handler(async ({ data }) => {
     ensureTelemetrySink();
