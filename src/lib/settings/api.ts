@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireAdmin } from "@/lib/admin/guard.server";
+import { adminMiddleware } from "@/lib/auth/middleware";
 import { withSpan } from "@/lib/observability/instrument";
 import { pickSettingsPatch, type AppSettings } from "./model";
 import { readSettings, writeSettings } from "./store.server";
@@ -17,9 +17,9 @@ export const getAppSettings = createServerFn({ method: "GET" }).handler(async ()
 });
 
 export const saveAppSettings = createServerFn({ method: "POST" })
+  .middleware([adminMiddleware])
   .validator((input: Partial<AppSettings>) => pickSettingsPatch(input))
   .handler(async ({ data }) => {
-    await requireAdmin();
     return withSpan("looktag.settings.save", async (span) => {
       const settings = await writeSettings(data);
       span.setAttribute("looktag.houses.enabled", settings.labelsEnabled);
