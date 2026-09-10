@@ -53,7 +53,9 @@ export const authMiddleware = createMiddleware({ type: "function" })
  *
  *   createServerFn({ method: "POST" })
  *     .middleware([adminMiddleware])
- *     .handler(async ({ context }) => { /* context.admin, context.userId *\/ });
+ *     .handler(async ({ context }) => {
+ *       // context.admin (VerifiedUser), context.userId
+ *     });
  */
 export const adminMiddleware = createMiddleware({ type: "function" })
   .client(async ({ next }) => {
