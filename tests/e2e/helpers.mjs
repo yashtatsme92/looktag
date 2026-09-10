@@ -10,6 +10,18 @@ export function resolveOrigin() {
   return checkedUrl(process.argv[2] ?? "http://127.0.0.1:8080");
 }
 
+/** Admin credentials for e2e — never hardcode a password in source. */
+export function resolveAdminCredentials() {
+  const email = (process.env.ADMIN_EMAIL || "admin@looktag.studio").trim();
+  const password = (process.env.ADMIN_BOOTSTRAP_PASSWORD || "").trim();
+  if (!password) {
+    throw new Error(
+      "ADMIN_BOOTSTRAP_PASSWORD is required for admin e2e flows. See CONTRIBUTING.md.",
+    );
+  }
+  return { email, password };
+}
+
 export function snippet(text) {
   return String(text || "")
     .replace(/\s+/g, " ")
@@ -186,9 +198,10 @@ export async function fillSignup(page, origin, { name, email, password, handle, 
 }
 
 export async function fillAdminLogin(page, origin) {
+  const { email: adminEmail, password: adminPassword } = resolveAdminCredentials();
   const session = await getSession(page).catch(() => null);
   const email = String(session?.user?.email || "").toLowerCase();
-  if (email === "admin@looktag.studio") return;
+  if (email === adminEmail.toLowerCase()) return;
   await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
   await waitForApp(page).catch(() => {});
   await page.waitForTimeout(800);
@@ -205,15 +218,17 @@ export async function fillAdminLogin(page, origin) {
   if (await signInTab.count()) {
     await signInTab.click().catch(() => {});
   }
-  await page.locator("#creator-email").fill("admin");
-  await page.locator("#creator-password").fill("admin");
+  const alias =
+    adminEmail.toLowerCase() === "admin@looktag.studio" ? "admin" : adminEmail;
+  await page.locator("#creator-email").fill(alias);
+  await page.locator("#creator-password").fill(adminPassword);
   await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
   try {
     await page.waitForFunction(() => !location.pathname.startsWith("/login"), null, { timeout: 12_000 });
   } catch {
     await page.waitForTimeout(1200);
-    await page.locator("#creator-email").fill("admin@looktag.studio");
-    await page.locator("#creator-password").fill("admin");
+    await page.locator("#creator-email").fill(adminEmail);
+    await page.locator("#creator-password").fill(adminPassword);
     await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
     await page.waitForFunction(() => !location.pathname.startsWith("/login"), null, { timeout: 12_000 });
   }
@@ -278,4 +293,3 @@ export async function clippedTitles(page) {
 export async function pageOverflows(page) {
   return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2);
 }
-
