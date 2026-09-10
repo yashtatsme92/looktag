@@ -45,3 +45,25 @@ export const authMiddleware = createMiddleware({ type: "function" })
     const userId = await requireUserId(context.bearerToken);
     return next({ context: { userId } });
   });
+
+/**
+ * Admin middleware — same-site isolation + admin role, with live-preview bearer
+ * forwarding (mirrors `authMiddleware`). Attach to every admin `createServerFn`
+ * instead of calling `requireAdmin()` alone (which skipped Fetch-Metadata).
+ *
+ *   createServerFn({ method: "POST" })
+ *     .middleware([adminMiddleware])
+ *     .handler(async ({ context }) => {
+ *       // context.admin (VerifiedUser), context.userId
+ *     });
+ */
+export const adminMiddleware = createMiddleware({ type: "function" })
+  .client(async ({ next }) => {
+    const { getBearerToken } = await import("./client");
+    return next({ sendContext: { bearerToken: getBearerToken() ?? undefined } });
+  })
+  .server(async ({ next, context }) => {
+    const { requireAdminSameSite } = await import("@/lib/admin/guard.server");
+    const admin = await requireAdminSameSite(context.bearerToken);
+    return next({ context: { admin, userId: admin.id } });
+  });
