@@ -18,7 +18,8 @@ sh scripts/dev.sh
 ```
 
 That script prints which database and integrations are live, applies migrations
-when Postgres is configured, and starts the app.
+when Postgres is configured, and starts the app. Contributor details:
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ```sh
 sh scripts/dev.sh --check       # status only
@@ -60,8 +61,9 @@ Migrations run on first query. Fine for local work and the live preview.
 runs `npm run db:migrate` before the server. The same command runs at the end
 of `npm run build`.
 
-Do not add a `.env` file. The host injects secrets. `DATABASE_URL` in the
-environment is enough to switch backends — no code change.
+Prefer host-injected secrets in deploy. For local reference, copy
+[`.env.example`](.env.example) to a private `.env` that is **never committed**.
+`DATABASE_URL` in the environment is enough to switch backends — no code change.
 
 ## Configuration
 
@@ -69,32 +71,105 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 
 ### Environment
 
-| Variable | Role | If unset |
-| --- | --- | --- |
-| `DATABASE_URL` | Postgres | Embedded PGLite |
-| `XAI_API_KEY` | Grok shop search and look suggestions | Engines that do not need a key |
-| `APP_URL` | Public origin for share links | Request origin |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Traces / metrics / logs | Signals page only |
-| `LOOKTAG_NATIVE_URL` | Hosted origin for the Capacitor shell | Local `public/` |
-| `VITE_AUTH_ENABLED` | Account sign-in (via `.grok/app-env.json`) | `true` |
+| Variable | Role | Required for deploy | If unset |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | Postgres | Recommended for production data | Embedded PGLite |
+| `BETTER_AUTH_SECRET` | Better Auth signing secret | **Yes** | Ephemeral preview secret (sessions reset on restart) |
+| `BETTER_AUTH_URL` | Public auth origin (OAuth / CSRF) | **Yes** | Dynamic preview host / localhost |
+| `GROK_AUTH_ISSUER` | Grok auth broker issuer | Recommended | `https://auth.grok.me` |
+| `GROK_AUTH_CLIENT_ID` | Per-app broker client id | **Yes** outside sandbox | Shared preview client |
+| `GROK_AUTH_CLIENT_SECRET` | Per-app broker client secret | **Yes** outside sandbox | Shared preview client |
+| `ADMIN_EMAIL` | Admin mailbox for bootstrap / checks | Optional | `admin@looktag.studio` |
+| `ADMIN_BOOTSTRAP_PASSWORD` | One-time admin bootstrap password | Only when bootstrapping | No admin user is seeded |
+| `ADMIN_BOOTSTRAP` | Explicit bootstrap flag | **Required with password in production** | Bootstrap disabled in production |
+| `XAI_API_KEY` | Grok shop search and look suggestions | Optional | Engines that do not need a key |
+| `APP_URL` | Public origin for share links | Recommended | Request origin |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Traces / metrics / logs | Optional | Signals page only |
+| `LOOKTAG_NATIVE_URL` | Hosted origin for the Capacitor shell | Optional | Local `public/` |
+| `VITE_AUTH_ENABLED` | Account sign-in (via `.grok/app-env.json`) | Optional | `true` |
 
 Shop API keys (Brave, Google cx) stay on the device in Catalog — they are not
 written to the database.
 
-### Admin
+### Admin bootstrap (secure)
 
-System settings are on `/admin`, not on You. Seeded account:
+System settings are on `/admin`, not on You. There is **no default admin
+password** in source. Provision once with env:
 
-| Field | Value |
-| --- | --- |
-| Email | `admin` or `admin@looktag.studio` |
-| Password | `admin` |
+```sh
+export ADMIN_EMAIL='admin@looktag.studio'          # optional override
+export ADMIN_BOOTSTRAP_PASSWORD='a-long-random-secret'
+export ADMIN_BOOTSTRAP=1                           # required when NODE_ENV=production
+```
 
-From there: **Shops**, **Studio**, **Houses** (approve new labels), **Look** (palettes), **Signals** (trace graph + filters).
+On server start, `ensureAdminUser` inserts that credential user **only when**
+those env rules pass. Public handlers (`getAppSettings`, root session fetch)
+never create admin users.
 
-Long shop and house lists on those pages have search, sort, pages of 8, and **Suggested** picks ranked by awesomeness — house rank + Scouted, shop pin volume + search priority.
+After first successful bootstrap:
 
-Signals at `/admin/observability` shows traces as a parent–child graph (operation map, DAG, waterfall). Admin filters (status, duration, name, span kind, attributes) persist in `observability_settings.extras_json`. Nested server work — look list, house looks — records child spans on the same trace.
+1. Unset `ADMIN_BOOTSTRAP` and `ADMIN_BOOTSTRAP_PASSWORD` from the runtime env.
+2. Sign in and change the password via Better Auth email/password
+   (`changePassword`) — keep using a password manager.
+3. Confirm `/admin` still works with the new password.
+
+Local / e2e notes: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+### Production hardening checklist
+
+- [ ] Set a strong unique `BETTER_AUTH_SECRET` (do not reuse preview/ephemeral).
+- [ ] Set `BETTER_AUTH_URL` to the public HTTPS origin.
+- [ ] Inject per-app `GROK_AUTH_CLIENT_ID` / `GROK_AUTH_CLIENT_SECRET` (do not
+      rely on the shared preview OAuth client outside `*.grok-sandbox.com`).
+- [ ] Bootstrap admin once with `ADMIN_BOOTSTRAP=1` +
+      `ADMIN_BOOTSTRAP_PASSWORD`, then **remove** those vars.
+- [ ] Rotate any legacy `admin@looktag.studio` credential that may still use the
+      old published password (see migration below).
+- [ ] Keep `VITE_AUTH_ENABLED` appropriate for the environment; fail closed when
+      `DATABASE_URL` is set.
+
+### Migrating / rotating already-seeded admin accounts
+
+Older builds auto-seeded `admin@looktag.studio` with a known password. On every
+existing database:
+
+1. **Preferred:** sign in as admin (if you still can) and change the password
+   immediately, then revoke other sessions.
+2. **Invalidate credential login** (forces a fresh bootstrap with a new secret):
+
+```sql
+-- Drop the password credential for the legacy admin mailbox
+delete from "account"
+where "providerId" = 'credential'
+  and ("accountId" = 'admin@looktag.studio' or "userId" = 'admin');
+```
+
+3. Set `ADMIN_BOOTSTRAP=1`, `ADMIN_BOOTSTRAP_PASSWORD` (new secret), optional
+   `ADMIN_EMAIL`, restart once so the account is re-created, then unset bootstrap
+   env and change the password again.
+4. Or delete the user row and re-bootstrap the same way:
+
+```sql
+delete from "session" where "userId" in (
+  select id from "user" where email = 'admin@looktag.studio'
+);
+delete from "account" where "userId" in (
+  select id from "user" where email = 'admin@looktag.studio'
+);
+delete from "user" where email = 'admin@looktag.studio';
+```
+
+From `/admin`: **Shops**, **Studio**, **Houses** (approve new labels), **Look**
+(palettes), **Signals** (trace graph + filters).
+
+Long shop and house lists on those pages have search, sort, pages of 8, and
+**Suggested** picks ranked by awesomeness — house rank + Scouted, shop pin
+volume + search priority.
+
+Signals at `/admin/observability` shows traces as a parent–child graph (operation
+map, DAG, waterfall). Admin filters (status, duration, name, span kind,
+attributes) persist in `observability_settings.extras_json`. Nested server work
+— look list, house looks — records child spans on the same trace.
 
 ### Studio (database)
 
@@ -162,9 +237,11 @@ product in order on a 390×844 phone, then again on a 1280×800 desktop:
 Helpers skip the boot splash and the how-to overlay. Failures write a
 screenshot to `screenshots/e2e-<flow>.png`.
 
-Point the suite at a running app:
+Point the suite at a running app (set `ADMIN_BOOTSTRAP_PASSWORD` first — see
+[`CONTRIBUTING.md`](CONTRIBUTING.md)):
 
 ```sh
+export ADMIN_BOOTSTRAP_PASSWORD='your-local-secret'
 sh scripts/dev.sh --background
 node tests/e2e/run.mjs
 ```
@@ -206,4 +283,6 @@ src/lib/looks/       looks, catalog, rank weights
 src/routes/          file routes (Houses is /houses)
 src/styles.css       design tokens
 tests/e2e/           Playwright journey
+CONTRIBUTING.md      local + test + bootstrap notes
+.env.example         empty env placeholders
 ```
