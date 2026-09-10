@@ -1,15 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { ensureAdminUser } from "@/lib/admin/ensure.server";
 import { requireAdmin } from "@/lib/admin/guard.server";
-import { getSql } from "@/lib/db";
 import { withSpan } from "@/lib/observability/instrument";
 import { pickSettingsPatch, type AppSettings } from "./model";
 import { readSettings, writeSettings } from "./store.server";
 
 export const getAppSettings = createServerFn({ method: "GET" }).handler(async () => {
   return withSpan("looktag.settings.get", async (span) => {
-    const sql = await getSql();
-    await ensureAdminUser(sql).catch(() => undefined);
     const settings = await readSettings();
     span.setAttribute("looktag.houses.enabled", settings.labelsEnabled);
     span.setAttribute("looktag.signup.email", settings.signupEmail);

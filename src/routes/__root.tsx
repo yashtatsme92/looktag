@@ -16,10 +16,6 @@ import appCss from "../styles.css?url";
 const APP_NAME = "Looktag";
 
 const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
-  const { getSql } = await import("@/lib/db");
-  const { ensureAdminUser } = await import("@/lib/admin/ensure.server");
-  const sql = await getSql();
-  await ensureAdminUser(sql).catch(() => undefined);
   const { getSessionUser } = await import("@/lib/auth/verify.server");
   const u = await getSessionUser();
   return u ? { id: u.id, email: u.email } : null;
