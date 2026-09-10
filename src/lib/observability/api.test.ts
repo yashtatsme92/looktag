@@ -5,7 +5,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { maskOtlpHeaders, parseOtlpHeaders } from "./model.ts";
 
-const apiSource = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "api.ts"), "utf8");
+const here = dirname(fileURLToPath(import.meta.url));
+const apiSource = readFileSync(join(here, "api.ts"), "utf8");
+const guardSource = readFileSync(join(here, "../admin/guard.server.ts"), "utf8");
+const verifySource = readFileSync(join(here, "../auth/verify.server.ts"), "utf8");
 
 /** Extract the handler body for a named createServerFn export. */
 function handlerBody(exportName: string): string {
@@ -21,32 +24,29 @@ describe("observability API admin auth", () => {
   it("gates formerly-public read and ingest handlers behind requireObservabilityAdmin", () => {
     for (const name of ["getObservability", "listObservabilitySignals", "ingestClientSignals"] as const) {
       const body = handlerBody(name);
-      assert.match(
-        body,
-        /await requireObservabilityAdmin\(\)/,
-        `${name} must await requireObservabilityAdmin before touching telemetry`,
+      const gateAt = body.indexOf("await requireObservabilityAdmin()");
+      assert.ok(gateAt >= 0, `${name} must await requireObservabilityAdmin`);
+      const workAt = Math.min(
+        ...["ensureTelemetrySink", "listTraceBundle", "ingestSignals"]
+          .map((token) => body.indexOf(token))
+          .filter((idx) => idx >= 0),
       );
-      assert.equal(
-        body.indexOf("await requireObservabilityAdmin()") < body.indexOf("ensureTelemetrySink") ||
-          body.indexOf("await requireObservabilityAdmin()") < body.indexOf("listTraceBundle") ||
-          body.indexOf("await requireObservabilityAdmin()") < body.indexOf("ingestSignals"),
-        true,
-        `${name} must gate before sink/list/ingest work`,
-      );
+      assert.ok(workAt >= 0, `${name} handler body missing telemetry work`);
+      assert.ok(gateAt < workAt, `${name} must gate before sink/list/ingest work`);
     }
   });
 
   it("requireObservabilityAdmin enforces same-site then requireAdmin (401/403)", () => {
-    assert.match(apiSource, /async function requireObservabilityAdmin/);
     const gate = apiSource.slice(
       apiSource.indexOf("async function requireObservabilityAdmin"),
       apiSource.indexOf("export const getObservability"),
     );
     assert.match(gate, /assertSameSiteRequest\(\)/);
     assert.match(gate, /await requireAdmin\(\)/);
-    // UnauthorizedError is 401; ForbiddenError is 403 — both thrown by requireAdmin.
-    assert.equal(401, 401);
-    assert.equal(403, 403);
+    assert.match(verifySource, /readonly status = 401/);
+    assert.match(guardSource, /readonly status = 403/);
+    assert.match(guardSource, /throw new UnauthorizedError\(\)/);
+    assert.match(guardSource, /throw new ForbiddenError\(\)/);
   });
 
   it("keeps write handlers behind the same admin gate", () => {
@@ -66,11 +66,7 @@ describe("observability publicConfig header redaction", () => {
     assert.match(masked, /Authorization=••••/);
     assert.match(masked, /X-Scope=••••/);
 
-    // publicConfig in store.server clears otlpHeaders and only returns masked keys.
-    const storeSource = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), "store.server.ts"),
-      "utf8",
-    );
+    const storeSource = readFileSync(join(here, "store.server.ts"), "utf8");
     assert.match(storeSource, /otlpHeaders:\s*""/);
     assert.match(storeSource, /hasHeaders:/);
     assert.match(storeSource, /headersMasked:/);
