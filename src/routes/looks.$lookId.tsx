@@ -5,8 +5,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { LookCanvas } from "@/components/looks/look-canvas";
-import { ProductList } from "@/components/looks/product-list";
-import { ShopDock } from "@/components/looks/shop-dock";
+import { LookShopPanel } from "@/components/looks/look-shop-panel";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -206,14 +205,12 @@ function LookPage() {
           className="look-layout-photo"
         />
         <div className="look-layout-shop">
-          <ShopDock tags={look.tags} selectedId={activeId} onSelect={setSelectedId} />
-
-          {look.tags.length > 0 ? (
-            <section className="mt-6">
-              <h2 className="ds-section-title mb-3">Pieces</h2>
-              <ProductList tags={look.tags} selectedId={activeId} onSelect={setSelectedId} shoppable lookSrc={look.imageSrc} />
-            </section>
-          ) : null}
+          <LookShopPanel
+            tags={look.tags}
+            selectedId={activeId}
+            onSelect={setSelectedId}
+            lookSrc={look.imageSrc}
+          />
         </div>
       </article>
 
