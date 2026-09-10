@@ -42,3 +42,15 @@ export const THEME_STORAGE_KEY = "looktag-theme-v1";
 export function themeColor(id: ThemeId): string {
   return THEMES.find((theme) => theme.id === id)?.ground ?? THEMES[0].ground;
 }
+
+export function readStoredTheme(): ThemeId {
+  if (typeof document === "undefined") return DEFAULT_THEME;
+  try {
+    const fromDom = document.documentElement.getAttribute("data-theme");
+    if (fromDom) return parseThemeId(fromDom);
+    return parseThemeId(localStorage.getItem(THEME_STORAGE_KEY));
+  } catch {
+    return DEFAULT_THEME;
+  }
+}
+

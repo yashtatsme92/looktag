@@ -1,5 +1,5 @@
-import { parsePrice } from "./format";
-import type { ProductOffer, ProductTag } from "./types";
+import { parsePrice } from "./format.ts";
+import type { ProductOffer, ProductTag } from "./types.ts";
 
 export function tagOffers(tag: ProductTag): ProductOffer[] {
   if (tag.offers && tag.offers.length > 0) return tag.offers;

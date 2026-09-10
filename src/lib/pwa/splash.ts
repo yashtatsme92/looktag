@@ -20,6 +20,7 @@ export function parseSplashId(value: unknown): SplashId {
   return SPLASH_IDS.includes(value as SplashId) ? (value as SplashId) : DEFAULT_SPLASH;
 }
 
+/** Last chosen splash for this browser. Never invent Classy when a value is already stored. */
 export function readStoredSplash(): SplashId {
   if (typeof document === "undefined") return DEFAULT_SPLASH;
   try {
@@ -41,3 +42,24 @@ export function writeStoredSplash(id: SplashId) {
     /* private mode */
   }
 }
+
+/**
+ * Until settings hydrate from the server, keep the stored splash.
+ * Using the store default (Classy) before hydrate is what made restart
+ * flash the primary plate, then the one you picked.
+ */
+export function resolveBootSplash(input: {
+  hydrated: boolean;
+  stored: SplashId;
+  fromStore: SplashId;
+}): SplashId {
+  if (!input.hydrated) return parseSplashId(input.stored);
+  return parseSplashId(input.fromStore);
+}
+
+/**
+ * Runs in <head> before first paint. Restores the last splash/theme from
+ * localStorage when present; does not write Classy over an empty key (the
+ * server already stamped html[data-splash] from studio settings).
+ */
+export const EARLY_CHROME_SCRIPT = `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}try{var sp=localStorage.getItem("${SPLASH_STORAGE_KEY}");if(sp==="minimal"||sp==="quiet"||sp==="classy"||sp==="numbered"||sp==="atelier")r.setAttribute("data-splash",sp)}catch(e){}}catch(e){}})();`;

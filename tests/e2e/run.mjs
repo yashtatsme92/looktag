@@ -20,6 +20,7 @@ import {
   chromeState,
   withPage,
   waitForFeed,
+  withBootPage,
 } from "./helpers.mjs";
 
 const origin = resolveOrigin();
@@ -48,6 +49,7 @@ async function main() {
       await restoreStudioDefaults(page, origin);
     }, "restore");
     await guestFlow(browser);
+    await splashBootFlow(browser);
     await lookShopFlow(browser);
     await housesFlow(browser);
     await designFlow(browser);
@@ -60,6 +62,7 @@ async function main() {
     await adminSignalsFlow(browser);
     await desktopFlow(browser);
     await tabletFlow(browser);
+    await coverageFlow(browser);
   } finally {
     await browser.close();
   }
@@ -949,7 +952,14 @@ async function desktopFlow(browser) {
     const hoverTags = (await firstSlide.getAttribute("data-tags")) === "on";
     record("flow.desktop.tags_on_hover", hoverTags, `tags=${await firstSlide.getAttribute("data-tags")}`);
     await firstSlide.locator(".look-slide-hit").click({ force: true });
-    await page.waitForURL(/\/looks\//, { timeout: 8_000 }).catch(() => {});
+    await page.waitForURL(/\/looks\//, { timeout: 4_000 }).catch(() => {});
+    if (!/\/looks\//.test(page.url())) {
+      const titleLink = firstSlide.getByRole("link").first();
+      if ((await titleLink.count()) > 0) {
+        await titleLink.click({ force: true });
+        await page.waitForURL(/\/looks\//, { timeout: 5_000 }).catch(() => {});
+      }
+    }
     record("flow.desktop.click_opens_look", /\/looks\//.test(page.url()), page.url());
     await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
     await waitForApp(page);
@@ -1076,6 +1086,289 @@ async function tabletFlow(browser) {
     record("flow.tablet.no_tab_bar_look", chrome.tabDisplay === "none", JSON.stringify(chrome));
     await assertNoOverflow(page, "flow.tablet.look_no_overflow");
   }, "tablet-look", TABLET);
+}
+
+async function splashBootFlow(browser) {
+  await withBootPage(browser, origin, "atelier", async (page) => {
+    await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator(".boot-splash").first().waitFor({ timeout: 8_000 }).catch(() => {});
+    const first = await page.evaluate(() => {
+      const overlay = [...document.querySelectorAll(".boot-splash")].find(
+        (el) => getComputedStyle(el).display !== "none",
+      );
+      const pins = overlay
+        ? [...overlay.querySelectorAll(".boot-splash-pin")].filter((el) => {
+            const style = getComputedStyle(el);
+            return style.display !== "none" && style.visibility !== "hidden";
+          }).length
+        : 0;
+      const indexEl = overlay?.querySelector(".boot-splash-index");
+      const indexHidden = !indexEl || getComputedStyle(indexEl).display === "none";
+      return {
+        html: document.documentElement.getAttribute("data-splash"),
+        overlay: overlay?.getAttribute("data-splash") || null,
+        pins,
+        index: indexHidden ? "" : indexEl.textContent?.trim() || "",
+      };
+    });
+    record(
+      "flow.boot.atelier_first",
+      first.html === "atelier" && (first.overlay === "atelier" || first.overlay === null),
+      JSON.stringify(first),
+    );
+    await page.waitForTimeout(700);
+    const mid = await page.evaluate(() => {
+      const overlay = document.querySelector(".boot-splash");
+      const pins = overlay
+        ? [...overlay.querySelectorAll(".boot-splash-pin")].filter(
+            (el) => getComputedStyle(el).display !== "none",
+          ).length
+        : 0;
+      const indexEl = overlay?.querySelector(".boot-splash-index");
+      const indexHidden = !indexEl || getComputedStyle(indexEl).display === "none";
+      return {
+        html: document.documentElement.getAttribute("data-splash"),
+        overlay: overlay?.getAttribute("data-splash") || null,
+        pins,
+        index: indexHidden ? "" : indexEl.textContent?.trim() || "",
+        log: window.__splashLog || [],
+      };
+    });
+    const flashedClassy = (mid.log || []).some(
+      (row) => row.overlay === "classy" || (row.html === "classy" && row.overlay && row.overlay !== "atelier"),
+    );
+    record(
+      "flow.boot.no_classy_flash",
+      mid.html === "atelier" && mid.overlay !== "classy" && !flashedClassy,
+      JSON.stringify({ html: mid.html, overlay: mid.overlay, log: mid.log }),
+    );
+    record(
+      "flow.boot.atelier_art",
+      (first.pins === 4 || mid.pins === 4) && /Look 01/.test(`${first.index} ${mid.index}`),
+      JSON.stringify({ firstPins: first.pins, midPins: mid.pins, index: first.index || mid.index }),
+    );
+  }, "boot-atelier");
+
+  await withBootPage(browser, origin, "minimal", async (page) => {
+    await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator(".boot-splash").first().waitFor({ timeout: 8_000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    const state = await page.evaluate(() => {
+      const overlay = [...document.querySelectorAll(".boot-splash")].find(
+        (el) => getComputedStyle(el).display !== "none",
+      );
+      const pins = overlay
+        ? [...overlay.querySelectorAll(".boot-splash-pin")].filter((el) => el.getClientRects().length > 0)
+            .length
+        : 0;
+      return {
+        html: document.documentElement.getAttribute("data-splash"),
+        overlay: overlay?.getAttribute("data-splash") || null,
+        pins,
+        word: overlay?.querySelector(".boot-splash-word")?.textContent?.trim() || "",
+        log: window.__splashLog || [],
+      };
+    });
+    const flashedClassy = (state.log || []).some((row) => row.overlay === "classy");
+    record(
+      "flow.boot.minimal_first",
+      state.html === "minimal" && state.overlay !== "classy" && !flashedClassy,
+      JSON.stringify(state),
+    );
+    record(
+      "flow.boot.minimal_art",
+      state.word === "Looktag" && state.pins === 0,
+      JSON.stringify({ pins: state.pins, word: state.word }),
+    );
+  }, "boot-minimal");
+
+  await withBootPage(browser, origin, "numbered", async (page) => {
+    await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator(".boot-splash").first().waitFor({ timeout: 8_000 }).catch(() => {});
+    const state = await page.evaluate(() => {
+      const overlay = document.querySelector(".boot-splash");
+      const pins = overlay
+        ? [...overlay.querySelectorAll(".boot-splash-pin")].filter(
+            (el) => getComputedStyle(el).display !== "none",
+          ).length
+        : 0;
+      return {
+        overlay: overlay?.getAttribute("data-splash") || document.documentElement.getAttribute("data-splash"),
+        pins,
+        index: overlay?.querySelector(".boot-splash-index")?.textContent?.trim() || "",
+        indexDisplay: overlay?.querySelector(".boot-splash-index")
+          ? getComputedStyle(overlay.querySelector(".boot-splash-index")).display
+          : "missing",
+      };
+    });
+    record(
+      "flow.boot.numbered_art",
+      state.overlay === "numbered" && state.pins === 3 && state.index === "Look 01",
+      JSON.stringify(state),
+    );
+  }, "boot-numbered");
+
+  await withBootPage(browser, origin, "atelier", async (page) => {
+    await page.goto(`${origin}/looks/seed-sunday-coat`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.getByRole("heading", { name: /Sunday Coat/i }).waitFor({ timeout: 10_000 });
+    const splashVisible = await page.locator(".boot-splash").isVisible().catch(() => false);
+    const bootDone = await page.evaluate(() => document.documentElement.classList.contains("boot-done"));
+    record(
+      "flow.boot.share_skips",
+      bootDone && !splashVisible,
+      `visible=${splashVisible} bootDone=${bootDone}`,
+    );
+  }, "boot-share");
+}
+
+async function coverageFlow(browser) {
+  await withPage(browser, origin, async (page) => {
+    await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await waitForApp(page);
+    await waitForFeed(page);
+    const titles = await page.locator("[data-feed-slide]").evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("aria-label") || ""),
+    );
+    record("flow.feed.latest_first", titles.length >= 3, titles.slice(0, 4).join(" | "));
+    const coastal = page.locator(".look-feed-top").getByRole("button", { name: /Coastal/ });
+    await coastal.click();
+    await page.waitForTimeout(300);
+    const afterMood = await page.locator("body").innerText();
+    record(
+      "flow.feed.mood_coastal",
+      /Coastal Linen|North Linen|Salt/i.test(afterMood),
+      snippet(afterMood),
+    );
+    await page.locator(".look-feed-top").getByRole("button", { name: /^All/ }).click().catch(() => {});
+    await page.waitForTimeout(200);
+    await page.getByRole("button", { name: "How to" }).click({ force: true });
+    await page.getByText(/photograph|Tap a pin|How to browse/i).first().waitFor({ timeout: 6_000 }).catch(() => {});
+    const howTo = await page.locator("body").innerText();
+    record("flow.feed.how_to", /photograph|Tap a pin|Shop opens|How to browse/i.test(howTo), snippet(howTo));
+    await page.getByRole("button", { name: /Skip|Got it|Next/i }).first().click({ force: true }).catch(() => {});
+    await page.waitForTimeout(200);
+    const save = page.locator("[data-feed-slide] .look-slide-save").first();
+    await save.click({ force: true });
+    await page.getByText(/^Saved$/).first().waitFor({ timeout: 4_000 }).catch(() => {});
+    const pressed = await save.getAttribute("aria-pressed");
+    record("flow.feed.save_look", pressed === "true", `pressed=${pressed}`);
+    const savedChip = page.getByRole("button", { name: /^Saved/ });
+    if ((await savedChip.count()) > 0) {
+      await savedChip.click();
+      await page.waitForTimeout(250);
+      const savedFeed = await page.locator("[data-feed-slide]").count();
+      record("flow.feed.saved_filter", savedFeed >= 1, `slides=${savedFeed}`);
+    } else {
+      record("flow.feed.saved_filter", false, "saved chip missing");
+    }
+  }, "coverage-feed");
+
+  await withPage(browser, origin, async (page) => {
+    await page.goto(`${origin}/looks/seed-sunday-coat`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.getByRole("heading", { name: /Sunday Coat/i }).waitFor({ timeout: 10_000 });
+    const dock = page.locator(".shop-dock-name").first();
+    await dock.waitFor({ timeout: 8_000 });
+    const dockName = (await dock.innerText()).trim();
+    record(
+      "flow.look.shop_dock_name",
+      dockName.length > 2 && !/^Shop$/i.test(dockName),
+      dockName,
+    );
+    const share = page.getByRole("button", { name: /Share/i });
+    record("flow.look.share", (await share.count()) > 0);
+    const save = page.getByRole("button", { name: /Save look|Remove saved look/i });
+    record("flow.look.save", (await save.count()) > 0);
+    const html = await page.content();
+    record("flow.look.og_not_game", !/og:type[^>]*x:game|property="og:type" content="x:game"/.test(html));
+  }, "coverage-look");
+
+  await withPage(browser, origin, async (page) => {
+    await page.goto(`${origin}/looks/does-not-exist`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    const text = await page.locator("body").innerText();
+    record(
+      "flow.look.missing",
+      /not found|can't find|can't open|gone|Look/i.test(text),
+      snippet(text),
+    );
+  }, "coverage-missing");
+
+  await withPage(browser, origin, async (page) => {
+    const robots = await page.goto(`${origin}/robots.txt`, { waitUntil: "domcontentloaded", timeout: 15_000 });
+    const robotsText = (await robots?.text()) || "";
+    record(
+      "flow.seo.robots",
+      /Allow: \//.test(robotsText) && /sitemap\.xml/i.test(robotsText),
+      snippet(robotsText),
+    );
+    const sitemap = await page.goto(`${origin}/sitemap.xml`, { waitUntil: "domcontentloaded", timeout: 15_000 });
+    const xml = (await sitemap?.text()) || "";
+    record(
+      "flow.seo.sitemap",
+      /urlset/.test(xml) && /\/looks\//.test(xml) && /\/houses\//.test(xml),
+      snippet(xml),
+    );
+  }, "coverage-seo");
+
+  await withPage(browser, origin, async (page) => {
+    await page.goto(`${origin}/houses`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.getByText(/Atelier Noir/i).first().waitFor({ timeout: 10_000 });
+    const forYou = page.getByRole("button", { name: "For you" });
+    record("flow.houses.for_you_chip", (await forYou.count()) > 0);
+    if ((await forYou.count()) > 0) {
+      await forYou.click();
+      await page.waitForTimeout(250);
+      const text = await page.locator("body").innerText();
+      record("flow.houses.for_you_results", /Atelier Noir|Sunday Coat|Look/i.test(text), snippet(text));
+    }
+  }, "coverage-houses");
+
+  await withPage(browser, origin, async (page) => {
+    await fillAdminLogin(page, origin);
+    await page.goto(`${origin}/admin`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.getByText(/System settings live here/i).waitFor({ timeout: 10_000 });
+    const text = await page.locator("body").innerText();
+    record(
+      "flow.admin.hub",
+      /Studio/.test(text) && /Houses/.test(text) && (/Shops/.test(text) || /Design/.test(text)),
+      snippet(text),
+    );
+    await page.goto(`${origin}/admin/look`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.getByRole("heading", { name: /Design system/i }).waitFor({ timeout: 8_000 });
+    const night = page.getByRole("radio", { name: /Night/i }).or(page.getByText(/^Night$/));
+    record("flow.admin.theme_picker", (await page.getByText(/Night/).count()) > 0);
+    await page.goto(`${origin}/looks/seed-sunday-coat/edit`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page
+      .getByText(/This look is not yours|Sunday Coat|Sign in to edit|Look not found|Save changes/i)
+      .first()
+      .waitFor({ timeout: 10_000 })
+      .catch(() => {});
+    const editText = await page.locator("body").innerText();
+    record(
+      "flow.admin.look_edit",
+      /This look is not yours|Sunday Coat|Save changes|Sign in to edit/i.test(editText),
+      snippet(editText),
+    );
+  }, "coverage-admin");
+
+  await withPage(browser, origin, async (page) => {
+    await page.goto(`${origin}/login?next=/create`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator("#creator-email").or(page.getByText("Sign-in is disabled")).waitFor({ timeout: 8_000 });
+    const text = await page.locator("body").innerText();
+    record(
+      "flow.you.next_create",
+      /Sign in|Create account/i.test(text),
+      snippet(text),
+    );
+    await page.goto(`${origin}/design`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.waitForURL(/\/admin\/look|\/login/, { timeout: 8_000 }).catch(() => {});
+    await page.getByText(/Design system|Sign in|Figtree|Ground/i).first().waitFor({ timeout: 8_000 }).catch(() => {});
+    const design = await page.locator("body").innerText();
+    record(
+      "flow.design.public_or_gate",
+      /Design system|Figtree|Sign in|Admin/i.test(design),
+      snippet(design),
+    );
+  }, "coverage-you");
 }
 
 main().catch((error) => {

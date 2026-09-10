@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { getAppSettings, saveAppSettings } from "./api";
 import { DEFAULT_SETTINGS, type AppSettings } from "./model";
+import { readStoredTheme } from "../design/themes";
+import { readStoredSplash } from "../pwa/splash";
 
 type SettingsState = AppSettings & {
   hydrated: boolean;
@@ -8,11 +10,20 @@ type SettingsState = AppSettings & {
   save: (patch: Partial<AppSettings>) => Promise<AppSettings>;
 };
 
+function clientChromeSeed(): Partial<AppSettings> {
+  if (typeof document === "undefined") return {};
+  return {
+    themeId: readStoredTheme(),
+    splashId: readStoredSplash(),
+  };
+}
+
 export const useSettingsStore = create<SettingsState>((set, get) => {
   let load = 0;
   let writes: Promise<unknown> = Promise.resolve();
   return {
     ...DEFAULT_SETTINGS,
+    ...clientChromeSeed(),
     hydrated: false,
     hydrate: () => {
       if (get().hydrated) return;

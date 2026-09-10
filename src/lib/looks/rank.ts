@@ -1,5 +1,5 @@
-import { tagOffers } from "./offers";
-import type { Look, ProductTag } from "./types";
+import { tagOffers } from "./offers.ts";
+import type { Look, ProductTag } from "./types.ts";
 
 export const SCORE_PER_LOOK = 12;
 export const SCORE_PER_PIN = 3;

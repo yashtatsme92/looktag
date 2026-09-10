@@ -738,8 +738,48 @@ html[data-theme="moss"] {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  html.boot-done .boot-splash {
-    display: none;
+  html.boot-done .boot-splash,
+  html.boot-done #boot-splash-html,
+  html.boot-react #boot-splash-html {
+    display: none !important;
+  }
+
+  html[data-splash="minimal"] #boot-splash-html .boot-splash-grain,
+  html[data-splash="minimal"] #boot-splash-html .boot-splash-index,
+  html[data-splash="minimal"] #boot-splash-html .boot-splash-art,
+  html[data-splash="minimal"] #boot-splash-html .boot-splash-kicker,
+  html[data-splash="minimal"] #boot-splash-html .boot-splash-line,
+  html[data-splash="minimal"] #boot-splash-html .boot-splash-bar {
+    display: none !important;
+  }
+
+  html[data-splash="quiet"] #boot-splash-html .boot-splash-index,
+  html[data-splash="quiet"] #boot-splash-html .boot-splash-line,
+  html[data-splash="quiet"] #boot-splash-html .boot-splash-svg,
+  html[data-splash="quiet"] #boot-splash-html .boot-art-ink,
+  html[data-splash="quiet"] #boot-splash-html .boot-splash-pin {
+    display: none !important;
+  }
+
+  html[data-splash="classy"] #boot-splash-html .boot-splash-index,
+  html[data-splash="classy"] #boot-splash-html .boot-quiet-rule,
+  html[data-splash="classy"] #boot-splash-html .boot-splash-pin[data-pin]:not([data-pin="1"]) {
+    display: none !important;
+  }
+
+  html[data-splash="numbered"] #boot-splash-html .boot-quiet-rule,
+  html[data-splash="numbered"] #boot-splash-html .boot-splash-pin[data-pin="4"] {
+    display: none !important;
+  }
+
+  html[data-splash="atelier"] #boot-splash-html .boot-quiet-rule {
+    display: none !important;
+  }
+
+  html:not([data-splash]) #boot-splash-html .boot-splash-index,
+  html:not([data-splash]) #boot-splash-html .boot-quiet-rule,
+  html:not([data-splash]) #boot-splash-html .boot-splash-pin[data-pin]:not([data-pin="1"]) {
+    display: none !important;
   }
 
   .boot-splash-grain {
@@ -1868,8 +1908,10 @@ html[data-chrome="phone"] [data-pin-nudge],
   }
 }
 
-html.boot-done .boot-splash {
+html.boot-done .boot-splash,
+html.boot-react #boot-splash-html {
   display: none !important;
+  pointer-events: none !important;
 }
 
 input[type="search"]::-webkit-search-cancel-button,

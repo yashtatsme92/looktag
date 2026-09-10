@@ -23,6 +23,7 @@ function applySplash(id: SplashId) {
 export function ThemeSync() {
   const themeId = useSettingsStore((s) => s.themeId);
   const splashId = useSettingsStore((s) => s.splashId);
+  const hydrated = useSettingsStore((s) => s.hydrated);
   const hydrate = useSettingsStore((s) => s.hydrate);
 
   useEffect(() => {
@@ -30,12 +31,14 @@ export function ThemeSync() {
   }, [hydrate]);
 
   useEffect(() => {
+    if (!hydrated) return;
     applyTheme(themeId);
-  }, [themeId]);
+  }, [hydrated, themeId]);
 
   useEffect(() => {
+    if (!hydrated) return;
     applySplash(splashId);
-  }, [splashId]);
+  }, [hydrated, splashId]);
 
   return null;
 }

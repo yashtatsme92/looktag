@@ -4,11 +4,13 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { TelemetryProvider } from "@/lib/observability/client";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
-import { BootSplash } from "@/components/layout/boot-splash";
+import { BootSplash, StaticBootSplash } from "@/components/layout/boot-splash";
 import { ThemeSync } from "@/components/layout/theme-sync";
 import { ViewportLock } from "@/components/layout/viewport-lock";
+import { parseThemeId, DEFAULT_THEME, readStoredTheme } from "@/lib/design/themes";
 import { withTimeout } from "@/lib/login-next";
 import { APP_VIEWPORT } from "@/lib/pwa/viewport";
+import { DEFAULT_SPLASH, EARLY_CHROME_SCRIPT, parseSplashId, readStoredSplash } from "@/lib/pwa/splash";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Looktag";
@@ -23,12 +25,33 @@ const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
   return u ? { id: u.id, email: u.email } : null;
 });
 
+const fetchChrome = createServerFn({ method: "GET" }).handler(async () => {
+  const { readSettings } = await import("@/lib/settings/store.server");
+  const settings = await readSettings();
+  return { splashId: settings.splashId, themeId: settings.themeId };
+});
+
 export const Route = createRootRoute({
   beforeLoad: async () => {
     // Never block a navigation on session SSR — a stalled getSession after
     // email sign-up was hanging the app on the "Please wait…" login screen.
     const sessionUser = await withTimeout(fetchSessionUser(), 2000, null);
-    return { sessionUser };
+    if (typeof document !== "undefined") {
+      return {
+        sessionUser,
+        splashId: readStoredSplash(),
+        themeId: readStoredTheme(),
+      };
+    }
+    const chrome = await withTimeout(fetchChrome(), 800, {
+      splashId: DEFAULT_SPLASH,
+      themeId: DEFAULT_THEME,
+    });
+    return {
+      sessionUser,
+      splashId: parseSplashId(chrome?.splashId),
+      themeId: parseThemeId(chrome?.themeId),
+    };
   },
   head: () => ({
     meta: [
@@ -104,16 +127,36 @@ export const Route = createRootRoute({
           "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)",
       },
     ],
+    scripts: [{ children: EARLY_CHROME_SCRIPT }],
   }),
-  component: () => (
-    <html lang="en" className="antialiased" suppressHydrationWarning>
+  component: RootDocument,
+});
+
+function RootDocument() {
+  const ctx = Route.useRouteContext();
+  const splashId = parseSplashId(ctx.splashId);
+  const themeId = parseThemeId(ctx.themeId);
+  return (
+    <html
+      lang="en"
+      className="antialiased"
+      data-splash={splashId}
+      data-theme={themeId}
+      suppressHydrationWarning
+    >
       <head>
         <HeadContent />
       </head>
       <body>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}try{var sp=localStorage.getItem("looktag-splash-v1");if(sp)r.setAttribute("data-splash",sp)}catch(e){}if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone){r.classList.add("standalone")}var wide=window.matchMedia("(min-width: 768px)");var desk=window.matchMedia("(min-width: 1024px)");function layout(){if(r.classList.contains("native-app")){r.classList.remove("layout-web");r.setAttribute("data-chrome","phone");return}var w=wide.matches;r.classList.toggle("layout-web",w);r.setAttribute("data-chrome",w?(desk.matches?"desktop":"tablet"):"phone")}layout();if(wide.addEventListener){wide.addEventListener("change",layout);desk.addEventListener("change",layout)}var k="looktag-boot-v1";function go(){if(r.classList.contains("boot-done"))return;r.classList.add("boot-done");try{sessionStorage.setItem(k,"done")}catch(e){}}if(sessionStorage.getItem(k)==="done"){go();return}var p=location.pathname;if(/^\\/looks\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+\\/[^/]+$/.test(p)){go();return}document.addEventListener("pointerdown",function(e){var t=e.target;if(t&&t.closest&&t.closest(".boot-splash"))go()},true);setTimeout(go,2600)}catch(e){}})();`,
+            __html: `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}try{var sp=localStorage.getItem("looktag-splash-v1");if(sp==="minimal"||sp==="quiet"||sp==="classy"||sp==="numbered"||sp==="atelier")r.setAttribute("data-splash",sp)}catch(e){}if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone){r.classList.add("standalone")}var wide=window.matchMedia("(min-width: 768px)");var desk=window.matchMedia("(min-width: 1024px)");function layout(){if(r.classList.contains("native-app")){r.classList.remove("layout-web");r.setAttribute("data-chrome","phone");return}var w=wide.matches;r.classList.toggle("layout-web",w);r.setAttribute("data-chrome",w?(desk.matches?"desktop":"tablet"):"phone")}layout();if(wide.addEventListener){wide.addEventListener("change",layout);desk.addEventListener("change",layout)}var k="looktag-boot-v1";function go(){if(r.classList.contains("boot-done"))return;r.classList.add("boot-done");try{sessionStorage.setItem(k,"done")}catch(e){}}if(sessionStorage.getItem(k)==="done"){go();return}var p=location.pathname;if(/^\\/looks\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+\\/[^/]+$/.test(p)){go();return}document.addEventListener("pointerdown",function(e){var t=e.target;if(t&&t.closest&&t.closest(".boot-splash"))go()},true);setTimeout(go,2600);document.addEventListener("DOMContentLoaded",function(){var el=document.getElementById("boot-splash-html");var sp=r.getAttribute("data-splash");if(el&&sp)el.setAttribute("data-splash",sp)})}catch(e){}})();`,
+          }}
+        />
+        <StaticBootSplash />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var r=document.documentElement;var el=document.getElementById("boot-splash-html");var sp=r.getAttribute("data-splash");if(el&&sp)el.setAttribute("data-splash",sp)}catch(e){}})();`,
           }}
         />
         <PreviewHostBridge />
@@ -121,7 +164,7 @@ export const Route = createRootRoute({
           <TelemetryProvider>
             <ThemeSync />
             <ViewportLock />
-            <BootSplash>
+            <BootSplash initialSplash={splashId}>
               <Outlet />
             </BootSplash>
           </TelemetryProvider>
@@ -139,5 +182,5 @@ export const Route = createRootRoute({
         <Scripts />
       </body>
     </html>
-  ),
-});
+  );
+}

@@ -4,6 +4,7 @@ import { checkedUrl } from "../../scripts/browser-guard.mjs";
 export const STYLE_GUIDE_KEY = "looktag-style-guide-v1";
 export const BROWSE_COACH_KEY = "looktag-browse-coach-v1";
 export const BOOT_SKIP_KEY = "looktag-boot-v1";
+export const SPLASH_STORAGE_KEY = "looktag-splash-v1";
 export const SCREENSHOT_DIR = "/workspace/screenshots";
 
 export function resolveOrigin() {
@@ -82,6 +83,80 @@ export async function waitForApp(page) {
 export async function waitForFeed(page) {
   await page.locator(".look-feed-stage[data-feed-ready='true']").waitFor({ timeout: 10_000 });
   await page.locator("[data-feed-slide] .look-slide-hit").first().waitFor({ timeout: 8_000 });
+}
+
+export async function withBootPage(browser, origin, splashId, fn, shotName = "boot") {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    locale: "en-GB",
+    deviceScaleFactor: 2,
+  });
+  await context.addInitScript(
+    ([guide, coach, splashKey, splash, bootKey]) => {
+      try {
+        localStorage.setItem(guide, "done");
+        localStorage.setItem(coach, "done");
+        localStorage.setItem(splashKey, splash);
+        sessionStorage.removeItem(bootKey);
+        window.__splashLog = [];
+        const note = () => {
+          const html = document.documentElement?.getAttribute("data-splash") || "";
+          const overlay = document.querySelector(".boot-splash");
+          const overlayId = overlay?.getAttribute("data-splash") || "";
+          const pins = overlay ? overlay.querySelectorAll(".boot-splash-pin").length : 0;
+          const last = window.__splashLog[window.__splashLog.length - 1];
+          if (
+            last &&
+            last.html === html &&
+            last.overlay === overlayId &&
+            last.pins === pins
+          ) {
+            return;
+          }
+          window.__splashLog.push({ html, overlay: overlayId, pins });
+        };
+        const orig = Element.prototype.setAttribute;
+        Element.prototype.setAttribute = function (name, value) {
+          const ret = orig.call(this, name, value);
+          if (name === "data-splash") queueMicrotask(note);
+          return ret;
+        };
+        const mo = new MutationObserver(note);
+        const start = () => {
+          mo.observe(document.documentElement, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeFilter: ["data-splash"],
+          });
+          note();
+        };
+        if (document.documentElement) start();
+        else document.addEventListener("DOMContentLoaded", start);
+      } catch {
+        /* private mode */
+      }
+    },
+    [STYLE_GUIDE_KEY, BROWSE_COACH_KEY, SPLASH_STORAGE_KEY, splashId, BOOT_SKIP_KEY],
+  );
+  const page = await context.newPage();
+  page.setDefaultTimeout(12_000);
+  try {
+    return await fn(page, origin);
+  } catch (error) {
+    try {
+      mkdirSync(SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({
+        path: `${SCREENSHOT_DIR}/e2e-${shotName}.png`,
+        fullPage: false,
+      });
+    } catch {
+      /* screenshot is best-effort */
+    }
+    throw error;
+  } finally {
+    await context.close();
+  }
 }
 
 export async function chromeState(page) {
@@ -247,6 +322,17 @@ export async function restoreStudioDefaults(page, origin) {
     const value = await country.inputValue();
     if (value.toUpperCase() !== "DE") {
       await country.selectOption("DE");
+      await page.getByText(/Studio updated/i).first().waitFor({ timeout: 4_000 }).catch(() => {});
+    }
+  }
+  const classy = page.getByRole("radio", { name: "Classy" });
+  if (await classy.count()) {
+    const on =
+      (await classy.getAttribute("data-state")) === "checked" ||
+      (await classy.getAttribute("aria-checked")) === "true";
+    if (!on) {
+      await classy.scrollIntoViewIfNeeded();
+      await classy.click();
       await page.getByText(/Studio updated/i).first().waitFor({ timeout: 4_000 }).catch(() => {});
     }
   }

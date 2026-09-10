@@ -8,7 +8,12 @@ import {
   markBootPlayed,
 } from "@/lib/pwa/boot";
 import { bootNativeShell, restyleNativeChrome } from "@/lib/native/shell";
-import { parseSplashId, readStoredSplash, type SplashId } from "@/lib/pwa/splash";
+import {
+  parseSplashId,
+  readStoredSplash,
+  resolveBootSplash,
+  type SplashId,
+} from "@/lib/pwa/splash";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
@@ -19,16 +24,32 @@ const COAT =
 
 let bootClock = 0;
 
-export function BootSplash({ children }: { children: ReactNode }) {
+export function BootSplash({
+  children,
+  initialSplash,
+}: {
+  children: ReactNode;
+  initialSplash?: SplashId;
+}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const skipLaunch = isSharePath(pathname);
   const splashId = useSettingsStore((s) => parseSplashId(s.splashId));
-  const [variant, setVariant] = useState<SplashId>(() => readStoredSplash());
+  const hydrated = useSettingsStore((s) => s.hydrated);
+  const [variant, setVariant] = useState<SplashId>(() => parseSplashId(initialSplash));
   const [phase, setPhase] = useState<Phase>(() => (skipLaunch ? "done" : "in"));
+  const [clientPaint, setClientPaint] = useState(false);
 
-  useEffect(() => {
-    setVariant(splashId);
-  }, [splashId]);
+  useLayoutEffect(() => {
+    document.documentElement.classList.add("boot-react");
+    setClientPaint(true);
+    setVariant(
+      resolveBootSplash({
+        hydrated,
+        stored: readStoredSplash(),
+        fromStore: splashId,
+      }),
+    );
+  }, [hydrated, splashId]);
 
   function finish() {
     markBootPlayed();
@@ -77,11 +98,12 @@ export function BootSplash({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {phase !== "done" ? (
+      {phase !== "done" && clientPaint ? (
         <div
           className={cn("boot-splash", phase === "out" && "boot-splash-out")}
           data-boot={phase}
           data-splash={variant}
+          suppressHydrationWarning
           role="button"
           tabIndex={0}
           aria-label="Looktag is opening. Tap to enter."
@@ -194,10 +216,37 @@ export function BootArtwork({ variant, preview }: { variant: SplashId; preview?:
         </svg>
       </div>
       {pins.map((pin) => (
-        <span key={pin.n} className="boot-splash-pin" style={{ top: pin.top, left: pin.left }}>
+        <span
+          key={pin.n}
+          className="boot-splash-pin"
+          data-pin={pin.n}
+          style={{ top: pin.top, left: pin.left }}
+        >
           {pin.n}
         </span>
       ))}
+    </div>
+  );
+}
+
+/** First-paint overlay. CSS shows the plate from html[data-splash] before React hydrates. */
+export function StaticBootSplash() {
+  return (
+    <div id="boot-splash-html" className="boot-splash" aria-hidden="true">
+      <div className="boot-splash-grain" />
+      <p className="boot-splash-index">Look 01</p>
+      <div className="boot-splash-art">
+        <span className="boot-quiet-rule" />
+        <BootArtwork variant="atelier" />
+      </div>
+      <div className="boot-splash-mark">
+        <p className="boot-splash-word">Looktag</p>
+        <p className="boot-splash-kicker">Shoppable looks</p>
+        <p className="boot-splash-line">Tap to enter</p>
+      </div>
+      <div className="boot-splash-bar" aria-hidden>
+        <span />
+      </div>
     </div>
   );
 }
