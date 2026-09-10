@@ -65,6 +65,15 @@ export function isPublicHouse(label: Pick<FashionLabel, "status">): boolean {
   return label.status === "approved";
 }
 
+/** Anonymous collection lists only include houses that are already approved. */
+export function collectionsForPublicHouses(
+  collections: FashionCollection[],
+  labels: Pick<FashionLabel, "id" | "status">[],
+): FashionCollection[] {
+  const approved = new Set(labels.filter(isPublicHouse).map((label) => label.id));
+  return collections.filter((collection) => approved.has(collection.labelId));
+}
+
 export function isLabelUserId(userId: string): boolean {
   return userId.startsWith(LABEL_ID_PREFIX);
 }

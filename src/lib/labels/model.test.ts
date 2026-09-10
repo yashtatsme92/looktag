@@ -5,6 +5,7 @@ import {
   SCOUTED_FLAG,
   collectionPath,
   collectionSlug,
+  collectionsForPublicHouses,
   groupLooksByCollection,
   isLabelUserId,
   isPublicHouse,
@@ -96,6 +97,90 @@ describe("house status", () => {
     assert.equal(looksBelongToHouse(look({ id: "a", userId: "label-owned", title: "A" }), label), true);
     assert.equal(looksBelongToHouse(look({ id: "b", userId: "creator-1", title: "B" }), label), true);
     assert.equal(looksBelongToHouse(look({ id: "c", userId: "other", title: "C" }), label), false);
+  });
+});
+
+describe("collectionsForPublicHouses", () => {
+  it("excludes collections belonging to pending houses", () => {
+    const labels: FashionLabel[] = [
+      {
+        id: "label-live",
+        name: "Live",
+        handle: "live",
+        bio: "",
+        city: "Paris",
+        moods: [],
+        scouted: false,
+        status: "approved",
+        createdAt: 1,
+      },
+      {
+        id: "label-pending",
+        name: "Pending",
+        handle: "pending",
+        bio: "",
+        city: "Berlin",
+        moods: [],
+        scouted: false,
+        status: "pending",
+        createdAt: 2,
+      },
+      {
+        id: "label-rejected",
+        name: "Rejected",
+        handle: "rejected",
+        bio: "",
+        city: "Madrid",
+        moods: [],
+        scouted: false,
+        status: "rejected",
+        createdAt: 3,
+      },
+    ];
+    const collections: FashionCollection[] = [
+      {
+        id: "col-live",
+        labelId: "label-live",
+        name: "Summer",
+        slug: "summer",
+        caption: "public",
+        season: "SS26",
+        moods: [],
+        sortOrder: 0,
+        createdAt: 1,
+      },
+      {
+        id: "col-pending",
+        labelId: "label-pending",
+        name: "Secret Drop",
+        slug: "secret-drop",
+        caption: "not yet",
+        season: "FW26",
+        moods: [],
+        sortOrder: 0,
+        createdAt: 2,
+      },
+      {
+        id: "col-rejected",
+        labelId: "label-rejected",
+        name: "Archive",
+        slug: "archive",
+        caption: "gone",
+        season: "SS25",
+        moods: [],
+        sortOrder: 0,
+        createdAt: 3,
+      },
+    ];
+    const visible = collectionsForPublicHouses(collections, labels);
+    assert.deepEqual(
+      visible.map((row) => row.id),
+      ["col-live"],
+    );
+    assert.equal(
+      visible.some((row) => row.labelId === "label-pending"),
+      false,
+    );
   });
 });
 
