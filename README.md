@@ -63,6 +63,33 @@ of `npm run build`.
 Do not add a `.env` file. The host injects secrets. `DATABASE_URL` in the
 environment is enough to switch backends — no code change.
 
+## Look images (size budget)
+
+Looks store `image_src` as `text` (inline data URLs today, or short path / `https`
+references). Client compression lives in [`src/lib/looks/image.ts`](src/lib/looks/image.ts).
+`saveLook` validates with [`src/lib/looks/image-src.ts`](src/lib/looks/image-src.ts):
+
+| Rule | Bound |
+| --- | --- |
+| Allowlisted data URLs | `data:image/jpeg`, `jpg`, `png`, `webp` |
+| Max data-URL length | ~3.5 MiB (`MAX_LOOK_IMAGE_DATA_URL_CHARS`) |
+| Path / `https` refs | ≤ 2048 chars (seed `/looks/*.jpg`, future object URLs) |
+
+**Feed budget.** `listPublicLooks` still returns full `imageSrc` so the Zustand
+feed keeps rendering. Worst case ≈ `lookCount × ~3.5 MiB` plus JSON metadata.
+Write-path enforcement stops new oversized rows; lean list payloads (omit /
+truncate `imageSrc`, thumbnails via `getLookById`) are a follow-up so the client
+is not blanked.
+
+**Object-storage migration (dual-write — not shipped yet).**
+
+1. Add nullable `image_url` beside `image_src`.
+2. Dual-write on save: upload bytes to R2/S3, store the short URL, keep
+   `image_src` until readers prefer URLs.
+3. Backfill existing data URLs; then stop accepting new inline data.
+4. Drop or shrink `image_src` once everything reads `image_url`.
+
+
 ## Configuration
 
 Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
