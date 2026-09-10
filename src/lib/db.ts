@@ -228,6 +228,7 @@ export function ensureDbReady(): Promise<void> {
 // Node. Client bundles never hit this path (`getSql` throws in the browser).
 const globalBoot = globalThis as typeof globalThis & {
   __pgBootstrapPromise__?: Promise<void>;
+  __looktagAdminBootstrap__?: Promise<void>;
 };
 if (typeof window === "undefined" && dbSource === "pglite") {
   globalBoot.__pgBootstrapPromise__ ??= ensureDbReady().catch((err) => {
@@ -235,4 +236,17 @@ if (typeof window === "undefined" && dbSource === "pglite") {
     console.error("[db] PGLite bootstrap failed:", err);
     throw err;
   });
+}
+
+// Env-gated admin bootstrap at process start (no-op without ADMIN_BOOTSTRAP_PASSWORD;
+// production also requires ADMIN_BOOTSTRAP). Never invoked from public handlers.
+if (typeof window === "undefined") {
+  globalBoot.__looktagAdminBootstrap__ ??= (async () => {
+    try {
+      const { ensureAdminUser } = await import("./admin/ensure.server");
+      await ensureAdminUser(await getSql());
+    } catch (error) {
+      console.error("[looktag] admin bootstrap skipped:", error);
+    }
+  })();
 }
