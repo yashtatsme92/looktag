@@ -22,6 +22,7 @@ import type { Look } from "@/lib/looks/types";
 import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
+import "./look-feed.css";
 
 type LookFeedProps = {
   looks: Look[];
