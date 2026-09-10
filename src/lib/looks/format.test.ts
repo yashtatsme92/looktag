@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { formatMoney, lookCurrency, lookTotal, parsePrice } from "./format.ts";
+import { formatMoney, lookCurrency, lookPriceBand, lookTotal, parsePrice } from "./format.ts";
 
 describe("parsePrice", () => {
   it("reads plain and locale numbers", () => {
@@ -32,5 +32,17 @@ describe("look totals", () => {
     ];
     assert.equal(lookTotal(tags), 130);
     assert.equal(lookCurrency(tags), "EUR");
+    assert.equal(lookPriceBand(tags), "€100–€250");
+  });
+
+  it("returns null when nothing is priced", () => {
+    assert.equal(lookPriceBand([{ price: "", currency: "EUR" }]), null);
+  });
+
+  it("bands under €100", () => {
+    assert.equal(
+      lookPriceBand([{ price: "40", currency: "EUR", offers: [{ price: "40", currency: "EUR" }] }]),
+      "under €100",
+    );
   });
 });
