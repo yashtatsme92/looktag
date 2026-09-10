@@ -1,17 +1,11 @@
-import { createServerFn } from "@tanstack/react-start";
-import { hashPassword, verifyPassword } from "better-auth/crypto";
-import { authMiddleware } from "@/lib/auth/middleware";
 import { ADMIN_USER_ID, isAdminEmail } from "@/lib/admin/access";
-import { getSql, type Sql } from "@/lib/db";
-import { withSpan } from "@/lib/observability/instrument";
+import { type Sql } from "@/lib/db";
 import { makeHandle, parseHandle } from "./handle";
-import { parseProfileFields } from "./profile";
 import { EDITORIAL_USER_ID, type Look, type ProductTag } from "./types";
-import { lookStats, rankScore, type CreatorRank } from "./rank";
+import { lookStats, rankScore } from "./rank";
 import { normalizeLookTags } from "./offers";
 import { SEED_LOOKS } from "./seed";
 import { ensureFashionLabels } from "@/lib/labels/api";
-import { isLabelUserId } from "@/lib/labels/model";
 import { readSettings } from "@/lib/settings/store.server";
 
 export type CreatorProfile = {
