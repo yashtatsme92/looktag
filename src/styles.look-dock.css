@@ -1,0 +1,95 @@
+/* Look shopping dock — principal design #15 */
+
+.shop-dock-name {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-foreground);
+}
+
+.look-shop-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-radius: var(--radius-xl);
+  background: var(--color-card);
+  padding: 0.75rem;
+  box-shadow: var(--shadow-border);
+}
+
+.look-shop-strip-primary,
+.look-shop-strip-secondary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.875rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: opacity 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+
+.look-shop-strip-primary {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.look-shop-strip-primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.look-shop-strip-primary:disabled {
+  opacity: 0.45;
+}
+
+.look-shop-strip-secondary {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font-weight: 500;
+}
+
+.look-shop-strip-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.look-shop-strip-meta {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--color-muted-foreground);
+}
+
+@media (min-width: 768px) {
+  html:not(.native-app) .look-layout-shop .shop-dock {
+    position: sticky;
+    top: 4.75rem;
+    z-index: 20;
+    margin: 0;
+    padding: 0 0 0.75rem;
+    background: color-mix(in oklab, var(--color-background) 92%, transparent);
+    backdrop-filter: blur(10px);
+  }
+
+  html:not(.native-app) .look-layout-photo {
+    position: sticky;
+    top: 4.75rem;
+    align-self: start;
+  }
+}
+
+@media (min-width: 1024px) {
+  html:not(.native-app) .look-layout-photo {
+    position: sticky;
+    top: 5.25rem;
+    align-self: start;
+  }
+}

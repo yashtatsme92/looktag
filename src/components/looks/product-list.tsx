@@ -10,10 +10,19 @@ type ProductListProps = {
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   shoppable?: boolean;
+  /** When true, sticky dock owns the primary Shop CTA — expanded card shows Compare only. */
+  primaryInDock?: boolean;
   lookSrc?: string;
 };
 
-export function ProductList({ tags, selectedId, onSelect, shoppable, lookSrc }: ProductListProps) {
+export function ProductList({
+  tags,
+  selectedId,
+  onSelect,
+  shoppable,
+  primaryInDock,
+  lookSrc,
+}: ProductListProps) {
   if (tags.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -41,14 +50,20 @@ export function ProductList({ tags, selectedId, onSelect, shoppable, lookSrc }: 
           <li key={tag.id}>
             <div
               className={cn(
-                "w-full rounded-lg border bg-card p-3 text-left transition-[border-color,box-shadow] duration-150",
-                selected ? "border-foreground shadow-[var(--shadow-border)]" : "border-border",
+                "w-full rounded-xl border bg-card text-left transition-[border-color,box-shadow] duration-150",
+                selected
+                  ? "border-foreground shadow-[var(--shadow-border)]"
+                  : "border-border",
+                selected ? "p-3" : "px-3 py-2",
               )}
             >
               <button
                 type="button"
                 onClick={() => onSelect?.(tag.id)}
-                className="flex w-full items-start gap-3 text-left"
+                className={cn(
+                  "flex w-full items-center gap-3 text-left",
+                  selected ? "items-start" : "min-h-11",
+                )}
               >
                 <PieceThumb
                   lookSrc={lookSrc}
@@ -58,17 +73,28 @@ export function ProductList({ tags, selectedId, onSelect, shoppable, lookSrc }: 
                   size="sm"
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{tag.name || "Untitled piece"}</span>
-                  <span className="mt-0.5 block truncate text-sm text-muted-foreground">
-                    {labels.join(" · ")}
+                  <span
+                    className={cn(
+                      "block font-medium leading-snug [overflow-wrap:anywhere]",
+                      !selected && "line-clamp-2",
+                    )}
+                  >
+                    {tag.name || "Untitled piece"}
                   </span>
+                  {selected ? (
+                    <span className="mt-0.5 block text-sm leading-snug text-muted-foreground [overflow-wrap:anywhere]">
+                      {labels.join(" · ")}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="shrink-0 text-sm tabular-nums">
                   {price.from ? <span className="text-muted-foreground">from </span> : null}
                   {price.text}
                 </span>
               </button>
-              {shoppable && target?.url ? <ShopOffers tag={tag} /> : null}
+              {shoppable && selected && target?.url ? (
+                <ShopOffers tag={tag} mode={primaryInDock ? "compare" : "shop"} />
+              ) : null}
             </div>
           </li>
         );
