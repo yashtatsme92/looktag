@@ -18,19 +18,25 @@ export function MoodFilter({
   variant = "page",
   showForYou = false,
 }: MoodFilterProps) {
-  const chips: { id: FeedFilter; label: string; count: number }[] = [
-    { id: null, label: variant === "overlay" ? "All" : "All styles", count: counts.all },
-    ...MOODS.map((mood) => ({
+  // Editorial lane first when Houses is on; All stays as power-user catalog.
+  const chips: { id: FeedFilter; label: string; count: number }[] = [];
+  if (showForYou) {
+    chips.push({ id: "foryou", label: "For you", count: counts.foryou ?? counts.all });
+  }
+  chips.push({
+    id: null,
+    label: variant === "overlay" ? "All" : "All styles",
+    count: counts.all,
+  });
+  if ((counts.saved ?? 0) > 0 || value === "saved") {
+    chips.push({ id: "saved", label: "Saved", count: counts.saved ?? 0 });
+  }
+  for (const mood of MOODS) {
+    chips.push({
       id: mood.id,
       label: mood.label,
       count: counts[mood.id] ?? 0,
-    })),
-  ];
-  if (showForYou) {
-    chips.splice(1, 0, { id: "foryou", label: "For you", count: counts.foryou ?? counts.all });
-  }
-  if ((counts.saved ?? 0) > 0 || value === "saved") {
-    chips.splice(showForYou ? 2 : 1, 0, { id: "saved", label: "Saved", count: counts.saved ?? 0 });
+    });
   }
 
   return (

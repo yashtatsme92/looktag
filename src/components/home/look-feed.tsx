@@ -8,14 +8,21 @@ import { LookCanvas } from "@/components/looks/look-canvas";
 import { ShopDock } from "@/components/looks/shop-dock";
 import { Button } from "@/components/ui/button";
 import { listFashionLabels } from "@/lib/labels/api";
-import { looksForYou, likingsFromLooks, type FashionLabel } from "@/lib/labels/model";
-import { looksForMood, moodLabel, MOODS } from "@/lib/looks/moods";
+import {
+  looksBelongToHouse,
+  looksForYou,
+  likingsFromLooks,
+  type FashionLabel,
+} from "@/lib/labels/model";
+import { lookPriceBand } from "@/lib/looks/format";
+import { looksForMood, MOODS } from "@/lib/looks/moods";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useLooksStore } from "@/lib/looks/store";
 import type { Look } from "@/lib/looks/types";
 import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
+import "./look-feed.css";
 
 type LookFeedProps = {
   looks: Look[];
@@ -29,6 +36,21 @@ function writeCoachDone() {
   } catch {
     // private mode
   }
+}
+
+function plateAttribution(look: Look, labels: FashionLabel[]): string {
+  const house = labels.find((label) => looksBelongToHouse(look, label));
+  return house?.name || look.creator || "Looktag";
+}
+
+function plateMetaLine(look: Look, labels: FashionLabel[]): string {
+  const parts: string[] = [plateAttribution(look, labels)];
+  if (look.tags.length) {
+    parts.push(`${look.tags.length} ${look.tags.length === 1 ? "piece" : "pieces"}`);
+  }
+  const band = lookPriceBand(look.tags);
+  if (band) parts.push(band);
+  return parts.join(" · ");
 }
 
 export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
@@ -46,7 +68,8 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   const toggleSaved = useSavedLooks((s) => s.toggle);
   const labelsEnabled = useSettingsStore((s) => s.labelsEnabled);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
-  const [filter, setFilter] = useState<FeedFilter>(null);
+  // Guests land on the editorial lane when Houses is on; All is secondary.
+  const [filter, setFilter] = useState<FeedFilter>(() => (labelsEnabled ? "foryou" : null));
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedByLook, setSelectedByLook] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
@@ -275,6 +298,10 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
     }
   }
 
+  function browseAllStyles() {
+    setFilter(null);
+  }
+
   return (
     <div className="look-feed-stage" ref={stageRef}>
       <div
@@ -296,38 +323,60 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
               showForYou={labelsEnabled}
             />
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="mr-1.5 shrink-0 bg-card/90 backdrop-blur-md"
-            onClick={onHowTo}
-          >
-            How to
-          </Button>
+          {coach ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mr-1.5 shrink-0 bg-card/90 backdrop-blur-md"
+              onClick={onHowTo}
+            >
+              How to
+            </Button>
+          ) : null}
         </div>
       </div>
 
       {filtered.length === 0 ? (
         <div className="look-feed-empty flex h-full flex-col justify-end px-5 pb-28">
-          <p className="ds-screen-title look-feed-empty-title">
-            {filter === "saved" ? "Nothing saved yet" : "No looks in this style yet."}
-          </p>
-          <p className="look-feed-empty-copy mt-2 max-w-64 text-sm">
-            {filter === "saved"
-              ? "Tap the bookmark on a look to keep it. Flick up to find the next one."
-              : "Try another style, or flick the full feed."}
-          </p>
+          {filter === "foryou" ? (
+            <>
+              <p className="ds-screen-title look-feed-empty-title">Nothing here yet</p>
+              <p className="look-feed-empty-copy mt-2 max-w-64 text-sm">
+                Browse All styles to find looks — For you fills in as you save.
+              </p>
+              <Button
+                type="button"
+                variant="default"
+                size="lg"
+                className="mt-4 h-11 w-fit min-w-44"
+                onClick={browseAllStyles}
+              >
+                Browse All styles
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="ds-screen-title look-feed-empty-title">
+                {filter === "saved" ? "Nothing saved yet" : "No looks in this style yet."}
+              </p>
+              <p className="look-feed-empty-copy mt-2 max-w-64 text-sm">
+                {filter === "saved"
+                  ? "Tap the bookmark on a look to keep it. Flick up to find the next one."
+                  : "Try another style, or flick the full feed."}
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div ref={scrollerRef} className="look-feed">
           {filtered.map((look, index) => {
-            const mood = look.moods?.[0];
             const selected = selectedByLook[look.id] ?? look.tags[0]?.id ?? null;
             const saved = savedIds.includes(look.id);
             const tagsVisible = wide
               ? hoveredId === look.id || Boolean(revealed[look.id])
               : Boolean(revealed[look.id]);
+            const meta = plateMetaLine(look, labels);
             return (
               <article
                 key={look.id}
@@ -363,13 +412,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
                   ) : (
                     <p className="ds-screen-title text-card">{look.title || "Untitled look"}</p>
                   )}
-                  <p className="mt-2 text-sm text-card/80">
-                    {look.creator}
-                    {mood ? ` · ${moodLabel(mood)}` : ""}
-                    {look.tags.length
-                      ? ` · ${look.tags.length} ${look.tags.length === 1 ? "piece" : "pieces"}`
-                      : ""}
-                  </p>
+                  <p className="look-slide-meta-caption mt-2 text-card/80">{meta}</p>
                 </div>
                 <button
                   type="button"

@@ -52,6 +52,22 @@ export function lookCurrency(tags: { currency: string; offers?: SystemPriced[] }
   return tags.find((tag) => tag.currency)?.currency || "EUR";
 }
 
+/** Soft price band for plate captions — not a checkout total. */
+export function lookPriceBand(
+  tags: { price: string; currency?: string; offers?: SystemPriced[] }[],
+): string | null {
+  const total = lookTotal(tags);
+  if (total <= 0) return null;
+  const currency = lookCurrency(
+    tags.map((tag) => ({ currency: tag.currency || "EUR", offers: tag.offers })),
+  );
+  const symbol = currency === "EUR" ? "€" : currency === "GBP" ? "£" : currency === "USD" ? "$" : `${currency} `;
+  if (total < 100) return `under ${symbol}100`;
+  if (total < 250) return `${symbol}100–${symbol}250`;
+  if (total < 500) return `${symbol}250–${symbol}500`;
+  return `${symbol}500+`;
+}
+
 export function formatDate(ts: number): string {
   return new Intl.DateTimeFormat("de-DE", {
     month: "short",

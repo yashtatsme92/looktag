@@ -1,0 +1,23 @@
+/* Home feed plate chrome — #16. Tokens only; co-located with LookFeed. */
+
+.look-slide-meta-caption {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+}
+
+.look-feed-top {
+  padding: 0.65rem 0 2.35rem;
+}
+
+@media (min-width: 768px) {
+  html:not(.native-app) .look-feed-top {
+    padding: 1.25rem 1.5rem 1.15rem;
+  }
+
+  html:not(.native-app) .look-feed {
+    gap: 1.75rem 1.15rem;
+    padding: 0.85rem 1.5rem 4rem;
+  }
+}
