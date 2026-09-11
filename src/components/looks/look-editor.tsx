@@ -198,7 +198,7 @@ export function LookEditor({
       setSuggestOpen(true);
     } catch (error) {
       if (isUnauthorized(error)) {
-        toast.error("Search did not complete. Try again.");
+        toast.error("Sign in to search shops.");
         return;
       }
       toast.error(error instanceof Error ? error.message : "Could not read that photo.");
@@ -246,7 +246,7 @@ export function LookEditor({
       );
     } catch (error) {
       if (isUnauthorized(error)) {
-        toast.error("Search did not complete. Try again.");
+        toast.error("Sign in to search shops.");
         return;
       }
       toast.error(error instanceof Error ? error.message : "Search did not complete.");
@@ -682,7 +682,7 @@ function PhotoStep({
           Full-body shot, then pin each piece from the photo.
         </p>
         {guestHint ? (
-          <p className="mt-3 text-sm text-muted-foreground">Sign in only when you publish.</p>
+          <p className="mt-3 text-sm text-muted-foreground">Sign in to search shops or to publish.</p>
         ) : null}
       </div>
 

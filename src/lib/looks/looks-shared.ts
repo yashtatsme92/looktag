@@ -2,11 +2,10 @@ import { ADMIN_USER_ID, isAdminEmail } from "@/lib/admin/access";
 import { type Sql } from "@/lib/db";
 import { makeHandle, parseHandle } from "./handle";
 import { EDITORIAL_USER_ID, type Look, type ProductTag } from "./types";
-import { lookStats, rankScore } from "./rank";
+import { lookStats, rankScore, type RankWeights } from "./rank";
 import { normalizeLookTags } from "./offers";
 import { SEED_LOOKS } from "./seed";
 import { ensureFashionLabels } from "@/lib/labels/api";
-import { readSettings } from "@/lib/settings/store.server";
 
 export type CreatorProfile = {
   userId: string;
@@ -177,7 +176,7 @@ export async function loadAccount(sql: Sql, userId: string): Promise<AccountDeta
   };
 }
 
-export async function creatorPayload(sql: Sql, userId: string) {
+export async function creatorPayload(sql: Sql, userId: string, weights: RankWeights) {
   if (!userId || userId === EDITORIAL_USER_ID) return null;
   const profiles = await sql<{ user_id: string; display_name: string; handle: string; city: string; bio: string }>`
     select user_id, display_name, handle, city, bio from profiles where user_id = ${userId} limit 1
@@ -194,7 +193,6 @@ export async function creatorPayload(sql: Sql, userId: string) {
   const looks = lookRows.map(parseLook);
   const pins = looks.reduce((sum, look) => sum + look.tags.length, 0);
   const compared = looks.reduce((sum, look) => sum + lookStats(look).comparedCount, 0);
-  const settings = await readSettings();
   const flags = await sql<{ scouted: boolean }>`
     select scouted from fashion_labels where id = ${userId} limit 1
   `;
@@ -208,11 +206,7 @@ export async function creatorPayload(sql: Sql, userId: string) {
     looks: looks.length,
     pins,
     compared,
-    score: rankScore(looks.length, pins, compared, {
-      look: settings.scoreLook,
-      pin: settings.scorePin,
-      compared: settings.scoreCompared,
-    }),
+    score: rankScore(looks.length, pins, compared, weights),
     isLabel,
     scouted: isLabel ? Boolean(flags[0]?.scouted) : undefined,
   };

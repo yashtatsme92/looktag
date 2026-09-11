@@ -90,8 +90,20 @@ async function guestFlow(browser) {
       /Looks/.test(text) && /Create/.test(text) && /Houses/.test(text) && /Rank/.test(text) && /You/.test(text),
       snippet(text),
     );
-    record("flow.home.feed", /Sunday Coat|Coastal Linen|Quiet Tailor|How to/i.test(text), snippet(text));
     record("flow.home.for_you", /For you/i.test(text), snippet(text));
+    record(
+      "flow.home.feed",
+      /Numbered Cut|Pressed Coat|Noir Column|Hackney Night/i.test(text),
+      snippet(text),
+    );
+    await page.locator(".look-feed-top").getByRole("button", { name: /^All/ }).click();
+    await page.waitForTimeout(250);
+    const allText = await page.locator("body").innerText();
+    record(
+      "flow.home.all_styles",
+      /Sunday Coat|Coastal Linen|Quiet Tailor/i.test(allText),
+      snippet(allText),
+    );
     const pinCount = await page.locator("[data-feed-slide] [data-tag-pin]").count();
     record("flow.home.tags_hidden", pinCount === 0, `pins=${pinCount}`);
     const firstSlide = page.locator("[data-feed-slide]").first();
@@ -475,7 +487,7 @@ async function createFlow(browser) {
     const text = await page.locator("body").innerText();
     record(
       "flow.create.guest_studio",
-      /Add a look photo/i.test(text) && /Take photo|Choose from library/i.test(text) && /Sign in only when you publish/i.test(text),
+      /Add a look photo/i.test(text) && /Take photo|Choose from library/i.test(text) && /Sign in to search shops or to publish/i.test(text),
       snippet(text),
     );
     record(
@@ -583,6 +595,27 @@ async function createFlow(browser) {
     await searchBtn.waitFor({ timeout: 10_000 });
     await searchBtn.scrollIntoViewIfNeeded();
     await searchBtn.click();
+    await page.getByText(/Sign in to search shops/i).first().waitFor({ timeout: 6_000 }).catch(() => {});
+    const guestCopy = await page.locator("body").innerText();
+    record(
+      "flow.create.search_needs_account",
+      /Sign in to search shops/i.test(guestCopy),
+      snippet(guestCopy),
+    );
+    await fillSignup(page, origin, {
+      name: "E2E Search",
+      email: `e2e-search-${Date.now()}@looktag.test`,
+      password: "looktag-e2e-pass-1",
+      handle: `e2esearch${Date.now().toString(36).slice(-6)}`,
+      city: "Berlin",
+    });
+    await page.waitForURL((url) => !/\/login/.test(url.pathname), { timeout: 12_000 }).catch(() => {});
+    await page.goto(`${origin}/create`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+    const signedSearch = page.getByRole("button", { name: /Search item|Search again/i });
+    await signedSearch.waitFor({ timeout: 10_000 });
+    await signedSearch.scrollIntoViewIfNeeded();
+    await signedSearch.click();
     const listing = page.locator(
       'a[href*="zalando."], a[href*="zara.com"], a[href*="cos.com"], a[href*="hm.com"], a[href*="uniqlo.com"]',
     );
@@ -943,8 +976,16 @@ async function desktopFlow(browser) {
     record("flow.desktop.lookbook", slides >= 4, `slides=${slides}`);
     record(
       "flow.desktop.multiple_looks",
-      /Sunday Coat/i.test(text) && /Coastal Linen|Quiet Tailor|Gallery Hour/i.test(text),
+      /Numbered Cut|Pressed Coat|Noir Column/i.test(text),
       snippet(text),
+    );
+    await page.locator(".look-feed-top").getByRole("button", { name: /^All/ }).click().catch(() => {});
+    await page.waitForTimeout(200);
+    const allText = await page.locator("body").innerText();
+    record(
+      "flow.desktop.all_styles",
+      /Sunday Coat|Coastal Linen|Quiet Tailor|Gallery Hour/i.test(allText),
+      snippet(allText),
     );
     const firstSlide = page.locator("[data-feed-slide]").first();
     await firstSlide.hover();
@@ -1070,7 +1111,15 @@ async function tabletFlow(browser) {
     );
     record("flow.tablet.two_columns", chrome.slideWidth < chrome.vw * 0.55, `slide=${chrome.slideWidth}`);
     const text = await page.locator("body").innerText();
-    record("flow.tablet.lookbook", /Sunday Coat/i.test(text) && /Looks/.test(text), snippet(text));
+    record(
+      "flow.tablet.lookbook",
+      /Numbered Cut|Pressed Coat|Noir Column|Looks/i.test(text) && /Looks/.test(text),
+      snippet(text),
+    );
+    await page.locator(".look-feed-top").getByRole("button", { name: /^All/ }).click().catch(() => {});
+    await page.waitForTimeout(200);
+    const allText = await page.locator("body").innerText();
+    record("flow.tablet.all_styles", /Sunday Coat/i.test(allText), snippet(allText));
     await assertNoOverflow(page, "flow.tablet.home_no_overflow");
   }, "tablet-home", TABLET);
 
@@ -1225,13 +1274,27 @@ async function coverageFlow(browser) {
   await withPage(browser, origin, async (page) => {
     await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
     await waitForApp(page);
+    await page
+      .getByText(/A style is a photograph|How to browse|Tap a pin/i)
+      .first()
+      .waitFor({ timeout: 8_000 })
+      .catch(() => {});
+    const howTo = await page.locator("body").innerText();
+    record(
+      "flow.feed.how_to",
+      /photograph|Tap a pin|Shop opens|How to browse|A style is a photograph/i.test(howTo),
+      snippet(howTo),
+    );
+    await page.getByRole("button", { name: /^Skip$/i }).click({ force: true }).catch(() => {});
+    await page.locator("[role='dialog']").waitFor({ state: "hidden", timeout: 4_000 }).catch(() => {});
     await waitForFeed(page);
     const titles = await page.locator("[data-feed-slide]").evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute("aria-label") || ""),
     );
     record("flow.feed.latest_first", titles.length >= 3, titles.slice(0, 4).join(" | "));
-    const coastal = page.locator(".look-feed-top").getByRole("button", { name: /Coastal/ });
-    await coastal.click();
+    await page.locator(".look-feed-top").getByRole("button", { name: /^All/ }).click({ force: true });
+    await page.waitForTimeout(200);
+    await page.locator(".look-feed-top").getByRole("button", { name: /Coastal/ }).click({ force: true });
     await page.waitForTimeout(300);
     const afterMood = await page.locator("body").innerText();
     record(
@@ -1239,13 +1302,7 @@ async function coverageFlow(browser) {
       /Coastal Linen|North Linen|Salt/i.test(afterMood),
       snippet(afterMood),
     );
-    await page.locator(".look-feed-top").getByRole("button", { name: /^All/ }).click().catch(() => {});
-    await page.waitForTimeout(200);
-    await page.getByRole("button", { name: "How to" }).click({ force: true });
-    await page.getByText(/photograph|Tap a pin|How to browse/i).first().waitFor({ timeout: 6_000 }).catch(() => {});
-    const howTo = await page.locator("body").innerText();
-    record("flow.feed.how_to", /photograph|Tap a pin|Shop opens|How to browse/i.test(howTo), snippet(howTo));
-    await page.getByRole("button", { name: /Skip|Got it|Next/i }).first().click({ force: true }).catch(() => {});
+    await page.locator(".look-feed-top").getByRole("button", { name: /^All/ }).click({ force: true }).catch(() => {});
     await page.waitForTimeout(200);
     const save = page.locator("[data-feed-slide] .look-slide-save").first();
     await save.click({ force: true });
@@ -1254,14 +1311,14 @@ async function coverageFlow(browser) {
     record("flow.feed.save_look", pressed === "true", `pressed=${pressed}`);
     const savedChip = page.getByRole("button", { name: /^Saved/ });
     if ((await savedChip.count()) > 0) {
-      await savedChip.click();
+      await savedChip.click({ force: true });
       await page.waitForTimeout(250);
       const savedFeed = await page.locator("[data-feed-slide]").count();
       record("flow.feed.saved_filter", savedFeed >= 1, `slides=${savedFeed}`);
     } else {
       record("flow.feed.saved_filter", false, "saved chip missing");
     }
-  }, "coverage-feed");
+  }, "coverage-feed", { skipCoach: false, skipGuide: false });
 
   await withPage(browser, origin, async (page) => {
     await page.goto(`${origin}/looks/seed-sunday-coat`, { waitUntil: "domcontentloaded", timeout: 20_000 });

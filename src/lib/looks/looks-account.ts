@@ -4,6 +4,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { ADMIN_USER_ID, isAdminEmail } from "@/lib/admin/access";
 import { getSql } from "@/lib/db";
 import { withSpan } from "@/lib/observability/instrument";
+import { readSettings } from "@/lib/settings/store.server";
 import { parseProfileFields } from "./profile";
 import {
   upsertProfile,
@@ -20,7 +21,12 @@ export const ensureMyProfile = createServerFn({ method: "POST" })
       handle: data.handle,
       city: data.city,
     });
-    return creatorPayload(sql, context.userId);
+    const settings = await readSettings();
+    return creatorPayload(sql, context.userId, {
+      look: settings.scoreLook,
+      pin: settings.scorePin,
+      compared: settings.scoreCompared,
+    });
   });
 
 export const getMyAccount = createServerFn({ method: "GET" })

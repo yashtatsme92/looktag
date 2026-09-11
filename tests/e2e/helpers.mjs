@@ -50,16 +50,24 @@ export async function withPage(browser, origin, fn, shotName = "flow", options =
     deviceScaleFactor,
   });
   await context.addInitScript(
-    ([guide, coach, boot]) => {
+    ([guide, coach, boot, skipGuide, skipCoach]) => {
       try {
-        localStorage.setItem(guide, "done");
-        localStorage.setItem(coach, "done");
+        if (skipGuide) localStorage.setItem(guide, "done");
+        else localStorage.removeItem(guide);
+        if (skipCoach) localStorage.setItem(coach, "done");
+        else localStorage.removeItem(coach);
         sessionStorage.setItem(boot, "done");
       } catch {
         /* private mode */
       }
     },
-    [STYLE_GUIDE_KEY, BROWSE_COACH_KEY, BOOT_SKIP_KEY],
+    [
+      STYLE_GUIDE_KEY,
+      BROWSE_COACH_KEY,
+      BOOT_SKIP_KEY,
+      options.skipGuide !== false,
+      options.skipCoach !== false,
+    ],
   );
   const page = await context.newPage();
   page.setDefaultTimeout(12_000);

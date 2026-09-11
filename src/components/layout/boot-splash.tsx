@@ -232,7 +232,7 @@ export function BootArtwork({ variant, preview }: { variant: SplashId; preview?:
 /** First-paint overlay. CSS shows the plate from html[data-splash] before React hydrates. */
 export function StaticBootSplash() {
   return (
-    <div id="boot-splash-html" className="boot-splash" aria-hidden="true">
+    <div id="boot-splash-html" className="boot-splash" aria-hidden="true" suppressHydrationWarning>
       <div className="boot-splash-grain" />
       <p className="boot-splash-index">Look 01</p>
       <div className="boot-splash-art">

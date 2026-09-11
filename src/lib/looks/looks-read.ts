@@ -129,9 +129,11 @@ export const getCreator = createServerFn({ method: "GET" })
   .handler(async ({ data: userId }) => {
     const sql = await getSql();
     await seedCatalog(sql);
-    if (isLabelUserId(userId)) {
-      const settings = await readSettings();
-      if (!settings.labelsEnabled) return null;
-    }
-    return creatorPayload(sql, userId);
+    const settings = await readSettings();
+    if (isLabelUserId(userId) && !settings.labelsEnabled) return null;
+    return creatorPayload(sql, userId, {
+      look: settings.scoreLook,
+      pin: settings.scorePin,
+      compared: settings.scoreCompared,
+    });
   });
