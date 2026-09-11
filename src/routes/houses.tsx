@@ -11,7 +11,6 @@ import {
   labelsForLikings,
   likingsFromLooks,
   looksBelongToHouse,
-  suggestLooks,
   type FashionLabel,
   type RankedLabel,
 } from "@/lib/labels/model";
@@ -82,38 +81,57 @@ function HousesPage() {
   const likings = useMemo(() => likingsFromLooks(savedLooks), [savedLooks]);
   const ordered = useMemo(() => {
     if (mood === "for-you") return labelsForLikings(labels, likings);
-    if (mood) return labelsForLikings(
-      labels.filter((label) => label.moods.includes(mood)),
-      likings,
-    );
+    if (mood) {
+      return labelsForLikings(
+        labels.filter((label) => label.moods.includes(mood)),
+        likings,
+      );
+    }
     return labelsForLikings(labels, []);
   }, [labels, likings, mood]);
-  const suggested = useMemo(
-    () => suggestLooks({ looks, labels, likings, limit: 6 }),
-    [looks, labels, likings],
-  );
+  const scouted = useMemo(() => ordered.filter((label) => label.scouted), [ordered]);
+  const more = useMemo(() => ordered.filter((label) => !label.scouted), [ordered]);
 
   if (!labelsEnabled) return <Navigate to="/" />;
 
+  function renderHouseGrid(items: FashionLabel[]) {
+    return (
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+        {items.map((label) => {
+          const houseLooks = looks.filter((look) => looksBelongToHouse(look, label));
+          const cover = houseLooks[0];
+          return (
+            <HouseCard key={label.id} label={label} cover={cover} looks={houseLooks} />
+          );
+        })}
+      </div>
+    );
+  }
+
+  const moreTitle =
+    mood === "for-you"
+      ? scouted.length > 0
+        ? "More houses for you"
+        : "Houses for you"
+      : mood
+        ? "Houses in this mood"
+        : scouted.length > 0
+          ? "More houses"
+          : "All houses";
+
   return (
     <AppShell title="Houses" largeTitle>
-      <ScreenTitle kicker="New labels">Houses</ScreenTitle>
+      <ScreenTitle kicker={`${SCOUTED_FLAG} first`}>Houses</ScreenTitle>
       <p className="mb-5 text-sm text-muted-foreground">
         Independent fashion labels, grouped by collection. {SCOUTED_FLAG} houses
-        are picked by Looktag.
-      </p>
-      <p className="mb-5">
-        <Link
-          to="/houses/apply"
-          className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
-        >
-          Register a house
-        </Link>
-        <span className="text-sm text-muted-foreground"> — admin approves it before it is shown.</span>
+        are picked by Looktag — clothes before rank.
       </p>
 
+      <p className="mb-2 text-xs tracking-[0.14em] text-muted-foreground uppercase">
+        Filter houses
+      </p>
       <div className="chip-scroll -mx-4 mb-6 overflow-x-auto px-4">
-        <div className="flex w-max gap-2">
+        <div className="flex w-max gap-2" role="group" aria-label="Filter houses by mood">
           <Chip selected={mood === "for-you"} onClick={() => setMood("for-you")}>
             For you
           </Chip>
@@ -132,60 +150,32 @@ function HousesPage() {
         </div>
       </div>
 
-      {suggested.length > 0 ? (
+      {scouted.length > 0 ? (
         <section className="mb-8">
-          <h2 className="ds-section-title mb-3">Suggested looks</h2>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h2 className="ds-section-title">Scouted houses</h2>
+            <ScoutedMark />
+          </div>
           <p className="mb-3 text-sm text-muted-foreground">
-            From influencers and new labels
-            {likings.length ? ", matched to what you save." : "."}
+            Picked by Looktag — start here.
           </p>
-          <ul className="chip-scroll -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 lg:grid-cols-6">
-            {suggested.map((row) => (
-              <li key={row.look.id} className="w-28 shrink-0 md:w-auto">
-                <Link
-                  to="/looks/$lookId"
-                  params={{ lookId: row.look.id }}
-                  className="block"
-                >
-                  {row.look.imageSrc ? (
-                    <img
-                      src={row.look.imageSrc}
-                      alt={row.look.title}
-                      className="aspect-[2/3] w-full rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="aspect-[2/3] rounded-lg bg-muted" />
-                  )}
-                  <p className="ds-card-title mt-2">{row.look.title}</p>
-                  <p className="text-xs leading-snug text-muted-foreground">
-                    {row.source === "house" ? "House" : "Look"} · {row.look.creator}
-                  </p>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {renderHouseGrid(scouted)}
         </section>
       ) : null}
 
       <section className="mb-8">
-        <h2 className="ds-section-title mb-3">
-          {mood === "for-you" ? "Houses for you" : "Labels"}
-        </h2>
+        <h2 className="ds-section-title mb-3">{moreTitle}</h2>
         {ordered.length === 0 ? (
           <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-border)]">
             <p className="ds-section-title">No houses in this style yet</p>
             <p className="mt-2 text-sm text-muted-foreground">Try another mood, or All.</p>
           </div>
+        ) : more.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Every matching house is {SCOUTED_FLAG} above.
+          </p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            {ordered.map((label) => {
-              const houseLooks = looks.filter((look) => looksBelongToHouse(look, label));
-              const cover = houseLooks[0];
-              return (
-                <HouseCard key={label.id} label={label} cover={cover} looks={houseLooks} />
-              );
-            })}
-          </div>
+          renderHouseGrid(more)
         )}
       </section>
 
@@ -208,7 +198,9 @@ function HousesPage() {
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                       {row.label.scouted ? <ScoutedMark /> : null}
                       <p className="text-xs leading-snug text-muted-foreground">
-                        {row.label.city} · {row.collectionCount} {row.collectionCount === 1 ? "collection" : "collections"} · {row.looks} looks
+                        {row.label.city} · {row.collectionCount}{" "}
+                        {row.collectionCount === 1 ? "collection" : "collections"} · {row.looks}{" "}
+                        looks
                       </p>
                     </div>
                   </div>
