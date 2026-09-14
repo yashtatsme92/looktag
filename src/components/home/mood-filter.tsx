@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { MOODS, type MoodId } from "@/lib/looks/moods";
 
-export type FeedFilter = MoodId | "saved" | "foryou" | null;
+export type FeedFilter = MoodId | "saved" | "foryou" | "creators" | null;
 
 type MoodFilterProps = {
   value: FeedFilter;
@@ -9,6 +9,7 @@ type MoodFilterProps = {
   counts: Record<string, number>;
   variant?: "page" | "overlay";
   showForYou?: boolean;
+  showCreators?: boolean;
 };
 
 export function MoodFilter({
@@ -17,19 +18,13 @@ export function MoodFilter({
   counts,
   variant = "page",
   showForYou = false,
+  showCreators = false,
 }: MoodFilterProps) {
-  // Editorial lane first when Houses is on; All stays as power-user catalog.
+  // Board-01 / COMPONENT-UX: For you → moods… → Creators → Saved.
+  // All styles stays secondary (catalog escape), not the default.
   const chips: { id: FeedFilter; label: string; count: number }[] = [];
   if (showForYou) {
     chips.push({ id: "foryou", label: "For you", count: counts.foryou ?? counts.all });
-  }
-  chips.push({
-    id: null,
-    label: variant === "overlay" ? "All" : "All styles",
-    count: counts.all,
-  });
-  if ((counts.saved ?? 0) > 0 || value === "saved") {
-    chips.push({ id: "saved", label: "Saved", count: counts.saved ?? 0 });
   }
   for (const mood of MOODS) {
     chips.push({
@@ -38,6 +33,17 @@ export function MoodFilter({
       count: counts[mood.id] ?? 0,
     });
   }
+  if (showCreators) {
+    chips.push({ id: "creators", label: "Creators", count: counts.creators ?? 0 });
+  }
+  if ((counts.saved ?? 0) > 0 || value === "saved") {
+    chips.push({ id: "saved", label: "Saved", count: counts.saved ?? 0 });
+  }
+  chips.push({
+    id: null,
+    label: variant === "overlay" ? "All" : "All styles",
+    count: counts.all,
+  });
 
   return (
     <div
