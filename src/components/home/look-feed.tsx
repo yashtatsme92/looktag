@@ -9,12 +9,10 @@ import { ShopDock } from "@/components/looks/shop-dock";
 import { Button } from "@/components/ui/button";
 import { listFashionLabels } from "@/lib/labels/api";
 import {
-  looksBelongToHouse,
   looksForYou,
   likingsFromLooks,
   type FashionLabel,
 } from "@/lib/labels/model";
-import { lookPriceBand } from "@/lib/looks/format";
 import { looksForMood, MOODS } from "@/lib/looks/moods";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useLooksStore } from "@/lib/looks/store";
@@ -22,14 +20,16 @@ import type { Look } from "@/lib/looks/types";
 import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
+import {
+  plateMetaLine,
+  creatorsFromLooks,
+} from "@/components/home/look-feed-creators";
 import "./look-feed.css";
-
 type LookFeedProps = {
   looks: Look[];
   showCoach?: boolean;
   onHowTo: () => void;
 };
-
 function writeCoachDone() {
   try {
     localStorage.setItem(BROWSE_COACH_KEY, "done");
@@ -37,22 +37,6 @@ function writeCoachDone() {
     // private mode
   }
 }
-
-function plateAttribution(look: Look, labels: FashionLabel[]): string {
-  const house = labels.find((label) => looksBelongToHouse(look, label));
-  return house?.name || look.creator || "Looktag";
-}
-
-function plateMetaLine(look: Look, labels: FashionLabel[]): string {
-  const parts: string[] = [plateAttribution(look, labels)];
-  if (look.tags.length) {
-    parts.push(`${look.tags.length} ${look.tags.length === 1 ? "piece" : "pieces"}`);
-  }
-  const band = lookPriceBand(look.tags);
-  if (band) parts.push(band);
-  return parts.join(" · ");
-}
-
 export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -70,6 +54,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   const [labels, setLabels] = useState<FashionLabel[]>([]);
   // Guests land on the editorial lane when Houses is on; All is secondary.
   const [filter, setFilter] = useState<FeedFilter>(() => (labelsEnabled ? "foryou" : null));
+  const [creatorId, setCreatorId] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedByLook, setSelectedByLook] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
@@ -80,11 +65,9 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   const [burstId, setBurstId] = useState<string | null>(null);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-
   useLayoutEffect(() => {
     hydrateSaved();
   }, [hydrateSaved]);
-
   useEffect(() => {
     if (!labelsEnabled) {
       setLabels([]);
@@ -102,39 +85,45 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
       alive = false;
     };
   }, [labelsEnabled]);
-
   useEffect(() => {
     if (!labelsEnabled && filter === "foryou") setFilter(null);
   }, [labelsEnabled, filter]);
-
   useEffect(() => {
     setCoach(showCoach);
   }, [showCoach]);
-
+  const feedCreators = useMemo(() => creatorsFromLooks(looks), [looks]);
+  const showCreators = feedCreators.length > 0;
   const filtered = useMemo(() => {
     if (filter === "saved") return looks.filter((look) => savedIds.includes(look.id));
     if (filter === "foryou") {
       const savedLooks = looks.filter((look) => savedIds.includes(look.id));
       return looksForYou(looks, labels, likingsFromLooks(savedLooks));
     }
+    if (filter === "creators") {
+      const creatorLooks = looks.filter((look) => look.userId && look.userId !== "editorial");
+      if (!creatorId) return creatorLooks;
+      return creatorLooks.filter((look) => look.userId === creatorId);
+    }
     return looksForMood(looks, filter);
-  }, [filter, looks, savedIds, labels]);
+  }, [filter, looks, savedIds, labels, creatorId]);
   const filteredRef = useRef(filtered);
   filteredRef.current = filtered;
-
   const counts = useMemo(() => {
     const savedLooks = looks.filter((look) => savedIds.includes(look.id));
     const next: Record<string, number> = {
       all: looks.length,
       saved: savedIds.filter((id) => looks.some((look) => look.id === id)).length,
       foryou: looksForYou(looks, labels, likingsFromLooks(savedLooks)).length,
+      creators: looks.filter((look) => look.userId && look.userId !== "editorial").length,
     };
     for (const item of MOODS) {
       next[item.id] = looksForMood(looks, item.id).length;
     }
     return next;
   }, [looks, savedIds, labels]);
-
+  useEffect(() => {
+    if (filter !== "creators") setCreatorId(null);
+  }, [filter]);
   useEffect(() => {
     setActiveIndex(0);
     const root = scrollerRef.current;
@@ -145,7 +134,6 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
     });
     return () => window.cancelAnimationFrame(id);
   }, [filter, filtered.length]);
-
   useEffect(() => {
     const root = scrollerRef.current;
     if (!root) return;
@@ -167,12 +155,10 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
     slides.forEach((slide) => io.observe(slide));
     return () => io.disconnect();
   }, [filtered]);
-
   useEffect(() => {
     const root = scrollerRef.current;
     if (!root || wide) return;
     const scroller = root;
-
     function onStart(event: TouchEvent) {
       if (scroller.scrollTop > 4 || refreshing) return;
       pullRef.current = { startY: event.touches[0]?.clientY ?? 0, pulling: true, distance: 0 };
@@ -205,7 +191,6 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
           .finally(() => setRefreshing(false));
       }
     }
-
     scroller.addEventListener("touchstart", onStart, { passive: true });
     scroller.addEventListener("touchmove", onMove, { passive: false });
     scroller.addEventListener("touchend", onEnd);
@@ -217,7 +202,6 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
       scroller.removeEventListener("touchcancel", onEnd);
     };
   }, [wide, refreshing, refreshLooks]);
-
   const active = filtered[Math.min(activeIndex, Math.max(filtered.length - 1, 0))] ?? null;
   const selectedId = active
     ? (selectedByLook[active.id] ?? active.tags[0]?.id ?? null)
@@ -227,13 +211,11 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
       ? hoveredId === active.id || Boolean(revealed[active.id])
       : Boolean(revealed[active.id])
     : false;
-
   function dismissCoach() {
     if (!coach) return;
     setCoach(false);
     writeCoachDone();
   }
-
   function selectPin(lookId: string, tagId: string | null) {
     if (!tagId) return;
     dismissCoach();
@@ -241,12 +223,10 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
     setRevealed((prev) => ({ ...prev, [lookId]: true }));
     setSelectedByLook((prev) => ({ ...prev, [lookId]: tagId }));
   }
-
   function openLook(look: Look) {
     dismissCoach();
     void navigate({ to: "/looks/$lookId", params: { lookId: look.id } });
   }
-
   function handleLookTap(look: Look) {
     if (wideRef.current) {
       openLook(look);
@@ -262,14 +242,13 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   }
   const tapHandlerRef = useRef(handleLookTap);
   tapHandlerRef.current = handleLookTap;
-
   useLayoutEffect(() => {
     const root = stageRef.current;
     if (!root) return;
     function onClick(event: Event) {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      if (target.closest(".look-slide-save, [data-tag-pin], a, .look-feed-top, .look-feed-coach")) return;
+      if (target.closest(".look-slide-save, [data-tag-pin], a, .look-feed-top, .look-feed-coach, .look-creators-rail")) return;
       const slide = target.closest("[data-feed-slide]");
       if (!(slide instanceof HTMLElement)) return;
       const look = filteredRef.current.find((item) => item.id === slide.dataset.lookId);
@@ -283,7 +262,6 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
       delete root.dataset.feedReady;
     };
   }, []);
-
   function saveLook(look: Look, onlySave = false) {
     if (onlySave && savedIds.includes(look.id)) {
       setBurstId(look.id);
@@ -297,11 +275,18 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
       toast.success("Saved");
     }
   }
-
   function browseAllStyles() {
+    setCreatorId(null);
     setFilter(null);
   }
-
+  function browseCreators() {
+    setCreatorId(null);
+    setFilter("creators");
+  }
+  function selectCreator(id: string) {
+    setFilter("creators");
+    setCreatorId((prev) => (prev === id ? null : id));
+  }
   return (
     <div className="look-feed-stage" ref={stageRef}>
       <div
@@ -321,6 +306,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
               counts={counts}
               variant="overlay"
               showForYou={labelsEnabled}
+              showCreators={showCreators}
             />
           </div>
           {coach ? (
@@ -335,15 +321,68 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
             </Button>
           ) : null}
         </div>
+        {!wide && showCreators && filter === "creators" ? (
+          <div className="look-creators-rail" role="list" aria-label="Creators">
+            {feedCreators.map((creator) => {
+              const selected = creatorId === creator.userId;
+              return (
+                <button
+                  key={creator.userId}
+                  type="button"
+                  role="listitem"
+                  aria-pressed={selected}
+                  aria-label={creator.name}
+                  title={creator.name}
+                  onClick={() => selectCreator(creator.userId)}
+                  className={cn("look-creator-av", selected && "is-selected")}
+                >
+                  {creator.imageSrc ? (
+                    <img src={creator.imageSrc} alt="" />
+                  ) : (
+                    <span aria-hidden>{creator.name.slice(0, 1)}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
-
       {filtered.length === 0 ? (
         <div className="look-feed-empty flex h-full flex-col justify-end px-5 pb-28">
           {filter === "foryou" ? (
             <>
               <p className="ds-screen-title look-feed-empty-title">Nothing here yet</p>
+              <p className="look-feed-empty-copy mt-2 max-w-72 text-sm">
+                Nothing here yet — browse All styles or Creators. For you fills as you save & follow.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="lg"
+                  className="h-11 w-fit min-w-44"
+                  onClick={browseAllStyles}
+                >
+                  Browse All styles
+                </Button>
+                {showCreators ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="h-11 w-fit min-w-36 bg-card/90"
+                    onClick={browseCreators}
+                  >
+                    Creators
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : filter === "creators" ? (
+            <>
+              <p className="ds-screen-title look-feed-empty-title">No creator looks yet</p>
               <p className="look-feed-empty-copy mt-2 max-w-64 text-sm">
-                Browse All styles to find looks — For you fills in as you save.
+                Browse All styles while creators publish, or save looks to grow For you.
               </p>
               <Button
                 type="button"
@@ -405,12 +444,12 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
                     <Link
                       to="/looks/$lookId"
                       params={{ lookId: look.id }}
-                      className="pointer-events-auto ds-screen-title text-card"
+                      className="pointer-events-auto ds-screen-title look-slide-title text-card"
                     >
                       {look.title || "Untitled look"}
                     </Link>
                   ) : (
-                    <p className="ds-screen-title text-card">{look.title || "Untitled look"}</p>
+                    <p className="ds-screen-title look-slide-title text-card">{look.title || "Untitled look"}</p>
                   )}
                   <p className="look-slide-meta-caption mt-2 text-card/80">{meta}</p>
                 </div>
@@ -439,7 +478,6 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
           })}
         </div>
       )}
-
       {coach && filtered.length > 0 ? (
         <div className="look-feed-coach">
           <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
@@ -458,7 +496,6 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
           </button>
         </div>
       ) : null}
-
       {active && tagsOpen ? (
         <ShopDock
           floating

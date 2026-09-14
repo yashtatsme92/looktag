@@ -1,4 +1,4 @@
-/* Home feed plate chrome — #16. Tokens only; co-located with LookFeed. */
+/* Home feed plate chrome — Phase 1 slice B (board-01). Tokens only; co-located with LookFeed. */
 
 .look-slide-meta-caption {
   font-family: var(--font-sans);
@@ -7,17 +7,85 @@
   letter-spacing: 0.01em;
 }
 
+.look-slide-title {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-wrap: balance;
+}
+
 .look-feed-top {
   padding: 0.65rem 0 2.35rem;
 }
 
+/* Phone Creators avatar rail — board-01 */
+.look-creators-rail {
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.35rem 0.85rem 0.65rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.look-creators-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.look-creator-av {
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: var(--target-min, 44px);
+  min-height: var(--target-min, 44px);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: color-mix(in oklab, var(--color-card) 92%, transparent);
+  color: var(--color-foreground);
+  box-shadow: var(--shadow-border);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.look-creator-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 20%;
+}
+
+.look-creator-av.is-selected {
+  outline: 2px solid var(--color-foreground);
+  outline-offset: 2px;
+}
+
 @media (min-width: 768px) {
+  /* Desktop website: masthead + portrait plate grid with gutters — never edge-to-edge */
   html:not(.native-app) .look-feed-top {
-    padding: 1.25rem 1.5rem 1.15rem;
+    padding: 1.25rem 1.75rem 1.15rem;
   }
 
   html:not(.native-app) .look-feed {
-    gap: 1.75rem 1.15rem;
-    padding: 0.85rem 1.5rem 4rem;
+    gap: 1.75rem 1.35rem;
+    padding: 0.85rem 1.75rem 4rem;
+  }
+
+  html:not(.native-app) .look-creators-rail {
+    display: none;
+  }
+}
+
+@media (min-width: 1100px) {
+  html:not(.native-app) .look-feed {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.85rem 1.5rem;
+    padding: 0.85rem 2rem 4.5rem;
   }
 }
