@@ -12,6 +12,7 @@ import { withTimeout } from "@/lib/login-next";
 import { APP_VIEWPORT } from "@/lib/pwa/viewport";
 import { DEFAULT_SPLASH, EARLY_CHROME_SCRIPT, parseSplashId, readStoredSplash } from "@/lib/pwa/splash";
 import appCss from "../styles.css?url";
+import phase1aCss from "../styles.phase1-a.css?url";
 
 const APP_NAME = "Looktag";
 
@@ -78,6 +79,7 @@ export const Route = createRootRoute({
         href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;1,400&display=swap",
       },
       { rel: "stylesheet", href: appCss },
+      { rel: "stylesheet", href: phase1aCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
       {

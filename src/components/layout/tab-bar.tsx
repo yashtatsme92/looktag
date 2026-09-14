@@ -1,28 +1,23 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Landmark, LayoutGrid, Plus, Trophy, UserRound } from "lucide-react";
+import { LayoutGrid, Plus, UserRound } from "lucide-react";
 import { APP_NAV, isYouPath, navItemActive } from "@/components/layout/app-nav";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
 const icons = {
   looks: LayoutGrid,
   create: Plus,
-  houses: Landmark,
-  rank: Trophy,
 } as const;
 
 export function TabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useCurrentUserState();
-  const labelsEnabled = useSettingsStore((s) => s.labelsEnabled);
-  const visible = APP_NAV.filter((item) => item.id !== "houses" || labelsEnabled);
   const youActive = isYouPath(pathname);
 
   return (
     <nav aria-label="App" className="tab-bar">
-      <ul className={cn("grid h-14", labelsEnabled ? "grid-cols-5" : "grid-cols-4")}>
-        {visible.map((item) => {
+      <ul className="grid h-14 grid-cols-3">
+        {APP_NAV.map((item) => {
           const Icon = icons[item.id];
           const active = navItemActive(item.id, pathname);
           return (
@@ -31,7 +26,7 @@ export function TabBar() {
                 to={item.to}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex h-full min-h-11 flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide",
+                  "relative flex h-full min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide",
                   active ? "text-foreground" : "text-muted-foreground",
                 )}
               >
@@ -51,7 +46,7 @@ export function TabBar() {
               params={{ userId: user.id }}
               aria-current={youActive ? "page" : undefined}
               className={cn(
-                "relative flex h-full min-h-11 flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide",
+                "relative flex h-full min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide",
                 youActive ? "text-foreground" : "text-muted-foreground",
               )}
             >
@@ -66,7 +61,7 @@ export function TabBar() {
               to="/login"
               aria-current={youActive ? "page" : undefined}
               className={cn(
-                "relative flex h-full min-h-11 flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide",
+                "relative flex h-full min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide",
                 youActive ? "text-foreground" : "text-muted-foreground",
               )}
             >

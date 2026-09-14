@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { requestInstallSheet } from "@/lib/pwa/display";
 import { useStandaloneDisplay } from "@/lib/pwa/use-display";
-import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
 type WebHeaderProps = {
@@ -16,9 +15,7 @@ type WebHeaderProps = {
 export function WebHeader({ trailing }: WebHeaderProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useCurrentUserState();
-  const labelsEnabled = useSettingsStore((s) => s.labelsEnabled);
   const standalone = useStandaloneDisplay();
-  const visible = APP_NAV.filter((item) => item.id !== "houses" || labelsEnabled);
   const youActive = isYouPath(pathname);
 
   return (
@@ -27,7 +24,7 @@ export function WebHeader({ trailing }: WebHeaderProps) {
         Looktag
       </Link>
       <nav aria-label="App" className="web-nav">
-        {visible.map((item) => {
+        {APP_NAV.map((item) => {
           const active = navItemActive(item.id, pathname);
           return (
             <Link

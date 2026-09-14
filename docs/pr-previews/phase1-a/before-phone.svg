@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <rect width="390" height="844" fill="#F4F4F4"/>
+  <rect x="0" y="0" width="390" height="54" fill="#F4F4F4"/>
+  <text x="16" y="36" font-family="Georgia,serif" font-size="22" font-style="italic" fill="#111">Looktag</text>
+  <text x="16" y="88" font-family="Georgia,serif" font-size="28" fill="#111">Looks</text>
+  <rect x="16" y="110" width="358" height="620" rx="16" fill="#111"/>
+  <text x="195" y="420" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#F4F4F4" opacity="0.7">look feed</text>
+  <rect x="0" y="754" width="390" height="90" fill="#F4F4F4" stroke="#111" stroke-opacity="0.1"/>
+  <rect x="21.8" y="762" width="34.3" height="3" rx="1.5" fill="#111"/>
+    <text x="39.0" y="802" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#111">Looks</text>
+    <circle cx="39.0" cy="780" r="9" fill="none" stroke="#111" stroke-width="1.8"/>
+    <text x="117.0" y="802" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="500" fill="#6b6b6b">Create</text>
+    <circle cx="117.0" cy="780" r="9" fill="none" stroke="#6b6b6b" stroke-width="1.8"/>
+    <text x="195.0" y="802" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="500" fill="#6b6b6b">Houses</text>
+    <circle cx="195.0" cy="780" r="9" fill="none" stroke="#6b6b6b" stroke-width="1.8"/>
+    <text x="273.0" y="802" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="500" fill="#6b6b6b">Rank</text>
+    <circle cx="273.0" cy="780" r="9" fill="none" stroke="#6b6b6b" stroke-width="1.8"/>
+    <text x="351.0" y="802" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="500" fill="#6b6b6b">You</text>
+    <circle cx="351.0" cy="780" r="9" fill="none" stroke="#6b6b6b" stroke-width="1.8"/>
+  <text x="195" y="838" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#6b6b6b">phone tab bar</text>
+</svg>
