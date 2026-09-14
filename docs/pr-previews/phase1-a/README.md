@@ -8,15 +8,11 @@ Mock chrome frames (Looktag ink palette) showing shopper nav trim.
 | --- | --- |
 | ![before phone](./before-phone.svg) | ![after phone](./after-phone.svg) |
 
-Also: [before PNG](./before-phone.png) · [after PNG](./after-phone.png)
-
 ## Desktop masthead
 
 | Before | After |
 | --- | --- |
 | ![before desktop](./before-desktop.svg) | ![after desktop](./after-desktop.svg) |
-
-Also: [before PNG](./before-desktop.png) · [after PNG](./after-desktop.png)
 
 ## Expected chrome
 
