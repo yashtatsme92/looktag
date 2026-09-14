@@ -75,6 +75,17 @@ export const space = [
   { token: "--space-5", value: "24px" },
   { token: "--space-6", value: "32px" },
   { token: "--space-7", value: "48px" },
+  { token: "--space-thumb", value: "4.5rem", role: "Thumb reach / dock clearance above tab bar" },
+  { token: "--space-sheet-pad", value: "1rem", role: "Sheet footer base pad (plus safe-area)" },
+] as const;
+
+export const targets = [
+  { token: "--target-min", value: "44px", role: "Minimum tap target (WCAG / iOS HIG)" },
+] as const;
+
+/** Runtime inset from viewport-lock; default 0px in :root. */
+export const insets = [
+  { token: "--keyboard-inset", value: "0px (runtime)", role: "VisualViewport keyboard lift for studio tray" },
 ] as const;
 
 export const rules = [
@@ -84,6 +95,7 @@ export const rules = [
   "Elevation is shadow-border, not a 1px solid border on cards.",
   "Tap targets are 44px. Pins use a 44px hit area over an 32px mark.",
   "Phone chrome is the product on small screens: header, tab bar, full-bleed feed. From 768px up, Looktag is a website — masthead, portrait lookbook grid, plate-sized photos. Never stretch a look edge to edge. Never show the phone tab bar on tablet or desktop.",
+  "Shopper chrome is Looks · Create · You only. Rank and Houses stay as deep links / admin — not tabs (Phase 1).",
   "Titles wrap. Never ellipsis a screen, section, card, or native-header title — drop to two lines instead.",
   "No raw hex in JSX. If you need a value, it becomes a token.",
 ] as const;
