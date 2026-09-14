@@ -108,19 +108,18 @@ function HouseProfile() {
           </div>
         ) : null}
         <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{label.bio}</p>
-        <dl className="mb-6 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
-          <Stat label="Score" value={String(house.score)} />
-          <Stat label="Collections" value={String(house.collections.length)} />
-          <Stat label="Looks" value={String(house.looks)} />
-          <Stat label="Compared" value={String(house.compared)} />
-        </dl>
         {label.moods.length > 0 ? (
           <p className="mb-6 text-xs tracking-[0.14em] text-muted-foreground uppercase">
             {label.moods.map(moodLabel).join(" · ")}
           </p>
         ) : null}
 
-        <h2 className="ds-section-title mb-3">Collections</h2>
+        <h2 className="ds-section-title mb-1">Collections</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          {collections.length} {collections.length === 1 ? "collection" : "collections"}
+          {" · "}
+          {house.looks} {house.looks === 1 ? "look" : "looks"}
+        </p>
         {collections.length === 0 ? (
           <p className="text-sm text-muted-foreground">No collections published yet.</p>
         ) : (
@@ -136,6 +135,19 @@ function HouseProfile() {
             ))}
           </div>
         )}
+
+        <details className="mt-8 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-border)]">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 text-sm font-medium marker:content-none [&::-webkit-details-marker]:hidden">
+            House details
+            <span className="text-xs font-normal text-muted-foreground">Score · Compared</span>
+          </summary>
+          <dl className="grid grid-cols-2 gap-2 border-t border-border p-4 text-center sm:grid-cols-4">
+            <Stat label="Score" value={String(house.score)} />
+            <Stat label="Collections" value={String(house.collections.length)} />
+            <Stat label="Looks" value={String(house.looks)} />
+            <Stat label="Compared" value={String(house.compared)} />
+          </dl>
+        </details>
       </article>
     </AppShell>
   );
