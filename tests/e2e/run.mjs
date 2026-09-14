@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * E2E entry: load suite from main tip, apply houses Scouted-first patches (#17 rebase).
+ * E2E entry: load suite from base SHA, apply houses Scouted-first (#17) +
+ * Phase 1 slice A chrome (Looks·Create·You) assertion patches.
  */
 import { writeFileSync, unlinkSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -13,6 +14,44 @@ const OLD_WAIT = "await page.getByText(/Suggested looks/i).first().waitFor({ tim
 const NEW_WAIT = "await page.getByText(/Scouted houses/i).first().waitFor({ timeout: 8_000 }).catch(() => {});";
 const OLD_GRID = "record(\"flow.desktop.houses_grid\", /Suggested looks/.test(text) && /Scouted/i.test(text), snippet(text));";
 const NEW_GRID = "record(\n      \"flow.desktop.houses_grid\",\n      /Scouted houses/i.test(text) && /Scouted/i.test(text) && !/Suggested looks/.test(text),\n      snippet(text),\n    );";
+
+const OLD_HOME_TABS = `    record(
+      "flow.home.tabs",
+      /Looks/.test(text) && /Create/.test(text) && /Houses/.test(text) && /Rank/.test(text) && /You/.test(text),
+      snippet(text),
+    );`;
+const NEW_HOME_TABS = `    {
+      const homeNav = await page.getByRole("navigation", { name: "App" }).innerText();
+      record(
+        "flow.home.tabs",
+        /Looks/.test(homeNav) &&
+          /Create/.test(homeNav) &&
+          /You/.test(homeNav) &&
+          !/Houses/.test(homeNav) &&
+          !/Rank/.test(homeNav) &&
+          !/How-to|How to/i.test(homeNav),
+        snippet(homeNav),
+      );
+    }`;
+const OLD_DESK_NAV = `    record(
+      "flow.desktop.web_nav",
+      /Looks/.test(navText) &&
+        /Create/.test(navText) &&
+        /Houses/.test(navText) &&
+        /Rank/.test(navText) &&
+        /You/.test(navText),
+      snippet(navText),
+    );`;
+const NEW_DESK_NAV = `    record(
+      "flow.desktop.web_nav",
+      /Looks/.test(navText) &&
+        /Create/.test(navText) &&
+        /You/.test(navText) &&
+        !/Houses/.test(navText) &&
+        !/Rank/.test(navText) &&
+        !/How-to|How to/i.test(navText),
+      snippet(navText),
+    );`;
 
 const url = `https://raw.githubusercontent.com/yashtatsme92/looktag/${BASE_SHA}/tests/e2e/run.mjs`;
 const res = await fetch(url);
@@ -57,6 +96,18 @@ if (!code.includes(OLD_GRID)) {
   process.exit(1);
 }
 code = code.replace(OLD_GRID, NEW_GRID);
+
+if (!code.includes(OLD_HOME_TABS)) {
+  console.error("flow.home.tabs assert not found");
+  process.exit(1);
+}
+code = code.replace(OLD_HOME_TABS, NEW_HOME_TABS);
+
+if (!code.includes(OLD_DESK_NAV)) {
+  console.error("flow.desktop.web_nav assert not found");
+  process.exit(1);
+}
+code = code.replace(OLD_DESK_NAV, NEW_DESK_NAV);
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const tmp = join(dir, ".run.extracted.mjs");
