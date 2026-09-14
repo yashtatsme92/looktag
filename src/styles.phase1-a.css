@@ -1,0 +1,28 @@
+/* Phase 1 slice A — tokens + chrome a11y (imported with styles.css) */
+:root {
+  --space-thumb: 4.5rem;
+  --space-sheet-pad: 1rem;
+  --target-min: 44px;
+  /* Set by viewport-lock; default keeps var() consumers safe */
+  --keyboard-inset: 0px;
+}
+
+/* Sheet footers: pad + home-indicator safe area */
+.sheet-footer-pad {
+  padding-bottom: calc(var(--space-sheet-pad, 1rem) + env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .look-feed {
+    scroll-snap-type: none;
+  }
+  .look-slide {
+    scroll-snap-align: none;
+    scroll-snap-stop: normal;
+  }
+  [data-vaul-drawer],
+  [data-vaul-overlay] {
+    animation: none !important;
+    transition: none !important;
+  }
+}
