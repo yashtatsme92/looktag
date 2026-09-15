@@ -10,18 +10,20 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Materialize sources from sidecars/parts
+      - name: Materialize look-feed from gzip sidecar
         run: |
-          node scripts/phase1d-assemble-look-route.mjs
           node scripts/phase1d-write-look-feed.mjs
+          if [ -f scripts/phase1d-assemble-look-page.mjs ]; then
+            node scripts/phase1d-assemble-look-page.mjs || true
+          fi
       - name: Commit if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "src/routes/looks.$lookId.tsx" src/components/home/look-feed.tsx
+          git add src/components/home/look-feed.tsx src/components/looks/look-detail-page.tsx || true
           if git diff --cached --quiet; then
             echo "No changes"
           else
-            git commit -m "phase1(d): materialize look detail MLT + feed reweight"
+            git commit -m "phase1(d): materialize look-feed MLT reweight + mood strip"
             git push
           fi
