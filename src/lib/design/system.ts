@@ -60,9 +60,9 @@ export const shadows = [
 ] as const;
 
 export const motion = [
-  { token: "--motion-quick", value: "150ms", role: "Hover, press, close" },
+  { token: "--motion-quick", value: "150ms", role: "Hover, press, More like this fill" },
   { token: "--motion-fast", value: "250ms", role: "Open, step change" },
-  { token: "--motion-slow", value: "400ms", role: "Page / panel reveal" },
+  { token: "--motion-slow", value: "400ms", role: "Page / panel reveal, More like this feed reweight" },
   { token: "--ease-out", value: "cubic-bezier(0.23, 1, 0.32, 1)", role: "Default move" },
   { token: "--ease-smooth-out", value: "cubic-bezier(0.22, 1, 0.36, 1)", role: "Enter" },
 ] as const;

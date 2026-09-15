@@ -13,7 +13,8 @@ import {
   likingsFromLooks,
   type FashionLabel,
 } from "@/lib/labels/model";
-import { looksForMood, MOODS } from "@/lib/looks/moods";
+import { looksForMood, moodLabel, MOODS } from "@/lib/looks/moods";
+import { reweightLooks, useMoreLikeThis } from "@/lib/looks/more-like-this";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useLooksStore } from "@/lib/looks/store";
 import type { Look } from "@/lib/looks/types";
@@ -25,6 +26,7 @@ import {
   creatorsFromLooks,
 } from "@/components/home/look-feed-creators";
 import "./look-feed.css";
+import "@/styles.more-like-this.css";
 type LookFeedProps = {
   looks: Look[];
   showCoach?: boolean;
@@ -55,6 +57,27 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   // Guests land on the editorial lane when Houses is on; All is secondary.
   const [filter, setFilter] = useState<FeedFilter>(() => (labelsEnabled ? "foryou" : null));
   const [creatorId, setCreatorId] = useState<string | null>(null);
+  const mltBias = useMoreLikeThis((s) => s.bias);
+  const mltActivationCount = useMoreLikeThis((s) => s.activationCount);
+  const mltSeeds = useMoreLikeThis((s) => s.seeds);
+  const takePendingAnimate = useMoreLikeThis((s) => s.takePendingAnimate);
+  const clearMltBias = useMoreLikeThis((s) => s.clearBias);
+  const mltShowStrip = mltActivationCount >= 2;
+  const moodStripHints = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const seed of mltSeeds) {
+      for (const mood of seed.moods) {
+        if (!mood) continue;
+        counts.set(mood, (counts.get(mood) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([id]) => id)
+      .filter((id) => MOODS.some((mood) => mood.id === id))
+      .slice(0, 4);
+  }, [mltSeeds]);
+  const [mltReweighting, setMltReweighting] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedByLook, setSelectedByLook] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
@@ -94,18 +117,20 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   const feedCreators = useMemo(() => creatorsFromLooks(looks), [looks]);
   const showCreators = feedCreators.length > 0;
   const filtered = useMemo(() => {
-    if (filter === "saved") return looks.filter((look) => savedIds.includes(look.id));
-    if (filter === "foryou") {
+    let rows: Look[];
+    if (filter === "saved") rows = looks.filter((look) => savedIds.includes(look.id));
+    else if (filter === "foryou") {
       const savedLooks = looks.filter((look) => savedIds.includes(look.id));
-      return looksForYou(looks, labels, likingsFromLooks(savedLooks));
-    }
-    if (filter === "creators") {
+      rows = looksForYou(looks, labels, likingsFromLooks(savedLooks));
+    } else if (filter === "creators") {
       const creatorLooks = looks.filter((look) => look.userId && look.userId !== "editorial");
-      if (!creatorId) return creatorLooks;
-      return creatorLooks.filter((look) => look.userId === creatorId);
+      rows = !creatorId ? creatorLooks : creatorLooks.filter((look) => look.userId === creatorId);
+    } else {
+      rows = looksForMood(looks, filter);
     }
-    return looksForMood(looks, filter);
-  }, [filter, looks, savedIds, labels, creatorId]);
+    if (mltBias) return reweightLooks(rows, mltBias);
+    return rows;
+  }, [filter, looks, savedIds, labels, creatorId, mltBias]);
   const filteredRef = useRef(filtered);
   filteredRef.current = filtered;
   const counts = useMemo(() => {
@@ -134,6 +159,17 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
     });
     return () => window.cancelAnimationFrame(id);
   }, [filter, filtered.length]);
+  useEffect(() => {
+    const seed = takePendingAnimate();
+    if (!seed) return;
+    setMltReweighting(true);
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ms = reduced ? 160 : 420;
+    const timer = window.setTimeout(() => setMltReweighting(false), ms);
+    return () => window.clearTimeout(timer);
+  }, [takePendingAnimate, filtered.length, mltBias]);
   useEffect(() => {
     const root = scrollerRef.current;
     if (!root) return;
@@ -275,11 +311,23 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
       toast.success("Saved");
     }
   }
+  function changeFilter(next: FeedFilter) {
+    clearMltBias();
+    setCreatorId(null);
+    setFilter(next);
+  }
+  function pickMoodHint(mood: string) {
+    clearMltBias();
+    setCreatorId(null);
+    setFilter(mood as FeedFilter);
+  }
   function browseAllStyles() {
+    clearMltBias();
     setCreatorId(null);
     setFilter(null);
   }
   function browseCreators() {
+    clearMltBias();
     setCreatorId(null);
     setFilter("creators");
   }
@@ -302,7 +350,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
           <div className="min-w-0 flex-1">
             <MoodFilter
               value={filter}
-              onChange={setFilter}
+              onChange={changeFilter}
               counts={counts}
               variant="overlay"
               showForYou={labelsEnabled}
@@ -344,6 +392,22 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
                 </button>
               );
             })}
+          </div>
+        ) : null}
+        {mltShowStrip && moodStripHints.length > 0 ? (
+          <div className="look-mlt-mood-strip" role="group" aria-label="Moods from More like this">
+            <span className="look-mlt-mood-strip-label">More like</span>
+            {moodStripHints.map((mood) => (
+              <button
+                key={mood}
+                type="button"
+                className="look-mlt-mood-chip"
+                aria-pressed={filter === mood}
+                onClick={() => pickMoodHint(mood)}
+              >
+                {moodLabel(mood)}
+              </button>
+            ))}
           </div>
         ) : null}
       </div>
@@ -408,7 +472,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
           )}
         </div>
       ) : (
-        <div ref={scrollerRef} className="look-feed">
+        <div ref={scrollerRef} className="look-feed" data-mlt-reweight={mltReweighting ? "true" : "false"}>
           {filtered.map((look, index) => {
             const selected = selectedByLook[look.id] ?? look.tags[0]?.id ?? null;
             const saved = savedIds.includes(look.id);
