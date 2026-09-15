@@ -233,7 +233,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
       return;
     }
     if (!revealedRef.current[look.id]) {
-      revealedRef.current = { ...revealedRef.current, [lookId]: true };
+      revealedRef.current = { ...revealedRef.current, [look.id]: true };
       setRevealed((prev) => ({ ...prev, [look.id]: true }));
       dismissCoach();
       return;
