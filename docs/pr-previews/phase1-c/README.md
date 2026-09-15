@@ -2,29 +2,19 @@
 
 Live: https://rocket-trail-sunny-yonder.grok.me · seed `/looks/seed-sunday-coat`
 
+Ink-palette schematics (SVG). Playwright captures verified locally on branch (phone sheet + desktop dock).
+
 ## Phone — pin tap → shop sheet
 
 | Before (main sticky dock) | After (board-02 shop sheet) |
 | --- | --- |
-| ![before phone](./live-before-phone.svg) | ![after phone](./live-after-phone.svg) |
-
-Schematics:
-
-| Before | After |
-| --- | --- |
-| ![schematic before](./before-phone.svg) | ![schematic after](./after-phone.svg) |
+| ![before phone](./before-phone.svg) | ![after phone](./after-phone.svg) |
 
 ## Desktop — sticky photo + sticky dock
 
 | Before | After |
 | --- | --- |
-| ![before desktop](./live-before-desktop.svg) | ![after desktop](./live-after-desktop.svg) |
-
-Schematics:
-
-| Before | After |
-| --- | --- |
-| ![schematic before](./before-desktop.svg) | ![schematic after](./after-desktop.svg) |
+| ![before desktop](./before-desktop.svg) | ![after desktop](./after-desktop.svg) |
 
 ## Board-02 checklist
 
