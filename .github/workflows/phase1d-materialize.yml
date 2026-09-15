@@ -10,20 +10,21 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Materialize look-feed from gzip sidecar
-        run: |
-          node scripts/phase1d-write-look-feed.mjs
-          if [ -f scripts/phase1d-assemble-look-page.mjs ]; then
-            node scripts/phase1d-assemble-look-page.mjs || true
-          fi
-      - name: Commit if changed
+        run: node scripts/phase1d-write-look-feed.mjs
+      - name: Commit and push if changed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/home/look-feed.tsx src/components/looks/look-detail-page.tsx || true
+          git add src/components/home/look-feed.tsx
           if git diff --cached --quiet; then
             echo "No changes"
-          else
-            git commit -m "phase1(d): materialize look-feed MLT reweight + mood strip"
-            git push
+            exit 0
           fi
+          git commit -m "phase1(d): materialize look-feed MLT reweight + mood strip"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
