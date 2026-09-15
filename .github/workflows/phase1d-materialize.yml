@@ -1,0 +1,35 @@
+name: phase1d-materialize
+on:
+  workflow_dispatch:
+  push:
+    branches: [phase1/d-more-like-this]
+    paths:
+      - scripts/phase1d-look-route.b64.gz.txt
+      - scripts/phase1d-look-feed.b64.gz.txt
+      - scripts/phase1d-write-look-route.mjs
+      - scripts/phase1d-write-look-feed.mjs
+      - .github/workflows/phase1d-materialize.yml
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase1/d-more-like-this
+      - name: Materialize sources from sidecars
+        run: |
+          node scripts/phase1d-write-look-route.mjs
+          node scripts/phase1d-write-look-feed.mjs
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "src/routes/looks.$lookId.tsx" src/components/home/look-feed.tsx
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "phase1(d): materialize look detail MLT + feed reweight"
+            git push
+          fi
