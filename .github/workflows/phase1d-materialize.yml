@@ -10,9 +10,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Materialize sources from sidecars
+      - name: Materialize sources from sidecars/parts
         run: |
-          node scripts/phase1d-write-look-route.mjs
+          node scripts/phase1d-assemble-look-route.mjs
           node scripts/phase1d-write-look-feed.mjs
       - name: Commit if changed
         run: |
