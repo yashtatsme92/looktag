@@ -321,7 +321,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
             </Button>
           ) : null}
         </div>
-        {!wide && showCreators && filter === "creators" ? (
+        {!wide && showCreators && (filter === "foryou" || filter === "creators") ? (
           <div className="look-creators-rail" role="list" aria-label="Creators">
             {feedCreators.map((creator) => {
               const selected = creatorId === creator.userId;
@@ -353,7 +353,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
             <>
               <p className="ds-screen-title look-feed-empty-title">Nothing here yet</p>
               <p className="look-feed-empty-copy mt-2 max-w-72 text-sm">
-                Nothing here yet — browse All styles or Creators. For you fills as you save & follow.
+                Browse All styles or Creators. For you fills as you save & follow.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button
