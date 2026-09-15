@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="700" viewBox="0 0 390 700">
+  <title>Before: phone For you — no Creators rail</title>
+  <rect width="390" height="700" fill="#f4f1ea"/>
+  <text x="20" y="36" font-family="Georgia, serif" font-size="22" fill="#1a1a1a">Looktag</text>
+  <rect x="16" y="56" width="78" height="28" rx="14" fill="#1a1a1a"/>
+  <text x="28" y="75" font-family="system-ui,sans-serif" font-size="12" fill="#f4f1ea">For you</text>
+  <rect x="102" y="56" width="72" height="28" rx="14" fill="#fff" stroke="#cfc8bc"/>
+  <text x="118" y="75" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">Creators</text>
+  <rect x="182" y="56" width="54" height="28" rx="14" fill="#fff" stroke="#cfc8bc"/>
+  <text x="196" y="75" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">All</text>
+  <text x="16" y="120" font-family="system-ui,sans-serif" font-size="13" fill="#8a8278">BEFORE — rail hidden on For you</text>
+  <rect x="0" y="140" width="390" height="480" fill="#d9d2c6"/>
+  <text x="20" y="560" font-family="Georgia, serif" font-size="28" fill="#fff">Hackney Night</text>
+  <text x="20" y="586" font-family="system-ui,sans-serif" font-size="13" fill="#f0ebe3">Sunday Studio · 2 pieces · €100—€250</text>
+  <rect x="0" y="640" width="390" height="60" fill="#fff"/>
+  <text x="40" y="676" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">Looks</text>
+  <text x="170" y="676" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">Create</text>
+  <text x="300" y="676" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">You</text>
+</svg>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="700" viewBox="0 0 390 700">
+  <title>After: phone For you — Creators rail visible</title>
+  <rect width="390" height="700" fill="#f4f1ea"/>
+  <text x="20" y="36" font-family="Georgia, serif" font-size="22" fill="#1a1a1a">Looktag</text>
+  <rect x="16" y="56" width="78" height="28" rx="14" fill="#1a1a1a"/>
+  <text x="28" y="75" font-family="system-ui,sans-serif" font-size="12" fill="#f4f1ea">For you</text>
+  <rect x="102" y="56" width="72" height="28" rx="14" fill="#fff" stroke="#cfc8bc"/>
+  <text x="118" y="75" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">Creators</text>
+  <rect x="182" y="56" width="54" height="28" rx="14" fill="#fff" stroke="#cfc8bc"/>
+  <text x="196" y="75" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">All</text>
+  <!-- Creators rail -->
+  <g id="creators-rail">
+    <circle cx="40" cy="118" r="22" fill="#c4b8a8" stroke="#1a1a1a" stroke-width="0"/>
+    <circle cx="96" cy="118" r="22" fill="#b7a99a"/>
+    <circle cx="152" cy="118" r="22" fill="#a89888"/>
+    <circle cx="208" cy="118" r="22" fill="#9a8a7a"/>
+    <text x="16" y="158" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">AFTER — Creators rail under chips</text>
+  </g>
+  <rect x="0" y="170" width="390" height="450" fill="#d9d2c6"/>
+  <text x="20" y="560" font-family="Georgia, serif" font-size="28" fill="#fff">Hackney Night</text>
+  <text x="20" y="586" font-family="system-ui,sans-serif" font-size="13" fill="#f0ebe3">Sunday Studio · 2 pieces · €100—€250</text>
+  <rect x="0" y="640" width="390" height="60" fill="#fff"/>
+  <text x="40" y="676" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">Looks</text>
+  <text x="170" y="676" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">Create</text>
+  <text x="300" y="676" font-family="system-ui,sans-serif" font-size="12" fill="#1a1a1a">You</text>
+</svg>
