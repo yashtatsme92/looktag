@@ -2,17 +2,11 @@
 
 Live Playwright captures from local `vite dev` on branch `phase1/b-creators-rail-foryou` (browse coach dismissed).
 
-SVG companions embed JPEG captures for reliable GitHub preview. Schematic companions included if binary embeds fail.
+Schematic before/after (phone For you). Live JPEG-embed SVGs optional companions when binary push succeeds.
 
 ## Phone For you
 
 | Before (`main`) | After |
-| --- | --- |
-| ![before phone For you](./before-phone-foryou.svg) | ![after phone For you](./after-phone-foryou.svg) |
-
-Schematic:
-
-| Before | After |
 | --- | --- |
 | ![before schematic](./before-phone-foryou-schematic.svg) | ![after schematic](./after-phone-foryou-schematic.svg) |
 
