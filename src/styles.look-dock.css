@@ -1,4 +1,4 @@
-/* Look shopping dock — principal design #15 */
+/* Look shopping dock — principal design #15 / Phase 1 slice C board-02 */
 
 .shop-dock-name {
   display: block;
@@ -24,7 +24,7 @@
 .look-shop-strip-primary,
 .look-shop-strip-secondary {
   display: flex;
-  min-height: 2.75rem;
+  min-height: var(--target-min, 2.75rem);
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -68,6 +68,44 @@
   color: var(--color-muted-foreground);
 }
 
+/* Phone look detail — quiet open affordance under plate */
+.look-shop-phone-open {
+  display: flex;
+  width: 100%;
+  min-height: var(--target-min, 2.75rem);
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  box-shadow: var(--shadow-border);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.shop-look-sheet-body {
+  padding-bottom: calc(var(--space-sheet-pad, 1rem) + env(safe-area-inset-bottom));
+}
+
+/* Pins: 32px mark / 44px hit (after:). Selected stronger; reduced-motion snaps. */
+@media (prefers-reduced-motion: reduce) {
+  .tag-pin {
+    transition: none !important;
+  }
+
+  .tag-pin[aria-pressed="true"] {
+    transform: translate(-50%, -50%) !important;
+  }
+
+  .shop-look-sheet,
+  .shop-look-sheet [data-vaul-drawer],
+  [data-vaul-drawer].shop-look-sheet {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
 @media (min-width: 768px) {
   html:not(.native-app) .look-layout-shop .shop-dock {
     position: sticky;
@@ -83,6 +121,10 @@
     position: sticky;
     top: 4.75rem;
     align-self: start;
+  }
+
+  .look-shop-phone-open {
+    display: none;
   }
 }
 

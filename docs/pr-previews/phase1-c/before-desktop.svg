@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#F4F4F4"/>
+  <text x="40" y="40" font-family="Georgia,serif" font-size="26" font-style="italic" fill="#111">Looktag</text>
+  <text x="200" y="38" font-family="system-ui" font-size="14" fill="#111">Looks</text>
+  <text x="270" y="38" font-family="system-ui" font-size="14" fill="#6B6B6B">Create</text>
+  <text x="350" y="38" font-family="system-ui" font-size="14" fill="#6B6B6B">You</text>
+  <text x="40" y="72" font-family="system-ui" font-size="12" fill="#6B6B6B">BEFORE · desktop sticky dock (from #34) — strip present</text>
+  <rect x="40" y="96" width="420" height="560" rx="24" fill="#4a423c"/>
+  <circle cx="200" cy="220" r="16" fill="#111" stroke="#fff" stroke-width="3"/>
+  <text x="200" y="225" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="700" fill="#fff">1</text>
+  <text x="500" y="130" font-family="Georgia,serif" font-size="36" fill="#111">Sunday Coat</text>
+  <rect x="500" y="160" width="420" height="56" rx="12" fill="#fff"/>
+  <circle cx="532" cy="188" r="14" fill="#111"/>
+  <text x="532" y="192" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="#fff">1</text>
+  <text x="556" y="193" font-family="system-ui" font-size="14" font-weight="600" fill="#111">White short-sleeve shirt</text>
+  <rect x="820" y="172" width="80" height="36" rx="12" fill="#111"/>
+  <text x="860" y="195" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#fff">Shop</text>
+  <rect x="500" y="232" width="420" height="100" rx="16" fill="#fff"/>
+  <rect x="516" y="248" width="388" height="40" rx="12" fill="#111"/>
+  <text x="710" y="274" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#fff">Shop look · cheapest per piece</text>
+  <text x="516" y="312" font-family="system-ui" font-size="12" fill="#6B6B6B">Compare outfit stub · From €130 · 3 shops</text>
+  <text x="500" y="370" font-family="Georgia,serif" font-size="22" fill="#111">Pieces</text>
+  <rect x="500" y="390" width="420" height="90" rx="16" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="520" y="425" font-family="system-ui" font-size="14" font-weight="600" fill="#111">① White short-sleeve shirt</text>
+  <text x="520" y="450" font-family="system-ui" font-size="12" fill="#6B6B6B">Compare / retailers only — no second Shop</text>
+</svg>

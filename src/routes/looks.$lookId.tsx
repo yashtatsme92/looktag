@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { isWideWebLayout } from "@/lib/pwa/use-wide-layout";
 import { getLookById, isUnauthorized } from "@/lib/looks/api";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { shareOrCopy } from "@/lib/looks/share";
@@ -67,7 +68,16 @@ function LookPage() {
   const { user } = useCurrentUserState();
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [shopSheetOpen, setShopSheetOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  /** Phone: pin tap opens shop sheet; dismiss keeps pin selection. Desktop: select only. */
+  function selectPiece(id: string | null) {
+    setSelectedId(id);
+    if (id && !isWideWebLayout()) {
+      setShopSheetOpen(true);
+    }
+  }
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const isSaved = useSavedLooks((s) => s.has(lookId));
   const toggleSaved = useSavedLooks((s) => s.toggle);
@@ -200,7 +210,7 @@ function LookPage() {
           title={look.title}
           tags={look.tags}
           selectedId={activeId}
-          onSelect={setSelectedId}
+          onSelect={selectPiece}
           fit="cover"
           className="look-layout-photo"
         />
@@ -208,8 +218,10 @@ function LookPage() {
           <LookShopPanel
             tags={look.tags}
             selectedId={activeId}
-            onSelect={setSelectedId}
+            onSelect={selectPiece}
             lookSrc={look.imageSrc}
+            sheetOpen={shopSheetOpen}
+            onSheetOpenChange={setShopSheetOpen}
           />
         </div>
       </article>

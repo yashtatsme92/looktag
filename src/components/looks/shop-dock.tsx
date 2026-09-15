@@ -21,16 +21,46 @@ type ShopDockProps = {
   onSelect: (id: string | null) => void;
   floating?: boolean;
   lookSrc?: string;
+  /** Controlled sheet open (look detail pin → sheet). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /**
+   * Sheet body:
+   * - `pieces` — feed / legacy drawer (piece list only)
+   * - `look` — board-02 phone shop sheet (piece Shop + look strip + Compare)
+   */
+  sheet?: "pieces" | "look";
+  /** Look-level cheapest opener from LookShopPanel. */
+  onShopLook?: () => void;
 };
 
-export function ShopDock({ tags, selectedId, onSelect, floating = false, lookSrc }: ShopDockProps) {
-  const [open, setOpen] = useState(false);
+export function ShopDock({
+  tags,
+  selectedId,
+  onSelect,
+  floating = false,
+  lookSrc,
+  open: openProp,
+  onOpenChange,
+  sheet = "pieces",
+  onShopLook,
+}: ShopDockProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = typeof openProp === "boolean";
+  const open = controlled ? openProp : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
+
   const total = lookTotal(tags);
   const currency = lookCurrency(tags);
   const selected = tags.find((tag) => tag.id === selectedId) ?? tags[0] ?? null;
   const selectedIndex = selected ? tags.findIndex((tag) => tag.id === selected.id) : 0;
   const target = selected ? shopTarget(selected) : null;
   const pieceName = selected?.name.trim() || "Shop the look";
+  const shopableCount = tags.filter((tag) => shopTarget(tag)?.url).length;
+  const lookSheet = sheet === "look";
 
   if (tags.length === 0) {
     if (floating) return null;
@@ -51,13 +81,18 @@ export function ShopDock({ tags, selectedId, onSelect, floating = false, lookSrc
             ? "shop-dock-float absolute inset-x-0 bottom-0 pb-2 pt-3"
             : "sticky bottom-0 -mx-4 mt-4 bg-gradient-to-t from-background from-70% to-transparent pt-6 pb-1",
         )}
+        data-guest-shop="ok"
       >
         <div className="shop-dock-card">
           <button
             type="button"
             onClick={() => setOpen(true)}
             className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 text-left"
-            aria-label={selected ? `Piece ${selectedIndex + 1}, ${pieceName}. Open pieces.` : "Open pieces"}
+            aria-label={
+              selected
+                ? `Piece ${selectedIndex + 1}, ${pieceName}. Open shop sheet.`
+                : "Open shop sheet"
+            }
           >
             {selected ? <span className="shop-dock-index">{selectedIndex + 1}</span> : null}
             <span className="min-w-0 flex-1">
@@ -73,36 +108,119 @@ export function ShopDock({ tags, selectedId, onSelect, floating = false, lookSrc
               </a>
             </Button>
           ) : (
-            <Button type="button" size="sm" variant="outline" className="min-h-11 shrink-0" onClick={() => setOpen(true)}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="min-h-11 shrink-0"
+              onClick={() => setOpen(true)}
+            >
               Pieces
             </Button>
           )}
         </div>
       </div>
 
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent>
+      <Drawer
+        open={open}
+        onOpenChange={(next) => {
+          // Dismiss keeps pin selection — only closes the sheet.
+          setOpen(next);
+        }}
+      >
+        <DrawerContent className={cn(lookSheet && "shop-look-sheet")}>
           <DrawerHeader>
             <DrawerTitle>Shop the look</DrawerTitle>
             <DrawerDescription>
-              {total > 0
-                ? `Tap a pin or a row — then Shop in the bar for the cheapest live page. ${formatMoney(String(total), currency)} if you buy every piece.`
-                : "Tap a pin or a row, then Shop in the bar for the live item page."}
+              {lookSheet
+                ? total > 0
+                  ? `Guest Shop OK — one Shop per piece in the bar. From ${formatMoney(String(total), currency)} · ${shopableCount} ${shopableCount === 1 ? "shop" : "shops"}.`
+                  : "Guest Shop OK — tap Shop for the live item page. No account needed."
+                : total > 0
+                  ? `Tap a pin or a row — then Shop in the bar for the cheapest live page. ${formatMoney(String(total), currency)} if you buy every piece.`
+                  : "Tap a pin or a row, then Shop in the bar for the live item page."}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="overflow-y-auto px-5 pb-5">
-            <ProductList
-              tags={tags}
-              selectedId={selectedId}
-              onSelect={(id) => {
-                onSelect(id);
-                setOpen(false);
-              }}
-              shoppable
-              primaryInDock
-              lookSrc={lookSrc}
-            />
-          </div>
+
+          {lookSheet ? (
+            <div className="shop-look-sheet-body overflow-y-auto px-5 pb-2">
+              <div className="shop-dock-card mb-3" data-guest-shop="ok">
+                {selected ? <span className="shop-dock-index">{selectedIndex + 1}</span> : null}
+                <span className="min-w-0 flex-1">
+                  <span className="shop-dock-name [overflow-wrap:anywhere] whitespace-normal">
+                    {pieceName}
+                  </span>
+                </span>
+                {target?.url ? (
+                  <Button asChild size="sm" className="min-h-11 shrink-0 px-4">
+                    <a href={target.url} target="_blank" rel="noreferrer">
+                      Shop
+                      <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="look-shop-strip mb-3">
+                <button
+                  type="button"
+                  onClick={() => onShopLook?.()}
+                  className="look-shop-strip-primary"
+                  disabled={shopableCount === 0 || !onShopLook}
+                  data-guest-shop="ok"
+                >
+                  <span className="min-w-0 flex-1 text-left leading-snug [overflow-wrap:anywhere]">
+                    Shop look · cheapest per piece
+                  </span>
+                  <ExternalLink className="size-3.5 shrink-0 opacity-70" />
+                </button>
+                <button
+                  type="button"
+                  className="look-shop-strip-secondary"
+                  disabled
+                  title="Compare outfit — coming soon"
+                >
+                  Compare outfit (later)
+                </button>
+                {total > 0 ? (
+                  <p className="look-shop-strip-meta">
+                    From {formatMoney(String(total), currency)} · {shopableCount}{" "}
+                    {shopableCount === 1 ? "shop" : "shops"}
+                  </p>
+                ) : null}
+              </div>
+
+              <h2 className="ds-section-title mb-3">Pieces</h2>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Expanded card = Compare / retailers only — Shop stays in the bar.
+              </p>
+              <ProductList
+                tags={tags}
+                selectedId={selectedId}
+                onSelect={(id) => {
+                  onSelect(id);
+                  // Keep sheet open when switching pieces (board-02).
+                }}
+                shoppable
+                primaryInDock
+                lookSrc={lookSrc}
+              />
+            </div>
+          ) : (
+            <div className="overflow-y-auto px-5 pb-5">
+              <ProductList
+                tags={tags}
+                selectedId={selectedId}
+                onSelect={(id) => {
+                  onSelect(id);
+                  setOpen(false);
+                }}
+                shoppable
+                primaryInDock
+                lookSrc={lookSrc}
+              />
+            </div>
+          )}
         </DrawerContent>
       </Drawer>
     </>
