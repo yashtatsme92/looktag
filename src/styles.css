@@ -97,6 +97,8 @@
   --space-5: 1.5rem;
   --space-6: 2rem;
   --space-7: 3rem;
+  /* Toasts sit below native header (phone) or the sticky masthead (web). */
+  --toast-offset: calc(env(safe-area-inset-top, 0px) + 3.5rem);
 }
 
 html[data-theme="paper"] {
@@ -1295,6 +1297,7 @@ input.look-studio-title:focus-visible {
 .look-feed-stage {
   position: absolute;
   inset: 0;
+  overflow: hidden;
 }
 
 .look-feed-refresh {
@@ -1302,7 +1305,7 @@ input.look-studio-title:focus-visible {
   position: absolute;
   top: 0.85rem;
   left: 50%;
-  z-index: 28;
+  z-index: 36;
   min-height: 2.25rem;
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
@@ -1312,8 +1315,14 @@ input.look-studio-title:focus-visible {
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  white-space: nowrap;
   box-shadow: var(--shadow-border);
   backdrop-filter: blur(12px);
+}
+
+html.layout-web .look-feed-refresh,
+html:not(.boot-done) .look-feed-refresh {
+  display: none;
 }
 
 .look-feed {
@@ -1619,6 +1628,14 @@ html[data-chrome="phone"] [data-pin-nudge],
     background: var(--color-background);
   }
 
+  html:not(.native-app) {
+    --toast-offset: 4.75rem;
+  }
+
+  html:not(.native-app) .look-feed-refresh {
+    display: none;
+  }
+
   html:not(.native-app) .app-frame {
     display: flex;
     min-height: 100dvh;
@@ -1688,6 +1705,7 @@ html[data-chrome="phone"] [data-pin-nudge],
     display: flex;
     min-height: calc(100dvh - 4rem);
     flex-direction: column;
+    overflow: visible;
   }
 
   html:not(.native-app) .look-feed-top {
@@ -1912,6 +1930,11 @@ html.boot-done .boot-splash,
 html.boot-react #boot-splash-html {
   display: none !important;
   pointer-events: none !important;
+}
+
+html:not(.boot-done) [data-sonner-toaster] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 input[type="search"]::-webkit-search-cancel-button,

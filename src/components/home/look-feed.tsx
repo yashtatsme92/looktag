@@ -18,6 +18,7 @@ import { useSavedLooks } from "@/lib/looks/saved";
 import { useLooksStore } from "@/lib/looks/store";
 import type { Look } from "@/lib/looks/types";
 import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
+import { refreshNoticeVisible } from "@/lib/pwa/layout";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 import {
@@ -289,14 +290,15 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   }
   return (
     <div className="look-feed-stage" ref={stageRef}>
-      <div
-        className="look-feed-refresh"
-        data-refreshing={refreshing ? "true" : "false"}
-        style={{ transform: `translate(-50%, ${Math.max(pull, refreshing ? 44 : 0) - 56}px)` }}
-        aria-hidden={!refreshing && pull < 8}
-      >
-        {refreshing ? "Updating looks" : "Release for latest"}
-      </div>
+      {refreshNoticeVisible({ chrome, pull, refreshing }) ? (
+        <div
+          className="look-feed-refresh"
+          data-refreshing={refreshing ? "true" : "false"}
+          style={{ transform: `translate(-50%, ${Math.max(pull, refreshing ? 44 : 0) - 56}px)` }}
+        >
+          {refreshing ? "Updating looks" : "Release for latest"}
+        </div>
+      ) : null}
       <div className="look-feed-top">
         <div className="flex items-center gap-1">
           <div className="min-w-0 flex-1">

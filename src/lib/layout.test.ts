@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { isHousesPath, isLooksPath, isYouPath, navItemActive } from "../components/layout/app-nav.ts";
-import { chromeFromWidth, isWideChrome } from "./pwa/layout.ts";
+import { chromeFromWidth, isWideChrome, refreshNoticeVisible } from "./pwa/layout.ts";
 import { surfaceFromUserAgent } from "./share-meta.ts";
 
 describe("app nav paths", () => {
@@ -54,5 +54,22 @@ describe("chrome from width", () => {
   it("Capacitor native app stays on phone chrome at any width", () => {
     assert.equal(chromeFromWidth(1280, true), "phone");
     assert.equal(isWideChrome(chromeFromWidth(1024, true)), false);
+  });
+});
+
+describe("refresh notice", () => {
+  it("stays off on tablet and desktop even while pulling", () => {
+    assert.equal(refreshNoticeVisible({ chrome: "tablet", pull: 96, refreshing: true }), false);
+    assert.equal(refreshNoticeVisible({ chrome: "desktop", pull: 96, refreshing: true }), false);
+  });
+
+  it("stays off on phone until the pull crosses the threshold", () => {
+    assert.equal(refreshNoticeVisible({ chrome: "phone", pull: 0, refreshing: false }), false);
+    assert.equal(refreshNoticeVisible({ chrome: "phone", pull: 7, refreshing: false }), false);
+    assert.equal(refreshNoticeVisible({ chrome: "phone", pull: 8, refreshing: false }), true);
+  });
+
+  it("shows on phone while a refresh is in flight", () => {
+    assert.equal(refreshNoticeVisible({ chrome: "phone", pull: 0, refreshing: true }), true);
   });
 });

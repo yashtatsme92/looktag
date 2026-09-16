@@ -164,8 +164,8 @@ function RootDocument() {
         </AuthProvider>
         <Toaster
           position="top-center"
-          offset={16}
-          mobileOffset={24}
+          offset="var(--toast-offset)"
+          mobileOffset="var(--toast-offset)"
           toastOptions={{
             classNames: {
               toast: "bg-card text-card-foreground border-border font-sans shadow-[var(--shadow-border-hover)]",

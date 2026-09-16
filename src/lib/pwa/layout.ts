@@ -11,6 +11,9 @@ export const WIDE_LAYOUT_QUERY = `(min-width: ${WIDE_LAYOUT_MIN_PX}px)`;
 export type ChromeLayout = "phone" | "tablet" | "desktop";
 export type LayoutSurface = "web" | "native";
 
+/** Pull distance at which the refresh pill may paint. Below this it stays out of the DOM. */
+export const REFRESH_NOTICE_PULL_PX = 8;
+
 export function chromeFromWidth(width: number, nativeApp = false): ChromeLayout {
   if (nativeApp) return "phone";
   if (width < WIDE_LAYOUT_MIN_PX) return "phone";
@@ -30,4 +33,17 @@ export function syncDocumentChrome(width: number, nativeApp = false) {
   root.classList.toggle("layout-web", wide);
   root.setAttribute("data-chrome", chrome);
   return chrome;
+}
+
+/**
+ * Pull-to-refresh copy is phone-feed only. Idle / tablet / desktop / splash
+ * must not paint "Release for latest" over chrome.
+ */
+export function refreshNoticeVisible(input: {
+  chrome: ChromeLayout;
+  pull: number;
+  refreshing: boolean;
+}): boolean {
+  if (input.chrome !== "phone") return false;
+  return input.refreshing || input.pull >= REFRESH_NOTICE_PULL_PX;
 }
