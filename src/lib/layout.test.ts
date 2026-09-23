@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { isHousesPath, isLooksPath, isYouPath, navItemActive } from "../components/layout/app-nav.ts";
-import { chromeFromWidth, isWideChrome, refreshNoticeVisible } from "./pwa/layout.ts";
+import { chromeFromWidth, isWideChrome, refreshNoticeVisible, webRefreshControlVisible } from "./pwa/layout.ts";
 import { surfaceFromUserAgent } from "./share-meta.ts";
 
 describe("app nav paths", () => {
@@ -71,5 +71,11 @@ describe("refresh notice", () => {
 
   it("shows on phone while a refresh is in flight", () => {
     assert.equal(refreshNoticeVisible({ chrome: "phone", pull: 0, refreshing: true }), true);
+  });
+
+  it("uses a control on tablet and desktop, never a pull", () => {
+    assert.equal(webRefreshControlVisible("phone"), false);
+    assert.equal(webRefreshControlVisible("tablet"), true);
+    assert.equal(webRefreshControlVisible("desktop"), true);
   });
 });

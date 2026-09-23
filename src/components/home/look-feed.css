@@ -20,6 +20,58 @@
   padding: 0.65rem 0 2.35rem;
 }
 
+/* Website refresh — a control, not a pull. Hidden on phone chrome. */
+.look-feed-latest {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  html:not(.native-app) .look-feed-latest {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.4rem;
+    height: 2.75rem;
+    min-height: var(--target-min, 44px);
+    margin-right: 0.65rem;
+    padding: 0 0.9rem;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--color-card) 92%, transparent);
+    color: var(--color-foreground);
+    box-shadow: var(--shadow-border);
+    font-family: var(--font-sans);
+    font-size: var(--text-caption);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    backdrop-filter: blur(12px);
+  }
+
+  html:not(.native-app) .look-feed-latest:hover {
+    background: var(--color-card);
+  }
+
+  html:not(.native-app) .look-feed-latest:disabled {
+    opacity: 0.7;
+  }
+}
+
+.look-feed-latest-spin {
+  animation: look-feed-latest-spin 0.7s linear infinite;
+}
+
+@keyframes look-feed-latest-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .look-feed-latest-spin {
+    animation: none;
+  }
+}
+
 /* Phone Creators avatar rail — board-01 */
 .look-creators-rail {
   display: flex;

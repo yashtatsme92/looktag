@@ -1625,6 +1625,7 @@ html[data-chrome="phone"] [data-pin-nudge],
   html:not(.native-app) body {
     height: auto;
     overflow: auto;
+    overscroll-behavior-y: none;
     background: var(--color-background);
   }
 

@@ -47,3 +47,10 @@ export function refreshNoticeVisible(input: {
   if (input.chrome !== "phone") return false;
   return input.refreshing || input.pull >= REFRESH_NOTICE_PULL_PX;
 }
+
+/**
+ * Website layouts refresh from a control, not a pull. Phone keeps the gesture.
+ */
+export function webRefreshControlVisible(chrome: ChromeLayout) {
+  return chrome !== "phone";
+}

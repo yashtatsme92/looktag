@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import {
   DESKTOP_LAYOUT_MIN_PX,
   WIDE_LAYOUT_QUERY,
@@ -46,7 +46,7 @@ export function chromeLayout(): ChromeLayout {
 export function useWideLayout() {
   const [wide, setWide] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const sync = () => {
       const chrome = syncDocumentChrome(window.innerWidth, nativeAppFlag());
       setWide(isWideChrome(chrome));
@@ -61,7 +61,7 @@ export function useWideLayout() {
 export function useChromeLayout() {
   const [chrome, setChrome] = useState<ChromeLayout>("phone");
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const sync = () => setChrome(syncDocumentChrome(window.innerWidth, nativeAppFlag()));
     sync();
     return subscribeChrome(sync);

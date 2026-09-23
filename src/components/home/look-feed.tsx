@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Bookmark } from "lucide-react";
+import { Bookmark, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { BROWSE_COACH_KEY } from "@/components/home/style-guide";
 import { MoodFilter, type FeedFilter } from "@/components/home/mood-filter";
@@ -66,6 +66,18 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   const [burstId, setBurstId] = useState<string | null>(null);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const refreshingRef = useRef(false);
+  const refreshFeed = useCallback(() => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    void refreshLooks()
+      .then(() => toast.success("Latest looks"))
+      .finally(() => {
+        refreshingRef.current = false;
+        setRefreshing(false);
+      });
+  }, [refreshLooks]);
   useLayoutEffect(() => {
     hydrateSaved();
   }, [hydrateSaved]);
@@ -158,7 +170,8 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
   }, [filtered]);
   useEffect(() => {
     const root = scrollerRef.current;
-    if (!root || wide) return;
+    const webLayout = document.documentElement.classList.contains("layout-web");
+    if (!root || wide || webLayout) return;
     const scroller = root;
     function onStart(event: TouchEvent) {
       if (scroller.scrollTop > 4 || refreshing) return;
@@ -185,12 +198,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
       pullRef.current.pulling = false;
       pullRef.current.distance = 0;
       setPull(0);
-      if (distance > 52) {
-        setRefreshing(true);
-        void refreshLooks()
-          .then(() => toast.success("Latest looks"))
-          .finally(() => setRefreshing(false));
-      }
+      if (distance > 52) refreshFeed();
     }
     scroller.addEventListener("touchstart", onStart, { passive: true });
     scroller.addEventListener("touchmove", onMove, { passive: false });
@@ -202,7 +210,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
       scroller.removeEventListener("touchend", onEnd);
       scroller.removeEventListener("touchcancel", onEnd);
     };
-  }, [wide, refreshing, refreshLooks]);
+  }, [wide, refreshing, refreshLooks, refreshFeed]);
   const active = filtered[Math.min(activeIndex, Math.max(filtered.length - 1, 0))] ?? null;
   const selectedId = active
     ? (selectedByLook[active.id] ?? active.tags[0]?.id ?? null)
@@ -300,7 +308,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
         </div>
       ) : null}
       <div className="look-feed-top">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <MoodFilter
               value={filter}
@@ -311,6 +319,17 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
               showCreators={showCreators}
             />
           </div>
+          <button
+            type="button"
+            className="look-feed-latest"
+            onClick={refreshFeed}
+            disabled={refreshing}
+            aria-busy={refreshing}
+            aria-label={refreshing ? "Updating looks" : "Refresh looks"}
+          >
+            <RefreshCw className={cn("size-4", refreshing && "look-feed-latest-spin")} aria-hidden />
+            {refreshing ? "Updating" : "Latest"}
+          </button>
           {coach ? (
             <Button
               type="button"
