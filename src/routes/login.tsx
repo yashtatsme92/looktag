@@ -175,7 +175,7 @@ function Login() {
         {sessionState === "pending"
           ? "Checking your session…"
           : sessionState === "guest"
-          ? "You're browsing as a guest. Sign in to publish looks, edit your profile, or open admin tools."
+          ? "You're browsing as a guest. Sign in to publish looks or edit your profile."
           : "Looks you keep live here. An account is only for publishing."}
       </p>
 
