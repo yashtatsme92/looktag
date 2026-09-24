@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { APP_NAV, isYouPath, navItemActive } from "@/components/layout/app-nav";
 import { Button } from "@/components/ui/button";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { resolveYouSessionState, youSessionSignedIn } from "@/lib/auth/you-session";
 import { requestInstallSheet } from "@/lib/pwa/display";
 import { useStandaloneDisplay } from "@/lib/pwa/use-display";
 import { cn } from "@/lib/utils";
@@ -14,9 +15,11 @@ type WebHeaderProps = {
 
 export function WebHeader({ trailing }: WebHeaderProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { user } = useCurrentUserState();
+  const { user, isPending } = useCurrentUserState();
   const standalone = useStandaloneDisplay();
   const youActive = isYouPath(pathname);
+  const sessionState = resolveYouSessionState({ user, isPending });
+  const signedIn = youSessionSignedIn(sessionState);
 
   return (
     <header className="web-header">
@@ -37,7 +40,7 @@ export function WebHeader({ trailing }: WebHeaderProps) {
             </Link>
           );
         })}
-        {user ? (
+        {signedIn && user ? (
           <Link
             to="/creators/$userId"
             params={{ userId: user.id }}
