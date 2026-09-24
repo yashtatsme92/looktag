@@ -1,6 +1,5 @@
 import type { Attributes } from "../observability/model";
 import { recordMetric, startSpan } from "../observability/runtime.ts";
-import type { FunnelUserState } from "./funnel-model";
 import {
   lookCreatedAttributes,
   outboundShopClickAttributes,
