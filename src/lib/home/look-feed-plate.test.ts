@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { Look } from "../../lib/looks/types.ts";
-import type { FashionLabel } from "../../lib/labels/model.ts";
-import { plateAttribution, plateCaptionLine, plateMetaLine } from "./look-feed-creators.ts";
+import type { FashionLabel } from "../labels/model.ts";
+import type { Look } from "../looks/types.ts";
+import { plateAttribution, plateCaptionLine, plateMetaLine } from "./look-feed-plate.ts";
 
 function makeLook(partial?: Partial<Look>): Look {
   return {
