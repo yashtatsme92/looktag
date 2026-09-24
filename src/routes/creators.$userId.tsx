@@ -282,7 +282,7 @@ function CreatorPage() {
             <button
               type="button"
               disabled={sessionAction !== null}
-              className="flex min-h-14 w-full items-center gap-3 border-t border-border px-4 text-left text-sm font-medium first:border-t-0 disabled:opacity-60"
+              className="flex min-h-14 w-full items-center gap-3 border-t border-border px-4 text-left text-sm font-medium transition-[box-shadow,border-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 first:border-t-0 disabled:opacity-60"
               onClick={() => {
                 setSessionAction("switch");
                 void signOut("/login").catch(() => setSessionAction(null));
@@ -295,7 +295,7 @@ function CreatorPage() {
             <button
               type="button"
               disabled={sessionAction !== null}
-              className="flex min-h-14 w-full items-center gap-3 border-t border-border px-4 text-left text-sm font-medium text-destructive first:border-t-0 disabled:opacity-60"
+              className="flex min-h-14 w-full items-center gap-3 border-t border-border px-4 text-left text-sm font-medium text-destructive transition-[box-shadow,border-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 first:border-t-0 disabled:opacity-60"
               onClick={() => {
                 setSessionAction("signout");
                 void signOut().catch(() => setSessionAction(null));
