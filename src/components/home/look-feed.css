@@ -52,6 +52,7 @@
     width: 1.75rem;
     height: 1px;
     margin: 0.65rem 0 0.45rem;
+    background: rgb(255 255 255 / 0.72);
     background: color-mix(in oklab, var(--color-card) 72%, transparent);
   }
 
@@ -64,6 +65,7 @@
   .look-slide-save {
     right: 0.75rem;
     bottom: calc(5rem + env(safe-area-inset-bottom));
+    border: 1px solid rgb(255 255 255 / 0.68);
     border: 1px solid color-mix(in oklab, var(--color-card) 68%, transparent);
     background: transparent;
     color: var(--color-card);
