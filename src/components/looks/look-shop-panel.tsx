@@ -38,21 +38,22 @@ function shopLookCheapest(tags: ProductTag[], context?: { lookId?: string; userS
     return;
   }
   const chrome = chromeLayout();
-  for (const row of unique) {
-    recordOutboundShopClick({
-      chrome,
-      lookId: context?.lookId,
-      retailerId: row.retailerId,
-      source: "shop_look",
-      tagId: row.tagId,
-      urlHost: hostFromUrl(row.url),
-      userState: context?.userState,
-    });
-  }
   let opened = 0;
-  for (const url of targets) {
-    const win = window.open(url, "_blank", "noopener,noreferrer");
-    if (win) opened += 1;
+  for (const row of unique) {
+    const win = window.open(row.url, "_blank", "noopener,noreferrer");
+    if (win) {
+      opened += 1;
+      recordOutboundShopClick({
+        chrome,
+        lookId: context?.lookId,
+        offerCount: targets.length,
+        retailerId: row.retailerId,
+        source: "shop_look",
+        tagId: row.tagId,
+        urlHost: hostFromUrl(row.url),
+        userState: context?.userState,
+      });
+    }
   }
   if (opened === 0) {
     toast.message("Allow pop-ups to open each cheapest page");

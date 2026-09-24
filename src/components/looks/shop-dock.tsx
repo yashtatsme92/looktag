@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/drawer";
 import { formatMoney, lookCurrency, lookTotal } from "@/lib/looks/format";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
-import { shopTarget } from "@/lib/looks/offers";
+import { shopTarget, tagOffers } from "@/lib/looks/offers";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
@@ -65,6 +65,7 @@ export function ShopDock({
   const selectedIndex = selected ? tags.findIndex((tag) => tag.id === selected.id) : 0;
   const target = selected ? shopTarget(selected) : null;
   const pieceName = selected?.name.trim() || "Shop the look";
+  const offerCount = selected ? tagOffers(selected).filter((offer) => offer.url).length : 0;
   const shopableCount = tags.filter((tag) => shopTarget(tag)?.url).length;
   const lookSheet = sheet === "look";
 
@@ -117,7 +118,7 @@ export function ShopDock({
                cheapest: Boolean(target.cheapest),
                chrome: chromeLayout(),
                lookId,
-               offerCount: 1,
+               offerCount,
                retailerId: target.retailerId,
                source: "piece_shop",
                tagId: selected?.id,
@@ -185,7 +186,7 @@ export function ShopDock({
                           cheapest: Boolean(target.cheapest),
                           chrome: chromeLayout(),
                           lookId,
-                          offerCount: 1,
+                          offerCount,
                           retailerId: target.retailerId,
                           source: "piece_shop",
                           tagId: selected?.id,
