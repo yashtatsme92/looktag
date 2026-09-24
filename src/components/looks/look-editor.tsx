@@ -12,6 +12,7 @@ import { searchPin, suggestPieces, type SuggestedPiece } from "@/lib/ai/suggest"
 import { isUnauthorized } from "@/lib/looks/api";
 import { getMyHouse, listMyCollections } from "@/lib/labels/api";
 import type { FashionCollection } from "@/lib/labels/model";
+import { getCreateUploadPresentation } from "@/lib/looks/create-upload";
 import { useCatalogStore } from "@/lib/looks/catalog";
 import { imageSrcToDataUrl, readLookImage } from "@/lib/looks/image";
 import { MOODS } from "@/lib/looks/moods";
@@ -60,6 +61,8 @@ export function LookEditor({
   const [collections, setCollections] = useState<FashionCollection[]>([]);
   const [captionOpen, setCaptionOpen] = useState(Boolean(look.caption.trim()));
   const [fieldFocus, setFieldFocus] = useState(false);
+  const [readingPhoto, setReadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const chrome = useChromeLayout();
   const phone = chrome === "phone";
   const searchPayload = useCatalogStore((s) => s.searchPayload);
@@ -131,11 +134,15 @@ export function LookEditor({
   }
 
   async function handleFile(file: File) {
+    setPhotoError(null);
+    setReadingPhoto(true);
     try {
       const imageSrc = await readLookImage(file);
       patch({ imageSrc });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not read that photo.");
+      setPhotoError(error instanceof Error ? error.message : "Could not read that photo.");
+    } finally {
+      setReadingPhoto(false);
     }
   }
 
@@ -528,7 +535,10 @@ export function LookEditor({
         </div>
       ) : (
         <PhotoStep
+          phone={phone}
           dragOver={dragOver}
+          reading={readingPhoto}
+          error={photoError}
           onDragOver={setDragOver}
           onFiles={handleFiles}
           onCamera={() => cameraRef.current?.click()}
@@ -640,20 +650,30 @@ function PinNudge({
 }
 
 function PhotoStep({
+  phone,
   dragOver,
+  reading,
+  error,
   onDragOver,
   onFiles,
   onCamera,
   onLibrary,
   guestHint,
 }: {
+  phone: boolean;
   dragOver: boolean;
+  reading: boolean;
+  error: string | null;
   onDragOver: (over: boolean) => void;
   onFiles: (files: FileList | null) => void | Promise<void>;
   onCamera: () => void;
   onLibrary: () => void;
   guestHint?: boolean;
 }) {
+  const copy = getCreateUploadPresentation({ phone, reading });
+  const primaryAction = copy.primaryAction === "camera" ? onCamera : onLibrary;
+  const secondaryAction = copy.primaryAction === "camera" ? onLibrary : onCamera;
+
   return (
     <div className="look-studio-body">
       <div
@@ -662,14 +682,16 @@ function PhotoStep({
           dragOver && "bg-accent shadow-[var(--shadow-border-hover)]",
         )}
         onDragOver={(event) => {
+          if (reading) return;
           if (!event.dataTransfer.types.includes("Files")) return;
           event.preventDefault();
           onDragOver(true);
         }}
         onDragLeave={() => onDragOver(false)}
         onDrop={(event) => {
-          if (!event.dataTransfer.files.length) return;
           event.preventDefault();
+          if (reading) return;
+          if (!event.dataTransfer.files.length) return;
           onDragOver(false);
           void onFiles(event.dataTransfer.files);
         }}
@@ -677,23 +699,28 @@ function PhotoStep({
         <span className="flex size-14 items-center justify-center rounded-full bg-card text-foreground shadow-[var(--shadow-border)]">
           <ImagePlus className="size-5" />
         </span>
-        <p className="ds-display mt-5 text-display">Add a look photo</p>
+        <p className="ds-display mt-5 text-display">{copy.title}</p>
         <p className="mt-2 max-w-56 text-sm text-muted-foreground">
-          Full-body shot, then pin each piece from the photo.
+          {copy.body}
         </p>
+        {error ? (
+          <p className="mt-3 max-w-64 text-sm text-destructive" role="alert">
+            {error} Choose another photo and try again.
+          </p>
+        ) : null}
         {guestHint ? (
           <p className="mt-3 text-sm text-muted-foreground">Sign in to search shops or to publish.</p>
         ) : null}
       </div>
 
       <div className="look-studio-dock">
-        <Button type="button" onClick={onCamera}>
-          <Camera className="size-4" />
-          Take photo
+        <Button type="button" onClick={primaryAction} disabled={reading}>
+          {copy.primaryAction === "camera" ? <Camera className="size-4" /> : <ImagePlus className="size-4" />}
+          {copy.primaryLabel}
         </Button>
-        <Button type="button" variant="outline" onClick={onLibrary}>
-          <ImagePlus className="size-4" />
-          Choose from library
+        <Button type="button" variant="outline" onClick={secondaryAction} disabled={reading}>
+          {copy.primaryAction === "camera" ? <ImagePlus className="size-4" /> : <Camera className="size-4" />}
+          {copy.secondaryLabel}
         </Button>
       </div>
     </div>
