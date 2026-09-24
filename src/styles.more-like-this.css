@@ -1,0 +1,159 @@
+/* Phase 1 slice D — More like this (board-02 loops). Tokens only. */
+
+.look-mlt-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.look-mlt-btn {
+  display: inline-flex;
+  min-height: var(--target-min, 44px);
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-foreground);
+  padding: 0 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition:
+    background-color var(--motion-quick) var(--ease-out),
+    border-color var(--motion-quick) var(--ease-out),
+    color var(--motion-quick) var(--ease-out),
+    transform var(--motion-quick) var(--ease-out);
+}
+
+.look-mlt-btn:hover {
+  border-color: color-mix(in oklab, var(--color-foreground) 40%, var(--color-border));
+}
+
+.look-mlt-btn[data-phase="press"],
+.look-mlt-btn[data-phase="finding"] {
+  border-color: var(--color-foreground);
+  background: var(--color-foreground);
+  color: var(--color-card);
+  transform: scale(0.98);
+}
+
+.look-mlt-btn[data-phase="finding"] {
+  transform: scale(1);
+}
+
+.look-mlt-btn:disabled {
+  cursor: progress;
+}
+
+.look-mlt-caption {
+  margin: 0 0 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--color-muted-foreground);
+  letter-spacing: 0.01em;
+}
+
+.look-mlt-mood-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.35rem 0.75rem 0.15rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.look-mlt-mood-strip-label {
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+.look-mlt-mood-chip {
+  display: inline-flex;
+  min-height: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--color-card) 40%, transparent);
+  background: color-mix(in oklab, var(--color-card) 88%, transparent);
+  color: var(--color-foreground);
+  padding: 0 0.85rem;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  backdrop-filter: blur(10px);
+  transition:
+    background-color var(--motion-quick) var(--ease-out),
+    border-color var(--motion-quick) var(--ease-out);
+}
+
+.look-mlt-mood-chip:hover,
+.look-mlt-mood-chip[aria-pressed="true"] {
+  border-color: var(--color-foreground);
+  background: var(--color-foreground);
+  color: var(--color-card);
+}
+
+/* Feed reweight — soft opacity / lift on next slots (motion-slow). */
+.look-feed[data-mlt-reweight="true"] .look-slide {
+  animation: look-mlt-reweight var(--motion-slow) var(--ease-smooth-out) both;
+}
+
+.look-feed[data-mlt-reweight="true"] .look-slide:nth-child(1) {
+  animation-delay: 0ms;
+}
+.look-feed[data-mlt-reweight="true"] .look-slide:nth-child(2) {
+  animation-delay: 40ms;
+}
+.look-feed[data-mlt-reweight="true"] .look-slide:nth-child(3) {
+  animation-delay: 80ms;
+}
+.look-feed[data-mlt-reweight="true"] .look-slide:nth-child(4) {
+  animation-delay: 120ms;
+}
+.look-feed[data-mlt-reweight="true"] .look-slide:nth-child(n + 5) {
+  animation-delay: 160ms;
+}
+
+@keyframes look-mlt-reweight {
+  from {
+    opacity: 0.35;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .look-mlt-btn {
+    transition: background-color var(--motion-quick) linear, color var(--motion-quick) linear,
+      border-color var(--motion-quick) linear;
+  }
+
+  .look-mlt-btn[data-phase="press"],
+  .look-mlt-btn[data-phase="finding"] {
+    transform: none;
+  }
+
+  .look-feed[data-mlt-reweight="true"] .look-slide {
+    animation: look-mlt-reweight-snap var(--motion-quick) linear both;
+  }
+
+  @keyframes look-mlt-reweight-snap {
+    from {
+      opacity: 0.4;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

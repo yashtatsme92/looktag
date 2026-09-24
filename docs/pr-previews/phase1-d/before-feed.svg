@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="720" viewBox="0 0 390 720">
+  <rect width="390" height="720" fill="#F4F4F4"/>
+  <text x="16" y="32" font-family="system-ui" font-size="11" fill="#6B6B6B">BEFORE · feed · no MLT reweight / mood strip</text>
+  <rect x="12" y="48" width="72" height="32" rx="16" fill="#111"/>
+  <text x="48" y="68" text-anchor="middle" font-family="system-ui" font-size="11" fill="#fff">For you</text>
+  <rect x="92" y="48" width="70" height="32" rx="16" fill="#fff" stroke="#E0E0E0"/>
+  <text x="127" y="68" text-anchor="middle" font-family="system-ui" font-size="11" fill="#111">Tailored</text>
+  <rect x="170" y="48" width="64" height="32" rx="16" fill="#fff" stroke="#E0E0E0"/>
+  <text x="202" y="68" text-anchor="middle" font-family="system-ui" font-size="11" fill="#111">Evening</text>
+  <rect x="16" y="100" width="358" height="480" rx="24" fill="#5a534c"/>
+  <text x="32" y="540" font-family="Georgia,serif" font-size="26" font-style="italic" fill="#fff">Coastal linen</text>
+  <text x="32" y="564" font-family="system-ui" font-size="12" fill="rgba(255,255,255,0.75)">default order · no reweight</text>
+  <text x="195" y="620" text-anchor="middle" font-family="system-ui" font-size="12" fill="#6B6B6B">No mood strip under chips</text>
+</svg>

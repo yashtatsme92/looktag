@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <rect width="720" height="520" fill="#F4F4F4"/>
+  <text x="24" y="36" font-family="Georgia,serif" font-size="22" font-style="italic" fill="#111">Sunday Coat</text>
+  <text x="24" y="58" font-family="system-ui,sans-serif" font-size="11" fill="#6B6B6B">AFTER · look detail · More like this (slice D)</text>
+  <rect x="24" y="80" width="280" height="380" rx="24" fill="#4a423c"/>
+  <circle cx="130" cy="180" r="16" fill="#111" stroke="#fff" stroke-width="3"/>
+  <text x="130" y="185" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="#fff">1</text>
+  <text x="330" y="110" font-family="Georgia,serif" font-size="28" font-style="italic" fill="#111">Sunday Coat</text>
+  <text x="330" y="138" font-family="system-ui" font-size="12" fill="#6B6B6B">LOOKTAG</text>
+  <rect x="330" y="156" width="168" height="44" rx="12" fill="#111"/>
+  <text x="414" y="183" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#fff">✦ More like this</text>
+  <text x="330" y="222" font-family="system-ui" font-size="12" fill="#6B6B6B">Finding more like this</text>
+  <rect x="330" y="248" width="340" height="64" rx="16" fill="#fff"/>
+  <circle cx="362" cy="280" r="14" fill="#111"/>
+  <text x="362" y="284" text-anchor="middle" font-family="system-ui" font-size="11" font-weight="700" fill="#fff">1</text>
+  <text x="386" y="276" font-family="system-ui" font-size="13" font-weight="600" fill="#111">White shirt</text>
+  <rect x="580" y="262" width="72" height="36" rx="12" fill="#111"/>
+  <text x="616" y="285" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="600" fill="#fff">Shop</text>
+  <text x="330" y="350" font-family="system-ui" font-size="12" fill="#6B6B6B">Press 150ms → fill → caption → home reweight</text>
+  <text x="330" y="372" font-family="system-ui" font-size="12" fill="#6B6B6B">No modal · guest Shop untouched · #34 dock OK</text>
+</svg>
