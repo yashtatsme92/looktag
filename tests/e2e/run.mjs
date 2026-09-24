@@ -114,6 +114,7 @@ const GUEST_TO_SHOP_FLOW = `async function guestToShopFlow(browser) {
       'a[href*="zalando."], a[href*="zara.com"], a[href*="cos.com"], a[href*="hm.com"], a[href*="uniqlo.com"]',
     );
     await listing.first().waitFor({ timeout: 24_000 }).catch(() => {});
+    const clickedHref = (await listing.first().getAttribute("href")) || "";
     const hrefs = (await listing.evaluateAll((as) => as.map((a) => a.getAttribute("href")).filter(Boolean))).filter(
       (href) => productUrl(href),
     );
@@ -126,7 +127,7 @@ const GUEST_TO_SHOP_FLOW = `async function guestToShopFlow(browser) {
     const editorPopupWait = page.context().waitForEvent("page", { timeout: 8_000 }).catch(() => null);
     await listing.first().click({ force: true }).catch(() => {});
     const editorPopup = await editorPopupWait;
-    const editorHref = hrefs[0] || (await listing.first().getAttribute("href")) || "";
+    const editorHref = clickedHref || (await listing.first().getAttribute("href")) || "";
     if (editorPopup) {
       await editorPopup.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
     }

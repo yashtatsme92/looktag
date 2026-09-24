@@ -31,7 +31,7 @@ export function recordPinAdded(
   context: Parameters<typeof pinAddedAttributes>[0],
 ) {
   const count = Math.max(1, context.count ?? 1);
-  emitFunnel("looktag.funnel.pin_added", pinAddedAttributes(context), count);
+  emitFunnel("looktag.funnel.pin_added", pinAddedAttributes({ ...context, count }), count);
 }
 
 export function recordLookCreated(
