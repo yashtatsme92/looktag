@@ -1386,6 +1386,8 @@ html:not(.boot-done) .look-feed-refresh {
   display: flex;
   width: 2.75rem;
   height: 2.75rem;
+  min-width: var(--target-min, 44px);
+  min-height: var(--target-min, 44px);
   align-items: center;
   justify-content: center;
   border-radius: 999px;
