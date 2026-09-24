@@ -17,4 +17,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
-      - run: node --experimental-strip-types --test src/lib/**/*.test.ts
+      - run: node --experimental-strip-types --test src/lib/**/*.test.ts src/components/home/look-feed-creators.test.ts

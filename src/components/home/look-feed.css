@@ -24,9 +24,9 @@
     padding: 4.5rem 1rem 0.5rem;
     background: linear-gradient(
       to top,
-      rgb(28 24 20 / 0.55) 0%,
-      rgb(28 24 20 / 0.22) 48%,
-      rgb(28 24 20 / 0.08) 68%,
+      color-mix(in oklab, var(--color-foreground) 55%, transparent) 0%,
+      color-mix(in oklab, var(--color-foreground) 22%, transparent) 48%,
+      color-mix(in oklab, var(--color-foreground) 8%, transparent) 68%,
       transparent 100%
     );
   }
@@ -52,7 +52,6 @@
     width: 1.75rem;
     height: 1px;
     margin: 0.65rem 0 0.45rem;
-    background: rgb(255 255 255 / 0.72);
     background: color-mix(in oklab, var(--color-card) 72%, transparent);
   }
 
@@ -65,7 +64,6 @@
   .look-slide-save {
     right: 0.75rem;
     bottom: calc(5rem + env(safe-area-inset-bottom));
-    border: 1px solid rgb(255 255 255 / 0.68);
     border: 1px solid color-mix(in oklab, var(--color-card) 68%, transparent);
     background: transparent;
     color: var(--color-card);

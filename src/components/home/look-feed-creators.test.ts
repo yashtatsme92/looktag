@@ -74,6 +74,7 @@ describe("plate home-card copy", () => {
 
   it("falls back to creator and omits caption when no tags are present", () => {
     const look = makeLook({ userId: "creator-2", creator: "Creator Name", tags: [] });
+    assert.equal(plateCaptionLine(look), "");
     assert.equal(plateMetaLine(look, []), "Creator Name");
   });
 });

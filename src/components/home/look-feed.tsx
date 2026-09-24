@@ -477,10 +477,10 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
                   >
                     {look.title || "Untitled look"}
                   </Link>
-                  {!wide ? (
+                  {!wide && caption ? (
                     <>
                       <span className="look-slide-meta-rule" aria-hidden />
-                      <p className="look-slide-meta-caption text-card/80">{caption || "—"}</p>
+                      <p className="look-slide-meta-caption text-card/80">{caption}</p>
                     </>
                   ) : null}
                   {wide ? <p className="look-slide-meta-caption mt-2 text-card/80">{meta}</p> : null}
