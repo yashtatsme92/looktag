@@ -135,9 +135,13 @@ async function main() {
 
     await withPage(browser, async (page) => {
       await page.goto(`${origin}/create`, { waitUntil: "domcontentloaded", timeout: 20_000 });
-      await page.getByText(/Add a look photo|Take photo|Photo/i).first().waitFor({ timeout: 8_000 });
+      await page.getByText(/Add a look photo|Choose a look photo|Take photo|Choose photo|Photo/i).first().waitFor({
+        timeout: 8_000,
+      });
       const text = await page.locator("body").innerText();
-      const ok = /Add a look photo/i.test(text) && /Take photo|Choose from library/i.test(text);
+      const ok =
+        /Add a look photo|Choose a look photo/i.test(text) &&
+        /Take photo|Choose from library|Choose photo/i.test(text);
       record("create_guest_studio", ok, snippet(text));
     });
 
@@ -344,16 +348,23 @@ async function main() {
 
       await page.goto(`${origin}/create`, { waitUntil: "domcontentloaded", timeout: 20_000 });
       try {
-        await page.getByRole("button", { name: /Take photo|Publish look/i }).waitFor({ timeout: 10_000 });
+        await page.getByRole("button", { name: /Take photo|Choose photo|Publish look/i }).waitFor({
+          timeout: 10_000,
+        });
       } catch {
-        await page.getByText(/Add a look photo|Take photo|Look title|Sign in to publish/i).first().waitFor({
-          timeout: 8_000,
-        }).catch(() => {});
+        await page
+          .getByText(/Add a look photo|Choose a look photo|Take photo|Choose photo|Look title|Sign in to publish/i)
+          .first()
+          .waitFor({
+            timeout: 8_000,
+          })
+          .catch(() => {});
       }
       const createText = await page.locator("body").innerText();
       record(
         "create_after_auth",
-        !/Sign in to publish/i.test(createText) && /Add a look photo|Take photo|Publish look/i.test(createText),
+        !/Sign in to publish/i.test(createText) &&
+          /Add a look photo|Choose a look photo|Take photo|Choose photo|Publish look/i.test(createText),
         /Sign in to publish/i.test(createText) ? "create still gated" : snippet(createText),
       );
 
