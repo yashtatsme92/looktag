@@ -61,11 +61,12 @@ export function ShopDock({
 
   const total = lookTotal(tags);
   const currency = lookCurrency(tags);
-  const selected = tags.find((tag) => tag.id === selectedId) ?? tags[0] ?? null;
-  const selectedIndex = selected ? tags.findIndex((tag) => tag.id === selected.id) : 0;
-  const target = selected ? shopTarget(selected) : null;
-  const pieceName = selected?.name.trim() || "Shop the look";
-  const offerCount = selected ? tagOffers(selected).filter((offer) => offer.url).length : 0;
+  const selected = tags.find((tag) => tag.id === selectedId) ?? null;
+  const resolved = selected ?? tags[0] ?? null;
+  const selectedIndex = resolved ? tags.findIndex((tag) => tag.id === resolved.id) : 0;
+  const target = resolved ? shopTarget(resolved) : null;
+  const pieceName = resolved?.name.trim() || "Shop the look";
+  const offerCount = resolved ? tagOffers(resolved).filter((offer) => offer.url).length : 0;
   const shopableCount = tags.filter((tag) => shopTarget(tag)?.url).length;
   const lookSheet = sheet === "look";
 
@@ -121,7 +122,7 @@ export function ShopDock({
                offerCount,
                retailerId: target.retailerId,
                source: "piece_shop",
-               tagId: selected?.id,
+               tagId: resolved?.id,
                urlHost: hostFromUrl(target.url),
                userState,
              })
@@ -189,7 +190,7 @@ export function ShopDock({
                           offerCount,
                           retailerId: target.retailerId,
                           source: "piece_shop",
-                          tagId: selected?.id,
+                          tagId: resolved?.id,
                           urlHost: hostFromUrl(target.url),
                           userState,
                         })

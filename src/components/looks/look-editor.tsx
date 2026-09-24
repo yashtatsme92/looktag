@@ -250,13 +250,15 @@ export function LookEditor({
           result.offers.map(toOffer),
         ),
       );
-      recordPinSearchResolved(recordShopResultShown, {
-        chrome,
-        lookId: lookRef.current.id,
-        offers: result.offers,
-        tagId: tag.id,
-        userId: lookRef.current.userId,
-      });
+      if (result.offers.length > 0) {
+        recordPinSearchResolved(recordShopResultShown, {
+          chrome,
+          lookId: lookRef.current.id,
+          offers: result.offers,
+          tagId: tag.id,
+          userId: lookRef.current.userId,
+        });
+      }
       toast.success(
         result.offers.length === 1
           ? "Found 1 live listing"
@@ -285,12 +287,14 @@ export function LookEditor({
     const first = tags[0];
     if (first) setSelectedId(first.id);
     patch({ tags: [...current.tags, ...tags] });
-    recordSuggestedPinsAdded(recordPinAdded, {
-      chrome,
-      count: tags.length,
-      lookId: current.id,
-      userId: current.userId,
-    });
+    if (tags.length > 0) {
+      recordSuggestedPinsAdded(recordPinAdded, {
+        chrome,
+        count: tags.length,
+        lookId: current.id,
+        userId: current.userId,
+      });
+    }
     toast.success(tags.length === 1 ? "Pinned 1 piece" : `Pinned ${tags.length} pieces`);
   }
 
