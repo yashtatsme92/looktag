@@ -1,8 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutGrid, Plus, UserRound } from "lucide-react";
 import { APP_NAV, isYouPath, navItemActive } from "@/components/layout/app-nav";
+import { resolveYouSessionState, youSessionSignedIn } from "@/lib/admin/access";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { resolveYouSessionState, youSessionSignedIn } from "@/lib/auth/you-session";
 import { cn } from "@/lib/utils";
 
 const icons = {
