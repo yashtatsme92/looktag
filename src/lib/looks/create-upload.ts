@@ -41,3 +41,9 @@ export function getCreateUploadPresentation({
     secondaryLabel: "Take photo",
   };
 }
+
+export function formatCreateUploadError(error: string | null): string | null {
+  if (!error) return null;
+  if (/try|choose .*photo/i.test(error)) return error;
+  return `${error} Choose another photo and try again.`;
+}

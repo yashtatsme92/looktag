@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { getCreateUploadPresentation } from "./create-upload.ts";
+import { formatCreateUploadError, getCreateUploadPresentation } from "./create-upload.ts";
 
 describe("getCreateUploadPresentation", () => {
   it("keeps the phone flow camera-first", () => {
@@ -25,5 +25,22 @@ describe("getCreateUploadPresentation", () => {
     const copy = getCreateUploadPresentation({ phone: false, reading: true });
     assert.equal(copy.title, "Reading your photo…");
     assert.match(copy.body, /Preview is on the way/i);
+    assert.equal(copy.primaryAction, "library");
+    assert.equal(copy.primaryLabel, "Reading…");
+    assert.equal(copy.secondaryLabel, "Take photo");
+  });
+});
+
+describe("formatCreateUploadError", () => {
+  it("keeps self-contained recovery guidance intact", () => {
+    assert.equal(formatCreateUploadError("Choose a photo (JPG, PNG, or WebP)."), "Choose a photo (JPG, PNG, or WebP).");
+    assert.equal(formatCreateUploadError("That file is too large. Try one under 12 MB."), "That file is too large. Try one under 12 MB.");
+  });
+
+  it("adds a recoverable next step to generic failures", () => {
+    assert.equal(
+      formatCreateUploadError("Could not read that photo."),
+      "Could not read that photo. Choose another photo and try again.",
+    );
   });
 });

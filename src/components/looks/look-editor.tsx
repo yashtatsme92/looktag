@@ -12,7 +12,7 @@ import { searchPin, suggestPieces, type SuggestedPiece } from "@/lib/ai/suggest"
 import { isUnauthorized } from "@/lib/looks/api";
 import { getMyHouse, listMyCollections } from "@/lib/labels/api";
 import type { FashionCollection } from "@/lib/labels/model";
-import { getCreateUploadPresentation } from "@/lib/looks/create-upload";
+import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
 import { useCatalogStore } from "@/lib/looks/catalog";
 import { imageSrcToDataUrl, readLookImage } from "@/lib/looks/image";
 import { MOODS } from "@/lib/looks/moods";
@@ -47,6 +47,8 @@ export function LookEditor({
   const libraryRef = useRef<HTMLInputElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
   const focusTimer = useRef(0);
+  const pendingUploadsRef = useRef(0);
+  const uploadTokenRef = useRef(0);
   const lookRef = useRef(look);
   lookRef.current = look;
 
@@ -134,15 +136,23 @@ export function LookEditor({
   }
 
   async function handleFile(file: File) {
+    const token = uploadTokenRef.current + 1;
+    uploadTokenRef.current = token;
+    pendingUploadsRef.current += 1;
     setPhotoError(null);
     setReadingPhoto(true);
     try {
       const imageSrc = await readLookImage(file);
+      if (uploadTokenRef.current !== token) return;
       patch({ imageSrc });
     } catch (error) {
-      setPhotoError(error instanceof Error ? error.message : "Could not read that photo.");
+      if (uploadTokenRef.current !== token) return;
+      const message = error instanceof Error ? error.message : "Could not read that photo.";
+      setPhotoError(message);
+      toast.error(message);
     } finally {
-      setReadingPhoto(false);
+      pendingUploadsRef.current = Math.max(0, pendingUploadsRef.current - 1);
+      setReadingPhoto(pendingUploadsRef.current > 0);
     }
   }
 
@@ -671,6 +681,7 @@ function PhotoStep({
   guestHint?: boolean;
 }) {
   const copy = getCreateUploadPresentation({ phone, reading });
+  const errorMessage = formatCreateUploadError(error);
   const primaryAction = copy.primaryAction === "camera" ? onCamera : onLibrary;
   const secondaryAction = copy.primaryAction === "camera" ? onLibrary : onCamera;
 
@@ -690,9 +701,9 @@ function PhotoStep({
         onDragLeave={() => onDragOver(false)}
         onDrop={(event) => {
           event.preventDefault();
+          onDragOver(false);
           if (reading) return;
           if (!event.dataTransfer.files.length) return;
-          onDragOver(false);
           void onFiles(event.dataTransfer.files);
         }}
       >
@@ -703,9 +714,9 @@ function PhotoStep({
         <p className="mt-2 max-w-56 text-sm text-muted-foreground">
           {copy.body}
         </p>
-        {error ? (
+        {errorMessage ? (
           <p className="mt-3 max-w-64 text-sm text-destructive" role="alert">
-            {error} Choose another photo and try again.
+            {errorMessage}
           </p>
         ) : null}
         {guestHint ? (
