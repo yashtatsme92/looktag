@@ -465,24 +465,24 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
                   onImageTap={() => handleLookTap(look)}
                 />
                 <div className="look-slide-meta">
-                  {wide ? (
-                    <Link
-                      to="/looks/$lookId"
-                      params={{ lookId: look.id }}
-                      className="pointer-events-auto ds-screen-title look-slide-title text-card"
-                    >
-                      {look.title || "Untitled look"}
-                    </Link>
-                  ) : (
+                  {!wide ? (
                     <>
                       <p className="ds-kicker look-slide-kicker text-card/85">{kicker}</p>
-                      <p className="ds-screen-title look-slide-title text-card">
-                        {look.title || "Untitled look"}
-                      </p>
+                    </>
+                  ) : null}
+                  <Link
+                    to="/looks/$lookId"
+                    params={{ lookId: look.id }}
+                    className="pointer-events-auto ds-screen-title look-slide-title text-card"
+                  >
+                    {look.title || "Untitled look"}
+                  </Link>
+                  {!wide ? (
+                    <>
                       <span className="look-slide-meta-rule" aria-hidden />
                       <p className="look-slide-meta-caption text-card/80">{caption || "—"}</p>
                     </>
-                  )}
+                  ) : null}
                   {wide ? <p className="look-slide-meta-caption mt-2 text-card/80">{meta}</p> : null}
                 </div>
                 <button
