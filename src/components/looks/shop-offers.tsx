@@ -2,15 +2,19 @@ import { useState } from "react";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatMoney } from "@/lib/looks/format";
+import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { cheapestOffer, shopTarget, sortedOffers, tagOffers, wornLink } from "@/lib/looks/offers";
+import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
 
 type ShopOffersProps = {
   tag: ProductTag;
+  lookId?: string;
   /** `shop` = primary Shop CTA + optional Compare. `compare` = retailer list only (dock owns Shop). */
   mode?: "shop" | "compare";
+  userState?: FunnelUserState;
 };
 
 export function priceLabel(tag: ProductTag): { text: string; from: boolean } {
@@ -23,7 +27,7 @@ export function priceLabel(tag: ProductTag): { text: string; from: boolean } {
   };
 }
 
-export function ShopOffers({ tag, mode = "shop" }: ShopOffersProps) {
+export function ShopOffers({ tag, lookId, mode = "shop", userState }: ShopOffersProps) {
   const offers = sortedOffers(tag).filter((offer) => offer.url);
   const cheap = cheapestOffer(tag);
   const target = shopTarget(tag);
@@ -43,6 +47,19 @@ export function ShopOffers({ tag, mode = "shop" }: ShopOffersProps) {
           target="_blank"
           rel="noreferrer"
           className="flex h-11 items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          onClick={() =>
+            recordOutboundShopClick({
+              cheapest: Boolean(target.cheapest),
+              chrome: chromeLayout(),
+              lookId,
+              offerCount: offers.length,
+              retailerId: target.retailerId,
+              source: "piece_shop",
+              tagId: tag.id,
+              urlHost: hostFromUrl(target.url),
+              userState,
+            })
+          }
         >
           Shop {retailerLabel({ retailerId: target.retailerId, url: target.url })}
           {target.cheapest ? <span className="font-normal opacity-80"> · cheapest</span> : null}
@@ -78,6 +95,19 @@ export function ShopOffers({ tag, mode = "shop" }: ShopOffersProps) {
                         "flex h-11 items-center gap-3 rounded-md border px-3 text-sm transition-colors hover:bg-muted/60",
                         cheapest ? "border-foreground/80" : "border-border",
                       )}
+                      onClick={() =>
+                        recordOutboundShopClick({
+                          cheapest,
+                          chrome: chromeLayout(),
+                          lookId,
+                          offerCount: offers.length,
+                          retailerId: offer.retailerId,
+                          source: "compare_offer",
+                          tagId: tag.id,
+                          urlHost: hostFromUrl(offer.url),
+                          userState,
+                        })
+                      }
                     >
                       <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{retailerLabel(offer)}</span>
                       {cheapest ? (

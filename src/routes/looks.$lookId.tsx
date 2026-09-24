@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { funnelUserState } from "@/lib/looks/funnel";
 import { isWideWebLayout } from "@/lib/pwa/use-wide-layout";
 import { getLookById, isUnauthorized } from "@/lib/looks/api";
 import { useSavedLooks } from "@/lib/looks/saved";
@@ -219,9 +220,11 @@ function LookPage() {
             tags={look.tags}
             selectedId={activeId}
             onSelect={selectPiece}
+            lookId={look.id}
             lookSrc={look.imageSrc}
             sheetOpen={shopSheetOpen}
             onSheetOpenChange={setShopSheetOpen}
+            userState={funnelUserState(Boolean(user))}
           />
         </div>
       </article>

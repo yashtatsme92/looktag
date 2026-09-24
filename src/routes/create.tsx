@@ -5,6 +5,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { LookEditor } from "@/components/looks/look-editor";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { isUnauthorized } from "@/lib/looks/api";
+import { chromeLayout } from "@/lib/pwa/use-wide-layout";
+import { funnelUserState, recordLookCreated } from "@/lib/looks/funnel";
 import { useLooksStore } from "@/lib/looks/store";
 import { emptyLook, type Look } from "@/lib/looks/types";
 
@@ -119,6 +121,13 @@ function CreateLook() {
           }
           try {
             const saved = await addLook({ ...look, userId: user.id, updatedAt: Date.now() });
+            recordLookCreated({
+              chrome: chromeLayout(),
+              lookId: saved.id,
+              offerCount: saved.tags.reduce((sum, tag) => sum + (tag.offers?.length ?? 0), 0),
+              pinCount: saved.tags.length,
+              userState: funnelUserState(user.id),
+            });
             clearDraft();
             toast.success("Look published");
             await navigate({ to: "/looks/$lookId", params: { lookId: saved.id } });

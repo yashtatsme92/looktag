@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { searchPin, suggestPieces, type SuggestedPiece } from "@/lib/ai/suggest";
 import { isUnauthorized } from "@/lib/looks/api";
+import { funnelUserState, recordPinAdded, recordShopResultShown } from "@/lib/looks/funnel";
 import { getMyHouse, listMyCollections } from "@/lib/labels/api";
 import type { FashionCollection } from "@/lib/labels/model";
 import { useCatalogStore } from "@/lib/looks/catalog";
@@ -149,6 +150,13 @@ export function LookEditor({
     const tag = emptyTag(x, y);
     setSelectedId(tag.id);
     patch({ tags: [...lookRef.current.tags, tag] });
+    recordPinAdded({
+      chrome,
+      count: 1,
+      lookId: lookRef.current.id,
+      source: "tap",
+      userState: funnelUserState(lookRef.current.userId),
+    });
   }
 
   function moveTag(id: string, x: number, y: number) {
@@ -239,6 +247,15 @@ export function LookEditor({
           result.offers.map(toOffer),
         ),
       );
+      recordShopResultShown({
+        chrome,
+        lookId: lookRef.current.id,
+        offerCount: result.offers.length,
+        retailerCount: new Set(result.offers.map((offer) => offer.retailerId).filter(Boolean)).size,
+        source: "pin_search",
+        tagId: tag.id,
+        userState: funnelUserState(lookRef.current.userId),
+      });
       toast.success(
         result.offers.length === 1
           ? "Found 1 live listing"
@@ -267,6 +284,13 @@ export function LookEditor({
     const first = tags[0];
     if (first) setSelectedId(first.id);
     patch({ tags: [...current.tags, ...tags] });
+    recordPinAdded({
+      chrome,
+      count: tags.length,
+      lookId: current.id,
+      source: "suggest",
+      userState: funnelUserState(current.userId),
+    });
     toast.success(tags.length === 1 ? "Pinned 1 piece" : `Pinned ${tags.length} pieces`);
   }
 
@@ -478,6 +502,7 @@ export function LookEditor({
                     onRemove={() => removeTag(selectedTag.id)}
                     onSearch={() => void handleSearchPin(selectedTag)}
                     searching={searchingId === selectedTag.id}
+                    userState={funnelUserState(look.userId)}
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground">Tap a pin to name it.</p>

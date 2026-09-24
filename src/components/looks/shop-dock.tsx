@@ -10,7 +10,9 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { formatMoney, lookCurrency, lookTotal } from "@/lib/looks/format";
+import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { shopTarget } from "@/lib/looks/offers";
+import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
 import "../../styles.look-dock.css";
@@ -24,6 +26,7 @@ type ShopDockProps = {
   /** Controlled sheet open (look detail pin → sheet). */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  lookId?: string;
   /**
    * Sheet body:
    * - `pieces` — feed / legacy drawer (piece list only)
@@ -32,6 +35,7 @@ type ShopDockProps = {
   sheet?: "pieces" | "look";
   /** Look-level cheapest opener from LookShopPanel. */
   onShopLook?: () => void;
+  userState?: FunnelUserState;
 };
 
 export function ShopDock({
@@ -40,10 +44,12 @@ export function ShopDock({
   onSelect,
   floating = false,
   lookSrc,
+  lookId,
   open: openProp,
   onOpenChange,
   sheet = "pieces",
   onShopLook,
+  userState,
 }: ShopDockProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const controlled = typeof openProp === "boolean";
@@ -102,7 +108,24 @@ export function ShopDock({
           </button>
           {target?.url ? (
             <Button asChild size="sm" className="min-h-11 shrink-0 px-4">
-              <a href={target.url} target="_blank" rel="noreferrer">
+              <a
+                href={target.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() =>
+             recordOutboundShopClick({
+               cheapest: Boolean(target.cheapest),
+               chrome: chromeLayout(),
+               lookId,
+               offerCount: 1,
+               retailerId: target.retailerId,
+               source: "piece_shop",
+               tagId: selected?.id,
+               urlHost: hostFromUrl(target.url),
+               userState,
+             })
+                }
+              >
                 Shop
                 <ExternalLink className="size-3.5" />
               </a>
@@ -153,7 +176,24 @@ export function ShopDock({
                 </span>
                 {target?.url ? (
                   <Button asChild size="sm" className="min-h-11 shrink-0 px-4">
-                    <a href={target.url} target="_blank" rel="noreferrer">
+                    <a
+                      href={target.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() =>
+                        recordOutboundShopClick({
+                          cheapest: Boolean(target.cheapest),
+                          chrome: chromeLayout(),
+                          lookId,
+                          offerCount: 1,
+                          retailerId: target.retailerId,
+                          source: "piece_shop",
+                          tagId: selected?.id,
+                          urlHost: hostFromUrl(target.url),
+                          userState,
+                        })
+                      }
+                    >
                       Shop
                       <ExternalLink className="size-3.5" />
                     </a>
@@ -202,8 +242,10 @@ export function ShopDock({
                   // Keep sheet open when switching pieces (board-02).
                 }}
                 shoppable
+                lookId={lookId}
                 primaryInDock
                 lookSrc={lookSrc}
+                userState={userState}
               />
             </div>
           ) : (
@@ -216,8 +258,10 @@ export function ShopDock({
                   setOpen(false);
                 }}
                 shoppable
+                lookId={lookId}
                 primaryInDock
                 lookSrc={lookSrc}
+                userState={userState}
               />
             </div>
           )}
