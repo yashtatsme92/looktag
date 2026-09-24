@@ -22,6 +22,8 @@ import { refreshNoticeVisible } from "@/lib/pwa/layout";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 import {
+  plateAttribution,
+  plateCaptionLine,
   plateMetaLine,
   creatorsFromLooks,
 } from "@/components/home/look-feed-creators";
@@ -437,6 +439,8 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
               ? hoveredId === look.id || Boolean(revealed[look.id])
               : Boolean(revealed[look.id]);
             const meta = plateMetaLine(look, labels);
+            const kicker = plateAttribution(look, labels);
+            const caption = plateCaptionLine(look);
             return (
               <article
                 key={look.id}
@@ -470,9 +474,16 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
                       {look.title || "Untitled look"}
                     </Link>
                   ) : (
-                    <p className="ds-screen-title look-slide-title text-card">{look.title || "Untitled look"}</p>
+                    <>
+                      <p className="ds-kicker look-slide-kicker text-card/85">{kicker}</p>
+                      <p className="ds-screen-title look-slide-title text-card">
+                        {look.title || "Untitled look"}
+                      </p>
+                      <span className="look-slide-meta-rule" aria-hidden />
+                      <p className="look-slide-meta-caption text-card/80">{caption || "—"}</p>
+                    </>
                   )}
-                  <p className="look-slide-meta-caption mt-2 text-card/80">{meta}</p>
+                  {wide ? <p className="look-slide-meta-caption mt-2 text-card/80">{meta}</p> : null}
                 </div>
                 <button
                   type="button"

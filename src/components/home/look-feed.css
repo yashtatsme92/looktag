@@ -16,6 +16,62 @@
   text-wrap: balance;
 }
 
+@media (max-width: 767px) {
+  .look-slide-meta {
+    right: 4.25rem;
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+    left: 0;
+    padding: 4.5rem 1rem 0.5rem;
+    background: linear-gradient(
+      to top,
+      rgb(28 24 20 / 0.55) 0%,
+      rgb(28 24 20 / 0.22) 48%,
+      rgb(28 24 20 / 0.08) 68%,
+      transparent 100%
+    );
+  }
+
+  .look-slide-kicker {
+    margin-bottom: 0.4rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+  }
+
+  .look-slide-title {
+    font-size: clamp(1.75rem, 8vw, 2rem);
+    line-height: 1.05;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    text-wrap: unset;
+  }
+
+  .look-slide-meta-rule {
+    display: block;
+    width: 1.75rem;
+    height: 1px;
+    margin: 0.65rem 0 0.45rem;
+    background: color-mix(in oklab, var(--color-card) 72%, transparent);
+  }
+
+  .look-slide-meta-caption {
+    font-size: 0.75rem;
+    line-height: 1.35;
+    letter-spacing: 0.07em;
+  }
+
+  .look-slide-save {
+    right: 0.75rem;
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+    border: 1px solid color-mix(in oklab, var(--color-card) 68%, transparent);
+    background: transparent;
+    color: var(--color-card);
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+}
+
 .look-feed-top {
   padding: 0.65rem 0 2.35rem;
 }

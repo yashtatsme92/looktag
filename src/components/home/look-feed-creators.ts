@@ -1,20 +1,27 @@
-import type { Look } from "@/lib/looks/types";
-import type { FashionLabel } from "@/lib/labels/model";
-import { looksBelongToHouse } from "@/lib/labels/model";
-import { lookPriceBand } from "@/lib/looks/format";
+import type { Look } from "../../lib/looks/types.ts";
+import type { FashionLabel } from "../../lib/labels/model.ts";
+import { looksBelongToHouse } from "../../lib/labels/model.ts";
+import { lookPriceBand } from "../../lib/looks/format.ts";
 
 export function plateAttribution(look: Look, labels: FashionLabel[]): string {
   const house = labels.find((label) => looksBelongToHouse(look, label));
   return house?.name || look.creator || "Looktag";
 }
 
-export function plateMetaLine(look: Look, labels: FashionLabel[]): string {
-  const parts: string[] = [plateAttribution(look, labels)];
+export function plateCaptionLine(look: Look): string {
+  const parts: string[] = [];
   if (look.tags.length) {
     parts.push(`${look.tags.length} ${look.tags.length === 1 ? "piece" : "pieces"}`);
   }
   const band = lookPriceBand(look.tags);
   if (band) parts.push(band);
+  return parts.join(" · ");
+}
+
+export function plateMetaLine(look: Look, labels: FashionLabel[]): string {
+  const parts: string[] = [plateAttribution(look, labels)];
+  const caption = plateCaptionLine(look);
+  if (caption) parts.push(caption);
   return parts.join(" · ");
 }
 
