@@ -164,9 +164,17 @@ function Login() {
 
   return (
     <AppShell title="You" largeTitle>
-      <ScreenTitle kicker={sessionState === "guest" ? "Guest" : "Saved"}>You</ScreenTitle>
+      <ScreenTitle
+        kicker={
+          sessionState === "guest" ? "Guest" : sessionState === "pending" ? "Session" : "Saved"
+        }
+      >
+        You
+      </ScreenTitle>
       <p className="mb-6 text-sm text-muted-foreground">
-        {sessionState === "guest"
+        {sessionState === "pending"
+          ? "Checking your session…"
+          : sessionState === "guest"
           ? "You're browsing as a guest. Sign in to publish looks, edit your profile, or open admin tools."
           : "Looks you keep live here. An account is only for publishing."}
       </p>
