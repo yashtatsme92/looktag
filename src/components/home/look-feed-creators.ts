@@ -1,22 +1,5 @@
 import type { Look } from "@/lib/looks/types";
-import type { FashionLabel } from "@/lib/labels/model";
-import { looksBelongToHouse } from "@/lib/labels/model";
-import { lookPriceBand } from "@/lib/looks/format";
-
-export function plateAttribution(look: Look, labels: FashionLabel[]): string {
-  const house = labels.find((label) => looksBelongToHouse(look, label));
-  return house?.name || look.creator || "Looktag";
-}
-
-export function plateMetaLine(look: Look, labels: FashionLabel[]): string {
-  const parts: string[] = [plateAttribution(look, labels)];
-  if (look.tags.length) {
-    parts.push(`${look.tags.length} ${look.tags.length === 1 ? "piece" : "pieces"}`);
-  }
-  const band = lookPriceBand(look.tags);
-  if (band) parts.push(band);
-  return parts.join(" · ");
-}
+export { plateAttribution, plateCaptionLine, plateMetaLine } from "@/lib/home/look-feed-plate";
 
 export type FeedCreator = {
   userId: string;
