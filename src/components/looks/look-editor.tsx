@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FocusEvent } from "react";
 import { Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
-import { Chip, Field } from "@/components/ds";
+import { Chip, Field, Stepper } from "@/components/ds";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { SuggestDialog } from "@/components/looks/suggest-dialog";
 import { TagForm } from "@/components/looks/tag-form";
@@ -19,6 +19,13 @@ import {
 import { getMyHouse, listMyCollections } from "@/lib/labels/api";
 import type { FashionCollection } from "@/lib/labels/model";
 import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
+import {
+  completedPhoneSteps,
+  initialPhoneStep,
+  PHONE_CREATE_STEPS,
+  phoneStepBlock,
+  type PhoneCreateStepId,
+} from "@/lib/looks/create-steps";
 import { useCatalogStore } from "@/lib/looks/catalog";
 import { imageSrcToDataUrl, readLookImage } from "@/lib/looks/image";
 import { MOODS } from "@/lib/looks/moods";
@@ -71,6 +78,13 @@ export function LookEditor({
   const [fieldFocus, setFieldFocus] = useState(false);
   const [readingPhoto, setReadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [phoneStep, setPhoneStep] = useState<PhoneCreateStepId>(() =>
+    initialPhoneStep({
+      imageSrc: look.imageSrc,
+      title: look.title,
+      tagCount: look.tags.length,
+    }),
+  );
   const chrome = useChromeLayout();
   const phone = chrome === "phone";
   const searchPayload = useCatalogStore((s) => s.searchPayload);
@@ -151,6 +165,7 @@ export function LookEditor({
       const imageSrc = await readLookImage(file);
       if (uploadTokenRef.current !== token) return;
       patch({ imageSrc });
+      if (phone && phoneStep === "photo") setPhoneStep("name");
     } catch (error) {
       if (uploadTokenRef.current !== token) return;
       const message = error instanceof Error ? error.message : "Could not read that photo.";
@@ -177,6 +192,7 @@ export function LookEditor({
       lookId: lookRef.current.id,
       userId: lookRef.current.userId,
     });
+    if (phone) setPhoneStep("piece");
   }
 
   function moveTag(id: string, x: number, y: number) {
@@ -203,6 +219,7 @@ export function LookEditor({
     const tags = lookRef.current.tags.filter((tag) => tag.id !== id);
     setSelectedId(tags[0]?.id ?? null);
     patch({ tags });
+    if (phone && tags.length === 0) setPhoneStep("pins");
   }
 
   async function handleFindPieces() {
@@ -313,6 +330,7 @@ export function LookEditor({
       });
     }
     toast.success(tags.length === 1 ? "Pinned 1 piece" : `Pinned ${tags.length} pieces`);
+    if (phone && tags.length > 0) setPhoneStep("piece");
   }
 
   async function handleSave() {
@@ -347,16 +365,394 @@ export function LookEditor({
   }
 
   const studio = Boolean(look.imageSrc);
+  const progress = { imageSrc: look.imageSrc, title: look.title, tagCount: look.tags.length };
+  const shownStep: PhoneCreateStepId = look.imageSrc ? phoneStep : "photo";
+
+  function goPhoneStep(step: PhoneCreateStepId) {
+    const block = phoneStepBlock(step, progress);
+    if (block) {
+      toast.message(block);
+      return;
+    }
+    if (step === "piece") {
+      const nextId = selectedId && look.tags.some((tag) => tag.id === selectedId) ? selectedId : look.tags[0]?.id;
+      if (nextId) setSelectedId(nextId);
+    }
+    setPhoneStep(step);
+  }
+
+  function continueFromName() {
+    if (!look.title.trim()) {
+      toast.error("Give the look a name.");
+      return;
+    }
+    setPhoneStep(look.tags.length > 0 ? "piece" : "pins");
+  }
+
+  function onTrayFocus(event: FocusEvent) {
+    const el = event.target as HTMLElement;
+    if (!el.matches("input, textarea")) return;
+    window.clearTimeout(focusTimer.current);
+    setFieldFocus(true);
+  }
+
+  function onTrayBlur() {
+    window.clearTimeout(focusTimer.current);
+    focusTimer.current = window.setTimeout(() => {
+      const active = document.activeElement;
+      if (
+        trayRef.current?.contains(active) &&
+        active instanceof HTMLElement &&
+        active.matches("input, textarea")
+      ) {
+        return;
+      }
+      setFieldFocus(false);
+    }, 120);
+  }
+
+  const pieceIndex = selectedTag ? look.tags.findIndex((tag) => tag.id === selectedTag.id) : -1;
 
   return (
     <div
       className="look-studio"
-      data-step={studio ? "pins" : "photo"}
+      data-step={phone ? shownStep : studio ? "pins" : "photo"}
       data-chrome={chrome}
       data-keyboard={fieldFocus ? "open" : "closed"}
       data-hydrated={hydrated ? "true" : "false"}
     >
-      {studio ? (
+      {phone ? (
+        shownStep === "photo" ? (
+          <>
+            <Stepper
+              steps={PHONE_CREATE_STEPS}
+              current="photo"
+              onSelect={(id) => goPhoneStep(id as PhoneCreateStepId)}
+            />
+            <PhotoStep
+              phone={phone}
+              dragOver={dragOver}
+              reading={readingPhoto}
+              error={photoError}
+              onDragOver={setDragOver}
+              onFiles={handleFiles}
+              onCamera={() => cameraRef.current?.click()}
+              onLibrary={() => libraryRef.current?.click()}
+              guestHint={mode === "create" && showCreatorField !== false}
+            />
+          </>
+        ) : (
+          <div className="look-studio-body mt-1">
+            <Stepper
+              steps={PHONE_CREATE_STEPS}
+              current={shownStep === "piece" ? "pins" : shownStep}
+              completed={completedPhoneSteps(progress)}
+              onSelect={(id) => goPhoneStep(id as PhoneCreateStepId)}
+            />
+            {shownStep === "pins" || shownStep === "piece" ? (
+              <div className="look-studio-frame">
+                <LookCanvas
+                  imageSrc={look.imageSrc}
+                  title={look.title}
+                  tags={look.tags}
+                  selectedId={selectedId}
+                  editable
+                  fit="fill"
+                  className="look-studio-canvas"
+                  onSelect={(id) => {
+                    setSelectedId(id);
+                    setPhoneStep("piece");
+                  }}
+                  onAddTag={addTag}
+                  onMoveTag={moveTag}
+                  onPickImage={() => libraryRef.current?.click()}
+                />
+                <p className="look-studio-hint">
+                  {look.tags.length === 0 ? "Tap a piece on the photo to pin it" : "Drag a pin to place it"}
+                </p>
+                <button type="button" className="look-studio-replace" onClick={() => libraryRef.current?.click()}>
+                  Replace
+                </button>
+              </div>
+            ) : null}
+            <div ref={trayRef} className="look-studio-tray" onFocusCapture={onTrayFocus} onBlurCapture={onTrayBlur}>
+              {shownStep === "name" ? (
+                <>
+                  <Field label="Look name" htmlFor="looktag-outfit-label" hint="A short name shoppers will see.">
+                    <Input
+                      id="looktag-outfit-label"
+                      name="looktag-outfit-label"
+                      value={look.title}
+                      placeholder="Saturday coat"
+                      autoComplete="off"
+                      autoCapitalize="sentences"
+                      enterKeyHint="next"
+                      onChange={(event) => patch({ title: event.target.value })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          continueFromName();
+                        }
+                      }}
+                    />
+                  </Field>
+                  <div className="flex flex-col gap-2">
+                    <p className="ds-kicker">Mood</p>
+                    <div className="chip-scroll -mx-1 overflow-x-auto px-1">
+                      <div className="flex w-max gap-2">
+                        {MOODS.map((mood) => {
+                          const on = look.moods?.includes(mood.id) ?? false;
+                          return (
+                            <Chip
+                              key={mood.id}
+                              selected={on}
+                              onClick={() => {
+                                const current = look.moods ?? [];
+                                patch({
+                                  moods: on ? current.filter((id) => id !== mood.id) : [...current, mood.id],
+                                });
+                              }}
+                            >
+                              {mood.label}
+                            </Chip>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  {collections.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      <p className="ds-kicker">Collection</p>
+                      <div className="chip-scroll -mx-1 overflow-x-auto px-1">
+                        <div className="flex w-max gap-2">
+                          <Chip selected={!look.collectionId} onClick={() => patch({ collectionId: undefined })}>
+                            No collection
+                          </Chip>
+                          {collections.map((collection) => (
+                            <Chip
+                              key={collection.id}
+                              selected={look.collectionId === collection.id}
+                              onClick={() => patch({ collectionId: collection.id })}
+                            >
+                              {collection.name}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                  <Field label="Caption" htmlFor="looktag-outfit-note" hint="Optional. One line is enough.">
+                    <Textarea
+                      id="looktag-outfit-note"
+                      name="looktag-outfit-note"
+                      value={look.caption}
+                      placeholder="Camel coat, Saturday market."
+                      rows={3}
+                      autoComplete="off"
+                      onChange={(event) => patch({ caption: event.target.value })}
+                    />
+                  </Field>
+                </>
+              ) : null}
+              {shownStep === "pins" ? (
+                look.tags.length === 0 ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm text-muted-foreground">Tap each piece, or find them from the photo.</p>
+                    <Button type="button" variant="outline" onClick={() => void handleFindPieces()} disabled={findingPieces}>
+                      {findingPieces ? "Reading photo…" : "Find all pieces"}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm text-muted-foreground">Choose a pin to name it and find shops.</p>
+                    <div className="chip-scroll overflow-x-auto">
+                      <div className="flex w-max gap-2">
+                        {look.tags.map((tag, index) => (
+                          <Chip
+                            key={tag.id}
+                            selected={tag.id === selectedId}
+                            onClick={() => {
+                              setSelectedId(tag.id);
+                              setPhoneStep("piece");
+                            }}
+                          >
+                            <span className="tabular-nums opacity-60">{index + 1}</span>
+                            {tag.name.trim() || `Piece ${index + 1}`}
+                          </Chip>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              ) : null}
+              {shownStep === "piece" && selectedTag ? (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Piece {pieceIndex + 1} of {look.tags.length}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => removeTag(selectedTag.id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  <div className="chip-scroll overflow-x-auto">
+                    <div className="flex w-max gap-2">
+                      {look.tags.map((tag, index) => (
+                        <Chip key={tag.id} selected={tag.id === selectedId} onClick={() => setSelectedId(tag.id)}>
+                          <span className="tabular-nums opacity-60">{index + 1}</span>
+                          {tag.name.trim() || `Piece ${index + 1}`}
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
+                  <TagForm
+                    tag={selectedTag}
+                    index={pieceIndex}
+                    guided
+                    lookSrc={look.imageSrc}
+                    onChange={updateTag}
+                    onRemove={() => removeTag(selectedTag.id)}
+                    onSearch={() => void handleSearchPin(selectedTag)}
+                    searching={searchingId === selectedTag.id}
+                    userState={funnelUserState(look.userId)}
+                  />
+                  <Button type="button" variant="ghost" onClick={() => void handleFindPieces()} disabled={findingPieces}>
+                    {findingPieces ? "Reading…" : "Find more pieces"}
+                  </Button>
+                </>
+              ) : null}
+              {shownStep === "publish" ? (
+                <>
+                  <Field label="Look name" htmlFor="looktag-outfit-label" hint="A short name shoppers will see.">
+                    <Input
+                      id="looktag-outfit-label"
+                      name="looktag-outfit-label"
+                      value={look.title}
+                      placeholder="Saturday coat"
+                      autoComplete="off"
+                      autoCapitalize="sentences"
+                      onChange={(event) => patch({ title: event.target.value })}
+                    />
+                  </Field>
+                  <ul className="flex flex-col gap-1 text-sm">
+                    {look.tags.length === 0 ? (
+                      <li className="text-muted-foreground">No pins yet. You can still publish the photo.</li>
+                    ) : (
+                      look.tags.map((tag, index) => (
+                        <li key={tag.id}>
+                          <button type="button" className="h-11 text-left" onClick={() => {
+                            setSelectedId(tag.id);
+                            setPhoneStep("piece");
+                          }}>
+                            {index + 1}. {tag.name.trim() || `Piece ${index + 1}`}
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · {tag.offers?.length ? `${tag.offers.length} shops` : "no shops yet"}
+                            </span>
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                  <Field label="Caption" htmlFor="looktag-outfit-note" hint="Optional. One line is enough.">
+                    <Textarea
+                      id="looktag-outfit-note"
+                      name="looktag-outfit-note"
+                      value={look.caption}
+                      placeholder="Camel coat, Saturday market."
+                      rows={3}
+                      autoComplete="off"
+                      onChange={(event) => patch({ caption: event.target.value })}
+                    />
+                  </Field>
+                </>
+              ) : null}
+            </div>
+            <div className="look-studio-dock">
+              {shownStep === "name" ? (
+                <>
+                  {onReset ? (
+                    <button
+                      type="button"
+                      className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
+                      onClick={onReset}
+                    >
+                      Start over
+                    </button>
+                  ) : null}
+                  <Button type="button" className="look-studio-save" onClick={continueFromName}>
+                    Continue
+                  </Button>
+                </>
+              ) : null}
+              {shownStep === "pins" ? (
+                <>
+                  <button
+                    type="button"
+                    className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
+                    onClick={() => goPhoneStep("name")}
+                  >
+                    Name
+                  </button>
+                  <Button
+                    type="button"
+                    className="look-studio-save"
+                    onClick={() => (look.tags.length > 0 ? goPhoneStep("piece") : goPhoneStep("publish"))}
+                  >
+                    {look.tags.length > 0 ? "Name this piece" : "Review"}
+                  </Button>
+                </>
+              ) : null}
+              {shownStep === "piece" ? (
+                <>
+                  <button
+                    type="button"
+                    className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
+                    onClick={() => setPhoneStep("pins")}
+                  >
+                    All pins
+                  </button>
+                  {look.tags.length > 1 ? (
+                    <button
+                      type="button"
+                      className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
+                      onClick={() => {
+                        const next = look.tags[(pieceIndex + 1) % look.tags.length];
+                        if (next) setSelectedId(next.id);
+                      }}
+                    >
+                      Next piece
+                    </button>
+                  ) : null}
+                  <Button type="button" className="look-studio-save" onClick={() => void handleSave()} disabled={saving}>
+                    {saving ? "Saving…" : saveLabel}
+                  </Button>
+                </>
+              ) : null}
+              {shownStep === "publish" ? (
+                <>
+                  <button
+                    type="button"
+                    className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
+                    onClick={() => setPhoneStep(look.tags.length > 0 ? "piece" : "pins")}
+                  >
+                    Back
+                  </button>
+                  <Button type="button" className="look-studio-save" onClick={() => void handleSave()} disabled={saving}>
+                    {saving ? "Saving…" : saveLabel}
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          </div>
+        )
+      ) : studio ? (
         <div className="look-studio-body mt-1">
           <div className="look-studio-frame">
             <LookCanvas
@@ -394,9 +790,6 @@ export function LookEditor({
               if (!el.matches("input, textarea")) return;
               window.clearTimeout(focusTimer.current);
               setFieldFocus(true);
-              window.setTimeout(() => {
-                el.scrollIntoView({ block: "center", behavior: "smooth" });
-              }, 80);
             }}
             onBlurCapture={() => {
               window.clearTimeout(focusTimer.current);

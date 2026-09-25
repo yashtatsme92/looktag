@@ -32,6 +32,7 @@ export function ViewportLock() {
       const phone = standalone || nativeApp || width < 768;
       if (!phone) {
         root.style.removeProperty("--app-height");
+        root.style.removeProperty("--vv-offset");
         root.style.removeProperty("--keyboard-inset");
         return;
       }
@@ -39,6 +40,7 @@ export function ViewportLock() {
       const visualHeight = vv?.height ?? window.innerHeight;
       const offsetTop = vv?.offsetTop ?? 0;
       root.style.setProperty("--app-height", `${Math.round(visualHeight)}px`);
+      root.style.setProperty("--vv-offset", `${Math.max(0, Math.round(offsetTop))}px`);
       root.style.setProperty(
         "--keyboard-inset",
         `${keyboardInset(window.innerHeight, visualHeight, offsetTop)}px`,

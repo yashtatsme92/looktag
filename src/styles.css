@@ -519,8 +519,9 @@ html[data-theme="moss"] {
 
   .ds-stepper {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.25rem;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.35rem;
   }
 
   .ds-step {
@@ -572,7 +573,10 @@ html[data-theme="moss"] {
     flex-direction: column;
   }
 
-  .look-studio[data-step="pins"] {
+  .look-studio[data-step="pins"],
+  .look-studio[data-step="name"],
+  .look-studio[data-step="piece"],
+  .look-studio[data-step="publish"] {
     height: 100%;
     min-height: 0;
     overflow: hidden;
@@ -586,7 +590,10 @@ html[data-theme="moss"] {
     gap: 0.75rem;
   }
 
-  .look-studio[data-step="pins"] .look-studio-body {
+  .look-studio[data-step="pins"] .look-studio-body,
+  .look-studio[data-step="name"] .look-studio-body,
+  .look-studio[data-step="piece"] .look-studio-body,
+  .look-studio[data-step="publish"] .look-studio-body {
     height: 100%;
     overflow: hidden;
     gap: 0.5rem;
@@ -594,12 +601,25 @@ html[data-theme="moss"] {
 
   .look-studio-scroll,
   .look-studio-tray {
-    min-height: 9rem;
+    min-height: 0;
     flex: 0 1 auto;
     max-height: 38%;
     overflow-x: hidden;
     overflow-y: auto;
     padding-bottom: 0.15rem;
+  }
+
+  .look-studio[data-step="name"] .look-studio-tray,
+  .look-studio[data-step="publish"] .look-studio-tray,
+  .look-studio[data-step="piece"] .look-studio-tray {
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .look-studio[data-step="piece"] .look-studio-frame {
+    flex: 0 0 11.5rem;
+    min-height: 11.5rem;
   }
 
   .look-studio-dock {
@@ -615,7 +635,10 @@ html[data-theme="moss"] {
     padding: 0.55rem 1rem 0.15rem;
   }
 
-  .look-studio[data-step="pins"] .look-studio-dock {
+  .look-studio[data-step="pins"] .look-studio-dock,
+  .look-studio[data-step="name"] .look-studio-dock,
+  .look-studio[data-step="piece"] .look-studio-dock,
+  .look-studio[data-step="publish"] .look-studio-dock {
     flex-direction: row;
     align-items: center;
     gap: 0.75rem;
@@ -668,11 +691,18 @@ html[data-theme="moss"] {
     display: none;
   }
 
+  .look-studio[data-keyboard="open"][data-step="piece"] .look-studio-frame {
+    flex: 0 0 4.5rem;
+    min-height: 4.5rem;
+    height: 4.5rem;
+    opacity: 1;
+  }
+
   .look-studio[data-keyboard="open"] .look-studio-tray {
     flex: 1 1 auto;
     min-height: 0;
     max-height: none;
-    padding-bottom: max(0.5rem, var(--keyboard-inset, 0px));
+    padding-bottom: 0.5rem;
   }
 
   .look-studio[data-keyboard="open"] .look-studio-dock {
@@ -1202,6 +1232,18 @@ input.look-studio-title:focus-visible {
   transform: translateZ(0);
 }
 
+html[data-chrome="phone"] .native-screen {
+  position: fixed;
+  top: var(--vv-offset, 0px);
+  right: 0;
+  left: 0;
+  width: 100%;
+}
+
+html[data-chrome="phone"] .native-screen:has(.look-studio[data-keyboard="open"]) .tab-bar {
+  display: none;
+}
+
 .status-bar,
 .device-island,
 .device-home,
@@ -1280,7 +1322,10 @@ input.look-studio-title:focus-visible {
   overscroll-behavior: contain;
 }
 
-.native-main:has(.look-studio[data-step="pins"]) {
+.native-main:has(.look-studio[data-step="pins"]),
+.native-main:has(.look-studio[data-step="name"]),
+.native-main:has(.look-studio[data-step="piece"]),
+.native-main:has(.look-studio[data-step="publish"]) {
   display: flex;
   flex-direction: column;
   overflow: hidden;

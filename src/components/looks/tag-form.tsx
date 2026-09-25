@@ -17,6 +17,7 @@ type TagFormProps = {
   tag: ProductTag;
   index: number;
   compact?: boolean;
+  guided?: boolean;
   lookSrc?: string;
   onChange: (tag: ProductTag) => void;
   onRemove: () => void;
@@ -29,6 +30,7 @@ export function TagForm({
   tag,
   index,
   compact,
+  guided,
   lookSrc,
   onChange,
   onRemove,
@@ -47,7 +49,39 @@ export function TagForm({
 
   return (
     <div className="flex flex-col gap-3">
-      {compact ? (
+      {guided ? (
+        <>
+          <Field label="What is it?" htmlFor={`name-${tag.id}`} hint="Colour and garment. Search uses this.">
+            <Input
+              id={`name-${tag.id}`}
+              name={`looktag-piece-${tag.id}`}
+              value={tag.name}
+              autoComplete="off"
+              autoCapitalize="sentences"
+              enterKeyHint="search"
+              placeholder="White polo shirt"
+              onChange={(event) => patch({ name: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onSearch();
+                }
+              }}
+            />
+          </Field>
+          <Field label="Brand" htmlFor={`brand-${tag.id}`} hint="Optional.">
+            <Input
+              id={`brand-${tag.id}`}
+              name={`looktag-brand-${tag.id}`}
+              value={tag.brand}
+              autoComplete="off"
+              autoCapitalize="words"
+              placeholder="Uniqlo"
+              onChange={(event) => patch({ brand: event.target.value })}
+            />
+          </Field>
+        </>
+      ) : compact ? (
         <div className="flex items-center gap-2">
           <Input
             id={`name-${tag.id}`}
@@ -118,7 +152,7 @@ export function TagForm({
         <Search className="size-4" />
         {searching ? "Searching shops…" : offers.length > 0 ? "Search again" : tag.name.trim() ? "Search item" : "Find this piece"}
       </Button>
-      {compact ? null : (
+      {compact || guided ? null : (
         <p className="text-caption leading-relaxed text-muted-foreground">
           Search reads the pin on the photo. Live item pages come from Catalog shops.
         </p>
@@ -193,13 +227,39 @@ export function TagForm({
             })}
           </ul>
         </div>
-      ) : compact ? null : (
+      ) : compact || guided ? null : (
         <p className="rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
           No live listings yet. Search, or paste the page you wore below.
         </p>
       )}
 
-      {compact && !manualOpen && !tag.wornUrl ? (
+      {guided ? (
+        <Field
+          label="Link you wore"
+          htmlFor={`worn-${tag.id}`}
+          hint="Optional. Paste the product page, not the shop homepage."
+        >
+          <Input
+            id={`worn-${tag.id}`}
+            name={`looktag-worn-${tag.id}`}
+            value={tag.wornUrl ?? ""}
+            type="url"
+            inputMode="url"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder="https://www.zalando.de/…"
+            onChange={(event) => {
+              const url = event.target.value;
+              const detected = detectRetailer(url);
+              patch({
+                wornUrl: url,
+                wornRetailerId: detected?.id ?? tag.wornRetailerId,
+              });
+            }}
+          />
+        </Field>
+      ) : compact && !manualOpen && !tag.wornUrl ? (
         <button
           type="button"
           onClick={() => setManualOpen(true)}
