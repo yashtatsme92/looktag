@@ -8,7 +8,7 @@ import { SavedLooks } from "@/components/looks/saved-looks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { normalizeLoginEmail } from "@/lib/admin/access";
+import { normalizeLoginEmail, resolveYouSessionState, youSessionSignedIn } from "@/lib/admin/access";
 import { authClient, authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { captureSessionToken, postAuthPath, safeNext, withTimeout } from "@/lib/login-next";
@@ -39,7 +39,8 @@ function Login() {
   const { next } = Route.useSearch();
   const dest = postAuthPath(next, "/login");
   const navigate = useNavigate();
-  const { user } = useCurrentUserState();
+  const { user, isPending } = useCurrentUserState();
+  const sessionState = resolveYouSessionState({ user, isPending });
   const settings = useSettingsStore();
   const oauth = visibleOauthProviders(settings, GROK_PROVIDERS);
   const emailOn = settings.signupEmail;
@@ -156,16 +157,26 @@ function Login() {
       });
   }
 
-  if (user && !busy) {
+  if (youSessionSignedIn(sessionState) && user && !busy) {
     if (next) return <Navigate to={dest as "/"} />;
     return <Navigate to="/creators/$userId" params={{ userId: user.id }} />;
   }
 
   return (
     <AppShell title="You" largeTitle>
-      <ScreenTitle kicker="Saved">You</ScreenTitle>
+      <ScreenTitle
+        kicker={
+          sessionState === "guest" ? "Guest" : sessionState === "pending" ? "Session" : "Saved"
+        }
+      >
+        You
+      </ScreenTitle>
       <p className="mb-6 text-sm text-muted-foreground">
-        Looks you keep live here. An account is only for publishing.
+        {sessionState === "pending"
+          ? "Checking your session…"
+          : sessionState === "guest"
+          ? "You're browsing as a guest. Sign in to publish looks or edit your profile."
+          : "Looks you keep live here. An account is only for publishing."}
       </p>
 
       <SavedLooks variant="rail" />

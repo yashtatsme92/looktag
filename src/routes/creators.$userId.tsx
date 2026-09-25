@@ -8,7 +8,7 @@ import { LookCard } from "@/components/looks/look-card";
 import { ProfileForm } from "@/components/looks/profile-form";
 import { SavedLooks } from "@/components/looks/saved-looks";
 import { Button } from "@/components/ui/button";
-import { isAdminEmail } from "@/lib/admin/access";
+import { isAdminEmail, resolveYouSessionState, youSessionSignedIn } from "@/lib/admin/access";
 import { authEnabled, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getMyHouse } from "@/lib/labels/api";
@@ -28,13 +28,14 @@ function CreatorPage() {
   const { user, isPending } = useCurrentUserState();
   const standalone = useStandaloneDisplay();
   const labelsEnabled = useSettingsStore((s) => s.labelsEnabled);
-  const admin = isAdminEmail(user?.primaryEmail);
+  const sessionState = resolveYouSessionState({ user, isPending });
+  const admin = sessionState === "admin";
   const [data, setData] = useState<{ creator: CreatorProfile; looks: Look[] } | null | undefined>(
     undefined,
   );
   const [house, setHouse] = useState<FashionLabel | null>(null);
-  const [signingOut, setSigningOut] = useState(false);
-  const mine = Boolean(user && user.id === userId);
+  const [sessionAction, setSessionAction] = useState<"signout" | "switch" | null>(null);
+  const mine = youSessionSignedIn(sessionState) && Boolean(user && user.id === userId);
   const allLooks = useLooksStore((s) => s.looks);
   const storeLooks = useMemo(
     () =>
@@ -168,6 +169,19 @@ function CreatorPage() {
   return (
     <AppShell title={mine ? "You" : creator.displayName} largeTitle={mine} backTo={mine ? undefined : "/rank"}>
       <ScreenTitle kicker={`@${creator.handle}`}>{creator.displayName}</ScreenTitle>
+      {mine ? (
+        <div className="mb-4 rounded-xl bg-card p-4 shadow-[var(--shadow-border)]">
+          <p className="text-[0.65rem] tracking-[0.14em] text-muted-foreground uppercase">
+            {admin ? "System account" : "Signed in"}
+          </p>
+          <p className="mt-1 text-sm font-medium">
+            {admin ? "Admin session active" : "This is your signed-in profile."}
+          </p>
+          {user?.primaryEmail ? (
+            <p className="mt-1 text-sm text-muted-foreground">{user.primaryEmail}</p>
+          ) : null}
+        </div>
+      ) : null}
       {creator.city || creator.bio ? (
         <div className="mb-4">
           {creator.city ? <p className="text-sm text-muted-foreground">{creator.city}</p> : null}
@@ -225,7 +239,7 @@ function CreatorPage() {
             <>
               <Link to="/admin" className="flex min-h-14 items-center gap-3 px-4 text-sm font-medium">
                 <SlidersHorizontal className="size-4 text-muted-foreground" />
-                <span className="flex-1">Admin</span>
+                <span className="flex-1">Admin · system settings</span>
                 <ChevronRight className="size-4 text-muted-foreground" />
               </Link>
               <Link to="/admin/look" className="flex min-h-14 items-center gap-3 border-t border-border px-4 text-sm font-medium">
@@ -267,14 +281,27 @@ function CreatorPage() {
           {authEnabled ? (
             <button
               type="button"
-              disabled={signingOut}
-              className="flex min-h-14 w-full items-center gap-3 border-t border-border px-4 text-left text-sm font-medium text-destructive first:border-t-0 disabled:opacity-60"
+              disabled={sessionAction !== null}
+              className="flex min-h-14 w-full items-center gap-3 border-t border-border px-4 text-left text-sm font-medium transition-[box-shadow,border-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 first:border-t-0 disabled:opacity-60"
               onClick={() => {
-                setSigningOut(true);
-                void signOut().catch(() => setSigningOut(false));
+                setSessionAction("switch");
+                void signOut("/login").catch(() => setSessionAction(null));
               }}
             >
-              {signingOut ? "Signing out…" : "Sign out"}
+              {sessionAction === "switch" ? "Switching account…" : "Switch account"}
+            </button>
+          ) : null}
+          {authEnabled ? (
+            <button
+              type="button"
+              disabled={sessionAction !== null}
+              className="flex min-h-14 w-full items-center gap-3 border-t border-border px-4 text-left text-sm font-medium text-destructive transition-[box-shadow,border-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 first:border-t-0 disabled:opacity-60"
+              onClick={() => {
+                setSessionAction("signout");
+                void signOut().catch(() => setSessionAction(null));
+              }}
+            >
+              {sessionAction === "signout" ? "Signing out…" : "Sign out"}
             </button>
           ) : null}
         </div>

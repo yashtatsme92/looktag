@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutGrid, Plus, UserRound } from "lucide-react";
 import { APP_NAV, isYouPath, navItemActive } from "@/components/layout/app-nav";
+import { resolveYouSessionState, youSessionSignedIn } from "@/lib/admin/access";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
 
@@ -11,8 +12,10 @@ const icons = {
 
 export function TabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { user } = useCurrentUserState();
+  const { user, isPending } = useCurrentUserState();
   const youActive = isYouPath(pathname);
+  const sessionState = resolveYouSessionState({ user, isPending });
+  const signedIn = youSessionSignedIn(sessionState);
 
   return (
     <nav aria-label="App" className="tab-bar">
@@ -40,7 +43,7 @@ export function TabBar() {
           );
         })}
         <li>
-          {user ? (
+          {signedIn && user ? (
             <Link
               to="/creators/$userId"
               params={{ userId: user.id }}
