@@ -52,6 +52,115 @@ const NEW_DESK_NAV = `    record(
         !/How-to|How to/i.test(navText),
       snippet(navText),
     );`;
+const GUEST_TO_SHOP_FLOW = `async function guestToShopFlow(browser) {
+  await withPage(browser, origin, async (page) => {
+    const stamp = Date.now();
+    const draft = {
+      id: \`e2e-funnel-\${stamp}\`,
+      userId: "",
+      title: "E2E Funnel Look",
+      caption: "",
+      creator: "You",
+      imageSrc: "/looks/sunday-coat.jpg",
+      createdAt: stamp,
+      updatedAt: stamp,
+      tags: [
+        {
+          id: "pin-1",
+          x: 50,
+          y: 42,
+          name: "camel wool coat",
+          brand: "",
+          price: "",
+          currency: "EUR",
+          url: "",
+          retailerId: "",
+          offers: [],
+          wornUrl: "",
+          wornRetailerId: "",
+        },
+      ],
+    };
+    await page.addInitScript((raw) => {
+      try {
+        sessionStorage.setItem("looktag-create-draft-v1", raw);
+      } catch {
+        /* private mode */
+      }
+    }, JSON.stringify(draft));
+    await page.goto(\`\${origin}/create\`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+    const guestSearch = page.getByRole("button", { name: /Search item|Search again/i });
+    await guestSearch.waitFor({ timeout: 10_000 });
+    await guestSearch.click();
+    await page.getByText(/Sign in to search shops/i).first().waitFor({ timeout: 6_000 }).catch(() => {});
+    const guestText = await page.locator("body").innerText();
+    record("flow.funnel.guest_search_gate", /Sign in to search shops/i.test(guestText), snippet(guestText));
+
+    await fillSignup(page, origin, {
+      name: "E2E Funnel",
+      email: \`e2e-funnel-\${stamp}@looktag.test\`,
+      password: "looktag-e2e-pass-1",
+      handle: \`e2efunnel\${stamp.toString(36).slice(-6)}\`,
+      city: "Berlin",
+    });
+    await page.waitForURL((url) => !/\\/login/.test(url.pathname), { timeout: 12_000 }).catch(() => {});
+    await page.goto(\`\${origin}/create\`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+    const signedSearch = page.getByRole("button", { name: /Search item|Search again/i });
+    await signedSearch.waitFor({ timeout: 10_000 });
+    await signedSearch.click();
+    const listing = page.locator(
+      'a[href*="zalando."], a[href*="zara.com"], a[href*="cos.com"], a[href*="hm.com"], a[href*="uniqlo.com"]',
+    );
+    await listing.first().waitFor({ timeout: 24_000 }).catch(() => {});
+    const clickedHref = (await listing.first().getAttribute("href")) || "";
+    const hrefs = (await listing.evaluateAll((as) => as.map((a) => a.getAttribute("href")).filter(Boolean))).filter(
+      (href) => productUrl(href),
+    );
+    record(
+      "flow.funnel.search_results",
+      hrefs.length >= 1,
+      hrefs.length ? \`\${hrefs.length} shop links\` : snippet(await page.locator("body").innerText()),
+    );
+
+    const editorPopupWait = page.context().waitForEvent("page", { timeout: 8_000 }).catch(() => null);
+    await listing.first().click({ force: true }).catch(() => {});
+    const editorPopup = await editorPopupWait;
+    const editorHref = clickedHref || (await listing.first().getAttribute("href")) || "";
+    if (editorPopup) {
+      await editorPopup.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
+    }
+    record(
+      "flow.funnel.editor_outbound_click",
+      productUrl(editorPopup?.url() || editorHref),
+      editorPopup?.url() || editorHref || "missing",
+    );
+    await editorPopup?.close().catch(() => {});
+
+    await page.getByRole("button", { name: /Publish look/i }).click();
+    await page.waitForURL(/\\/looks\\//, { timeout: 12_000 });
+    record("flow.funnel.look_created", /\\/looks\\//.test(page.url()), page.url());
+
+    const shop = page.getByRole("link", { name: /^Shop/i }).first();
+    await shop.waitFor({ timeout: 8_000 });
+    const shopHref = await shop.getAttribute("href");
+    record("flow.funnel.shop_link", productUrl(shopHref), shopHref ?? "missing");
+
+    const popupWait = page.context().waitForEvent("page", { timeout: 8_000 }).catch(() => null);
+    await shop.click({ force: true }).catch(() => {});
+    const popup = await popupWait;
+    if (popup) {
+      await popup.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
+    }
+    record(
+      "flow.funnel.look_outbound_click",
+      productUrl(popup?.url() || shopHref),
+      popup?.url() || shopHref || "missing",
+    );
+    await popup?.close().catch(() => {});
+  }, "guest-to-shop");
+}`;
 
 const url = `https://raw.githubusercontent.com/yashtatsme92/looktag/${BASE_SHA}/tests/e2e/run.mjs`;
 const res = await fetch(url);
@@ -108,6 +217,18 @@ if (!code.includes(OLD_DESK_NAV)) {
   process.exit(1);
 }
 code = code.replace(OLD_DESK_NAV, NEW_DESK_NAV);
+
+if (!code.includes("    await createFlow(browser);")) {
+  console.error("createFlow call not found");
+  process.exit(1);
+}
+code = code.replace("    await createFlow(browser);", "    await createFlow(browser);\n    await guestToShopFlow(browser);");
+
+if (!code.includes("async function catalogFlow(browser) {")) {
+  console.error("catalogFlow boundary not found");
+  process.exit(1);
+}
+code = code.replace("async function catalogFlow(browser) {", `${GUEST_TO_SHOP_FLOW}\n\nasync function catalogFlow(browser) {`);
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const tmp = join(dir, ".run.extracted.mjs");

@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney, parsePrice } from "@/lib/looks/format";
+import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { cheapestOffer, removeOffer, sortedOffers, wornLink } from "@/lib/looks/offers";
 import { detectRetailer, retailerLabel } from "@/lib/looks/retailers";
+import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
 
@@ -20,9 +22,20 @@ type TagFormProps = {
   onRemove: () => void;
   onSearch: () => void;
   searching?: boolean;
+  userState?: FunnelUserState;
 };
 
-export function TagForm({ tag, index, compact, lookSrc, onChange, onRemove, onSearch, searching }: TagFormProps) {
+export function TagForm({
+  tag,
+  index,
+  compact,
+  lookSrc,
+  onChange,
+  onRemove,
+  onSearch,
+  searching,
+  userState,
+}: TagFormProps) {
   const [manualOpen, setManualOpen] = useState(Boolean(tag.wornUrl));
   const offers = sortedOffers(tag);
   const cheap = cheapestOffer(tag);
@@ -139,6 +152,18 @@ export function TagForm({ tag, index, compact, lookSrc, onChange, onRemove, onSe
                       target="_blank"
                       rel="noreferrer"
                       className="flex min-w-0 flex-1 items-center gap-2 text-sm"
+                      onClick={() =>
+                        recordOutboundShopClick({
+                          cheapest: Boolean(isCheapest),
+                          chrome: chromeLayout(),
+                          offerCount: offers.length,
+                          retailerId: offer.retailerId,
+                          source: "editor_offer",
+                          tagId: tag.id,
+                          urlHost: hostFromUrl(offer.url),
+                          userState,
+                        })
+                      }
                     >
                       <PieceThumb lookSrc={lookSrc} productSrc={offer.imageUrl} x={tag.x} y={tag.y} size="sm" />
                       <span className="min-w-0 flex-1 truncate">{retailerLabel(offer)}</span>

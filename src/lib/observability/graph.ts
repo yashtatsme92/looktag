@@ -24,6 +24,7 @@ export const DEFAULT_FILTERS: TraceFilter[] = [
   { id: "looks", enabled: false, label: "Looks", field: "name", op: "contains", value: "looktag.looks" },
   { id: "houses", enabled: false, label: "Houses", field: "name", op: "contains", value: "looktag.houses" },
   { id: "search", enabled: false, label: "Search", field: "name", op: "contains", value: "looktag.search" },
+  { id: "funnel", enabled: false, label: "Funnel", field: "name", op: "contains", value: "looktag.funnel" },
   { id: "ui", enabled: false, label: "UI", field: "name", op: "startsWith", value: "ui." },
 ];
 

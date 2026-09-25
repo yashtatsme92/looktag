@@ -10,6 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { searchPin, suggestPieces, type SuggestedPiece } from "@/lib/ai/suggest";
 import { isUnauthorized } from "@/lib/looks/api";
+import { funnelUserState, recordPinAdded, recordShopResultShown } from "@/lib/looks/funnel";
+import {
+  recordManualPinAdded,
+  recordPinSearchResolved,
+  recordSuggestedPinsAdded,
+} from "@/lib/looks/look-editor-funnel";
 import { getMyHouse, listMyCollections } from "@/lib/labels/api";
 import type { FashionCollection } from "@/lib/labels/model";
 import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
@@ -166,6 +172,11 @@ export function LookEditor({
     const tag = emptyTag(x, y);
     setSelectedId(tag.id);
     patch({ tags: [...lookRef.current.tags, tag] });
+    recordManualPinAdded(recordPinAdded, {
+      chrome,
+      lookId: lookRef.current.id,
+      userId: lookRef.current.userId,
+    });
   }
 
   function moveTag(id: string, x: number, y: number) {
@@ -256,6 +267,15 @@ export function LookEditor({
           result.offers.map(toOffer),
         ),
       );
+      if (result.offers.length > 0) {
+        recordPinSearchResolved(recordShopResultShown, {
+          chrome,
+          lookId: lookRef.current.id,
+          offers: result.offers,
+          tagId: tag.id,
+          userId: lookRef.current.userId,
+        });
+      }
       toast.success(
         result.offers.length === 1
           ? "Found 1 live listing"
@@ -284,6 +304,14 @@ export function LookEditor({
     const first = tags[0];
     if (first) setSelectedId(first.id);
     patch({ tags: [...current.tags, ...tags] });
+    if (tags.length > 0) {
+      recordSuggestedPinsAdded(recordPinAdded, {
+        chrome,
+        count: tags.length,
+        lookId: current.id,
+        userId: current.userId,
+      });
+    }
     toast.success(tags.length === 1 ? "Pinned 1 piece" : `Pinned ${tags.length} pieces`);
   }
 
@@ -495,6 +523,7 @@ export function LookEditor({
                     onRemove={() => removeTag(selectedTag.id)}
                     onSearch={() => void handleSearchPin(selectedTag)}
                     searching={searchingId === selectedTag.id}
+                    userState={funnelUserState(look.userId)}
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground">Tap a pin to name it.</p>

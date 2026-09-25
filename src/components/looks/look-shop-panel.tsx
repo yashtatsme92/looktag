@@ -3,7 +3,9 @@ import { toast } from "sonner";
 import { ProductList } from "@/components/looks/product-list";
 import { ShopDock } from "@/components/looks/shop-dock";
 import { formatMoney, lookCurrency, lookTotal } from "@/lib/looks/format";
+import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { shopTarget } from "@/lib/looks/offers";
+import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { useWideLayout } from "@/lib/pwa/use-wide-layout";
 import type { ProductTag } from "@/lib/looks/types";
 import "../../styles.look-dock.css";
@@ -16,20 +18,42 @@ type LookShopPanelProps = {
   /** Phone shop sheet — controlled from look route (pin tap opens; dismiss keeps pin). */
   sheetOpen?: boolean;
   onSheetOpenChange?: (open: boolean) => void;
+  lookId?: string;
+  userState?: FunnelUserState;
 };
 
-function shopLookCheapest(tags: ProductTag[]) {
+function shopLookCheapest(tags: ProductTag[], context?: { lookId?: string; userState?: FunnelUserState }) {
   const urls = tags
-    .map((tag) => shopTarget(tag)?.url)
-    .filter((url): url is string => Boolean(url));
-  if (urls.length === 0) {
+    .map((tag) => {
+      const target = shopTarget(tag);
+      return target?.url
+        ? { retailerId: target.retailerId, tagId: tag.id, url: target.url }
+        : null;
+    })
+    .filter((row): row is { retailerId: string; tagId: string; url: string } => Boolean(row));
+  const unique = urls.filter((row, index, items) => items.findIndex((item) => item.url === row.url) === index);
+  const targets = unique.map((row) => row.url);
+  if (targets.length === 0) {
     toast.message("No live shops on this look yet");
     return;
   }
+  const chrome = chromeLayout();
   let opened = 0;
-  for (const url of urls) {
-    const win = window.open(url, "_blank", "noopener,noreferrer");
-    if (win) opened += 1;
+  for (const row of unique) {
+    const win = window.open(row.url, "_blank", "noopener,noreferrer");
+    if (win) {
+      opened += 1;
+      recordOutboundShopClick({
+        chrome,
+        lookId: context?.lookId,
+        offerCount: targets.length,
+        retailerId: row.retailerId,
+        source: "shop_look",
+        tagId: row.tagId,
+        urlHost: hostFromUrl(row.url),
+        userState: context?.userState,
+      });
+    }
   }
   if (opened === 0) {
     toast.message("Allow pop-ups to open each cheapest page");
@@ -54,12 +78,14 @@ export function LookShopPanel({
   lookSrc,
   sheetOpen,
   onSheetOpenChange,
+  lookId,
+  userState,
 }: LookShopPanelProps) {
   const wide = useWideLayout();
   const outfitTotal = lookTotal(tags);
   const outfitCurrency = lookCurrency(tags);
   const shopableCount = tags.filter((tag) => shopTarget(tag)?.url).length;
-  const shopLook = () => shopLookCheapest(tags);
+  const shopLook = () => shopLookCheapest(tags, { lookId, userState });
 
   return (
     <>
@@ -68,10 +94,12 @@ export function LookShopPanel({
         selectedId={selectedId}
         onSelect={onSelect}
         lookSrc={lookSrc}
+        lookId={lookId}
         open={sheetOpen}
         onOpenChange={onSheetOpenChange}
         sheet={wide ? "pieces" : "look"}
         onShopLook={shopLook}
+        userState={userState}
       />
 
       {/* Desktop / tablet website: sticky column strip + pieces (board-02 left/right). */}
@@ -111,8 +139,10 @@ export function LookShopPanel({
             selectedId={selectedId}
             onSelect={onSelect}
             shoppable
+            lookId={lookId}
             primaryInDock
             lookSrc={lookSrc}
+            userState={userState}
           />
         </section>
       ) : null}

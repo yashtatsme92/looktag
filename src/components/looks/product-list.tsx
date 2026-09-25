@@ -1,5 +1,6 @@
 import { ShopOffers, priceLabel } from "@/components/looks/shop-offers";
 import { PieceThumb } from "@/components/looks/piece-thumb";
+import type { FunnelUserState } from "@/lib/looks/funnel";
 import { shopTarget, cheapestOffer, tagOffers } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { ProductTag } from "@/lib/looks/types";
@@ -10,9 +11,11 @@ type ProductListProps = {
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   shoppable?: boolean;
+  lookId?: string;
   /** When true, sticky dock owns the primary Shop CTA — expanded card shows Compare only. */
   primaryInDock?: boolean;
   lookSrc?: string;
+  userState?: FunnelUserState;
 };
 
 export function ProductList({
@@ -20,8 +23,10 @@ export function ProductList({
   selectedId,
   onSelect,
   shoppable,
+  lookId,
   primaryInDock,
   lookSrc,
+  userState,
 }: ProductListProps) {
   if (tags.length === 0) {
     return (
@@ -93,7 +98,12 @@ export function ProductList({
                 </span>
               </button>
               {shoppable && selected && target?.url ? (
-                <ShopOffers tag={tag} mode={primaryInDock ? "compare" : "shop"} />
+                <ShopOffers
+                  tag={tag}
+                  lookId={lookId}
+                  mode={primaryInDock ? "compare" : "shop"}
+                  userState={userState}
+                />
               ) : null}
             </div>
           </li>
