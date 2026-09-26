@@ -1,5 +1,7 @@
 import type { Look } from "../looks/types.ts";
 
+export const ECHO_FROM_KEY = "looktag-echo-from";
+
 /** Phase 1 home. Mood is a similarity signal only — never a pill. Prices stay off the plate. */
 export function pieceLine(look: Pick<Look, "tags">): string {
   const count = look.tags.length;

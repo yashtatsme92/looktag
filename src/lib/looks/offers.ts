@@ -18,6 +18,19 @@ export function cheapestOffer(tag: ProductTag): ProductOffer | undefined {
   return cheapestFrom(tagOffers(tag));
 }
 
+/** Phase 1 shop: the piece as worn, else the first live page. Never the cheapest. */
+export function visualShopTarget(
+  tag: ProductTag,
+): { url: string; retailerId: string } | undefined {
+  const wornUrl = (tag.wornUrl || "").trim();
+  if (wornUrl) return { url: wornUrl, retailerId: tag.wornRetailerId || tag.retailerId || "" };
+  const offer = tagOffers(tag).find((row) => row.url.trim());
+  if (offer?.url) return { url: offer.url, retailerId: offer.retailerId };
+  const url = tag.url.trim();
+  if (url) return { url, retailerId: tag.retailerId || "" };
+  return undefined;
+}
+
 export function shopTarget(tag: ProductTag): { url: string; retailerId: string; cheapest: boolean } | undefined {
   const cheap = cheapestOffer(tag);
   if (cheap?.url) return { url: cheap.url, retailerId: cheap.retailerId, cheapest: tagOffers(tag).length > 1 };

@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { funnelUserState } from "@/lib/looks/funnel";
-import { isWideWebLayout } from "@/lib/pwa/use-wide-layout";
+import { LookPlate } from "@/components/looks/look-plate";
+import { isWideWebLayout, useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { getLookById, isUnauthorized } from "@/lib/looks/api";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { shareOrCopy } from "@/lib/looks/share";
@@ -87,6 +88,8 @@ function LookPage() {
     hydrateSaved();
   }, [hydrateSaved]);
 
+  const chrome = useChromeLayout();
+  const phone = chrome === "phone";
   const look = lookFromStore ?? (ssrLook && ssrLook.id === lookId ? ssrLook : undefined);
 
   if (!look) {
@@ -188,6 +191,14 @@ function LookPage() {
       ) : null}
     </div>
   );
+
+  if (phone) {
+    return (
+      <AppShell title={look.title} backTo="/" flush header="hidden">
+        <LookPlate look={look} userState={funnelUserState(Boolean(user))} />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title={look.title} backTo="/" trailing={trailing}>

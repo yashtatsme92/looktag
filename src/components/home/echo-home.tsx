@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { listFashionLabels } from "@/lib/labels/api";
 import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
-import { beatLabel, creatorRun, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
+import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useSavedLooks } from "@/lib/looks/saved";
@@ -57,6 +57,20 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   useEffect(() => {
     setIndex(0);
   }, [mode, anchorId]);
+
+  useEffect(() => {
+    if (!anchor) return;
+    let from: string | null = null;
+    try {
+      from = sessionStorage.getItem(ECHO_FROM_KEY);
+      if (from) sessionStorage.removeItem(ECHO_FROM_KEY);
+    } catch {
+      return;
+    }
+    if (!from || !deck.some((look) => look.id === from)) return;
+    setAnchorId(from);
+    setMode("lane");
+  }, [anchor, deck]);
 
   function houseName(look: Look) {
     return labels.find((label) => looksBelongToHouse(look, label))?.name;
