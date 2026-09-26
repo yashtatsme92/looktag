@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { markStyleGuideDone } from "@/components/home/style-guide";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
+import { YouHome } from "@/components/you/you-home";
 import { SavedLooks } from "@/components/looks/saved-looks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,7 +160,28 @@ function Login() {
 
   if (youSessionSignedIn(sessionState) && user && !busy) {
     if (next) return <Navigate to={dest as "/"} />;
-    return <Navigate to="/creators/$userId" params={{ userId: user.id }} />;
+    return (
+      <AppShell title="You" header="hidden" flush>
+        <YouHome user={user} />
+      </AppShell>
+    );
+  }
+
+  if (!next) {
+    if (isPending) {
+      return (
+        <AppShell title="You" header="hidden" flush>
+          <div className="you-home">
+            <p className="you-empty-body">Checking your session…</p>
+          </div>
+        </AppShell>
+      );
+    }
+    return (
+      <AppShell title="You" header="hidden" flush>
+        <YouHome user={null} />
+      </AppShell>
+    );
   }
 
   return (

@@ -1200,6 +1200,218 @@ html[data-theme="moss"] {
     line-height: 1.1;
   }
 
+  .native-main-flush:has(.you-home) {
+    background: #f4f4f4;
+    color: #111111;
+  }
+
+  .you-home {
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+    background: #f4f4f4;
+    color: #111111;
+  }
+
+  .you-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.35rem;
+  }
+
+  .you-title {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 500;
+  }
+
+  .you-switch {
+    display: flex;
+    gap: 0.25rem;
+    margin: 0 1rem 0.75rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .you-switch-item {
+    min-height: 2.75rem;
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: #6b6b6b;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .you-switch-item[data-on="true"] {
+    color: #111111;
+    box-shadow: inset 0 -2px 0 #111111;
+  }
+
+  .you-empty {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem 3rem;
+    text-align: center;
+  }
+
+  .you-empty-title {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 500;
+  }
+
+  .you-empty-body {
+    max-width: 16rem;
+    margin: 0;
+    color: #6b6b6b;
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .you-sign-in {
+    width: auto;
+    min-width: 9rem;
+    margin-top: 1.25rem;
+    padding: 0 1.25rem;
+  }
+
+  .you-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0.25rem 1rem 1.5rem;
+    list-style: none;
+  }
+
+  .you-card {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 1rem;
+    background: #111111;
+  }
+
+  .you-card-photo {
+    display: block;
+    aspect-ratio: 3 / 4;
+    width: 100%;
+    object-fit: cover;
+  }
+
+  .you-card-empty {
+    background: #ececec;
+  }
+
+  .you-hangtag {
+    position: absolute;
+    right: 0.45rem;
+    bottom: 0.45rem;
+    left: 0.45rem;
+    display: flex;
+    min-height: 1.75rem;
+    align-items: center;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.92);
+    padding: 0 0.65rem;
+    color: #111111;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .you-drafts,
+  .you-profile {
+    padding: 0.5rem 1rem 2rem;
+  }
+
+  .you-kicker {
+    margin: 0 0 0.5rem;
+    color: #6b6b6b;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .you-draft {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .you-draft-photo {
+    width: 4.5rem;
+    height: 6rem;
+    border-radius: 0.75rem;
+    object-fit: cover;
+    background: #111;
+  }
+
+  .you-draft-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+  }
+
+  .you-draft-meta {
+    margin: 0.15rem 0 0.35rem;
+    color: #6b6b6b;
+    font-size: 0.8125rem;
+  }
+
+  .you-draft-edit {
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .you-profile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 2rem;
+    text-align: center;
+  }
+
+  .you-avatar {
+    display: flex;
+    width: 4.5rem;
+    height: 4.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #111111;
+    color: #f4f4f4;
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .you-profile-name {
+    margin: 0.85rem 0 0.2rem;
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+  }
+
+  .you-profile-mail {
+    margin: 0 0 1.25rem;
+    color: #6b6b6b;
+    font-size: 0.875rem;
+  }
+
+  .you-sign-out {
+    width: auto;
+    min-width: 8rem;
+  }
+
   .look-studio-replace {
     position: absolute;
     top: 0.5rem;

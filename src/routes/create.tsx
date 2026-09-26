@@ -8,11 +8,12 @@ import { isUnauthorized } from "@/lib/looks/api";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { funnelUserState, recordLookCreated } from "@/lib/looks/funnel";
 import { useLooksStore } from "@/lib/looks/store";
+import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
 import { emptyLook, type Look } from "@/lib/looks/types";
 
 export const Route = createFileRoute("/create")({ component: CreateLook });
 
-const DRAFT_KEY = "looktag-create-draft-v1";
+const DRAFT_KEY = CREATE_DRAFT_KEY;
 
 function loadDraft(): Look | null {
   try {
