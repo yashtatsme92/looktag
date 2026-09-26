@@ -19,9 +19,19 @@ export function AccountSheet({
   primary?: string;
   secondary?: string;
   next?: string;
-  /** Create uses one sheet for Publish and Save draft. Pins stay if they cancel. */
-  intent?: "publish" | "draft";
+  /** One sheet. The chip names why it opened. Cancel returns without leaving. */
+  intent?: "publish" | "draft" | "follow" | "save";
 }) {
+  const via =
+    intent === "publish"
+      ? "Publish"
+      : intent === "draft"
+        ? "Save draft"
+        : intent === "follow"
+          ? "Follow"
+          : intent === "save"
+            ? "Save"
+            : null;
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
@@ -30,10 +40,10 @@ export function AccountSheet({
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
         <div className="flex flex-col gap-2 px-5 pt-2 pb-6">
-          {intent ? (
+          {via ? (
             <p className="mb-2">
               <span className="inline-flex min-h-8 items-center rounded-full bg-secondary px-3 text-xs font-medium text-muted-foreground">
-                via {intent === "publish" ? "Publish" : "Save draft"}
+                via {via}
               </span>
             </p>
           ) : null}

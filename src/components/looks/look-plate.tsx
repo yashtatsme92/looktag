@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useRouter } from "@tanstack/react-router";
-import { Bookmark, ChevronLeft, ExternalLink, Radio, Share2 } from "lucide-react";
+import { useNavigate, useRouter, Link } from "@tanstack/react-router";
+import { Bookmark, ChevronLeft, ExternalLink, Pencil, Radio, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { LookCanvas } from "@/components/looks/look-canvas";
@@ -22,9 +22,11 @@ import { cn } from "@/lib/utils";
 export function LookPlate({
   look,
   userState,
+  canEdit = false,
 }: {
   look: Look;
   userState?: FunnelUserState;
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const navigate = useNavigate();
@@ -56,7 +58,7 @@ export function LookPlate({
   }, []);
 
   const focus = look.tags.find((tag) => tag.id === selectedId) ?? look.tags[0] ?? null;
-  const house = labels.find((label) => looksBelongToHouse(look, label))?.name;
+  const house = labels.find((label) => looksBelongToHouse(look, label));
 
   function save() {
     if (authEnabled && !isPending && !user) {
@@ -143,6 +145,16 @@ export function LookPlate({
           <button type="button" className="look-plate-glass" aria-label="Share" onClick={() => void share()}>
             <Share2 className="size-5" />
           </button>
+          {canEdit ? (
+            <Link
+              to="/looks/$lookId/edit"
+              params={{ lookId: look.id }}
+              className="look-plate-glass"
+              aria-label="Edit look"
+            >
+              <Pencil className="size-5" />
+            </Link>
+          ) : null}
           <button
             type="button"
             className="look-plate-glass"
@@ -155,7 +167,13 @@ export function LookPlate({
         </div>
       </header>
       <div className="look-plate-meta">
-        <p className="look-plate-kicker">{echoKicker(look, house)}</p>
+        {house ? (
+          <Link to="/houses/$labelId" params={{ labelId: house.id }} className="look-plate-kicker">
+            {echoKicker(look, house.name)}
+          </Link>
+        ) : (
+          <p className="look-plate-kicker">{echoKicker(look)}</p>
+        )}
         <h1 className="look-plate-title">{look.title || "Untitled look"}</h1>
         <span className="look-plate-rule" />
         <div className="flex items-end justify-between gap-3">

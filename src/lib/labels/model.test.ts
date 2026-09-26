@@ -6,7 +6,9 @@ import {
   collectionPath,
   collectionSlug,
   collectionsForPublicHouses,
+  consumerHouseIndex,
   groupLooksByCollection,
+  houseProfileLooks,
   isLabelUserId,
   isPublicHouse,
   labelMatchScore,
@@ -18,6 +20,7 @@ import {
   parseHouseStatus,
   rankLabels,
   suggestLooks,
+  toggleHouseFollow,
   type FashionCollection,
   type FashionLabel,
 } from "./model.ts";
@@ -341,5 +344,52 @@ describe("looksForYou", () => {
       [],
     );
     assert.equal(rows.length, 1);
+  });
+});
+
+describe("consumer houses", () => {
+  const indexHouses: FashionLabel[] = [
+    { ...houses[1], id: "label-more", name: "Zebra", scouted: false, status: "approved" },
+    { ...houses[0], id: "label-scout", name: "Atelier", scouted: true, status: "approved" },
+    { ...houses[0], id: "label-wait", name: "Waiting", scouted: true, status: "pending" },
+    { ...houses[1], id: "label-no", name: "Declined", scouted: false, status: "rejected" },
+    { ...houses[0], id: "label-beta", name: "Beta", scouted: true, status: "approved" },
+  ];
+
+  it("lists Scouted, then More, and hides houses that are not live", () => {
+    const index = consumerHouseIndex(indexHouses);
+    assert.deepEqual(
+      index.scouted.map((label) => label.name),
+      ["Atelier", "Beta"],
+    );
+    assert.deepEqual(
+      index.more.map((label) => label.name),
+      ["Zebra"],
+    );
+    const names = [...index.scouted, ...index.more].map((label) => label.name);
+    assert.equal(names.includes("Waiting"), false);
+    assert.equal(names.includes("Declined"), false);
+  });
+
+  it("shows a house profile as looks, not collections", () => {
+    const label = { id: "label-a", ownerUserId: "owner-1" };
+    const rows = houseProfileLooks(
+      [
+        look({ id: "1", userId: "label-a", title: "Coat", imageSrc: "/a.jpg" }),
+        look({ id: "2", userId: "owner-1", title: "Linen", imageSrc: "/b.jpg" }),
+        look({ id: "3", userId: "label-a", title: "Empty", imageSrc: "" }),
+        look({ id: "4", userId: "other", title: "Else", imageSrc: "/c.jpg" }),
+      ],
+      label,
+    );
+    assert.deepEqual(
+      rows.map((item) => item.id),
+      ["1", "2"],
+    );
+  });
+
+  it("toggles a follow without dropping the others", () => {
+    assert.deepEqual(toggleHouseFollow([], "label-a"), ["label-a"]);
+    assert.deepEqual(toggleHouseFollow(["label-a", "label-b"], "label-a"), ["label-b"]);
   });
 });

@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
-import { moodLabel } from "@/lib/looks/moods";
-import { collectionIdsForLabel, type FashionLabel } from "@/lib/labels/model";
+import type { FashionLabel } from "@/lib/labels/model";
 import type { Look } from "@/lib/looks/types";
 
 export function HouseCard({
@@ -13,11 +12,7 @@ export function HouseCard({
   cover?: Look;
   looks: Look[] | number;
 }) {
-  const lookList = Array.isArray(looks) ? looks : [];
   const lookCount = Array.isArray(looks) ? looks.length : looks;
-  const collectionCount = lookList.length
-    ? collectionIdsForLabel(lookList, label).length
-    : 0;
   return (
     <Link
       to="/houses/$labelId"
@@ -39,16 +34,8 @@ export function HouseCard({
         <p className="ds-card-title">{label.name}</p>
         {label.scouted ? <ScoutedMark /> : null}
         <p className="text-xs leading-snug text-muted-foreground">
-          {label.city}
-          {collectionCount > 0
-            ? ` · ${collectionCount} ${collectionCount === 1 ? "collection" : "collections"}`
-            : ` · ${lookCount} ${lookCount === 1 ? "look" : "looks"}`}
+          {[label.city, `${lookCount} ${lookCount === 1 ? "look" : "looks"}`].filter(Boolean).join(" · ")}
         </p>
-        {label.moods.length > 0 ? (
-          <p className="text-xs leading-snug text-muted-foreground">
-            {label.moods.map(moodLabel).join(" · ")}
-          </p>
-        ) : null}
       </div>
     </Link>
   );

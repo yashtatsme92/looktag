@@ -65,6 +65,28 @@ export function isPublicHouse(label: Pick<FashionLabel, "status">): boolean {
   return label.status === "approved";
 }
 
+/** Consumer index. Scouted first, then the rest, by name. Mood and rank stay off this surface. */
+export function consumerHouseIndex(labels: FashionLabel[]): { scouted: FashionLabel[]; more: FashionLabel[] } {
+  const live = labels.filter(isPublicHouse);
+  const byName = (a: FashionLabel, b: FashionLabel) => a.name.localeCompare(b.name);
+  return {
+    scouted: live.filter((label) => label.scouted).sort(byName),
+    more: live.filter((label) => !label.scouted).sort(byName),
+  };
+}
+
+/** Looks on a house profile. Collections are not public chrome. */
+export function houseProfileLooks(
+  looks: Look[],
+  label: Pick<FashionLabel, "id" | "ownerUserId">,
+): Look[] {
+  return looks.filter((look) => Boolean(look.imageSrc) && looksBelongToHouse(look, label));
+}
+
+export function toggleHouseFollow(ids: readonly string[], id: string): string[] {
+  return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
+}
+
 /** Anonymous collection lists only include houses that are already approved. */
 export function collectionsForPublicHouses(
   collections: FashionCollection[],

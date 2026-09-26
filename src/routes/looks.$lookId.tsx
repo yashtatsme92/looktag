@@ -89,7 +89,7 @@ function LookPage() {
   }, [hydrateSaved]);
 
   const chrome = useChromeLayout();
-  const phone = chrome === "phone";
+  const phone = chrome === "phone" || chrome === "tablet" || chrome === "desktop";
   const look = lookFromStore ?? (ssrLook && ssrLook.id === lookId ? ssrLook : undefined);
 
   if (!look) {
@@ -195,7 +195,7 @@ function LookPage() {
   if (phone) {
     return (
       <AppShell title={look.title} backTo="/" flush header="hidden">
-        <LookPlate look={look} userState={funnelUserState(Boolean(user))} />
+        <LookPlate look={look} userState={funnelUserState(Boolean(user))} canEdit={mine} />
       </AppShell>
     );
   }

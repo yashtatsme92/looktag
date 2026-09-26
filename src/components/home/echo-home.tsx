@@ -144,7 +144,9 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         ) : (
           <span className="echo-wordmark">Looktag</span>
         )}
-        {paperBar ? <span className="echo-wordmark echo-wordmark-ink">Looktag</span> : <span />}
+        <Link to="/houses" className={paperBar ? "echo-houses echo-houses-ink" : "echo-houses"}>
+          Houses
+        </Link>
         <button type="button" className="echo-icon" aria-label="Get the app" onClick={() => requestInstallSheet()}>
           <Download className="size-5" />
         </button>

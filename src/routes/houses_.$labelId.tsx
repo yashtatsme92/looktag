@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
-import { CollectionCard } from "@/components/labels/collection-card";
+import { AccountSheet } from "@/components/home/account-sheet";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { Button } from "@/components/ui/button";
+import { authEnabled } from "@/lib/auth/client";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getFashionLabel, type FashionLabelPage } from "@/lib/labels/api";
-import { SCOUTED_FLAG } from "@/lib/labels/model";
+import { SCOUTED_FLAG, houseProfileLooks, toggleHouseFollow } from "@/lib/labels/model";
 import { shareOrCopy } from "@/lib/looks/share";
-import { moodLabel } from "@/lib/looks/moods";
 import { recordShareView } from "@/lib/share/api";
 import {
   houseShareMeta,
@@ -18,6 +19,18 @@ import {
   shareCacheHeaders,
   shareHead,
 } from "@/lib/share-meta";
+
+const FOLLOW_KEY = "looktag-followed-houses-v1";
+
+function readFollows(): string[] {
+  try {
+    const raw = localStorage.getItem(FOLLOW_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 export const Route = createFileRoute("/houses_/$labelId")({
   ssr: true,
@@ -36,21 +49,23 @@ export const Route = createFileRoute("/houses_/$labelId")({
   head: ({ loaderData }) => {
     const label = loaderData?.house?.label;
     if (!label) return notFoundShareHead("house");
-    const imageSrc =
-      loaderData.house?.collections?.[0]?.looks?.[0]?.imageSrc ??
-      loaderData.house?.collection?.[0]?.imageSrc ??
-      "";
+    const imageSrc = loaderData.house?.collection?.[0]?.imageSrc ?? "";
     return shareHead(houseShareMeta(label, loaderData.origin, imageSrc));
   },
   component: HouseProfile,
 });
 
-type HousePayload = FashionLabelPage;
-
 function HouseProfile() {
   const { labelId } = Route.useParams();
   const { house } = Route.useLoaderData();
+  const { user, isPending } = useCurrentUserState();
   const [sharing, setSharing] = useState(false);
+  const [follows, setFollows] = useState<string[]>([]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  useEffect(() => {
+    setFollows(readFollows());
+  }, []);
 
   if (!house) {
     return (
@@ -64,7 +79,9 @@ function HouseProfile() {
     );
   }
 
-  const { label, collections } = house as HousePayload;
+  const { label } = house;
+  const looks = houseProfileLooks(house.collection ?? [], label);
+  const following = follows.includes(label.id);
 
   async function shareHouse() {
     setSharing(true);
@@ -78,6 +95,21 @@ function HouseProfile() {
     setSharing(false);
     if (result === "copied") toast.success("Link copied");
     if (result === "shown") toast.message("Share this house", { description: url });
+  }
+
+  function follow() {
+    if (authEnabled && !isPending && !user) {
+      setSheetOpen(true);
+      return;
+    }
+    const next = toggleHouseFollow(follows, label.id);
+    setFollows(next);
+    try {
+      localStorage.setItem(FOLLOW_KEY, JSON.stringify(next));
+    } catch {
+      // private mode
+    }
+    toast.success(next.includes(label.id) ? `Following ${label.name}` : `Unfollowed ${label.name}`);
   }
 
   return (
@@ -97,67 +129,47 @@ function HouseProfile() {
         </Button>
       }
     >
-      <article className="house-layout">
+      <article>
         <ScreenTitle kicker={label.city}>{label.name}</ScreenTitle>
         {label.scouted ? (
           <div className="mb-4 flex items-center gap-2">
             <ScoutedMark />
-            <p className="text-sm text-muted-foreground">
-              {SCOUTED_FLAG} — picked by Looktag.
-            </p>
+            <p className="text-sm text-muted-foreground">{SCOUTED_FLAG} — picked by Looktag.</p>
           </div>
         ) : null}
-        <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{label.bio}</p>
-        {label.moods.length > 0 ? (
-          <p className="mb-6 text-xs tracking-[0.14em] text-muted-foreground uppercase">
-            {label.moods.map(moodLabel).join(" · ")}
-          </p>
-        ) : null}
-
-        <h2 className="ds-section-title mb-1">Collections</h2>
-        <p className="mb-3 text-sm text-muted-foreground">
-          {collections.length} {collections.length === 1 ? "collection" : "collections"}
-          {" · "}
-          {house.looks} {house.looks === 1 ? "look" : "looks"}
-        </p>
-        {collections.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No collections published yet.</p>
+        {label.bio ? <p className="mb-4 text-sm leading-relaxed text-muted-foreground">{label.bio}</p> : null}
+        <button type="button" className="create-btn-primary mb-6 max-w-xs" onClick={follow}>
+          {following ? "Following" : "Follow"}
+        </button>
+        {looks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No looks yet.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            {collections.map((row) => (
-              <CollectionCard
-                key={row.collection.id}
-                labelId={label.id}
-                collection={row.collection}
-                cover={row.looks[0]}
-                looks={row.looks.length}
-              />
+          <ul className="grid grid-cols-2 gap-3">
+            {looks.map((look) => (
+              <li key={look.id}>
+                <Link to="/looks/$lookId" params={{ lookId: look.id }} className="block">
+                  <img
+                    src={look.imageSrc}
+                    alt=""
+                    className="aspect-[2/3] w-full rounded-2xl object-cover"
+                  />
+                  <p className="mt-2 text-sm leading-snug">{look.title || "Untitled look"}</p>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-
-        <details className="mt-8 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-border)]">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 text-sm font-medium marker:content-none [&::-webkit-details-marker]:hidden">
-            House details
-            <span className="text-xs font-normal text-muted-foreground">Score · Compared</span>
-          </summary>
-          <dl className="grid grid-cols-2 gap-2 border-t border-border p-4 text-center sm:grid-cols-4">
-            <Stat label="Score" value={String(house.score)} />
-            <Stat label="Collections" value={String(house.collections.length)} />
-            <Stat label="Looks" value={String(house.looks)} />
-            <Stat label="Compared" value={String(house.compared)} />
-          </dl>
-        </details>
       </article>
+      <AccountSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        title="Sign in to continue"
+        description="Follow stays on this house. Cancel returns here."
+        intent="follow"
+        next={`/houses/${label.id}`}
+        primary="Continue with email"
+        secondary="Cancel"
+      />
     </AppShell>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-card px-2 py-3 shadow-[var(--shadow-border)]">
-      <dt className="break-words text-[0.65rem] leading-snug tracking-[0.12em] text-muted-foreground uppercase">{label}</dt>
-      <dd className="mt-1 font-display text-2xl tabular-nums leading-tight">{value}</dd>
-    </div>
   );
 }

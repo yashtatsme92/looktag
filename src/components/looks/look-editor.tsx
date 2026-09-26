@@ -90,7 +90,7 @@ export function LookEditor({
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountIntent, setAccountIntent] = useState<"publish" | "draft">("publish");
   const chrome = useChromeLayout();
-  const phone = chrome === "phone";
+  const phone = true;
   const { user, isPending } = useCurrentUserState();
   const searchPayload = useCatalogStore((s) => s.searchPayload);
   const selectedTag = look.tags.find((tag) => tag.id === selectedId) ?? null;
