@@ -1,14 +1,18 @@
-import { useEffect, useRef, useState, type FocusEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
-import { Chip, Field, Stepper } from "@/components/ds";
+import { Chip, Field } from "@/components/ds";
+import { AccountSheet } from "@/components/home/account-sheet";
 import { LookCanvas } from "@/components/looks/look-canvas";
+import { PhoneCreate } from "@/components/looks/phone-create";
 import { SuggestDialog } from "@/components/looks/suggest-dialog";
 import { TagForm } from "@/components/looks/tag-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { searchPin, suggestPieces, type SuggestedPiece } from "@/lib/ai/suggest";
+import { authEnabled } from "@/lib/auth/client";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { isUnauthorized } from "@/lib/looks/api";
 import { funnelUserState, recordPinAdded, recordShopResultShown } from "@/lib/looks/funnel";
 import {
@@ -19,13 +23,7 @@ import {
 import { getMyHouse, listMyCollections } from "@/lib/labels/api";
 import type { FashionCollection } from "@/lib/labels/model";
 import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
-import {
-  completedPhoneSteps,
-  initialPhoneStep,
-  PHONE_CREATE_STEPS,
-  phoneStepBlock,
-  type PhoneCreateStepId,
-} from "@/lib/looks/create-steps";
+import { initialPhoneStep, type PhoneCreateStepId } from "@/lib/looks/create-steps";
 import { useCatalogStore } from "@/lib/looks/catalog";
 import { imageSrcToDataUrl, readLookImage } from "@/lib/looks/image";
 import { MOODS } from "@/lib/looks/moods";
@@ -79,14 +77,21 @@ export function LookEditor({
   const [readingPhoto, setReadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [phoneStep, setPhoneStep] = useState<PhoneCreateStepId>(() =>
-    initialPhoneStep({
-      imageSrc: look.imageSrc,
-      title: look.title,
-      tagCount: look.tags.length,
-    }),
+    initialPhoneStep(
+      {
+        imageSrc: look.imageSrc,
+        title: look.title,
+        tagCount: look.tags.length,
+      },
+      mode,
+    ),
   );
+  const [suggestNote, setSuggestNote] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountIntent, setAccountIntent] = useState<"publish" | "draft">("publish");
   const chrome = useChromeLayout();
   const phone = chrome === "phone";
+  const { user, isPending } = useCurrentUserState();
   const searchPayload = useCatalogStore((s) => s.searchPayload);
   const selectedTag = look.tags.find((tag) => tag.id === selectedId) ?? null;
 
@@ -165,7 +170,7 @@ export function LookEditor({
       const imageSrc = await readLookImage(file);
       if (uploadTokenRef.current !== token) return;
       patch({ imageSrc });
-      if (phone && phoneStep === "photo") setPhoneStep("name");
+      if (phone) setPhoneStep("pins");
     } catch (error) {
       if (uploadTokenRef.current !== token) return;
       const message = error instanceof Error ? error.message : "Could not read that photo.";
@@ -192,7 +197,6 @@ export function LookEditor({
       lookId: lookRef.current.id,
       userId: lookRef.current.userId,
     });
-    if (phone) setPhoneStep("piece");
   }
 
   function moveTag(id: string, x: number, y: number) {
@@ -237,6 +241,10 @@ export function LookEditor({
       }
       if (result.pieces.length === 0) {
         toast.error("Nothing to pin. Try a clearer full-body shot.");
+        return;
+      }
+      if (phone) {
+        pinSuggestions(result.pieces, { note: true });
         return;
       }
       setSuggestions(result.pieces);
@@ -293,11 +301,7 @@ export function LookEditor({
           userId: lookRef.current.userId,
         });
       }
-      toast.success(
-        result.offers.length === 1
-          ? "Found 1 live listing"
-          : `Found ${result.offers.length} shops. Cheapest is from that search.`,
-      );
+      toast.success(result.offers.length === 1 ? "Found 1 live listing" : `Found ${result.offers.length} shops.`);
     } catch (error) {
       if (isUnauthorized(error)) {
         toast.error("Sign in to search shops.");
@@ -309,7 +313,7 @@ export function LookEditor({
     }
   }
 
-  function acceptSuggestions(pieces: SuggestedPiece[]) {
+  function pinSuggestions(pieces: SuggestedPiece[], opts?: { note?: boolean }) {
     const current = lookRef.current;
     const tags = pieces.map((piece) => {
       const tag = emptyTag(piece.x, piece.y);
@@ -329,8 +333,16 @@ export function LookEditor({
         userId: current.userId,
       });
     }
+    if (opts?.note) {
+      setSuggestNote(tags.length === 1 ? "1 suggested · tap to edit" : `${tags.length} suggested · tap to edit`);
+      if (phone) setPhoneStep("pins");
+      return;
+    }
     toast.success(tags.length === 1 ? "Pinned 1 piece" : `Pinned ${tags.length} pieces`);
-    if (phone && tags.length > 0) setPhoneStep("piece");
+  }
+
+  function acceptSuggestions(pieces: SuggestedPiece[]) {
+    pinSuggestions(pieces);
   }
 
   async function handleSave() {
@@ -365,393 +377,107 @@ export function LookEditor({
   }
 
   const studio = Boolean(look.imageSrc);
-  const progress = { imageSrc: look.imageSrc, title: look.title, tagCount: look.tags.length };
   const shownStep: PhoneCreateStepId = look.imageSrc ? phoneStep : "photo";
 
-  function goPhoneStep(step: PhoneCreateStepId) {
-    const block = phoneStepBlock(step, progress);
-    if (block) {
-      toast.message(block);
-      return;
-    }
-    if (step === "piece") {
-      const nextId = selectedId && look.tags.some((tag) => tag.id === selectedId) ? selectedId : look.tags[0]?.id;
-      if (nextId) setSelectedId(nextId);
-    }
-    setPhoneStep(step);
+  function addPinAtNext() {
+    const n = lookRef.current.tags.length;
+    addTag(42 + (n % 4) * 8, 36 + (n % 5) * 8);
   }
 
-  function continueFromName() {
+  function finishPins() {
+    setSuggestNote(null);
+    setPhoneStep(mode === "edit" ? "publish" : "details");
+  }
+
+  function continueDetails() {
     if (!look.title.trim()) {
       toast.error("Give the look a name.");
       return;
     }
-    setPhoneStep(look.tags.length > 0 ? "piece" : "pins");
+    setPhoneStep("publish");
   }
 
-  function onTrayFocus(event: FocusEvent) {
-    const el = event.target as HTMLElement;
-    if (!el.matches("input, textarea")) return;
-    window.clearTimeout(focusTimer.current);
-    setFieldFocus(true);
+  function needsAccount() {
+    return authEnabled && !user;
   }
 
-  function onTrayBlur() {
-    window.clearTimeout(focusTimer.current);
-    focusTimer.current = window.setTimeout(() => {
-      const active = document.activeElement;
-      if (
-        trayRef.current?.contains(active) &&
-        active instanceof HTMLElement &&
-        active.matches("input, textarea")
-      ) {
+  function requestPublish() {
+    if (needsAccount()) {
+      if (isPending) {
+        toast.message("Still checking your account. Try again in a moment.");
         return;
       }
-      setFieldFocus(false);
-    }, 120);
+      setAccountIntent("publish");
+      setAccountOpen(true);
+      return;
+    }
+    void handleSave();
   }
 
-  const pieceIndex = selectedTag ? look.tags.findIndex((tag) => tag.id === selectedTag.id) : -1;
+  function requestDraft() {
+    if (needsAccount()) {
+      if (isPending) {
+        toast.message("Still checking your account. Try again in a moment.");
+        return;
+      }
+      setAccountIntent("draft");
+      setAccountOpen(true);
+      return;
+    }
+    toast.success("Draft saved");
+  }
 
   return (
     <div
       className="look-studio"
       data-step={phone ? shownStep : studio ? "pins" : "photo"}
+      data-plate={
+        phone
+          ? shownStep === "pins" || shownStep === "piece"
+            ? "bleed"
+            : "paper"
+          : undefined
+      }
       data-chrome={chrome}
       data-keyboard={fieldFocus ? "open" : "closed"}
       data-hydrated={hydrated ? "true" : "false"}
     >
       {phone ? (
-        shownStep === "photo" ? (
-          <>
-            <Stepper
-              steps={PHONE_CREATE_STEPS}
-              current="photo"
-              onSelect={(id) => goPhoneStep(id as PhoneCreateStepId)}
-            />
-            <PhotoStep
-              phone={phone}
-              dragOver={dragOver}
-              reading={readingPhoto}
-              error={photoError}
-              onDragOver={setDragOver}
-              onFiles={handleFiles}
-              onCamera={() => cameraRef.current?.click()}
-              onLibrary={() => libraryRef.current?.click()}
-              guestHint={mode === "create" && showCreatorField !== false}
-            />
-          </>
-        ) : (
-          <div className="look-studio-body mt-1">
-            <Stepper
-              steps={PHONE_CREATE_STEPS}
-              current={shownStep === "piece" ? "pins" : shownStep}
-              completed={completedPhoneSteps(progress)}
-              onSelect={(id) => goPhoneStep(id as PhoneCreateStepId)}
-            />
-            {shownStep === "pins" || shownStep === "piece" ? (
-              <div className="look-studio-frame">
-                <LookCanvas
-                  imageSrc={look.imageSrc}
-                  title={look.title}
-                  tags={look.tags}
-                  selectedId={selectedId}
-                  editable
-                  fit="fill"
-                  className="look-studio-canvas"
-                  onSelect={(id) => {
-                    setSelectedId(id);
-                    setPhoneStep("piece");
-                  }}
-                  onAddTag={addTag}
-                  onMoveTag={moveTag}
-                  onPickImage={() => libraryRef.current?.click()}
-                />
-                <p className="look-studio-hint">
-                  {look.tags.length === 0 ? "Tap a piece on the photo to pin it" : "Drag a pin to place it"}
-                </p>
-                <button type="button" className="look-studio-replace" onClick={() => libraryRef.current?.click()}>
-                  Replace
-                </button>
-              </div>
-            ) : null}
-            <div ref={trayRef} className="look-studio-tray" onFocusCapture={onTrayFocus} onBlurCapture={onTrayBlur}>
-              {shownStep === "name" ? (
-                <>
-                  <Field label="Look name" htmlFor="looktag-outfit-label" hint="A short name shoppers will see.">
-                    <Input
-                      id="looktag-outfit-label"
-                      name="looktag-outfit-label"
-                      value={look.title}
-                      placeholder="Saturday coat"
-                      autoComplete="off"
-                      autoCapitalize="sentences"
-                      enterKeyHint="next"
-                      onChange={(event) => patch({ title: event.target.value })}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          continueFromName();
-                        }
-                      }}
-                    />
-                  </Field>
-                  <div className="flex flex-col gap-2">
-                    <p className="ds-kicker">Mood</p>
-                    <div className="chip-scroll -mx-1 overflow-x-auto px-1">
-                      <div className="flex w-max gap-2">
-                        {MOODS.map((mood) => {
-                          const on = look.moods?.includes(mood.id) ?? false;
-                          return (
-                            <Chip
-                              key={mood.id}
-                              selected={on}
-                              onClick={() => {
-                                const current = look.moods ?? [];
-                                patch({
-                                  moods: on ? current.filter((id) => id !== mood.id) : [...current, mood.id],
-                                });
-                              }}
-                            >
-                              {mood.label}
-                            </Chip>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                  {collections.length > 0 ? (
-                    <div className="flex flex-col gap-2">
-                      <p className="ds-kicker">Collection</p>
-                      <div className="chip-scroll -mx-1 overflow-x-auto px-1">
-                        <div className="flex w-max gap-2">
-                          <Chip selected={!look.collectionId} onClick={() => patch({ collectionId: undefined })}>
-                            No collection
-                          </Chip>
-                          {collections.map((collection) => (
-                            <Chip
-                              key={collection.id}
-                              selected={look.collectionId === collection.id}
-                              onClick={() => patch({ collectionId: collection.id })}
-                            >
-                              {collection.name}
-                            </Chip>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                  <Field label="Caption" htmlFor="looktag-outfit-note" hint="Optional. One line is enough.">
-                    <Textarea
-                      id="looktag-outfit-note"
-                      name="looktag-outfit-note"
-                      value={look.caption}
-                      placeholder="Camel coat, Saturday market."
-                      rows={3}
-                      autoComplete="off"
-                      onChange={(event) => patch({ caption: event.target.value })}
-                    />
-                  </Field>
-                </>
-              ) : null}
-              {shownStep === "pins" ? (
-                look.tags.length === 0 ? (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-sm text-muted-foreground">Tap each piece, or find them from the photo.</p>
-                    <Button type="button" variant="outline" onClick={() => void handleFindPieces()} disabled={findingPieces}>
-                      {findingPieces ? "Reading photo…" : "Find all pieces"}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-sm text-muted-foreground">Choose a pin to name it and find shops.</p>
-                    <div className="chip-scroll overflow-x-auto">
-                      <div className="flex w-max gap-2">
-                        {look.tags.map((tag, index) => (
-                          <Chip
-                            key={tag.id}
-                            selected={tag.id === selectedId}
-                            onClick={() => {
-                              setSelectedId(tag.id);
-                              setPhoneStep("piece");
-                            }}
-                          >
-                            <span className="tabular-nums opacity-60">{index + 1}</span>
-                            {tag.name.trim() || `Piece ${index + 1}`}
-                          </Chip>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )
-              ) : null}
-              {shownStep === "piece" && selectedTag ? (
-                <>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      Piece {pieceIndex + 1} of {look.tags.length}
-                    </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={() => removeTag(selectedTag.id)}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                  <div className="chip-scroll overflow-x-auto">
-                    <div className="flex w-max gap-2">
-                      {look.tags.map((tag, index) => (
-                        <Chip key={tag.id} selected={tag.id === selectedId} onClick={() => setSelectedId(tag.id)}>
-                          <span className="tabular-nums opacity-60">{index + 1}</span>
-                          {tag.name.trim() || `Piece ${index + 1}`}
-                        </Chip>
-                      ))}
-                    </div>
-                  </div>
-                  <TagForm
-                    tag={selectedTag}
-                    index={pieceIndex}
-                    guided
-                    lookSrc={look.imageSrc}
-                    onChange={updateTag}
-                    onRemove={() => removeTag(selectedTag.id)}
-                    onSearch={() => void handleSearchPin(selectedTag)}
-                    searching={searchingId === selectedTag.id}
-                    userState={funnelUserState(look.userId)}
-                  />
-                  <Button type="button" variant="ghost" onClick={() => void handleFindPieces()} disabled={findingPieces}>
-                    {findingPieces ? "Reading…" : "Find more pieces"}
-                  </Button>
-                </>
-              ) : null}
-              {shownStep === "publish" ? (
-                <>
-                  <Field label="Look name" htmlFor="looktag-outfit-label" hint="A short name shoppers will see.">
-                    <Input
-                      id="looktag-outfit-label"
-                      name="looktag-outfit-label"
-                      value={look.title}
-                      placeholder="Saturday coat"
-                      autoComplete="off"
-                      autoCapitalize="sentences"
-                      onChange={(event) => patch({ title: event.target.value })}
-                    />
-                  </Field>
-                  <ul className="flex flex-col gap-1 text-sm">
-                    {look.tags.length === 0 ? (
-                      <li className="text-muted-foreground">No pins yet. You can still publish the photo.</li>
-                    ) : (
-                      look.tags.map((tag, index) => (
-                        <li key={tag.id}>
-                          <button type="button" className="h-11 text-left" onClick={() => {
-                            setSelectedId(tag.id);
-                            setPhoneStep("piece");
-                          }}>
-                            {index + 1}. {tag.name.trim() || `Piece ${index + 1}`}
-                            <span className="text-muted-foreground">
-                              {" "}
-                              · {tag.offers?.length ? `${tag.offers.length} shops` : "no shops yet"}
-                            </span>
-                          </button>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                  <Field label="Caption" htmlFor="looktag-outfit-note" hint="Optional. One line is enough.">
-                    <Textarea
-                      id="looktag-outfit-note"
-                      name="looktag-outfit-note"
-                      value={look.caption}
-                      placeholder="Camel coat, Saturday market."
-                      rows={3}
-                      autoComplete="off"
-                      onChange={(event) => patch({ caption: event.target.value })}
-                    />
-                  </Field>
-                </>
-              ) : null}
-            </div>
-            <div className="look-studio-dock">
-              {shownStep === "name" ? (
-                <>
-                  {onReset ? (
-                    <button
-                      type="button"
-                      className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
-                      onClick={onReset}
-                    >
-                      Start over
-                    </button>
-                  ) : null}
-                  <Button type="button" className="look-studio-save" onClick={continueFromName}>
-                    Continue
-                  </Button>
-                </>
-              ) : null}
-              {shownStep === "pins" ? (
-                <>
-                  <button
-                    type="button"
-                    className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
-                    onClick={() => goPhoneStep("name")}
-                  >
-                    Name
-                  </button>
-                  <Button
-                    type="button"
-                    className="look-studio-save"
-                    onClick={() => (look.tags.length > 0 ? goPhoneStep("piece") : goPhoneStep("publish"))}
-                  >
-                    {look.tags.length > 0 ? "Name this piece" : "Review"}
-                  </Button>
-                </>
-              ) : null}
-              {shownStep === "piece" ? (
-                <>
-                  <button
-                    type="button"
-                    className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
-                    onClick={() => setPhoneStep("pins")}
-                  >
-                    All pins
-                  </button>
-                  {look.tags.length > 1 ? (
-                    <button
-                      type="button"
-                      className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
-                      onClick={() => {
-                        const next = look.tags[(pieceIndex + 1) % look.tags.length];
-                        if (next) setSelectedId(next.id);
-                      }}
-                    >
-                      Next piece
-                    </button>
-                  ) : null}
-                  <Button type="button" className="look-studio-save" onClick={() => void handleSave()} disabled={saving}>
-                    {saving ? "Saving…" : saveLabel}
-                  </Button>
-                </>
-              ) : null}
-              {shownStep === "publish" ? (
-                <>
-                  <button
-                    type="button"
-                    className="h-11 shrink-0 px-1 text-sm text-muted-foreground"
-                    onClick={() => setPhoneStep(look.tags.length > 0 ? "piece" : "pins")}
-                  >
-                    Back
-                  </button>
-                  <Button type="button" className="look-studio-save" onClick={() => void handleSave()} disabled={saving}>
-                    {saving ? "Saving…" : saveLabel}
-                  </Button>
-                </>
-              ) : null}
-            </div>
-          </div>
-        )
+        <PhoneCreate
+          look={look}
+          mode={mode}
+          step={shownStep}
+          selectedId={selectedId}
+          finding={findingPieces}
+          suggestNote={suggestNote}
+          saving={saving}
+          readingPhoto={readingPhoto}
+          photoError={photoError}
+          dragOver={dragOver}
+          saveLabel={saveLabel}
+          onStep={setPhoneStep}
+          onPatch={patch}
+          onSelect={(id) => {
+            if (!id) return;
+            setSelectedId(id);
+            setPhoneStep("piece");
+          }}
+          onAddTag={addTag}
+          onMoveTag={moveTag}
+          onUpdateTag={updateTag}
+          onRemoveTag={removeTag}
+          onFind={() => void handleFindPieces()}
+          onAddPin={addPinAtNext}
+          onDonePins={finishPins}
+          onContinueDetails={continueDetails}
+          onPublish={requestPublish}
+          onSaveDraft={requestDraft}
+          onCancel={onCancel}
+          onDragOver={setDragOver}
+          onFiles={handleFiles}
+          onCamera={() => cameraRef.current?.click()}
+          onLibrary={() => libraryRef.current?.click()}
+        />
       ) : studio ? (
         <div className="look-studio-body mt-1">
           <div className="look-studio-frame">
@@ -958,7 +684,7 @@ export function LookEditor({
             <Button
               type="button"
               className="look-studio-save"
-              onClick={() => void handleSave()}
+              onClick={() => requestPublish()}
               disabled={saving}
             >
               {saving ? "Saving…" : saveLabel}
@@ -999,6 +725,17 @@ export function LookEditor({
           void handleFiles(event.target.files);
           event.target.value = "";
         }}
+      />
+
+      <AccountSheet
+        open={accountOpen}
+        onOpenChange={setAccountOpen}
+        intent={accountIntent}
+        next="/create"
+        title="Sign in to continue"
+        description="Same sheet for Publish and Save draft. Cancel returns to Ready — pins stay."
+        primary="Continue with email"
+        secondary="Cancel"
       />
 
       <SuggestDialog

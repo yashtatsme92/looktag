@@ -24,6 +24,8 @@ type LookCanvasProps = {
   className?: string;
   fit?: "natural" | "cover" | "fill";
   onImageTap?: () => void;
+  /** Phone create opens the piece card on a tap, not on the drag that starts a move. */
+  selectOnTap?: boolean;
 };
 
 export function LookCanvas({
@@ -40,6 +42,7 @@ export function LookCanvas({
   className,
   fit = "natural",
   onImageTap,
+  selectOnTap,
 }: LookCanvasProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
@@ -107,15 +110,24 @@ export function LookCanvas({
       onMoveTag?.(id, point.x, point.y);
     };
     const onUp = () => {
+      const moved = dragRef.current?.moved ?? false;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      if (selectOnTap && moved) {
+        const stop = (event: Event) => {
+          event.stopPropagation();
+          event.preventDefault();
+          window.removeEventListener("click", stop, true);
+        };
+        window.addEventListener("click", stop, true);
+      }
       window.setTimeout(() => {
         dragRef.current = null;
       }, 0);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-    onSelect?.(id);
+    if (!selectOnTap) onSelect?.(id);
   }
 
   return (

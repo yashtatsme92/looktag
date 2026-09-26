@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import type { SuggestedPiece } from "@/lib/ai/suggest";
-import { formatMoney } from "@/lib/looks/format";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +77,6 @@ export function SuggestDialog({ open, onOpenChange, pieces, lookSrc, onAccept }:
                           {piece.offers.map((offer) => (
                             <Badge key={offer.url} variant="muted">
                               {retailerLabel(offer)}
-                              {offer.price ? ` ${formatMoney(offer.price, offer.currency)}` : ""}
                             </Badge>
                           ))}
                         </span>

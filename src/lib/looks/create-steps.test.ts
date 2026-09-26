@@ -9,16 +9,17 @@ describe("initialPhoneStep", () => {
     assert.equal(initialPhoneStep(empty), "photo");
   });
 
-  it("asks for a name before pins when the photo has no title", () => {
-    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "  ", tagCount: 0 }), "name");
-  });
-
-  it("opens the piece when a named draft already has a pin", () => {
-    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 1 }), "piece");
-  });
-
-  it("opens the pin board when the look is named but unpinned", () => {
+  it("opens the pin plate after a photo, even when the look is already named or pinned", () => {
+    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "  ", tagCount: 0 }), "pins");
     assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 0 }), "pins");
+    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 1 }), "pins");
+  });
+
+  it("opens edit on the ready screen when a photo exists", () => {
+    assert.equal(
+      initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 1 }, "edit"),
+      "publish",
+    );
   });
 });
 
@@ -26,6 +27,7 @@ describe("phoneStepBlock", () => {
   it("blocks every step past the photo until a photo exists", () => {
     assert.equal(phoneStepBlock("name", empty), "Add a photo first.");
     assert.equal(phoneStepBlock("publish", empty), "Add a photo first.");
+    assert.equal(phoneStepBlock("details", empty), "Add a photo first.");
     assert.equal(phoneStepBlock("photo", empty), null);
   });
 
@@ -33,6 +35,7 @@ describe("phoneStepBlock", () => {
     const look = { imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 0 };
     assert.equal(phoneStepBlock("piece", look), "Pin a piece on the photo first.");
     assert.equal(phoneStepBlock("pins", look), null);
+    assert.equal(phoneStepBlock("details", look), null);
   });
 });
 

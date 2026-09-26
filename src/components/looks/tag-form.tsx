@@ -2,10 +2,8 @@ import { useState } from "react";
 import { ChevronDown, ExternalLink, Search, Trash2 } from "lucide-react";
 import { Field } from "@/components/ds";
 import { PieceThumb } from "@/components/looks/piece-thumb";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatMoney, parsePrice } from "@/lib/looks/format";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { cheapestOffer, removeOffer, sortedOffers, wornLink } from "@/lib/looks/offers";
 import { detectRetailer, retailerLabel } from "@/lib/looks/retailers";
@@ -164,53 +162,33 @@ export function TagForm({
 
       {offers.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <p className="ds-kicker">Live prices</p>
+          <p className="ds-kicker">Shops</p>
           <ul className="flex flex-col gap-1.5">
-            {offers.map((offer) => {
-              const isCheapest = Boolean(
-                cheap &&
-                  offer.id === cheap.id &&
-                  offers.length > 1 &&
-                  parsePrice(cheap.price) > 0,
-              );
-              return (
-                <li key={offer.id}>
-                  <div
-                    className={cn(
-                      "flex items-center gap-2 rounded-md border px-3 py-2",
-                      isCheapest ? "border-foreground/80" : "border-border",
-                    )}
+            {offers.map((offer) => (
+              <li key={offer.id}>
+                <div className="flex items-center gap-2 rounded-md border border-border px-3 py-2">
+                  <a
+                    href={offer.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-sm"
+                    onClick={() =>
+                      recordOutboundShopClick({
+                        cheapest: false,
+                        chrome: chromeLayout(),
+                        offerCount: offers.length,
+                        retailerId: offer.retailerId,
+                        source: "editor_offer",
+                        tagId: tag.id,
+                        urlHost: hostFromUrl(offer.url),
+                        userState,
+                      })
+                    }
                   >
-                    <a
-                      href={offer.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex min-w-0 flex-1 items-center gap-2 text-sm"
-                      onClick={() =>
-                        recordOutboundShopClick({
-                          cheapest: Boolean(isCheapest),
-                          chrome: chromeLayout(),
-                          offerCount: offers.length,
-                          retailerId: offer.retailerId,
-                          source: "editor_offer",
-                          tagId: tag.id,
-                          urlHost: hostFromUrl(offer.url),
-                          userState,
-                        })
-                      }
-                    >
-                      <PieceThumb lookSrc={lookSrc} productSrc={offer.imageUrl} x={tag.x} y={tag.y} size="sm" />
-                      <span className="min-w-0 flex-1 truncate">{retailerLabel(offer)}</span>
-                      {isCheapest ? (
-                        <Badge variant="muted" className="uppercase">
-                          Cheapest
-                        </Badge>
-                      ) : null}
-                      <span className="shrink-0 tabular-nums">
-                        {offer.price.trim() ? formatMoney(offer.price, offer.currency) : "See shop"}
-                      </span>
-                      <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
-                    </a>
+                    <PieceThumb lookSrc={lookSrc} productSrc={offer.imageUrl} x={tag.x} y={tag.y} size="sm" />
+                    <span className="min-w-0 flex-1 truncate">{retailerLabel(offer)}</span>
+                    <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
+                  </a>
                     <Button
                       type="button"
                       variant="ghost"
@@ -223,8 +201,7 @@ export function TagForm({
                     </Button>
                   </div>
                 </li>
-              );
-            })}
+            ))}
           </ul>
         </div>
       ) : compact || guided ? null : (
@@ -281,7 +258,7 @@ export function TagForm({
             <Field
               label="As worn"
               htmlFor={`worn-${tag.id}`}
-              hint="The item you wore. Shoppers can still open it — cheapest always comes from Search."
+              hint="The item you wore. Shoppers can still open it."
             >
               <Input
                 id={`worn-${tag.id}`}

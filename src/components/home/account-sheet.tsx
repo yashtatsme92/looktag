@@ -7,11 +7,20 @@ export function AccountSheet({
   onOpenChange,
   title = "Save this look",
   description = "Sign in to keep it in your wardrobe. Browsing stays open.",
+  primary = "Sign in",
+  secondary = "Keep browsing",
+  next = "/",
+  intent,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
   description?: string;
+  primary?: string;
+  secondary?: string;
+  next?: string;
+  /** Create uses one sheet for Publish and Save draft. Pins stay if they cancel. */
+  intent?: "publish" | "draft";
 }) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -21,13 +30,20 @@ export function AccountSheet({
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
         <div className="flex flex-col gap-2 px-5 pt-2 pb-6">
+          {intent ? (
+            <p className="mb-2">
+              <span className="inline-flex min-h-8 items-center rounded-full bg-secondary px-3 text-xs font-medium text-muted-foreground">
+                via {intent === "publish" ? "Publish" : "Save draft"}
+              </span>
+            </p>
+          ) : null}
           <Button asChild className="h-11">
-            <Link to="/login" search={{ next: "/" }}>
-              Sign in
+            <Link to="/login" search={{ next }}>
+              {primary}
             </Link>
           </Button>
           <Button type="button" variant="ghost" className="h-11" onClick={() => onOpenChange(false)}>
-            Keep browsing
+            {secondary}
           </Button>
         </div>
       </DrawerContent>

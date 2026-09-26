@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import { formatCreateUploadError, getCreateUploadPresentation } from "./create-upload.ts";
 
 describe("getCreateUploadPresentation", () => {
-  it("keeps the phone flow camera-first", () => {
+  it("opens the phone on the look plate, not a camera wizard", () => {
     const copy = getCreateUploadPresentation({ phone: true });
-    assert.equal(copy.title, "Add a look photo");
-    assert.equal(copy.primaryAction, "camera");
-    assert.equal(copy.primaryLabel, "Take photo");
-    assert.equal(copy.secondaryLabel, "Choose from library");
-    assert.match(copy.body, /Take or choose/i);
+    assert.equal(copy.title, "Start with a look");
+    assert.equal(copy.primaryAction, "library");
+    assert.equal(copy.primaryLabel, "Choose photo");
+    assert.equal(copy.secondaryLabel, "Camera");
+    assert.match(copy.body, /Guests can craft locally/i);
+    assert.match(copy.body, /Publish asks for an account/i);
   });
 
   it("makes desktop choose-first and keeps drag-drop copy", () => {

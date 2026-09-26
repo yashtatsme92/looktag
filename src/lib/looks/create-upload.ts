@@ -25,11 +25,11 @@ export function getCreateUploadPresentation({
 
   if (phone) {
     return {
-      title: "Add a look photo",
-      body: "Take or choose a full-body photo, then pin each piece from the preview.",
-      primaryAction: "camera",
-      primaryLabel: "Take photo",
-      secondaryLabel: "Choose from library",
+      title: "Start with a look",
+      body: "Pin pieces on your photo. Guests can craft locally — Publish asks for an account.",
+      primaryAction: "library",
+      primaryLabel: "Choose photo",
+      secondaryLabel: "Camera",
     };
   }
 

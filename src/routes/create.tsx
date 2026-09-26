@@ -115,8 +115,6 @@ function CreateLook() {
           }
           if (!user) {
             saveDraft(look);
-            toast.message("Create an account to publish this look.");
-            await navigate({ to: "/login", search: { next: "/create" } });
             return;
           }
           try {

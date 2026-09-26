@@ -5,7 +5,10 @@ export const PHONE_CREATE_STEPS = [
   { id: "publish", label: "Publish" },
 ] as const;
 
-export type PhoneCreateStepId = (typeof PHONE_CREATE_STEPS)[number]["id"] | "piece";
+export type PhoneCreateStepId =
+  | (typeof PHONE_CREATE_STEPS)[number]["id"]
+  | "piece"
+  | "details";
 
 type LookProgress = {
   imageSrc: string;
@@ -13,11 +16,17 @@ type LookProgress = {
   tagCount: number;
 };
 
-/** Where a phone draft should open. A named look with pins lands on the piece, so search stays one tap away. */
-export function initialPhoneStep(look: LookProgress): PhoneCreateStepId {
+/**
+ * Where a phone draft should open.
+ * After a photo, the pin plate is the primary surface — not the name form, and not a piece card.
+ * Edit opens on the ready screen so Save changes is the primary.
+ */
+export function initialPhoneStep(
+  look: LookProgress,
+  mode: "create" | "edit" = "create",
+): PhoneCreateStepId {
   if (!look.imageSrc.trim()) return "photo";
-  if (!look.title.trim()) return "name";
-  if (look.tagCount > 0) return "piece";
+  if (mode === "edit") return "publish";
   return "pins";
 }
 
