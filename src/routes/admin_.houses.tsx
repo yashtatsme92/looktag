@@ -5,11 +5,7 @@ import { AdminGate } from "@/components/admin/admin-gate";
 import { BrowseBar, BrowsePager, useScrollPicked } from "@/components/admin/browse-bar";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
-import { ScoutedMark } from "@/components/labels/scouted-mark";
-import { AdminNav } from "@/components/observability/admin-nav";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import {
   browseHouses,
   HOUSE_FILTERS,
@@ -23,7 +19,7 @@ import {
   type HouseSort,
 } from "@/lib/admin/browse";
 import { listAdminHouses, setHouseStatus, setLabelScouted, type AdminHouse } from "@/lib/labels/api";
-import { SCOUTED_FLAG, type HouseStatus } from "@/lib/labels/model";
+import { SCOUTED_FLAG, houseQueueActions, queueStatusLabel, type HouseStatus } from "@/lib/labels/model";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin_/houses")({ component: AdminHousesPage });
@@ -81,7 +77,15 @@ function HousesAdmin() {
       setHouses((current) =>
         current.map((item) => (item.id === saved.id ? { ...item, ...saved } : item)),
       );
-      toast.success(status === "approved" ? "House is live" : status === "rejected" ? "House declined" : "Moved to pending");
+      toast.success(
+        status === "approved"
+          ? "House is live"
+          : status === "rejected"
+            ? "House declined"
+            : status === "disabled"
+              ? "House disabled"
+              : "Moved to waiting",
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update house.");
     }
@@ -108,12 +112,8 @@ function HousesAdmin() {
 
   return (
     <AppShell title="Houses" backTo="/admin">
-      <ScreenTitle kicker="Admin">House applications</ScreenTitle>
-      <AdminNav current="houses" />
-      <p className="mb-6 text-sm text-muted-foreground">
-        Search, filter, and page as houses grow. Suggested ranks Scouted and high-score labels first.
-        {` ${SCOUTED_FLAG}`} is for houses Looktag picks.
-      </p>
+      <div className="ops-stage">
+      <ScreenTitle kicker="Admin">Houses</ScreenTitle>
 
       <section className="mb-6 rounded-xl bg-card p-5 shadow-[var(--shadow-border)]" data-loaded={loaded ? "true" : "false"}>
         <BrowseBar
@@ -203,6 +203,7 @@ function HousesAdmin() {
           </>
         )}
       </section>
+      </div>
     </AppShell>
   );
 }
@@ -219,64 +220,40 @@ function HouseRow({
   onScouted: (house: AdminHouse) => void;
 }) {
   return (
-    <li
-      data-picked={picked ? "true" : undefined}
-      className={cn(
-        "-mx-2 flex flex-col gap-3 rounded-lg border-b border-border px-2 py-4 last:border-b-0 last:pb-0 first:pt-0",
-        picked && "bg-muted first:pt-3 last:pb-3",
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="ds-card-title">{house.name}</p>
-            <StatusBadge status={house.status} />
-            {house.scouted ? <ScoutedMark /> : null}
-          </div>
-          <p className="mt-1 text-xs leading-snug text-muted-foreground">
-            {house.city || "City not set"} · @{house.handle}
-          </p>
-          {house.bio ? <p className="mt-2 text-sm text-muted-foreground">{house.bio}</p> : null}
-        </div>
-        {house.score > 0 ? (
-          <p className="shrink-0 text-xs tabular-nums text-muted-foreground">{house.score}</p>
-        ) : null}
-        {house.status === "approved" ? (
-          <Switch
-            checked={house.scouted}
-            onCheckedChange={(checked) => {
-              void setLabelScouted({ data: { id: house.id, scouted: checked } })
-                .then((saved) => {
-                  if (saved) onScouted({ ...house, ...saved });
-                })
-                .catch(() => toast.error("Could not update Scouted."));
+    <li data-picked={picked ? "true" : undefined} className={cn("ops-card", picked && "ops-card-picked")}>
+      <span className="ops-chip">{queueStatusLabel(house.status)}</span>
+      <p className="ops-card-name">{house.name}</p>
+      <p className="ops-row-note">
+        {house.city || "City not set"}
+        {house.handle ? ` · @${house.handle}` : ""}
+      </p>
+      <div
+        className="ops-actions"
+        style={{ gridTemplateColumns: `repeat(${Math.max(houseQueueActions(house.status).length, 1)}, minmax(0, 1fr))` }}
+      >
+        {houseQueueActions(house.status).map((action) => (
+          <Button
+            key={action.id}
+            type="button"
+            variant="outline"
+            className="ops-action"
+            data-on={action.id === "scouted" && house.scouted ? "true" : "false"}
+            onClick={() => {
+              if (action.id === "scouted") {
+                void setLabelScouted({ data: { id: house.id, scouted: !house.scouted } })
+                  .then((saved) => {
+                    if (saved) onScouted({ ...house, ...saved });
+                  })
+                  .catch(() => toast.error("Could not update Scouted."));
+                return;
+              }
+              if (action.status) onStatus(house.id, action.status);
             }}
-            aria-label={`${house.scouted ? "Remove" : "Mark"} ${SCOUTED_FLAG} on ${house.name}`}
-          />
-        ) : null}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {house.status !== "approved" ? (
-          <Button type="button" size="sm" onClick={() => onStatus(house.id, "approved")}>
-            Approve
+          >
+            {action.id === "scouted" ? SCOUTED_FLAG : action.label}
           </Button>
-        ) : null}
-        {house.status !== "rejected" ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => onStatus(house.id, "rejected")}>
-            Decline
-          </Button>
-        ) : null}
-        {house.status !== "pending" ? (
-          <Button type="button" size="sm" variant="ghost" onClick={() => onStatus(house.id, "pending")}>
-            Hold
-          </Button>
-        ) : null}
+        ))}
       </div>
     </li>
   );
-}
-
-function StatusBadge({ status }: { status: HouseStatus }) {
-  const label = status === "approved" ? "Live" : status === "pending" ? "Pending" : "Declined";
-  return <Badge variant={status === "approved" ? "default" : "muted"}>{label}</Badge>;
 }

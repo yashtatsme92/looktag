@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, Download, Landmark, Palette, SlidersHorizontal } from "lucide-react";
+import { ChevronRight, Download } from "lucide-react";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
@@ -235,38 +235,6 @@ function CreatorPage() {
 
       {mine ? (
         <div className="mb-8 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-border)]">
-          {admin ? (
-            <>
-              <Link to="/admin" className="flex min-h-14 items-center gap-3 px-4 text-sm font-medium">
-                <SlidersHorizontal className="size-4 text-muted-foreground" />
-                <span className="flex-1">Admin · system settings</span>
-                <ChevronRight className="size-4 text-muted-foreground" />
-              </Link>
-              <Link to="/admin/look" className="flex min-h-14 items-center gap-3 border-t border-border px-4 text-sm font-medium">
-                <Palette className="size-4 text-muted-foreground" />
-                <span className="flex-1">Look & palettes</span>
-                <ChevronRight className="size-4 text-muted-foreground" />
-              </Link>
-            </>
-          ) : null}
-          {labelsEnabled ? (
-            <Link
-              to="/houses/apply"
-              className="flex min-h-14 items-center gap-3 border-t border-border px-4 text-sm font-medium first:border-t-0"
-            >
-              <Landmark className="size-4 text-muted-foreground" />
-              <span className="flex-1">
-                {house
-                  ? house.status === "approved"
-                    ? `Manage ${house.name}`
-                    : house.status === "rejected"
-                      ? `House declined · ${house.name}`
-                      : `House pending · ${house.name}`
-                  : "Register a house"}
-              </span>
-              <ChevronRight className="size-4 text-muted-foreground" />
-            </Link>
-          ) : null}
           {!standalone ? (
             <button
               type="button"

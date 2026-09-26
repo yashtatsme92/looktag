@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Download, SlidersHorizontal } from "lucide-react";
+import { useRouterState } from "@tanstack/react-router";
+import { Download } from "lucide-react";
 import { InstallSheet } from "@/components/layout/install-sheet";
 import { NativeHeader } from "@/components/layout/native-header";
 import { NativePortalProvider } from "@/components/layout/native-portal";
@@ -8,8 +8,6 @@ import { StatusBar } from "@/components/layout/status-bar";
 import { TabBar } from "@/components/layout/tab-bar";
 import { WebHeader } from "@/components/layout/web-header";
 import { Button } from "@/components/ui/button";
-import { resolveYouSessionState } from "@/lib/admin/access";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useCatalogStore } from "@/lib/looks/catalog";
 import { useLooksStore } from "@/lib/looks/store";
 import { requestInstallSheet, startInstallCapture } from "@/lib/pwa/display";
@@ -76,8 +74,6 @@ export function AppShell({ children, title, backTo, trailing, largeTitle, flush,
   const hydrateLooks = useLooksStore((s) => s.hydrate);
   const hydrateCatalog = useCatalogStore((s) => s.hydrate);
   const hydrateSettings = useSettingsStore((s) => s.hydrate);
-  const { user, isPending } = useCurrentUserState();
-  const admin = resolveYouSessionState({ user, isPending }) === "admin";
   const standalone = useStandaloneDisplay();
   const chrome = useChromeLayout();
   const screenRef = useRef<HTMLDivElement>(null);
@@ -110,24 +106,11 @@ export function AppShell({ children, title, backTo, trailing, largeTitle, flush,
       >
         <Download className="size-5" />
       </Button>
-    ) : pathname === "/" && admin ? (
-      <Button asChild variant="ghost" size="icon" className="size-11" aria-label="Admin">
-        <Link to="/admin">
-          <SlidersHorizontal className="size-5" />
-        </Link>
-      </Button>
     ) : null);
 
   return (
     <div className="app-frame" data-chrome={chrome}>
-      <WebHeader trailing={pathname === "/" && admin ? (
-        <Button asChild variant="ghost" size="icon" className="size-11" aria-label="Admin">
-          <Link to="/admin">
-            <SlidersHorizontal className="size-5" />
-          </Link>
-        </Button>
-      ) : trailing}
-      />
+      <WebHeader trailing={trailing} />
       <NativePortalProvider element={portalEl}>
         <div ref={screenRef} className="native-screen" id="native-screen" data-header={header}>
           <StatusBar />

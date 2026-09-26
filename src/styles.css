@@ -1914,8 +1914,204 @@ html[data-chrome="phone"] .native-screen {
   width: 100%;
 }
 
-html[data-chrome="phone"] .native-screen:has(.look-studio[data-keyboard="open"]) .tab-bar {
+html[data-chrome="phone"] .native-screen:has(.look-studio[data-keyboard="open"]) .tab-bar,
+html[data-session="split"] .tab-bar,
+html[data-session="split"] .web-nav,
+html[data-session="split"]:not(.native-app) .web-header {
   display: none;
+}
+
+.you-admin {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 1.5rem;
+  color: #6b6b6b;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ops-stage {
+  width: min(100%, 32rem);
+  margin-inline: auto;
+}
+
+.ops-kicker {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ops-title {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 8vw, 2.75rem);
+  font-weight: 500;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+
+.ops-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ops-lead {
+  margin: 0.75rem 0 0;
+  color: #6b6b6b;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.ops-row,
+.ops-name-row {
+  display: flex;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.ops-row {
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 1.75rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid #e4e4e4;
+}
+
+.ops-row-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ops-row-note {
+  color: #6b6b6b;
+  font-size: 0.8125rem;
+}
+
+.ops-scarce {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 1.25rem;
+  color: #6b6b6b;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ops-block,
+.ops-form {
+  margin-top: 1.5rem;
+}
+
+.ops-section {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+.ops-form,
+.ops-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ops-field {
+  gap: 0.35rem;
+}
+
+.ops-card {
+  position: relative;
+  padding: 0.85rem 0 1rem;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.ops-card-picked {
+  background: #f4f4f4;
+}
+
+.ops-card-name {
+  margin: 0;
+  padding-right: 5.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ops-chip {
+  position: absolute;
+  top: 0.85rem;
+  right: 0;
+  display: inline-flex;
+  min-height: 1.5rem;
+  align-items: center;
+  border-radius: 999px;
+  background: #111111;
+  padding: 0 0.55rem;
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ops-title-row .ops-chip {
+  position: static;
+  margin-top: 0.45rem;
+}
+
+.ops-actions {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.ops-action {
+  width: 100%;
+  min-height: 2.75rem;
+  border-color: #111111;
+  background: #ffffff;
+  color: #111111;
+}
+
+.ops-action[data-on="true"] {
+  background: #111111;
+  color: #ffffff;
+}
+
+.ops-collections {
+  margin-top: 0.5rem;
+}
+
+.ops-collection {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.ops-text-btn {
+  min-height: 2.75rem;
+  padding: 0 0.15rem;
+  color: #6b6b6b;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 html[data-chrome="phone"] .native-screen:has(.look-studio[data-plate]) .native-header,
@@ -3075,6 +3271,14 @@ html[data-chrome="phone"] [data-pin-nudge],
   html:not(.native-app) .look-studio[data-plate="paper"] {
     max-width: 32rem;
     margin-inline: auto;
+  }
+
+  html[data-session="split"]:not(.native-app) .native-header {
+    display: flex !important;
+  }
+
+  html[data-session="split"]:not(.native-app) .native-main:has(.ops-stage) {
+    max-width: 32rem;
   }
 }
 

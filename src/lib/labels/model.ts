@@ -9,7 +9,7 @@ const SCORE_PER_LOOK = 12;
 const SCORE_PER_PIN = 3;
 const SCORE_PER_COMPARED = 5;
 
-export type HouseStatus = "pending" | "approved" | "rejected";
+export type HouseStatus = "pending" | "approved" | "rejected" | "disabled";
 
 export type FashionLabel = {
   id: string;
@@ -57,7 +57,9 @@ export type SuggestedLook = {
 };
 
 export function parseHouseStatus(value: unknown): HouseStatus {
-  if (value === "pending" || value === "rejected") return value;
+  if (value === "pending" || value === "rejected" || value === "disabled" || value === "approved") {
+    return value;
+  }
   return "approved";
 }
 
@@ -85,6 +87,50 @@ export function houseProfileLooks(
 
 export function toggleHouseFollow(ids: readonly string[], id: string): string[] {
   return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
+}
+
+export type HouseQueueAction = {
+  id: "approve" | "decline" | "hold" | "disable" | "enable" | "scouted";
+  label: string;
+  /** Null when the control is Scouted, not a status change. */
+  status: HouseStatus | null;
+};
+
+/** Waiting, live, and disabled are different queues. Decline is not Disable. */
+export function houseQueueActions(status: HouseStatus): HouseQueueAction[] {
+  if (status === "pending") {
+    return [
+      { id: "approve", label: "Approve", status: "approved" },
+      { id: "decline", label: "Decline", status: "rejected" },
+      { id: "hold", label: "Hold", status: "pending" },
+    ];
+  }
+  if (status === "approved") {
+    return [
+      { id: "scouted", label: "Scouted", status: null },
+      { id: "disable", label: "Disable", status: "disabled" },
+    ];
+  }
+  if (status === "disabled") return [{ id: "enable", label: "Enable", status: "approved" }];
+  return [
+    { id: "approve", label: "Approve", status: "approved" },
+    { id: "hold", label: "Hold", status: "pending" },
+  ];
+}
+
+export function queueStatusLabel(status: HouseStatus): string {
+  if (status === "approved") return "Live";
+  if (status === "pending") return "Waiting";
+  if (status === "disabled") return "Disabled";
+  return "Declined";
+}
+
+export type HouseSessionMode = "gate" | "apply" | "manage";
+
+/** Guest stays on the gate. A signed-in house manages; everyone else applies. */
+export function houseSessionMode(input: { signedIn: boolean; hasHouse: boolean }): HouseSessionMode {
+  if (!input.signedIn) return "gate";
+  return input.hasHouse ? "manage" : "apply";
 }
 
 /** Anonymous collection lists only include houses that are already approved. */

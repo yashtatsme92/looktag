@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as DesignRouteImport } from './routes/design'
+import { Route as HouseRouteImport } from './routes/house'
 import { Route as HousesRouteImport } from './routes/houses'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RankRouteImport } from './routes/rank'
@@ -49,6 +50,11 @@ const CreateRoute = CreateRouteImport.update({
 const DesignRoute = DesignRouteImport.update({
   id: '/design',
   path: '/design',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HouseRoute = HouseRouteImport.update({
+  id: '/house',
+  path: '/house',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HousesRoute = HousesRouteImport.update({
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/create': typeof CreateRoute
   '/design': typeof DesignRoute
+  '/house': typeof HouseRoute
   '/houses': typeof HousesRoute
   '/login': typeof LoginRoute
   '/rank': typeof RankRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/create': typeof CreateRoute
   '/design': typeof DesignRoute
+  '/house': typeof HouseRoute
   '/houses': typeof HousesRoute
   '/login': typeof LoginRoute
   '/rank': typeof RankRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/create': typeof CreateRoute
   '/design': typeof DesignRoute
+  '/house': typeof HouseRoute
   '/houses': typeof HousesRoute
   '/login': typeof LoginRoute
   '/rank': typeof RankRoute
@@ -215,6 +224,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/create'
     | '/design'
+    | '/house'
     | '/houses'
     | '/login'
     | '/rank'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/create'
     | '/design'
+    | '/house'
     | '/houses'
     | '/login'
     | '/rank'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/create'
     | '/design'
+    | '/house'
     | '/houses'
     | '/login'
     | '/rank'
@@ -285,6 +297,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   CreateRoute: typeof CreateRoute
   DesignRoute: typeof DesignRoute
+  HouseRoute: typeof HouseRoute
   HousesRoute: typeof HousesRoute
   LoginRoute: typeof LoginRoute
   RankRoute: typeof RankRoute
@@ -332,6 +345,13 @@ declare module '@tanstack/react-router' {
       path: '/design'
       fullPath: '/design'
       preLoaderRoute: typeof DesignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/house': {
+      id: '/house'
+      path: '/house'
+      fullPath: '/house'
+      preLoaderRoute: typeof HouseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/houses': {
@@ -461,6 +481,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   CreateRoute: CreateRoute,
   DesignRoute: DesignRoute,
+  HouseRoute: HouseRoute,
   HousesRoute: HousesRoute,
   LoginRoute: LoginRoute,
   RankRoute: RankRoute,

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { authClient, authEnabled, signOut } from "@/lib/auth/client";
 import type { AppUser } from "@/lib/auth/use-current-user";
 import { captureSessionToken } from "@/lib/login-next";
-import { normalizeLoginEmail } from "@/lib/admin/access";
+import { isAdminEmail, normalizeLoginEmail } from "@/lib/admin/access";
 import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useLooksStore } from "@/lib/looks/store";
@@ -169,6 +169,11 @@ function ProfilePane({ user, onSignIn }: { user: AppUser | null; onSignIn: () =>
       </span>
       <p className="you-profile-name">{name}</p>
       {user.primaryEmail ? <p className="you-profile-mail">{user.primaryEmail}</p> : null}
+      {isAdminEmail(user.primaryEmail) ? (
+        <Link to="/admin" className="you-admin">
+          Admin
+        </Link>
+      ) : null}
       <button
         type="button"
         className="create-btn-ghost create-btn-draft you-sign-out"

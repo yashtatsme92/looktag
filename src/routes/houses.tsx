@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { HouseCard } from "@/components/labels/house-card";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
 import { AppShell } from "@/components/layout/app-shell";
@@ -103,6 +103,9 @@ function HousesPage() {
           ) : null}
         </>
       )}
+      <Link to="/house" className="ops-scarce">
+        Continue as a House
+      </Link>
     </AppShell>
   );
 }

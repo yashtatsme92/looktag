@@ -9,6 +9,8 @@ import {
   consumerHouseIndex,
   groupLooksByCollection,
   houseProfileLooks,
+  houseQueueActions,
+  houseSessionMode,
   isLabelUserId,
   isPublicHouse,
   labelMatchScore,
@@ -18,6 +20,7 @@ import {
   looksForYou,
   nextCollectionSlug,
   parseHouseStatus,
+  queueStatusLabel,
   rankLabels,
   suggestLooks,
   toggleHouseFollow,
@@ -78,10 +81,12 @@ describe("house status", () => {
     assert.equal(parseHouseStatus(null), "approved");
   });
 
-  it("hides pending and rejected houses from public lists", () => {
+  it("hides pending, rejected, and disabled houses from public lists", () => {
     assert.equal(isPublicHouse({ status: "approved" }), true);
     assert.equal(isPublicHouse({ status: "pending" }), false);
     assert.equal(isPublicHouse({ status: "rejected" }), false);
+    assert.equal(isPublicHouse({ status: "disabled" }), false);
+    assert.equal(parseHouseStatus("disabled"), "disabled");
   });
 
   it("counts owner looks as belonging to the house", () => {
@@ -391,5 +396,63 @@ describe("consumer houses", () => {
   it("toggles a follow without dropping the others", () => {
     assert.deepEqual(toggleHouseFollow([], "label-a"), ["label-a"]);
     assert.deepEqual(toggleHouseFollow(["label-a", "label-b"], "label-a"), ["label-b"]);
+  });
+});
+
+describe("house queue", () => {
+  it("gives a waiting house Approve, Decline, and Hold", () => {
+    assert.deepEqual(
+      houseQueueActions("pending").map((action) => action.id),
+      ["approve", "decline", "hold"],
+    );
+  });
+
+  it("puts Scouted beside Disable on a live house", () => {
+    const live = houseQueueActions("approved");
+    const disabled = houseQueueActions("disabled");
+    assert.deepEqual(
+      live.map((action) => action.id),
+      ["scouted", "disable"],
+    );
+    assert.equal(live.find((action) => action.id === "scouted")?.status, null);
+    assert.equal(live.find((action) => action.id === "disable")?.status, "disabled");
+    assert.deepEqual(
+      disabled.map((action) => action.id),
+      ["enable"],
+    );
+    assert.notEqual(
+      live.find((action) => action.id === "disable")?.status,
+      houseQueueActions("pending").find((action) => action.id === "decline")?.status,
+    );
+  });
+
+  it("does not offer Decline on a disabled or declined house", () => {
+    assert.equal(
+      houseQueueActions("disabled").some((action) => action.id === "decline"),
+      false,
+    );
+    const declined = houseQueueActions("rejected");
+    assert.deepEqual(
+      declined.map((action) => action.id),
+      ["approve", "hold"],
+    );
+    assert.equal(
+      declined.some((action) => action.status === "disabled"),
+      false,
+    );
+  });
+
+  it("names the queue chip without calling disable a decline", () => {
+    assert.equal(queueStatusLabel("pending"), "Waiting");
+    assert.equal(queueStatusLabel("approved"), "Live");
+    assert.equal(queueStatusLabel("disabled"), "Disabled");
+    assert.equal(queueStatusLabel("rejected"), "Declined");
+  });
+
+  it("keeps apply and manage off the shopper session", () => {
+    assert.equal(houseSessionMode({ signedIn: false, hasHouse: false }), "gate");
+    assert.equal(houseSessionMode({ signedIn: false, hasHouse: true }), "gate");
+    assert.equal(houseSessionMode({ signedIn: true, hasHouse: false }), "apply");
+    assert.equal(houseSessionMode({ signedIn: true, hasHouse: true }), "manage");
   });
 });

@@ -133,7 +133,7 @@ export function pageWindow(page: number, pages: number): PageMark[] {
 export function houseAwesomeness(house: HouseBrowseItem): number {
   const scouted = house.scouted ? 24 : 0;
   const pending = house.status === "pending" ? 10 : 0;
-  const declined = house.status === "rejected" ? -30 : 0;
+  const declined = house.status === "rejected" || house.status === "disabled" ? -30 : 0;
   return house.score + house.looks * 2 + house.pins + scouted + pending + declined;
 }
 
@@ -160,7 +160,8 @@ export function housePassesFilter(house: HouseBrowseItem, filter: HouseFilter): 
 const STATUS_ORDER: Record<HouseStatus, number> = {
   pending: 0,
   approved: 1,
-  rejected: 2,
+  disabled: 2,
+  rejected: 3,
 };
 
 export function sortHouses<T extends HouseBrowseItem>(houses: T[], sort: HouseSort): T[] {
@@ -195,7 +196,7 @@ export function browseHouses<T extends HouseBrowseItem>(
 export function suggestHouses<T extends HouseBrowseItem>(houses: T[], query: string, limit = 6): T[] {
   const q = normalizeQuery(query);
   const pool = houses.filter((house) => {
-    if (!q && house.status === "rejected") return false;
+    if (!q && (house.status === "rejected" || house.status === "disabled")) return false;
     return houseMatches(house, query);
   });
   return [...pool]
