@@ -24,6 +24,8 @@ export type AppShellProps = {
   trailing?: ReactNode;
   largeTitle?: boolean;
   flush?: boolean;
+  /** Echo home draws its own bar over the plate. */
+  header?: "bar" | "hidden";
 };
 
 const TAB_ROOTS = new Set(["/", "/create", "/rank", "/login", "/houses"]);
@@ -69,7 +71,7 @@ function inferBackTo(pathname: string) {
   return "/";
 }
 
-export function AppShell({ children, title, backTo, trailing, largeTitle, flush }: AppShellProps) {
+export function AppShell({ children, title, backTo, trailing, largeTitle, flush, header = "bar" }: AppShellProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hydrateLooks = useLooksStore((s) => s.hydrate);
   const hydrateCatalog = useCatalogStore((s) => s.hydrate);
@@ -127,14 +129,16 @@ export function AppShell({ children, title, backTo, trailing, largeTitle, flush 
       ) : trailing}
       />
       <NativePortalProvider element={portalEl}>
-        <div ref={screenRef} className="native-screen" id="native-screen">
+        <div ref={screenRef} className="native-screen" id="native-screen" data-header={header}>
           <StatusBar />
-          <NativeHeader
-            title={resolvedTitle}
-            backTo={resolvedBack}
-            trailing={headerTrailing}
-            root={root}
-          />
+          {header === "hidden" ? null : (
+            <NativeHeader
+              title={resolvedTitle}
+              backTo={resolvedBack}
+              trailing={headerTrailing}
+              root={root}
+            />
+          )}
           <main className={flush ? "native-main native-main-flush" : "native-main"}>{children}</main>
           <TabBar />
           <InstallSheet />

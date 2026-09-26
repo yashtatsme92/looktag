@@ -1,9 +1,8 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import { LookFeed } from "@/components/home/look-feed";
+import { EchoHome } from "@/components/home/echo-home";
 import {
-  BROWSE_COACH_KEY,
   STYLE_GUIDE_KEY,
   StyleGuide,
 } from "@/components/home/style-guide";
@@ -25,13 +24,11 @@ function Home() {
   const looks = useLooksStore((s) => s.looks);
   const refreshLooks = useLooksStore((s) => s.refresh);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [coachDone, setCoachDone] = useState(true);
   const guideLook = looks.find((look) => look.imageSrc) ?? looks[0];
 
   useLayoutEffect(() => {
     const guideDone = readFlag(STYLE_GUIDE_KEY);
     setGuideOpen(!guideDone);
-    setCoachDone(readFlag(BROWSE_COACH_KEY));
   }, []);
 
   useEffect(() => {
@@ -40,21 +37,16 @@ function Home() {
 
   function handleGuideOpenChange(open: boolean) {
     setGuideOpen(open);
-    if (!open) setCoachDone(readFlag(BROWSE_COACH_KEY));
   }
 
   return (
-    <AppShell title="Looks" largeTitle flush>
+    <AppShell title="Looks" largeTitle flush header={looks.length > 0 ? "hidden" : "bar"}>
       {guideLook ? (
         <StyleGuide look={guideLook} open={guideOpen} onOpenChange={handleGuideOpenChange} />
       ) : null}
 
       {looks.length > 0 ? (
-        <LookFeed
-          looks={looks}
-          showCoach={!coachDone}
-          onHowTo={() => setGuideOpen(true)}
-        />
+        <EchoHome looks={looks} />
       ) : (
         <div className="look-feed-empty flex h-full flex-col items-start justify-end gap-4 px-5 pb-8">
           <p className="look-feed-empty-title font-display text-4xl">No looks yet</p>
