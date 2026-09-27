@@ -147,7 +147,17 @@ function PinPlate({
           type="button"
           className="create-plate-back"
           aria-label="Back"
-          onClick={() => (mode === "edit" ? onStep("publish") : onCancel())}
+          onClick={() => {
+            if (step === "piece") {
+              onStep("pins");
+              return;
+            }
+            if (mode === "edit") {
+              onStep("publish");
+              return;
+            }
+            onStep("photo");
+          }}
         >
           <ChevronLeft className="size-[18px]" strokeWidth={1.75} />
         </button>

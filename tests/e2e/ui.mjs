@@ -74,12 +74,21 @@ async function goto(page, path) {
   }
 }
 
+async function centerDelta(page, selector) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return 999;
+    const rect = el.getBoundingClientRect();
+    return Math.abs(rect.x + rect.width / 2 - window.innerWidth / 2);
+  }, selector);
+}
+
 async function box(page, selector) {
   return page.evaluate((sel) => {
     const el = document.querySelector(sel);
     if (!el) return null;
-    const r = el.getBoundingClientRect();
-    return { top: r.top, bottom: r.bottom, height: r.height };
+    const rect = el.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, height: rect.height };
   }, selector);
 }
 
@@ -135,6 +144,12 @@ async function flowCreateBranches(page) {
     pieceEditorIsFooter(piece.cardTop, piece.cardBottom, piece.plateTop, piece.plateBottom),
     JSON.stringify(piece),
   );
+  const pinTitle = await centerDelta(page, ".create-plate-title");
+  record("flow.header.pin-title", pinTitle <= 8, String(Math.round(pinTitle)));
+  await page.locator(".create-plate-back").click();
+  record("flow.create.piece-header-back", (await page.locator(".look-studio").getAttribute("data-step")) === "pins");
+  await page.locator("[data-tag-pin]").first().click();
+  await page.locator(".create-piece").waitFor({ timeout: 5_000 });
   await page.locator(".create-piece").getByRole("button", { name: "Done" }).click();
   record("flow.create.piece-back", (await page.locator(".look-studio").getAttribute("data-step")) === "pins");
 
@@ -174,9 +189,19 @@ async function screenHouses(page) {
   await page.getByRole("link", { name: /Atelier Noir/i }).first().click();
   await page.getByRole("heading", { name: /Atelier Noir/i }).waitFor({ timeout: 8_000 });
   record("screen.house.profile", /Scouted/i.test(await page.locator("body").innerText()));
+  const houseTitle = await centerDelta(page, ".native-header-title");
+  record("flow.header.house-title", houseTitle <= 8, String(Math.round(houseTitle)));
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.waitForFunction(() => location.pathname === "/houses", null, { timeout: 8_000 });
+  record("flow.header.back", new URL(page.url()).pathname === "/houses");
   await goto(page, "/houses/label-atelier-noir/kinkistyles");
   await page.getByRole("heading", { name: /Kinkistyles/i }).waitFor({ timeout: 8_000 });
   record("screen.house.collection", /Kinkistyles/.test(await page.locator("body").innerText()));
+  await goto(page, "/houses/label-atelier-noir");
+  await page.getByRole("heading", { name: /Atelier Noir/i }).waitFor({ timeout: 8_000 });
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.waitForFunction(() => location.pathname === "/houses", null, { timeout: 8_000 });
+  record("flow.header.back-direct", new URL(page.url()).pathname === "/houses");
 }
 
 async function flowHouseGate(page) {
@@ -280,6 +305,8 @@ async function screenDesktop(page) {
   await nav.waitFor({ timeout: 8_000 });
   const text = await nav.innerText();
   record("screen.desktop.nav", /Looks/.test(text) && /Create/.test(text) && /You/.test(text) && !/Rank/.test(text), text);
+  const navCenter = await centerDelta(page, ".web-nav");
+  record("flow.header.desktop-nav", navCenter <= 12, String(Math.round(navCenter)));
   await goto(page, "/looks/seed-sunday-coat");
   await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 8_000 });
   record("screen.desktop.look", /Shop/.test(await page.locator("body").innerText()));

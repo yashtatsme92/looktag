@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { ECHO_FROM_KEY, echoKicker, pieceLine } from "@/lib/home/echo";
+import { shouldUseHistoryBack } from "@/lib/nav/back";
 import { listFashionLabels } from "@/lib/labels/api";
 import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
 import { authEnabled } from "@/lib/auth/client";
@@ -119,7 +120,7 @@ export function LookPlate({
           className="look-plate-glass"
           aria-label="Back"
           onClick={() => {
-            if (typeof window !== "undefined" && window.history.length > 1) {
+            if (typeof window !== "undefined" && shouldUseHistoryBack(window.history.state)) {
               router.history.back();
               return;
             }

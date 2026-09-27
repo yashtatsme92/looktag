@@ -1,6 +1,7 @@
 import { useRouter } from "@tanstack/react-router";
 import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { shouldUseHistoryBack } from "@/lib/nav/back";
 
 type NativeHeaderProps = {
   title: string;
@@ -21,7 +22,7 @@ export function NativeHeader({ title, backTo, trailing, root }: NativeHeaderProp
             className="native-back"
             aria-label="Back"
             onClick={() => {
-              if (typeof window !== "undefined" && window.history.length > 1) {
+              if (typeof window !== "undefined" && shouldUseHistoryBack(window.history.state)) {
                 router.history.back();
                 return;
               }
