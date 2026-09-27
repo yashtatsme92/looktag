@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Look } from "../looks/types.ts";
-import { beatLabel, creatorRun, echoDragOffset, echoKicker, echoLane, echoSettleY, echoSwipe, pieceLine } from "./echo.ts";
+import { beatLabel, creatorRun, echoKicker, echoLane, echoSnapIndex, echoSwipe, pieceLine } from "./echo.ts";
 
 function look(partial: Partial<Look> & Pick<Look, "id">): Look {
   return {
@@ -123,19 +123,12 @@ describe("echoSwipe", () => {
   });
 });
 
-describe("echo slide", () => {
-  it("follows the finger until the deck runs out", () => {
-    assert.equal(echoDragOffset(-40, true, false), -40);
-    assert.equal(echoDragOffset(30, false, true), 30);
-    assert.equal(echoDragOffset(-100, false, true), -22);
-    assert.equal(echoDragOffset(50, true, false), 11);
-  });
-
-  it("settles by one plate, not the window", () => {
-    assert.equal(echoSettleY("next", 700), -700);
-    assert.equal(echoSettleY("prev", 700), 700);
-    assert.equal(echoSettleY("stay", 700), 0);
-    assert.equal(echoSettleY("lane", 700), 0);
-    assert.equal(echoSettleY("end", 640), -640);
+describe("echo snap", () => {
+  it("lands on one full plate", () => {
+    assert.equal(echoSnapIndex(0, 700, 4), 0);
+    assert.equal(echoSnapIndex(360, 700, 4), 1);
+    assert.equal(echoSnapIndex(700, 700, 4), 1);
+    assert.equal(echoSnapIndex(2000, 700, 3), 2);
+    assert.equal(echoSnapIndex(10, 0, 3), 0);
   });
 });

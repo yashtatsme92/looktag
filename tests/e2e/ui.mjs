@@ -101,6 +101,56 @@ async function screenHome(page) {
   record("screen.home.look", /Sunday Coat|Coastal|Gallery|Quiet|Studio|City/i.test(text), text.slice(0, 120));
 }
 
+async function flowHomeSnap(page) {
+  await goto(page, "/");
+  await page.locator(".echo-snap").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(1800);
+  const before = await page.evaluate(() => {
+    const snap = document.querySelector(".echo-snap");
+    const nav = document.querySelector('nav[aria-label="App"]');
+    const titles = [...document.querySelectorAll(".echo-title")].map((el) => el.textContent.trim());
+    return {
+      snapType: getComputedStyle(snap).scrollSnapType,
+      align: getComputedStyle(document.querySelector(".echo-plate")).scrollSnapAlign,
+      height: snap.clientHeight,
+      top: snap.scrollTop,
+      titles,
+      navTop: Math.round(nav.getBoundingClientRect().top),
+    };
+  });
+  record("flow.home.snap-type", before.snapType === "y mandatory" && before.align === "start" && before.top < 2, `${before.snapType} ${before.align} top ${before.top}`);
+  await page.locator(".echo-snap").evaluate((el, height) => {
+    el.dispatchEvent(new WheelEvent("wheel", { deltaY: height, bubbles: true, cancelable: true }));
+  }, before.height);
+  await page.waitForFunction(() => {
+    const snap = document.querySelector(".echo-snap");
+    return Boolean(snap && Math.abs(snap.scrollTop - snap.clientHeight) < 6);
+  }, null, { timeout: 3_000 }).catch(() => undefined);
+  const after = await page.evaluate(() => {
+    const snap = document.querySelector(".echo-snap");
+    const port = snap.getBoundingClientRect();
+    const nav = document.querySelector('nav[aria-label="App"]');
+    const visible = [...document.querySelectorAll(".echo-title")]
+      .filter((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.bottom > port.top + 8 && rect.top < port.bottom - 8;
+      })
+      .map((el) => el.textContent.trim());
+    return {
+      scrollTop: Math.round(snap.scrollTop),
+      height: snap.clientHeight,
+      visible,
+      navTop: Math.round(nav.getBoundingClientRect().top),
+    };
+  });
+  record(
+    "flow.home.snap-one",
+    Math.abs(after.scrollTop - after.height) < 6 && after.visible.length === 1 && after.visible[0] !== before.titles[0],
+    JSON.stringify(after),
+  );
+  record("flow.home.snap-chrome", after.navTop === before.navTop, `${before.navTop} -> ${after.navTop}`);
+}
+
 async function screenLook(page) {
   await goto(page, "/looks/seed-sunday-coat");
   await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
@@ -325,6 +375,7 @@ try {
   await withPage(browser, origin, async (page) => {
     await prime(page);
     await screenHome(page);
+    await flowHomeSnap(page);
     await screenLook(page);
     await screenCreateEntry(page);
     await screenHouses(page);

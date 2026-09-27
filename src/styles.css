@@ -1911,9 +1911,6 @@ input.look-studio-title:focus-visible {
   .look-save-burst {
     display: none;
   }
-  .echo-shift {
-    transition: none;
-  }
 }
 
 .chip-scroll {
@@ -2390,39 +2387,21 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 .echo-snap {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior-y: contain;
+  overflow-anchor: none;
   background: #111111;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
-.echo-shift {
-  position: absolute;
-  inset: 0;
-  transform: translate3d(0, 0, 0);
-  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
-}
-
-.echo-shift[data-drag="true"] {
-  transition: none;
-}
-
-.echo-neighbor {
-  position: absolute;
-  left: 0;
-  width: 100%;
+.echo-plate {
+  position: relative;
   height: 100%;
-  object-fit: cover;
-  object-position: center 20%;
-  pointer-events: none;
-}
-
-.echo-neighbor-prev {
-  top: -100%;
-}
-
-.echo-neighbor-next {
-  top: 100%;
+  min-height: 100%;
+  flex: none;
+  scroll-snap-align: start;
 }
 
 .echo-hint {
@@ -2447,13 +2426,6 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   top: calc(4rem + env(safe-area-inset-top));
 }
 
-.echo-plate {
-  position: relative;
-  height: 100%;
-  min-height: 100%;
-  scroll-snap-align: start;
-}
-
 .echo-photo {
   position: absolute;
   inset: 0;
@@ -2464,7 +2436,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 20%;
+  object-position: center 30%;
 }
 
 .echo-peel {
@@ -2704,9 +2676,11 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 .echo-return {
   display: flex;
   width: 100%;
-  height: 100%;
+  height: 5rem;
+  flex: none;
   align-items: center;
   justify-content: center;
+  scroll-snap-align: end;
   background: #f4f4f4;
   color: #6b6b6b;
   font-size: 0.6875rem;
