@@ -2115,7 +2115,8 @@ html[data-session="split"]:not(.native-app) .web-header {
 }
 
 html[data-chrome="phone"] .native-screen:has(.look-studio[data-plate]) .native-header,
-html[data-chrome="phone"] .native-screen:has(.look-studio[data-plate="bleed"]) .tab-bar {
+html[data-chrome="phone"] .native-screen:has(.look-studio[data-plate="bleed"]) .tab-bar,
+html[data-chrome="phone"] .native-screen:has(.look-plate) .tab-bar {
   display: none;
 }
 
@@ -2443,8 +2444,13 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  padding-top: 6rem;
-  background: linear-gradient(to top, rgb(17 17 17 / 62%), rgb(17 17 17 / 0%));
+  padding-top: 2rem;
+  background: linear-gradient(to top, rgb(17 17 17 / 55%), rgb(17 17 17 / 0%));
+  pointer-events: none;
+}
+
+.echo-meta :is(a, button) {
+  pointer-events: auto;
 }
 
 .echo-kicker {
@@ -2528,6 +2534,11 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   justify-content: space-between;
   padding: calc(0.75rem + env(safe-area-inset-top)) 1rem 2.5rem;
   background: linear-gradient(to bottom, rgb(0 0 0 / 35%), transparent);
+  pointer-events: none;
+}
+
+.look-plate-bar :is(a, button) {
+  pointer-events: auto;
 }
 
 .look-plate-glass {
@@ -2548,8 +2559,13 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   bottom: 0;
   left: 0;
   z-index: 20;
-  padding: 5rem 1.5rem 1.35rem;
-  background: linear-gradient(to top, rgb(0 0 0 / 62%), transparent);
+  padding: 1.5rem 1.25rem 1.1rem;
+  background: linear-gradient(to top, rgb(0 0 0 / 72%) 0%, rgb(0 0 0 / 0%) 100%);
+  pointer-events: none;
+}
+
+.look-plate-meta :is(a, button) {
+  pointer-events: auto;
 }
 
 .look-plate-kicker {
@@ -3288,14 +3304,16 @@ html[data-chrome="phone"] [data-pin-nudge],
 
   html:not(.native-app) .native-main-flush:has(.echo-stage),
   html:not(.native-app) .native-main-flush:has(.look-plate) {
+    height: calc(100dvh - 4.25rem);
     overflow: hidden;
     padding: 0;
     background: #111111;
   }
 
   html:not(.native-app) .look-plate {
-    position: relative;
-    height: calc(100dvh - 4.25rem);
+    position: absolute;
+    inset: 0;
+    height: auto;
     max-width: 32rem;
     margin-inline: auto;
   }

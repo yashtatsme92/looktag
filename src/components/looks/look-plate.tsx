@@ -11,12 +11,10 @@ import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { visualShopTarget } from "@/lib/looks/offers";
-import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 
 export function LookPlate({
@@ -35,9 +33,6 @@ export function LookPlate({
   const saved = useSavedLooks((s) => s.ids.includes(look.id));
   const toggleSaved = useSavedLooks((s) => s.toggle);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [shopOpen, setShopOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [shareUrl, setShareUrl] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
 
@@ -73,30 +68,15 @@ export function LookPlate({
 
   async function share() {
     const url = `${window.location.origin}/looks/${look.id}`;
-    setShareUrl(url);
-    setShareOpen(true);
     const result = await shareOrCopy({
       title: look.title,
       text: look.caption || `${look.title} on Looktag`,
       url,
       kind: "look",
     });
-    if (result === "shared") {
-      toast.success("Shared");
-      setShareOpen(false);
-      return;
-    }
-    if (result === "copied") toast.success("Link copied");
-    else toast.message("Copy this link", { description: url });
-  }
-
-  function openShop(tag: ProductTag | null) {
-    if (!tag) {
-      toast.message("No pieces on this look yet");
-      return;
-    }
-    setSelectedId(tag.id);
-    setShopOpen(true);
+    if (result === "shared") toast.success("Shared");
+    else if (result === "copied") toast.success("Link copied");
+    else toast.message(url);
   }
 
   function shop(tag: ProductTag) {
@@ -129,10 +109,7 @@ export function LookPlate({
         title={look.title}
         tags={look.tags}
         selectedId={selectedId}
-        onSelect={(id) => {
-          setSelectedId(id);
-          if (id) setShopOpen(true);
-        }}
+        onSelect={(id) => setSelectedId(id)}
         fit="fill"
         className="look-plate-canvas"
       />
@@ -188,7 +165,11 @@ export function LookPlate({
         <span className="look-plate-rule" />
         <div className="flex items-end justify-between gap-3">
           <div>
-            {pieceLine(look) ? <p className="look-plate-pieces">{pieceLine(look)}</p> : null}
+            {selectedId && focus?.name ? (
+              <p className="look-plate-pieces">{focus.name}</p>
+            ) : pieceLine(look) ? (
+              <p className="look-plate-pieces">{pieceLine(look)}</p>
+            ) : null}
             <button
               type="button"
               className="look-plate-echo"
@@ -205,67 +186,13 @@ export function LookPlate({
               Echo
             </button>
           </div>
-          <button type="button" className="look-plate-shop" onClick={() => openShop(focus)}>
+          <button type="button" className="look-plate-shop" onClick={() => (focus ? shop(focus) : toast.message("No pieces on this look yet"))}>
             Shop
             <ExternalLink className="size-4" />
           </button>
         </div>
       </div>
 
-      <Drawer open={shopOpen} onOpenChange={setShopOpen}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>{focus?.name.trim() || "Shop"}</DrawerTitle>
-            <DrawerDescription>
-              {focus ? retailerLabel(visualShopTarget(focus) ?? focus) : "No pieces on this look."}
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="flex flex-col gap-2 px-5 pb-6">
-            {focus ? (
-              <button type="button" className="look-plate-shop look-plate-shop-ink" onClick={() => shop(focus)}>
-                Shop
-                <ExternalLink className="size-4" />
-              </button>
-            ) : null}
-            {look.tags.length > 1 ? (
-              <ul className="mt-2 flex flex-col">
-                {look.tags.map((tag, index) => (
-                  <li key={tag.id}>
-                    <button
-                      type="button"
-                      className={cn(
-                        "flex min-h-11 w-full items-center gap-3 text-left text-sm",
-                        tag.id === focus?.id ? "font-semibold" : "text-muted-foreground",
-                      )}
-                      onClick={() => setSelectedId(tag.id)}
-                    >
-                      <span className="flex size-7 items-center justify-center rounded-full bg-foreground text-xs text-background">
-                        {index + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">{tag.name || `Piece ${index + 1}`}</span>
-                      <span className="truncate text-xs">{retailerLabel(visualShopTarget(tag) ?? tag)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        </DrawerContent>
-      </Drawer>
-      <Drawer open={shareOpen} onOpenChange={setShareOpen}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Share this look</DrawerTitle>
-            <DrawerDescription>Copy the link. It opens this look, not the start screen.</DrawerDescription>
-          </DrawerHeader>
-          <div className="flex flex-col gap-2 px-5 pb-6">
-            <input className="h-11 w-full rounded-md border border-border bg-card px-3 text-sm" readOnly value={shareUrl} />
-            <button type="button" className="look-plate-shop look-plate-shop-ink" onClick={() => void share()}>
-              Copy link
-            </button>
-          </div>
-        </DrawerContent>
-      </Drawer>
       <AccountSheet open={sheetOpen} onOpenChange={setSheetOpen} />
     </div>
   );
