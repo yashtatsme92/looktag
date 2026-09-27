@@ -22,7 +22,7 @@ describe("isSharePath", () => {
 
 describe("boot hold", () => {
   it("holds the plate long enough to read, then lets the session skip a replay", () => {
-    assert.equal(BOOT_HOLD_MS, 2000);
+    assert.equal(BOOT_HOLD_MS, 700);
     assert.equal(BOOT_SKIP_KEY, "looktag-boot-v1");
   });
 });

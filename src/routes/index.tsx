@@ -1,50 +1,23 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { EchoHome } from "@/components/home/echo-home";
-import {
-  STYLE_GUIDE_KEY,
-  StyleGuide,
-} from "@/components/home/style-guide";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { useLooksStore } from "@/lib/looks/store";
 
 export const Route = createFileRoute("/")({ component: Home });
 
-function readFlag(key: string) {
-  try {
-    return localStorage.getItem(key) === "done";
-  } catch {
-    return false;
-  }
-}
-
 function Home() {
   const looks = useLooksStore((s) => s.looks);
   const refreshLooks = useLooksStore((s) => s.refresh);
-  const [guideOpen, setGuideOpen] = useState(false);
-  const guideLook = looks.find((look) => look.imageSrc) ?? looks[0];
-
-  useLayoutEffect(() => {
-    const guideDone = readFlag(STYLE_GUIDE_KEY);
-    setGuideOpen(!guideDone);
-  }, []);
 
   useEffect(() => {
     void refreshLooks();
   }, [refreshLooks]);
 
-  function handleGuideOpenChange(open: boolean) {
-    setGuideOpen(open);
-  }
-
   return (
     <AppShell title="Looks" largeTitle flush header={looks.length > 0 ? "hidden" : "bar"}>
-      {guideLook ? (
-        <StyleGuide look={guideLook} open={guideOpen} onOpenChange={handleGuideOpenChange} />
-      ) : null}
-
       {looks.length > 0 ? (
         <EchoHome looks={looks} />
       ) : (

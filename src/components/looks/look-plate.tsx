@@ -36,6 +36,8 @@ export function LookPlate({
   const toggleSaved = useSavedLooks((s) => s.toggle);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shopOpen, setShopOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
 
@@ -71,13 +73,21 @@ export function LookPlate({
 
   async function share() {
     const url = `${window.location.origin}/looks/${look.id}`;
+    setShareUrl(url);
+    setShareOpen(true);
     const result = await shareOrCopy({
       title: look.title,
       text: look.caption || `${look.title} on Looktag`,
       url,
       kind: "look",
     });
+    if (result === "shared") {
+      toast.success("Shared");
+      setShareOpen(false);
+      return;
+    }
     if (result === "copied") toast.success("Link copied");
+    else toast.message("Copy this link", { description: url });
   }
 
   function openShop(tag: ProductTag | null) {
@@ -239,6 +249,20 @@ export function LookPlate({
                 ))}
               </ul>
             ) : null}
+          </div>
+        </DrawerContent>
+      </Drawer>
+      <Drawer open={shareOpen} onOpenChange={setShareOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Share this look</DrawerTitle>
+            <DrawerDescription>Copy the link. It opens this look, not the start screen.</DrawerDescription>
+          </DrawerHeader>
+          <div className="flex flex-col gap-2 px-5 pb-6">
+            <input className="h-11 w-full rounded-md border border-border bg-card px-3 text-sm" readOnly value={shareUrl} />
+            <button type="button" className="look-plate-shop look-plate-shop-ink" onClick={() => void share()}>
+              Copy link
+            </button>
           </div>
         </DrawerContent>
       </Drawer>

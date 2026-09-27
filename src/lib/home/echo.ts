@@ -50,3 +50,27 @@ export function creatorRun(anchor: Look, looks: Look[]): Look[] {
   if (index <= 0) return list;
   return [...list.slice(index), ...list.slice(0, index)];
 }
+
+export type EchoSwipe = "stay" | "next" | "prev" | "lane" | "end" | "back";
+
+/** Vertical swipe moves the plate. A left peel opens the lane. Small drags stay put. */
+export function echoSwipe(input: {
+  dx: number;
+  dy: number;
+  index: number;
+  length: number;
+  mode: "feed" | "lane" | "creator";
+  showingReturn?: boolean;
+}): EchoSwipe {
+  const { dx, dy, index, length, mode, showingReturn } = input;
+  if (mode === "feed" && dx < -64 && Math.abs(dx) > Math.abs(dy)) return "lane";
+  if (Math.abs(dy) < 48 || Math.abs(dy) < Math.abs(dx)) return "stay";
+  if (dy < 0) {
+    if (index < length - 1) return "next";
+    if (mode === "creator" && index === length - 1) return "end";
+    if (showingReturn) return "back";
+    return "stay";
+  }
+  if (index > 0) return "prev";
+  return "stay";
+}

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { listFashionLabels } from "@/lib/labels/api";
 import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
-import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
+import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, echoSwipe, pieceLine } from "@/lib/home/echo";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useSavedLooks } from "@/lib/looks/saved";
@@ -21,6 +21,9 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [index, setIndex] = useState(0);
+  const [shift, setShift] = useState(0);
+  const [sliding, setSliding] = useState(false);
+  const [hint, setHint] = useState(true);
   const dragRef = useRef({ x: 0, y: 0, active: false, moved: false });
   const { user, isPending } = useCurrentUserState();
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
@@ -104,10 +107,31 @@ export function EchoHome({ looks }: { looks: Look[] }) {
 
   const look = plates[index];
   const showingReturn = mode === "creator" && index >= plates.length;
+  const prevLook = plates[index - 1];
+  const nextLook = plates[index + 1];
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (sliding) return;
     dragRef.current = { x: event.clientX, y: event.clientY, active: true, moved: false };
     event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!dragRef.current.active || sliding) return;
+    const dx = event.clientX - dragRef.current.x;
+    const dy = event.clientY - dragRef.current.y;
+    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) dragRef.current.moved = true;
+    if (Math.abs(dy) >= Math.abs(dx)) setShift(dy);
+  }
+
+  function settle(nextShift: number, then: () => void) {
+    setSliding(true);
+    setShift(nextShift);
+    window.setTimeout(() => {
+      then();
+      setSliding(false);
+      setShift(0);
+    }, 240);
   }
 
   function onPointerUp(event: PointerEvent) {
@@ -116,17 +140,38 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     const dy = event.clientY - dragRef.current.y;
     dragRef.current.active = false;
     dragRef.current.moved = Math.abs(dx) > 12 || Math.abs(dy) > 12;
-    if (mode === "feed" && dx < -64 && Math.abs(dx) > Math.abs(dy) && look) {
-      openLane(look);
+    const decision = echoSwipe({
+      dx,
+      dy,
+      index,
+      length: plates.length,
+      mode,
+      showingReturn,
+    });
+    const travel = typeof window !== "undefined" ? window.innerHeight : 720;
+    if (decision === "stay") {
+      settle(0, () => undefined);
       return;
     }
-    if (Math.abs(dy) < 48 || Math.abs(dy) < Math.abs(dx)) return;
-    if (dy < 0) {
-      if (index < plates.length - 1) setIndex(index + 1);
-      else if (mode === "creator" && index === plates.length - 1) setIndex(plates.length);
-      else if (showingReturn) backToFeed();
-    } else if (index > 0) {
-      setIndex(index - 1);
+    setHint(false);
+    if (decision === "lane" && look) {
+      settle(-Math.min(160, Math.abs(dx)), () => openLane(look));
+      return;
+    }
+    if (decision === "next") {
+      settle(-travel, () => setIndex(index + 1));
+      return;
+    }
+    if (decision === "prev") {
+      settle(travel, () => setIndex(index - 1));
+      return;
+    }
+    if (decision === "end") {
+      settle(-travel, () => setIndex(plates.length));
+      return;
+    }
+    if (decision === "back") {
+      settle(-travel, () => backToFeed());
     }
   }
 
@@ -155,47 +200,71 @@ export function EchoHome({ looks }: { looks: Look[] }) {
       {mode === "lane" ? <p className="echo-pill">More like this</p> : null}
       {mode === "creator" ? <p className="echo-pill echo-pill-ink">From {anchor.creator || "this creator"}</p> : null}
 
-      <div className="echo-snap" onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={() => { dragRef.current.active = false; }}>
-        {showingReturn || !look ? (
-          <button type="button" className="echo-return" onClick={backToFeed}>
-            Returning to For You
-          </button>
-        ) : (
-          <article className="echo-plate">
-            {mode === "feed" ? <span className="echo-peel" aria-hidden /> : null}
-            <Link
-              to="/looks/$lookId"
-              params={{ lookId: look.id }}
-              className="echo-photo"
-              aria-label={look.title || "Look"}
-              onClick={(event) => {
-                if (!dragRef.current.moved) return;
-                event.preventDefault();
-                dragRef.current.moved = false;
-              }}
-            >
-              <img src={look.imageSrc} alt="" />
-            </Link>
-            {mode === "feed" && beatLabel(look) ? <p className="echo-beat">{beatLabel(look)}</p> : null}
-            <div className="echo-meta">
-              <button type="button" className="echo-kicker" onClick={() => openCreator(look)}>
-                {echoKicker(look, houseName(look))}
-              </button>
-              <h2 className="echo-title">{look.title || "Untitled look"}</h2>
-              <span className="echo-rule" />
-              {pieceLine(look) ? <p className="echo-pieces">{pieceLine(look)}</p> : null}
-            </div>
-            <button
-              type="button"
-              className={cn("echo-save", savedIds.includes(look.id) && "echo-save-on")}
-              aria-label={savedIds.includes(look.id) ? "Remove saved look" : "Save look"}
-              aria-pressed={savedIds.includes(look.id)}
-              onClick={() => save(look)}
-            >
-              <Bookmark className="size-5" fill={savedIds.includes(look.id) ? "currentColor" : "none"} />
+      <div
+        className="echo-snap"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => {
+          dragRef.current.active = false;
+          setShift(0);
+        }}
+      >
+        <div
+          className="echo-shift"
+          style={{
+            transform: `translate3d(0, ${shift}px, 0)`,
+            transition: sliding ? "transform 240ms ease" : "none",
+          }}
+        >
+          {prevLook?.imageSrc ? (
+            <img className="echo-neighbor echo-neighbor-prev" src={prevLook.imageSrc} alt="" />
+          ) : null}
+          {nextLook?.imageSrc ? (
+            <img className="echo-neighbor echo-neighbor-next" src={nextLook.imageSrc} alt="" />
+          ) : null}
+          {showingReturn || !look ? (
+            <button type="button" className="echo-return" onClick={backToFeed}>
+              Returning to For You
             </button>
-          </article>
-        )}
+          ) : (
+            <article className="echo-plate">
+              {mode === "feed" ? <span className="echo-peel" aria-hidden /> : null}
+              <Link
+                to="/looks/$lookId"
+                params={{ lookId: look.id }}
+                className="echo-photo"
+                aria-label={look.title || "Look"}
+                onClick={(event) => {
+                  if (!dragRef.current.moved) return;
+                  event.preventDefault();
+                  dragRef.current.moved = false;
+                }}
+              >
+                <img src={look.imageSrc} alt="" />
+              </Link>
+              {mode === "feed" && beatLabel(look) ? <p className="echo-beat">{beatLabel(look)}</p> : null}
+              {hint && mode === "feed" && index === 0 ? <p className="echo-hint">Swipe up</p> : null}
+              <div className="echo-meta">
+                <button type="button" className="echo-kicker" onClick={() => openCreator(look)}>
+                  {echoKicker(look, houseName(look))}
+                </button>
+                <h2 className="echo-title">{look.title || "Untitled look"}</h2>
+                <span className="echo-rule" />
+                {pieceLine(look) ? <p className="echo-pieces">{pieceLine(look)}</p> : null}
+              </div>
+              <button
+                type="button"
+                className={cn("echo-save", savedIds.includes(look.id) && "echo-save-on")}
+                aria-label={savedIds.includes(look.id) ? "Remove saved look" : "Save look"}
+                aria-pressed={savedIds.includes(look.id)}
+                onClick={() => save(look)}
+              >
+                <Bookmark className="size-5" fill={savedIds.includes(look.id) ? "currentColor" : "none"} />
+              </button>
+            </article>
+          )}
+        </div>
       </div>
 
       <AccountSheet open={sheetOpen} onOpenChange={setSheetOpen} />

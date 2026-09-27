@@ -1678,7 +1678,7 @@ html[data-theme="moss"] {
 
   .boot-splash-out {
     pointer-events: none;
-    animation: boot-out 0.52s var(--ease-smooth-out) both;
+    animation: boot-out 0.28s ease both;
   }
 
   @keyframes boot-draw { to { stroke-dashoffset: 0; } }
@@ -1703,7 +1703,7 @@ html[data-theme="moss"] {
     to { transform: scaleX(1); }
   }
   @keyframes boot-out {
-    to { opacity: 0; filter: blur(10px); transform: scale(1.03); }
+    to { opacity: 0; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -2337,6 +2337,48 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   overflow: hidden;
   background: #111111;
   touch-action: none;
+}
+
+.echo-shift {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.echo-neighbor {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  pointer-events: none;
+}
+
+.echo-neighbor-prev {
+  top: -100%;
+}
+
+.echo-neighbor-next {
+  top: 100%;
+}
+
+.echo-hint {
+  position: absolute;
+  bottom: 8.5rem;
+  left: 50%;
+  z-index: 20;
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 28%);
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .echo-stage-paper .echo-snap {

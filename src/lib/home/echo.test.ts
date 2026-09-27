@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Look } from "../looks/types.ts";
-import { beatLabel, creatorRun, echoKicker, echoLane, pieceLine } from "./echo.ts";
+import { beatLabel, creatorRun, echoKicker, echoLane, echoSwipe, pieceLine } from "./echo.ts";
 
 function look(partial: Partial<Look> & Pick<Look, "id">): Look {
   return {
@@ -101,6 +101,24 @@ describe("creatorRun", () => {
     assert.deepEqual(
       run.map((item) => item.id),
       ["b", "d", "a"],
+    );
+  });
+});
+
+describe("echoSwipe", () => {
+  it("follows a vertical swipe and ignores a small drag", () => {
+    assert.equal(echoSwipe({ dx: 4, dy: -80, index: 0, length: 3, mode: "feed" }), "next");
+    assert.equal(echoSwipe({ dx: 4, dy: 80, index: 1, length: 3, mode: "feed" }), "prev");
+    assert.equal(echoSwipe({ dx: 10, dy: -20, index: 0, length: 3, mode: "feed" }), "stay");
+    assert.equal(echoSwipe({ dx: 4, dy: -80, index: 2, length: 3, mode: "feed" }), "stay");
+  });
+
+  it("peels left into the lane and ends a creator run", () => {
+    assert.equal(echoSwipe({ dx: -90, dy: 10, index: 0, length: 3, mode: "feed" }), "lane");
+    assert.equal(echoSwipe({ dx: -20, dy: -80, index: 1, length: 2, mode: "creator" }), "end");
+    assert.equal(
+      echoSwipe({ dx: 0, dy: -80, index: 2, length: 2, mode: "creator", showingReturn: true }),
+      "back",
     );
   });
 });

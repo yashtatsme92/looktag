@@ -1,6 +1,6 @@
 export const BOOT_SKIP_KEY = "looktag-boot-v1";
 export const BOOT_REPLAY_EVENT = "looktag:replay-boot";
-export const BOOT_HOLD_MS = 2000;
+export const BOOT_HOLD_MS = 700;
 
 export function isSharePath(pathname: string): boolean {
   if (/^\/looks\/[^/]+$/.test(pathname)) return true;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Share, SquarePlus, MoreVertical, Download } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -9,6 +10,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { shareOrCopy } from "@/lib/looks/share";
 import {
   markInstallHintDone,
   onInstallSheetRequest,
@@ -75,6 +77,17 @@ export function InstallSheet() {
 
   const canPrompt = Boolean(prompt);
   const steps = ios ? IOS_STEPS : ANDROID_STEPS;
+  const appUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+  async function copyLink() {
+    const result = await shareOrCopy({
+      title: "Looktag",
+      text: "Shoppable looks",
+      url: appUrl || window.location.href,
+    });
+    if (result === "copied" || result === "shared") toast.success("Link copied");
+    else toast.message("Copy this link", { description: appUrl });
+  }
 
   return (
     <Drawer open={open} onOpenChange={setOpen}>
@@ -114,8 +127,11 @@ export function InstallSheet() {
           ) : (
             <li className="rounded-lg border border-border bg-background px-4 py-3 text-sm leading-relaxed text-muted-foreground">
               {canPrompt
-                ? "This browser can install Looktag as an app on this computer. On a phone, use Add to Home Screen (iPhone) or Chrome’s Install app (Android)."
-                : "Open this page in Safari on iPhone, or Chrome on Android, then install it to the home screen. It also works as a website here."}
+                ? "This browser can install Looktag as an app on this computer."
+                : "Install isn’t available in this browser. Copy the link and open it on your phone."}
+              {appUrl ? (
+                <input className="mt-3 h-11 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground" readOnly value={appUrl} />
+              ) : null}
             </li>
           )}
         </ol>
@@ -131,14 +147,8 @@ export function InstallSheet() {
               Install app
             </Button>
           ) : (
-            <Button
-              type="button"
-              onClick={() => {
-                markInstallHintDone();
-                setOpen(false);
-              }}
-            >
-              {android ? "I’ll use the Chrome menu" : "Got it"}
+            <Button type="button" onClick={() => void copyLink()}>
+              Copy link
             </Button>
           )}
           <Button
