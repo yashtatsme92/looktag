@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { flushSync } from "react-dom";
 import { Link } from "@tanstack/react-router";
 import { Bookmark, ChevronLeft, Download } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { listFashionLabels } from "@/lib/labels/api";
 import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
-import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, echoSwipe, pieceLine } from "@/lib/home/echo";
+import { beatLabel, creatorRun, ECHO_FROM_KEY, echoDragOffset, echoKicker, echoLane, echoSettleY, echoSwipe, pieceLine } from "@/lib/home/echo";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useSavedLooks } from "@/lib/looks/saved";
@@ -21,10 +22,12 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [index, setIndex] = useState(0);
-  const [shift, setShift] = useState(0);
   const [sliding, setSliding] = useState(false);
   const [hint, setHint] = useState(true);
-  const dragRef = useRef({ x: 0, y: 0, active: false, moved: false });
+  const dragRef = useRef({ x: 0, y: 0, active: false, moved: false, offset: 0 });
+  const shiftRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef(0);
+  const pendingY = useRef<number | null>(null);
   const { user, isPending } = useCurrentUserState();
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const savedIds = useSavedLooks((s) => s.ids);
@@ -109,11 +112,51 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const showingReturn = mode === "creator" && index >= plates.length;
   const prevLook = plates[index - 1];
   const nextLook = plates[index + 1];
+  const canAdvance =
+    index < plates.length - 1 || showingReturn || (mode === "creator" && index === plates.length - 1);
+  const canRetreat = index > 0;
+
+  function plateHeight() {
+    return shiftRef.current?.parentElement?.clientHeight || window.innerHeight;
+  }
+
+  function writeShift(y: number, dragging: boolean) {
+    const el = shiftRef.current;
+    if (!el) return;
+    el.dataset.drag = dragging ? "true" : "false";
+    el.style.transform = `translate3d(0, ${y}px, 0)`;
+  }
+
+  function flushShift() {
+    if (frameRef.current) {
+      window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = 0;
+    }
+    if (pendingY.current == null) return;
+    writeShift(pendingY.current, true);
+    pendingY.current = null;
+  }
+
+  function queueShift(y: number) {
+    pendingY.current = y;
+    if (frameRef.current) return;
+    frameRef.current = window.requestAnimationFrame(() => {
+      frameRef.current = 0;
+      if (pendingY.current == null) return;
+      writeShift(pendingY.current, true);
+      pendingY.current = null;
+    });
+  }
+
+  function reducedMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (sliding) return;
-    dragRef.current = { x: event.clientX, y: event.clientY, active: true, moved: false };
+    dragRef.current = { x: event.clientX, y: event.clientY, active: true, moved: false, offset: 0 };
     event.currentTarget.setPointerCapture(event.pointerId);
+    writeShift(dragRef.current.offset, true);
   }
 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
@@ -121,21 +164,55 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     const dx = event.clientX - dragRef.current.x;
     const dy = event.clientY - dragRef.current.y;
     if (Math.abs(dx) > 12 || Math.abs(dy) > 12) dragRef.current.moved = true;
-    if (Math.abs(dy) >= Math.abs(dx)) setShift(dy);
+    if (Math.abs(dy) < Math.abs(dx)) return;
+    const offset = echoDragOffset(dy, canAdvance, canRetreat);
+    dragRef.current.offset = offset;
+    queueShift(offset);
   }
 
-  function settle(nextShift: number, then: () => void) {
-    setSliding(true);
-    setShift(nextShift);
-    window.setTimeout(() => {
+  function settle(target: number, then: () => void) {
+    const el = shiftRef.current;
+    if (!el || reducedMotion()) {
+      writeShift(0, true);
       then();
-      setSliding(false);
-      setShift(0);
-    }, 240);
+      return;
+    }
+    if (frameRef.current) {
+      window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = 0;
+      pendingY.current = null;
+    }
+    setSliding(true);
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      el.removeEventListener("transitionend", onEnd);
+      window.clearTimeout(timer);
+      el.dataset.drag = "true";
+      flushSync(() => then());
+      el.style.transform = "translate3d(0, 0px, 0)";
+      window.requestAnimationFrame(() => {
+        if (shiftRef.current) shiftRef.current.dataset.drag = "false";
+        setSliding(false);
+      });
+    };
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target !== el || event.propertyName !== "transform") return;
+      finish();
+    };
+    el.addEventListener("transitionend", onEnd);
+    const timer = window.setTimeout(finish, 680);
+    window.requestAnimationFrame(() => {
+      if (!shiftRef.current) return;
+      shiftRef.current.dataset.drag = "false";
+      shiftRef.current.style.transform = `translate3d(0, ${target}px, 0)`;
+    });
   }
 
   function onPointerUp(event: PointerEvent) {
     if (!dragRef.current.active) return;
+    flushShift();
     const dx = event.clientX - dragRef.current.x;
     const dy = event.clientY - dragRef.current.y;
     dragRef.current.active = false;
@@ -148,31 +225,28 @@ export function EchoHome({ looks }: { looks: Look[] }) {
       mode,
       showingReturn,
     });
-    const travel = typeof window !== "undefined" ? window.innerHeight : 720;
-    if (decision === "stay") {
-      settle(0, () => undefined);
-      return;
-    }
-    setHint(false);
+    if (decision !== "stay") setHint(false);
     if (decision === "lane" && look) {
-      settle(-Math.min(160, Math.abs(dx)), () => openLane(look));
+      writeShift(0, true);
+      openLane(look);
       return;
     }
-    if (decision === "next") {
-      settle(-travel, () => setIndex(index + 1));
+    const target = echoSettleY(decision, plateHeight());
+    if (Math.abs(target - dragRef.current.offset) < 0.5 && decision === "stay") {
+      writeShift(0, false);
       return;
     }
-    if (decision === "prev") {
-      settle(travel, () => setIndex(index - 1));
-      return;
-    }
-    if (decision === "end") {
-      settle(-travel, () => setIndex(plates.length));
-      return;
-    }
-    if (decision === "back") {
-      settle(-travel, () => backToFeed());
-    }
+    settle(target, () => {
+      if (decision === "next") setIndex(index + 1);
+      else if (decision === "prev") setIndex(index - 1);
+      else if (decision === "end") setIndex(plates.length);
+      else if (decision === "back") backToFeed();
+    });
+  }
+
+  function onPointerCancel() {
+    dragRef.current.active = false;
+    settle(0, () => undefined);
   }
 
   if (!anchor) return null;
@@ -205,18 +279,9 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => {
-          dragRef.current.active = false;
-          setShift(0);
-        }}
+        onPointerCancel={onPointerCancel}
       >
-        <div
-          className="echo-shift"
-          style={{
-            transform: `translate3d(0, ${shift}px, 0)`,
-            transition: sliding ? "transform 240ms ease" : "none",
-          }}
-        >
+        <div ref={shiftRef} className="echo-shift">
           {prevLook?.imageSrc ? (
             <img className="echo-neighbor echo-neighbor-prev" src={prevLook.imageSrc} alt="" />
           ) : null}

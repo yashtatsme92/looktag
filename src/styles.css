@@ -1911,6 +1911,9 @@ input.look-studio-title:focus-visible {
   .look-save-burst {
     display: none;
   }
+  .echo-shift {
+    transition: none;
+  }
 }
 
 .chip-scroll {
@@ -2395,7 +2398,13 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 .echo-shift {
   position: absolute;
   inset: 0;
+  transform: translate3d(0, 0, 0);
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
+}
+
+.echo-shift[data-drag="true"] {
+  transition: none;
 }
 
 .echo-neighbor {

@@ -53,6 +53,25 @@ export function creatorRun(anchor: Look, looks: Look[]): Look[] {
 
 export type EchoSwipe = "stay" | "next" | "prev" | "lane" | "end" | "back";
 
+/** Quiet ease-out. Long enough to read, short enough to feel direct. */
+export const ECHO_SLIDE_MS = 520;
+
+/** Edge drag compresses instead of slamming into a hard stop. */
+export function echoDragOffset(dy: number, canAdvance: boolean, canRetreat: boolean): number {
+  if (!Number.isFinite(dy)) return 0;
+  if (dy < 0 && !canAdvance) return dy * 0.22;
+  if (dy > 0 && !canRetreat) return dy * 0.22;
+  return dy;
+}
+
+/** Settle distance matches the plate, not the browser window. */
+export function echoSettleY(decision: EchoSwipe, height: number): number {
+  const distance = Number.isFinite(height) ? Math.max(0, height) : 0;
+  if (decision === "next" || decision === "end" || decision === "back") return -distance;
+  if (decision === "prev") return distance;
+  return 0;
+}
+
 /** Vertical swipe moves the plate. A left peel opens the lane. Small drags stay put. */
 export function echoSwipe(input: {
   dx: number;
