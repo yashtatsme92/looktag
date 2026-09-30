@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,7 +107,10 @@ function SavedPane({
             ) : (
               <span className="you-card-photo you-card-empty" />
             )}
-            <span className="you-hangtag">{look.title.trim() || "Untitled"}</span>
+            <span className="you-hangtag">
+              <HangtagIcon className="you-hangtag-icon" />
+              <span className="you-hangtag-name">{look.title.trim() || "Untitled"}</span>
+            </span>
           </Link>
         </li>
       ))}

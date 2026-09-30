@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getFashionLabel, type FashionLabelPage } from "@/lib/labels/api";
-import { SCOUTED_FLAG, houseProfileLooks, toggleHouseFollow } from "@/lib/labels/model";
+import { houseProfileLooks, toggleHouseFollow } from "@/lib/labels/model";
 import { shareOrCopy } from "@/lib/looks/share";
 import { recordShareView } from "@/lib/share/api";
 import {
@@ -112,6 +112,9 @@ function HouseProfile() {
     toast.success(next.includes(label.id) ? `Following ${label.name}` : `Unfollowed ${label.name}`);
   }
 
+  const cover = looks.find((look) => look.imageSrc)?.imageSrc ?? "";
+  const line = label.bio?.trim() || label.city?.trim() || "";
+
   return (
     <AppShell
       title={label.name}
@@ -129,31 +132,29 @@ function HouseProfile() {
         </Button>
       }
     >
-      <article>
-        <ScreenTitle kicker={label.city}>{label.name}</ScreenTitle>
+      <article className="house-profile">
+        {cover ? <img className="house-hero" src={cover} alt="" /> : null}
+        <p className="wide-kicker">House</p>
+        <ScreenTitle>{label.name}</ScreenTitle>
         {label.scouted ? (
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <ScoutedMark />
-            <p className="text-sm text-muted-foreground">{SCOUTED_FLAG} — picked by Looktag.</p>
           </div>
         ) : null}
-        {label.bio ? <p className="mb-4 text-sm leading-relaxed text-muted-foreground">{label.bio}</p> : null}
-        <button type="button" className="create-btn-primary mb-6 max-w-xs" onClick={follow}>
+        {line ? <p className="house-line">{line}</p> : null}
+        <button type="button" className="house-primary house-follow" onClick={follow}>
           {following ? "Following" : "Follow"}
         </button>
+        <h2 className="ops-section house-looks-title">Looks</h2>
         {looks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No looks yet.</p>
         ) : (
-          <ul className="grid grid-cols-2 gap-4 lg:grid-cols-3 min-[1440px]:grid-cols-4">
+          <ul className="house-looks">
             {looks.map((look) => (
               <li key={look.id}>
-                <Link to="/looks/$lookId" params={{ lookId: look.id }} className="block">
-                  <img
-                    src={look.imageSrc}
-                    alt=""
-                    className="aspect-[2/3] w-full rounded-2xl object-cover"
-                  />
-                  <p className="mt-2 text-sm leading-snug">{look.title || "Untitled look"}</p>
+                <Link to="/looks/$lookId" params={{ lookId: look.id }} className="house-look">
+                  <img src={look.imageSrc} alt="" />
+                  <span>{look.title || "Untitled look"}</span>
                 </Link>
               </li>
             ))}
