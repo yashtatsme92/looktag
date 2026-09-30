@@ -732,7 +732,7 @@ export function LookEditor({
         onOpenChange={setAccountOpen}
         intent={accountIntent}
         next="/create"
-        title="Sign in to continue"
+        title={accountIntent === "publish" ? "Sign in to publish" : "Sign in to save"}
         description="Same sheet for Publish and Save draft. Cancel returns to Ready — pins stay."
         primary="Continue with email"
         secondary="Cancel"

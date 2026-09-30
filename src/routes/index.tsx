@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { EchoHome } from "@/components/home/echo-home";
+import { WideHome } from "@/components/home/wide-home";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { useLooksStore } from "@/lib/looks/store";
@@ -19,7 +20,14 @@ function Home() {
   return (
     <AppShell title="Looks" largeTitle flush header={looks.length > 0 ? "hidden" : "bar"}>
       {looks.length > 0 ? (
-        <EchoHome looks={looks} />
+        <>
+          <div className="lt-phone">
+            <EchoHome looks={looks} />
+          </div>
+          <div className="lt-wide">
+            <WideHome looks={looks} />
+          </div>
+        </>
       ) : (
         <div className="look-feed-empty flex h-full flex-col items-start justify-end gap-4 px-5 pb-8">
           <p className="look-feed-empty-title font-display text-4xl">No looks yet</p>

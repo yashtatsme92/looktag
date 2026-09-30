@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type UIEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { Bookmark, ChevronLeft, Download } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { listFashionLabels } from "@/lib/labels/api";
 import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, echoSnapIndex, echoSwipe, pieceLine } from "@/lib/home/echo";
@@ -10,7 +11,6 @@ import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useSavedLooks } from "@/lib/looks/saved";
 import type { Look } from "@/lib/looks/types";
-import { requestInstallSheet } from "@/lib/pwa/display";
 import { cn } from "@/lib/utils";
 
 type EchoMode = "feed" | "lane" | "creator";
@@ -219,9 +219,6 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         <Link to="/houses" className={paperBar ? "echo-houses echo-houses-ink" : "echo-houses"}>
           Houses
         </Link>
-        <button type="button" className="echo-icon" aria-label="Get the app" onClick={() => requestInstallSheet()}>
-          <Download className="size-5" />
-        </button>
       </header>
 
       {mode === "lane" ? <p className="echo-pill">More like this</p> : null}
@@ -268,7 +265,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
               aria-pressed={savedIds.includes(look.id)}
               onClick={() => save(look)}
             >
-              <Bookmark className="size-5" fill={savedIds.includes(look.id) ? "currentColor" : "none"} />
+              <HangtagIcon className="size-5" filled={savedIds.includes(look.id)} />
             </button>
           </article>
         ))}
@@ -279,7 +276,15 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         ) : null}
       </div>
 
-      <AccountSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+      <AccountSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        intent="save"
+        title="Sign in to save"
+        description="Save stays on this look. Cancel returns here."
+        primary="Continue with email"
+        secondary="Cancel"
+      />
     </div>
   );
 }

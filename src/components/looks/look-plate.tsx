@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useRouter, Link } from "@tanstack/react-router";
-import { Bookmark, ChevronLeft, ExternalLink, Pencil, Radio, Share2 } from "lucide-react";
+import { ChevronLeft, ExternalLink, Pencil, Radio, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { ECHO_FROM_KEY, echoKicker, pieceLine } from "@/lib/home/echo";
 import { shouldUseHistoryBack } from "@/lib/nav/back";
@@ -16,7 +17,6 @@ import { useSavedLooks } from "@/lib/looks/saved";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
-import { cn } from "@/lib/utils";
 
 export function LookPlate({
   look,
@@ -150,7 +150,7 @@ export function LookPlate({
             aria-pressed={saved}
             onClick={save}
           >
-            <Bookmark className={cn("size-5", saved && "fill-current")} />
+            <HangtagIcon className="size-5" filled={saved} />
           </button>
         </div>
       </header>
@@ -194,7 +194,15 @@ export function LookPlate({
         </div>
       </div>
 
-      <AccountSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+      <AccountSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        intent="save"
+        title="Sign in to save"
+        description="Save stays on this look. Cancel returns here."
+        primary="Continue with email"
+        secondary="Cancel"
+      />
     </div>
   );
 }

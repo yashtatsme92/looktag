@@ -221,18 +221,18 @@ async function flowCreateBranches(page) {
   );
 
   await page.getByRole("button", { name: "Publish" }).click();
-  await page.getByRole("heading", { name: /Sign in to continue/i }).waitFor({ timeout: 5_000 });
+  await page.getByRole("heading", { name: /Sign in to publish/i }).waitFor({ timeout: 5_000 });
   record("flow.create.publish-gate", true);
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   const ready = await page.locator("body").innerText();
-  record("flow.create.publish-cancel", /Ready/.test(ready) && !/Sign in to continue/i.test(ready), ready.slice(0, 160));
+  record("flow.create.publish-cancel", /Ready/.test(ready) && !/Sign in to publish/i.test(ready), ready.slice(0, 160));
   record("flow.create.save-draft", /Save draft/.test(ready));
 }
 
 async function screenHouses(page) {
   await goto(page, "/houses");
-  await page.getByRole("heading", { name: "Houses" }).waitFor({ timeout: 10_000 });
+  await page.getByRole("heading", { name: "Houses", exact: true }).waitFor({ timeout: 10_000 });
   const text = await page.locator("body").innerText();
   record("screen.houses.scouted", /Scouted/.test(text) && /Atelier Noir/.test(text), text.slice(0, 140));
   record("screen.houses.more", /More/.test(text));
@@ -273,7 +273,7 @@ async function flowYou(page) {
   record("flow.you.drafts", /In progress/.test(await page.locator("body").innerText()));
   await page.getByRole("tab", { name: "Profile" }).click();
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByText(/Sign in to continue/i).waitFor({ timeout: 5_000 });
+  await page.getByRole("heading", { name: "Sign in to sync You" }).waitFor({ timeout: 5_000 });
   record("flow.you.profile-gate", true);
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
@@ -354,14 +354,28 @@ async function screenDesktop(page) {
   const nav = page.locator(".web-nav");
   await nav.waitFor({ timeout: 8_000 });
   const text = await nav.innerText();
-  record("screen.desktop.nav", /Looks/.test(text) && /Create/.test(text) && /You/.test(text) && !/Rank/.test(text), text);
-  const navCenter = await centerDelta(page, ".web-nav");
-  record("flow.header.desktop-nav", navCenter <= 12, String(Math.round(navCenter)));
+  const header = await page.locator(".web-header").innerText();
+  record(
+    "screen.desktop.nav",
+    /Looks/.test(text) && /Create/.test(text) && /You/.test(text) && !/Houses/.test(text) && !/Rank/.test(text) && !/Get the app/.test(header),
+    `${text} | ${header}`,
+  );
+  await page.locator(".wide-pagehd").waitFor({ timeout: 8_000 });
+  const pageHead = await page.locator(".wide-pagehd").innerText();
+  record("screen.desktop.houses-link", /For you/.test(pageHead) && /Houses/.test(pageHead), pageHead);
+  const order = await page.evaluate(() => {
+    const word = document.querySelector(".web-wordmark")?.getBoundingClientRect();
+    const tabs = document.querySelector(".web-nav")?.getBoundingClientRect();
+    if (!word || !tabs) return false;
+    return tabs.left > word.right - 8 && word.left < 120;
+  });
+  record("flow.header.desktop-nav", order, String(order));
   await goto(page, "/looks/seed-sunday-coat");
-  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 8_000 });
-  record("screen.desktop.look", /Shop/.test(await page.locator("body").innerText()));
+  await page.getByRole("heading", { name: "Sunday Coat", exact: true }).waitFor({ timeout: 8_000 });
+  const lookText = await page.locator("body").innerText();
+  record("screen.desktop.look", /Shop this look/.test(lookText) && !/\$/.test(lookText), lookText.slice(0, 180));
   await goto(page, "/houses");
-  await page.getByRole("heading", { name: "Houses" }).waitFor({ timeout: 8_000 });
+  await page.getByRole("heading", { name: "Houses", exact: true }).waitFor({ timeout: 8_000 });
   record("screen.desktop.houses", /Scouted/.test(await page.locator("body").innerText()));
   await goto(page, "/rank");
   record("screen.rank", (await page.locator("body").innerText()).length > 20);

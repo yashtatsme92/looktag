@@ -219,7 +219,7 @@ function YouAccountSheet({ open, onOpenChange }: { open: boolean; onOpenChange: 
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Sign in to continue</DrawerTitle>
+          <DrawerTitle>Sign in to sync You</DrawerTitle>
           <DrawerDescription>Sign in to sync You. Cancel returns here.</DrawerDescription>
         </DrawerHeader>
         <form className="flex flex-col gap-3 px-5 pt-1 pb-6" onSubmit={(event) => void onSubmit(event)}>

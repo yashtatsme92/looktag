@@ -110,7 +110,7 @@ export function AppShell({ children, title, backTo, trailing, largeTitle, flush,
 
   return (
     <div className="app-frame" data-chrome={chrome}>
-      <WebHeader trailing={trailing} />
+      <WebHeader />
       <NativePortalProvider element={portalEl}>
         <div ref={screenRef} className="native-screen" id="native-screen" data-header={header}>
           <StatusBar />

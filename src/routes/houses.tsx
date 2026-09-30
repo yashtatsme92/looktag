@@ -6,7 +6,6 @@ import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { listFashionLabels } from "@/lib/labels/api";
 import {
-  SCOUTED_FLAG,
   consumerHouseIndex,
   looksBelongToHouse,
   type FashionLabel,
@@ -63,7 +62,7 @@ function HousesPage() {
 
   function grid(items: FashionLabel[]) {
     return (
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 min-[1440px]:grid-cols-4">
         {items.map((label) => {
           const houseLooks = looks.filter((look) => looksBelongToHouse(look, label));
           return (
@@ -78,10 +77,8 @@ function HousesPage() {
 
   return (
     <AppShell title="Houses">
-      <ScreenTitle kicker={SCOUTED_FLAG}>Houses</ScreenTitle>
-      <p className="mb-6 text-sm text-muted-foreground">
-        {SCOUTED_FLAG} houses are picked by Looktag. The rest follow.
-      </p>
+      <ScreenTitle>Houses</ScreenTitle>
+      <p className="mb-6 text-sm text-muted-foreground">Picked by Looktag — clothes and covers first.</p>
       {empty ? (
         <p className="text-sm text-muted-foreground">No houses yet.</p>
       ) : (
@@ -97,7 +94,7 @@ function HousesPage() {
           ) : null}
           {index.more.length > 0 ? (
             <section className="mb-8">
-              <h2 className="ds-section-title mb-3">More</h2>
+              <h2 className="ds-section-title mb-3">More houses</h2>
               {grid(index.more)}
             </section>
           ) : null}

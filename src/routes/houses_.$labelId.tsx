@@ -144,7 +144,7 @@ function HouseProfile() {
         {looks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No looks yet.</p>
         ) : (
-          <ul className="grid grid-cols-2 gap-3">
+          <ul className="grid grid-cols-2 gap-4 lg:grid-cols-3 min-[1440px]:grid-cols-4">
             {looks.map((look) => (
               <li key={look.id}>
                 <Link to="/looks/$lookId" params={{ lookId: look.id }} className="block">
@@ -163,7 +163,7 @@ function HouseProfile() {
       <AccountSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        title="Sign in to continue"
+        title="Sign in to follow"
         description="Follow stays on this house. Cancel returns here."
         intent="follow"
         next={`/houses/${label.id}`}
