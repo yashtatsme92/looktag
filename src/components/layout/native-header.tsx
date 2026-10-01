@@ -6,11 +6,12 @@ import { shouldUseHistoryBack } from "@/lib/nav/back";
 type NativeHeaderProps = {
   title: string;
   backTo?: string;
+  onBack?: () => void;
   trailing?: ReactNode;
   root?: boolean;
 };
 
-export function NativeHeader({ title, backTo, trailing, root }: NativeHeaderProps) {
+export function NativeHeader({ title, backTo, onBack, trailing, root }: NativeHeaderProps) {
   const router = useRouter();
 
   return (
@@ -22,11 +23,15 @@ export function NativeHeader({ title, backTo, trailing, root }: NativeHeaderProp
             className="native-back"
             aria-label="Back"
             onClick={() => {
+              if (onBack) {
+                onBack();
+                return;
+              }
               if (typeof window !== "undefined" && shouldUseHistoryBack(window.history.state)) {
                 router.history.back();
                 return;
               }
-              void router.navigate({ to: backTo as "/" });
+              void router.navigate({ to: backTo as "/", replace: true });
             }}
           >
             <ChevronLeft className="size-6" strokeWidth={1.8} />

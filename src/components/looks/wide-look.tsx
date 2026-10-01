@@ -8,6 +8,7 @@ import { LookCanvas } from "@/components/looks/look-canvas";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
+import { markEditOpenedFromLook } from "@/lib/nav/back";
 import { listFashionLabels } from "@/lib/labels/api";
 import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
@@ -185,7 +186,12 @@ export function WideLook({
                   <Share2 className="size-5" />
                 </button>
                 {canEdit ? (
-                  <Link to="/looks/$lookId/edit" params={{ lookId: look.id }} className="wide-btn wide-btn-ghost">
+                  <Link
+                    to="/looks/$lookId/edit"
+                    params={{ lookId: look.id }}
+                    className="wide-btn wide-btn-ghost"
+                    onClick={() => markEditOpenedFromLook(look.id)}
+                  >
                     Edit
                   </Link>
                 ) : null}

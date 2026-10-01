@@ -19,6 +19,7 @@ export type AppShellProps = {
   children: ReactNode;
   title?: string;
   backTo?: string;
+  onBack?: () => void;
   trailing?: ReactNode;
   largeTitle?: boolean;
   flush?: boolean;
@@ -69,7 +70,7 @@ function inferBackTo(pathname: string) {
   return "/";
 }
 
-export function AppShell({ children, title, backTo, trailing, largeTitle, flush, header = "bar" }: AppShellProps) {
+export function AppShell({ children, title, backTo, onBack, trailing, largeTitle, flush, header = "bar" }: AppShellProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hydrateLooks = useLooksStore((s) => s.hydrate);
   const hydrateCatalog = useCatalogStore((s) => s.hydrate);
@@ -118,6 +119,7 @@ export function AppShell({ children, title, backTo, trailing, largeTitle, flush,
             <NativeHeader
               title={resolvedTitle}
               backTo={resolvedBack}
+              onBack={onBack}
               trailing={headerTrailing}
               root={root}
             />

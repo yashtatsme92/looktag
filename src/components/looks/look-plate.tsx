@@ -6,7 +6,7 @@ import { AccountSheet } from "@/components/home/account-sheet";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { ECHO_FROM_KEY, echoKicker, pieceLine } from "@/lib/home/echo";
-import { shouldUseHistoryBack } from "@/lib/nav/back";
+import { shouldUseHistoryBack, markEditOpenedFromLook } from "@/lib/nav/back";
 import { listFashionLabels } from "@/lib/labels/api";
 import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
 import { authEnabled } from "@/lib/auth/client";
@@ -139,6 +139,7 @@ export function LookPlate({
               params={{ lookId: look.id }}
               className="look-plate-glass"
               aria-label="Edit look"
+              onClick={() => markEditOpenedFromLook(look.id)}
             >
               <Pencil className="size-5" />
             </Link>
