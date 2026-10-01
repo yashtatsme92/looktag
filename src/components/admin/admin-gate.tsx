@@ -2,7 +2,6 @@ import { useEffect, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { AppShell } from "@/components/layout/app-shell";
-import { Button } from "@/components/ui/button";
 import { isAdminEmail } from "@/lib/admin/access";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
@@ -15,8 +14,8 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
   );
   return (
     <div className="ops-stage">
-      <p className="ops-kicker">Admin</p>
-      <h1 className="ops-title">System tools.</h1>
+      <h1 className="ops-title">Admin</h1>
+      <p className="ops-lead">System tools.</p>
       {linked ? (
         <Link to="/admin/houses" className="ops-row">
           {row}
@@ -30,16 +29,16 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
   );
 }
 
-export function SessionSplit({ children }: { children: ReactNode }) {
+export function SessionSplit({ mode = "split", children }: { mode?: "split" | "admin"; children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     const previous = root.dataset.session;
-    root.dataset.session = "split";
+    root.dataset.session = mode;
     return () => {
       if (previous) root.dataset.session = previous;
       else delete root.dataset.session;
     };
-  }, []);
+  }, [mode]);
   return <>{children}</>;
 }
 
@@ -82,17 +81,16 @@ export function AdminGate({ children }: { children: ReactNode }) {
       <SessionSplit>
         <AppShell title="Admin" backTo="/" header="hidden">
           <div className="ops-stage">
-            <p className="ops-kicker">Admin</p>
-            <h1 className="ops-title">Restricted</h1>
-            <p className="ops-lead">System settings are only available to the Looktag admin.</p>
-            <Button asChild>
-              <Link to="/">Back to looks</Link>
-            </Button>
+            <h1 className="ops-title">Admins only</h1>
+            <p className="ops-lead">This area is for the Looktag team.</p>
+            <Link to="/login" className="house-exit">
+              Back to You
+            </Link>
           </div>
         </AppShell>
       </SessionSplit>
     );
   }
 
-  return <SessionSplit>{children}</SessionSplit>;
+  return <SessionSplit mode="admin">{children}</SessionSplit>;
 }

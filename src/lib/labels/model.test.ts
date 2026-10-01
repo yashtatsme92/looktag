@@ -426,20 +426,25 @@ describe("house queue", () => {
     );
   });
 
-  it("does not offer Decline on a disabled or declined house", () => {
+  it("does not offer Decline on a disabled house", () => {
     assert.equal(
       houseQueueActions("disabled").some((action) => action.id === "decline"),
       false,
     );
-    const declined = houseQueueActions("rejected");
-    assert.deepEqual(
-      declined.map((action) => action.id),
-      ["approve", "hold"],
-    );
-    assert.equal(
-      declined.some((action) => action.status === "disabled"),
-      false,
-    );
+  });
+
+  it("offers Approve and Decline on hold and declined houses", () => {
+    for (const status of ["hold", "rejected"] as const) {
+      assert.deepEqual(
+        houseQueueActions(status).map((action) => action.id),
+        ["approve", "decline"],
+      );
+      assert.equal(
+        houseQueueActions(status).some((action) => action.status === "disabled"),
+        false,
+      );
+    }
+    assert.equal(houseQueueActions("pending").find((action) => action.id === "hold")?.status, "hold");
   });
 
   it("names the queue chip without calling disable a decline", () => {
@@ -447,6 +452,9 @@ describe("house queue", () => {
     assert.equal(queueStatusLabel("approved"), "Live");
     assert.equal(queueStatusLabel("disabled"), "Disabled");
     assert.equal(queueStatusLabel("rejected"), "Declined");
+    assert.equal(queueStatusLabel("hold"), "Hold");
+    assert.equal(parseHouseStatus("hold"), "hold");
+    assert.equal(isPublicHouse({ status: "hold" }), false);
   });
 
   it("keeps apply and manage off the shopper session", () => {

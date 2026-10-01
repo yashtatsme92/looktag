@@ -9,7 +9,7 @@ const SCORE_PER_LOOK = 12;
 const SCORE_PER_PIN = 3;
 const SCORE_PER_COMPARED = 5;
 
-export type HouseStatus = "pending" | "approved" | "rejected" | "disabled";
+export type HouseStatus = "pending" | "approved" | "rejected" | "disabled" | "hold";
 
 export type FashionLabel = {
   id: string;
@@ -57,7 +57,13 @@ export type SuggestedLook = {
 };
 
 export function parseHouseStatus(value: unknown): HouseStatus {
-  if (value === "pending" || value === "rejected" || value === "disabled" || value === "approved") {
+  if (
+    value === "pending" ||
+    value === "rejected" ||
+    value === "disabled" ||
+    value === "approved" ||
+    value === "hold"
+  ) {
     return value;
   }
   return "approved";
@@ -96,13 +102,13 @@ export type HouseQueueAction = {
   status: HouseStatus | null;
 };
 
-/** Waiting, live, and disabled are different queues. Decline is not Disable. */
+/** Waiting, live, hold, declined, and disabled are different queues. Decline is not Disable. */
 export function houseQueueActions(status: HouseStatus): HouseQueueAction[] {
   if (status === "pending") {
     return [
       { id: "approve", label: "Approve", status: "approved" },
       { id: "decline", label: "Decline", status: "rejected" },
-      { id: "hold", label: "Hold", status: "pending" },
+      { id: "hold", label: "Hold", status: "hold" },
     ];
   }
   if (status === "approved") {
@@ -114,7 +120,7 @@ export function houseQueueActions(status: HouseStatus): HouseQueueAction[] {
   if (status === "disabled") return [{ id: "enable", label: "Enable", status: "approved" }];
   return [
     { id: "approve", label: "Approve", status: "approved" },
-    { id: "hold", label: "Hold", status: "pending" },
+    { id: "decline", label: "Decline", status: "rejected" },
   ];
 }
 
@@ -122,6 +128,7 @@ export function queueStatusLabel(status: HouseStatus): string {
   if (status === "approved") return "Live";
   if (status === "pending") return "Waiting";
   if (status === "disabled") return "Disabled";
+  if (status === "hold") return "Hold";
   return "Declined";
 }
 

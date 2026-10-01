@@ -159,9 +159,10 @@ export function housePassesFilter(house: HouseBrowseItem, filter: HouseFilter): 
 
 const STATUS_ORDER: Record<HouseStatus, number> = {
   pending: 0,
-  approved: 1,
-  disabled: 2,
-  rejected: 3,
+  hold: 1,
+  approved: 2,
+  disabled: 3,
+  rejected: 4,
 };
 
 export function sortHouses<T extends HouseBrowseItem>(houses: T[], sort: HouseSort): T[] {

@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { SessionSplit } from "@/components/admin/admin-gate";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { AppShell } from "@/components/layout/app-shell";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,14 +56,28 @@ function HouseSession() {
 
   return (
     <SessionSplit>
-      <AppShell title="House" backTo="/" header="hidden">
-        {isPending || (user && house === undefined) ? (
-          <p className="ops-lead">Checking your session…</p>
-        ) : mode === "gate" ? (
-          <HouseGate />
-        ) : (
-          <HouseStudio house={house ?? null} onHouse={setHouse} />
-        )}
+      <AppShell title="House" backTo="/" header="hidden" flush>
+        <div className="house-session">
+          <header className="house-bar">
+            <div className="house-bar-inner">
+              <Link to="/" className="web-wordmark">
+                Looktag
+              </Link>
+              <Link to="/" className="house-back">
+                Back to Looktag
+              </Link>
+            </div>
+          </header>
+          <div className="house-body">
+            {isPending || (user && house === undefined) ? (
+              <p className="ops-lead">Checking your session…</p>
+            ) : mode === "gate" ? (
+              <HouseGate />
+            ) : (
+              <HouseStudio house={house ?? null} onHouse={setHouse} />
+            )}
+          </div>
+        </div>
       </AppShell>
     </SessionSplit>
   );
@@ -101,9 +114,6 @@ function HouseGate() {
       />
       <HouseNameList title="More houses" labels={index.more} />
       <p className="ops-lead">Shopping Looktag?</p>
-      <Link to="/" className="ops-scarce">
-        Open the app
-      </Link>
       <AccountSheet
         open
         onOpenChange={(open) => {
@@ -231,109 +241,180 @@ function HouseStudio({
 
   const managing = houseSessionMode({ signedIn: true, hasHouse: Boolean(house) }) === "manage";
 
-  return (
-    <div className="ops-stage">
-      <Link to="/" className="ops-scarce">
-        Back to Looktag
-      </Link>
-      <p className="ops-kicker">House</p>
-      <div className="ops-title-row">
-        <h1 className="ops-title">{managing && house ? house.name : "Apply"}</h1>
-        {managing && house ? <span className="ops-chip">{queueStatusLabel(house.status)}</span> : null}
-      </div>
-      <p className="ops-lead">
-        {managing
-          ? house?.status === "disabled"
-            ? "This house is disabled. It stays off Looktag until an admin enables it."
-            : house?.status === "rejected"
-              ? "This application was declined. Update it and submit again."
-              : house?.status === "pending"
-                ? "Waiting for admin. It stays hidden until then."
-                : "Edit the house. Collections stay with it."
-          : "First-time house — name, city, about."}
-      </p>
-      <form className="ops-form" onSubmit={(event) => void handleSubmit(event)}>
-        <div className="ops-field">
-          <Label htmlFor="house-name">House name</Label>
-          <Input
-            id="house-name"
-            required
-            minLength={2}
-            value={name}
-            autoComplete="organization"
-            placeholder="Atelier Noir"
-            onChange={(event) => setName(event.target.value)}
-          />
-        </div>
-        <div className="ops-field">
-          <Label htmlFor="house-city">City</Label>
-          <Input
-            id="house-city"
-            value={city}
-            autoComplete="address-level2"
-            placeholder="Paris"
-            onChange={(event) => setCity(event.target.value)}
-          />
-        </div>
-        <div className="ops-field">
-          <Label htmlFor="house-bio">About</Label>
-          <Textarea
-            id="house-bio"
-            rows={3}
-            value={bio}
-            placeholder="Charcoal coats and numbered cuts."
-            onChange={(event) => setBio(event.target.value)}
-          />
-        </div>
-        <Button type="submit" disabled={busy}>
-          {busy ? "Saving…" : managing ? "Save changes" : "Submit"}
-        </Button>
+  if (managing && house && (house.status === "pending" || house.status === "hold")) {
+    return (
+      <HouseNotice
+        title="Application in review"
+        body="Thanks for applying. We'll email you once your House is reviewed."
+      />
+    );
+  }
+
+  if (managing && house?.status === "rejected") {
+    return (
+      <HouseNotice
+        title="Application not approved"
+        body="Your House wasn't approved this time. You can still browse and save looks."
+      />
+    );
+  }
+
+  if (managing && house?.status === "disabled") {
+    return (
+      <HouseNotice
+        title="House paused"
+        body="Your House is hidden from shoppers right now. Your collections are safe."
+      />
+    );
+  }
+
+  if (!managing) {
+    return (
+      <form className="house-apply" onSubmit={(event) => void handleSubmit(event)}>
+        <p className="ops-kicker">House</p>
+        <h1 className="ops-title">Apply</h1>
+        <p className="ops-lead">First-time house — name, city, about.</p>
+        <HouseFields name={name} city={city} bio={bio} onName={setName} onCity={setCity} onBio={setBio} />
+        <button type="submit" className="house-primary" disabled={busy}>
+          {busy ? "Saving…" : "Submit"}
+        </button>
       </form>
-      {managing ? (
-        <section className="ops-block">
-          <h2 className="ops-section">Collections</h2>
-          <form className="ops-form" onSubmit={(event) => void handleAddCollection(event)}>
-            <div className="ops-field">
-              <Label htmlFor="collection-name">Add collection</Label>
-              <Input
-                id="collection-name"
-                required
-                minLength={2}
-                value={collectionName}
-                placeholder="Kinkistyles"
-                onChange={(event) => setCollectionName(event.target.value)}
-              />
-            </div>
-            <div className="ops-field">
-              <Label htmlFor="collection-season">Season</Label>
-              <Input
-                id="collection-season"
-                value={collectionSeason}
-                placeholder="FW25"
-                onChange={(event) => setCollectionSeason(event.target.value)}
-              />
-            </div>
-            <Button type="submit" variant="outline" disabled={collectionBusy}>
-              {collectionBusy ? "Adding…" : "Add collection"}
-            </Button>
-          </form>
-          {collections.length > 0 ? (
-            <ul className="ops-collections">
-              {collections.map((collection) => (
-                <li key={collection.id} className="ops-collection">
-                  <div>
-                    <p className="ops-row-title">{collection.name}</p>
-                    <p className="ops-row-note">{collection.season || "—"}</p>
-                  </div>
-                  <button type="button" className="ops-text-btn" onClick={() => void handleRemoveCollection(collection.id)}>
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+    );
+  }
+
+  return (
+    <div className="house-manage">
+      <form className="contents" onSubmit={(event) => void handleSubmit(event)}>
+        <section className="house-details" aria-label="House details">
+          <p className="ops-kicker">House</p>
+          <div className="ops-title-row">
+            <h1 className="ops-title">{house?.name || "House"}</h1>
+            {house ? <span className="ops-badge" data-status={house.status}>{queueStatusLabel(house.status)}</span> : null}
+          </div>
+          <HouseFields name={name} city={city} bio={bio} onName={setName} onCity={setCity} onBio={setBio} />
         </section>
-      ) : null}
+        <div className="house-save">
+          <button type="submit" className="house-primary" disabled={busy}>
+            {busy ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      </form>
+      <section className="house-collections" aria-label="Collections">
+        <div className="house-collections-head">
+          <h2 className="ops-section">Collections</h2>
+        </div>
+        <form className="house-add" onSubmit={(event) => void handleAddCollection(event)}>
+          <div className="ops-field">
+            <Label htmlFor="collection-name">Name</Label>
+            <Input
+              id="collection-name"
+              required
+              minLength={2}
+              value={collectionName}
+              placeholder="Kinkistyles"
+              onChange={(event) => setCollectionName(event.target.value)}
+            />
+          </div>
+          <div className="ops-field">
+            <Label htmlFor="collection-season">Season</Label>
+            <Input
+              id="collection-season"
+              value={collectionSeason}
+              placeholder="FW25"
+              onChange={(event) => setCollectionSeason(event.target.value)}
+            />
+          </div>
+          <button type="submit" className="house-ghost" disabled={collectionBusy}>
+            {collectionBusy ? "Adding…" : "Add collection"}
+          </button>
+        </form>
+        {collections.length > 0 ? (
+          <ul className="ops-collections">
+            {collections.map((collection) => (
+              <li key={collection.id} className="ops-collection">
+                <div>
+                  <p className="ops-row-title">{collection.name}</p>
+                  <p className="ops-row-note">{collection.season || "—"}</p>
+                </div>
+                <button
+                  type="button"
+                  className="house-ghost"
+                  aria-label={`Remove ${collection.name}`}
+                  onClick={() => void handleRemoveCollection(collection.id)}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+function HouseNotice({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="house-apply">
+      <p className="ops-kicker">House</p>
+      <h1 className="ops-title">{title}</h1>
+      <p className="ops-lead">{body}</p>
+      <Link to="/" className="house-exit">
+        Back to Looks
+      </Link>
+    </div>
+  );
+}
+
+function HouseFields({
+  name,
+  city,
+  bio,
+  onName,
+  onCity,
+  onBio,
+}: {
+  name: string;
+  city: string;
+  bio: string;
+  onName: (value: string) => void;
+  onCity: (value: string) => void;
+  onBio: (value: string) => void;
+}) {
+  return (
+    <div className="house-fields">
+      <div className="ops-field">
+        <Label htmlFor="house-name">House name</Label>
+        <Input
+          id="house-name"
+          required
+          minLength={2}
+          value={name}
+          autoComplete="organization"
+          placeholder="Atelier Noir"
+          onChange={(event) => onName(event.target.value)}
+        />
+      </div>
+      <div className="ops-field">
+        <Label htmlFor="house-city">City</Label>
+        <Input
+          id="house-city"
+          value={city}
+          autoComplete="address-level2"
+          placeholder="Paris"
+          onChange={(event) => onCity(event.target.value)}
+        />
+      </div>
+      <div className="ops-field">
+        <Label htmlFor="house-bio">About</Label>
+        <Textarea
+          id="house-bio"
+          rows={3}
+          value={bio}
+          placeholder="Charcoal coats and numbered cuts."
+          onChange={(event) => onBio(event.target.value)}
+        />
+      </div>
     </div>
   );
 }
