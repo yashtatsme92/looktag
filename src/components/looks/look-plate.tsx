@@ -7,8 +7,6 @@ import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { ECHO_FROM_KEY, echoKicker, pieceLine } from "@/lib/home/echo";
 import { shouldUseHistoryBack, markEditOpenedFromLook } from "@/lib/nav/back";
-import { listFashionLabels } from "@/lib/labels/api";
-import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
@@ -35,28 +33,13 @@ export function LookPlate({
   const toggleSaved = useSavedLooks((s) => s.toggle);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [labels, setLabels] = useState<FashionLabel[]>([]);
 
   useEffect(() => {
     hydrateSaved();
   }, [hydrateSaved]);
 
-  useEffect(() => {
-    let alive = true;
-    void listFashionLabels()
-      .then((rows) => {
-        if (alive) setLabels(rows);
-      })
-      .catch(() => {
-        if (alive) setLabels([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   const focus = look.tags.find((tag) => tag.id === selectedId) ?? look.tags[0] ?? null;
-  const house = labels.find((label) => looksBelongToHouse(look, label));
+  const kicker = echoKicker(look);
 
   function save() {
     if (authEnabled && !isPending && !user) {
@@ -156,13 +139,7 @@ export function LookPlate({
         </div>
       </header>
       <div className="look-plate-meta">
-        {house ? (
-          <Link to="/houses/$labelId" params={{ labelId: house.id }} className="look-plate-kicker">
-            {echoKicker(look, house.name)}
-          </Link>
-        ) : (
-          <p className="look-plate-kicker">{echoKicker(look)}</p>
-        )}
+        {kicker ? <p className="look-plate-kicker">{kicker}</p> : null}
         <h1 className="look-plate-title">{look.title || "Untitled look"}</h1>
         <span className="look-plate-rule" />
         <div className="flex items-end justify-between gap-3">

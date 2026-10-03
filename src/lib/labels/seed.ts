@@ -1,5 +1,5 @@
 import type { Look, ProductOffer, ProductTag } from "../looks/types.ts";
-import type { FashionCollection, FashionLabel } from "./model";
+import type { FashionCollection, FashionLabel, FashionStyle } from "./model";
 
 const EUR = "EUR";
 
@@ -162,6 +162,81 @@ export const SEED_COLLECTIONS: FashionCollection[] = [
     moods: ["evening", "knit"],
     sortOrder: 1,
     createdAt: CREATED + 6,
+  },
+];
+
+export const SEED_STYLES: FashionStyle[] = [
+  {
+    id: "style-noir-column",
+    labelId: "label-atelier-noir",
+    collectionId: "col-noir-kinkistyles",
+    name: "Column Dress",
+    description: "A black wool column with an open neck. No price, no retailer.",
+    imageSrc: "/looks/gallery-hour.jpg",
+    sortOrder: 0,
+  },
+  {
+    id: "style-noir-cuff",
+    labelId: "label-atelier-noir",
+    collectionId: "col-noir-kinkistyles",
+    name: "Bar Ear Cuff",
+    description: "One sculptural cuff. The line stays black.",
+    imageSrc: "/looks/sunday-coat.jpg",
+    sortOrder: 1,
+  },
+  {
+    id: "style-noir-coat",
+    labelId: "label-atelier-noir",
+    collectionId: "col-noir-after-hours",
+    name: "After Hours Coat",
+    description: "City tailoring once the lights go down.",
+    imageSrc: "/looks/city-cut.jpg",
+    sortOrder: 0,
+  },
+  {
+    id: "style-salt-linen",
+    labelId: "label-salt-loom",
+    collectionId: "col-salt-summer-blues",
+    name: "Washed Linen",
+    description: "Open collar, salt still in the weave.",
+    imageSrc: "/looks/coastal-linen.jpg",
+    sortOrder: 0,
+  },
+  {
+    id: "style-salt-rib",
+    labelId: "label-salt-loom",
+    collectionId: "col-salt-north-knit",
+    name: "North Rib",
+    description: "Heavy rib for wind off the water.",
+    imageSrc: "/looks/studio-knit.jpg",
+    sortOrder: 0,
+  },
+  {
+    id: "style-press-wool",
+    labelId: "label-press-line",
+    collectionId: "col-press-numbered",
+    name: "Numbered Wool",
+    description: "One cut for the year. Grey wool, square shoulder.",
+    imageSrc: "/looks/quiet-tailor.jpg",
+    sortOrder: 0,
+  },
+  {
+    id: "style-sunday-merino",
+    labelId: "label-sunday-studio",
+    collectionId: "col-sunday-arch",
+    name: "Arch Merino",
+    description: "Saturday light. Merino, nothing else.",
+    imageSrc: "/looks/studio-knit.jpg",
+    sortOrder: 0,
+  },
+  {
+    id: "style-sunday-night",
+    labelId: "label-sunday-studio",
+    collectionId: "col-sunday-hackney",
+    name: "Hackney Night",
+    description: "Black merino for the last train.",
+    imageSrc: "/looks/gallery-hour.jpg",
+    sortOrder: 0,
   },
 ];
 

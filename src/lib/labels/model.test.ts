@@ -8,7 +8,13 @@ import {
   collectionsForPublicHouses,
   consumerHouseIndex,
   groupLooksByCollection,
+  houseCoverSrc,
   houseProfileLooks,
+  housesSwitchCopy,
+  moveLineOrder,
+  pickFeedStyle,
+  publicLines,
+  styleCardSlot,
   houseQueueActions,
   houseSessionMode,
   isLabelUserId,
@@ -27,7 +33,7 @@ import {
   type FashionCollection,
   type FashionLabel,
 } from "./model.ts";
-import { SEED_COLLECTIONS, SEED_LABELS, SEED_LABEL_LOOKS } from "./seed.ts";
+import { SEED_COLLECTIONS, SEED_LABELS, SEED_LABEL_LOOKS, SEED_STYLES } from "./seed.ts";
 
 function look(partial: Partial<Look> & Pick<Look, "id" | "userId" | "title">): Look {
   return {
@@ -462,5 +468,47 @@ describe("house queue", () => {
     assert.equal(houseSessionMode({ signedIn: false, hasHouse: true }), "gate");
     assert.equal(houseSessionMode({ signedIn: true, hasHouse: false }), "apply");
     assert.equal(houseSessionMode({ signedIn: true, hasHouse: true }), "manage");
+  });
+});
+
+describe("lines and styles", () => {
+  it("hides lines that have no styles and never uses a look as the cover", () => {
+    const empty = {
+      ...SEED_COLLECTIONS[0]!,
+      id: "col-empty",
+      name: "Empty",
+      sortOrder: -1,
+    };
+    const lines = publicLines([empty, ...SEED_COLLECTIONS], SEED_STYLES);
+    assert.equal(lines.some((row) => row.collection.id === "col-empty"), false);
+    const noir = lines.filter((row) => row.collection.labelId === "label-atelier-noir");
+    assert.equal(noir[0]?.collection.id, "col-noir-kinkistyles");
+    assert.equal(noir[0]?.styles[0]?.name, "Column Dress");
+    assert.equal(houseCoverSrc(noir), "/looks/gallery-hour.jpg");
+    assert.equal(houseCoverSrc([]), "");
+  });
+
+  it("places one feed style card after the lead and only from scouted houses", () => {
+    assert.equal(styleCardSlot(3), null);
+    assert.equal(styleCardSlot(6), 4);
+    const picked = pickFeedStyle(SEED_STYLES, SEED_LABELS);
+    assert.equal(picked?.houseName, "Atelier Noir");
+    assert.equal(pickFeedStyle(SEED_STYLES, SEED_LABELS.map((label) => ({ ...label, scouted: false }))), null);
+  });
+
+  it("locks the Houses switch confirm copy", () => {
+    assert.equal(housesSwitchCopy(true).title, "Turn off Houses?");
+    assert.equal(housesSwitchCopy(true).confirm, "Turn off Houses");
+    assert.match(housesSwitchCopy(true).body, /Nothing is deleted/);
+    assert.equal(housesSwitchCopy(false).title, "Turn Houses back on?");
+    assert.equal(housesSwitchCopy(false).confirm, "Turn on Houses");
+  });
+
+  it("moves a line up or down without dropping rows", () => {
+    const rows = [{ id: "a" }, { id: "b" }, { id: "c" }];
+    assert.deepEqual(moveLineOrder(rows, "b", "up")?.map((row) => row.id), ["b", "a", "c"]);
+    assert.deepEqual(moveLineOrder(rows, "b", "down")?.map((row) => row.id), ["a", "c", "b"]);
+    assert.equal(moveLineOrder(rows, "a", "up"), null);
+    assert.equal(moveLineOrder(rows, "missing", "down"), null);
   });
 });

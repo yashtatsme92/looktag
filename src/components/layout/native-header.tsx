@@ -37,8 +37,10 @@ export function NativeHeader({ title, backTo, onBack, trailing, root }: NativeHe
             <ChevronLeft className="size-6" strokeWidth={1.8} />
             <span>Back</span>
           </button>
-        ) : (
+        ) : root ? (
           <span className="native-wordmark">Looktag</span>
+        ) : (
+          <span aria-hidden />
         )}
       </div>
       <p className="native-header-title">{root ? "" : title}</p>

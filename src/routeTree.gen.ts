@@ -31,6 +31,7 @@ import { Route as LooksLookIdRouteImport } from './routes/looks.$lookId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as HousesLabelIdCollectionIdRouteImport } from './routes/houses_.$labelId_.$collectionId'
 import { Route as LooksLookIdEditRouteImport } from './routes/looks.$lookId_.edit'
+import { Route as HousesLabelIdCollectionIdStyleIdRouteImport } from './routes/houses_.$labelId_.$collectionId_.$styleId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -143,6 +144,12 @@ const LooksLookIdEditRoute = LooksLookIdEditRouteImport.update({
   path: '/looks/$lookId/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HousesLabelIdCollectionIdStyleIdRoute =
+  HousesLabelIdCollectionIdStyleIdRouteImport.update({
+    id: '/houses_/$labelId_/$collectionId_/$styleId',
+    path: '/houses/$labelId/$collectionId/$styleId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/houses/$labelId/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId/edit': typeof LooksLookIdEditRoute
+  '/houses/$labelId/$collectionId/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -191,6 +199,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/houses/$labelId/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId/edit': typeof LooksLookIdEditRoute
+  '/houses/$labelId/$collectionId/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -216,6 +225,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/houses_/$labelId_/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId_/edit': typeof LooksLookIdEditRoute
+  '/houses_/$labelId_/$collectionId_/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/houses/$labelId/$collectionId'
     | '/looks/$lookId/edit'
+    | '/houses/$labelId/$collectionId/$styleId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/houses/$labelId/$collectionId'
     | '/looks/$lookId/edit'
+    | '/houses/$labelId/$collectionId/$styleId'
   id:
     | '__root__'
     | '/'
@@ -290,6 +302,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/houses_/$labelId_/$collectionId'
     | '/looks/$lookId_/edit'
+    | '/houses_/$labelId_/$collectionId_/$styleId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -315,6 +328,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   HousesLabelIdCollectionIdRoute: typeof HousesLabelIdCollectionIdRoute
   LooksLookIdEditRoute: typeof LooksLookIdEditRoute
+  HousesLabelIdCollectionIdStyleIdRoute: typeof HousesLabelIdCollectionIdStyleIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -473,6 +487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LooksLookIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/houses_/$labelId_/$collectionId_/$styleId': {
+      id: '/houses_/$labelId_/$collectionId_/$styleId'
+      path: '/houses/$labelId/$collectionId/$styleId'
+      fullPath: '/houses/$labelId/$collectionId/$styleId'
+      preLoaderRoute: typeof HousesLabelIdCollectionIdStyleIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -499,6 +520,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   HousesLabelIdCollectionIdRoute: HousesLabelIdCollectionIdRoute,
   LooksLookIdEditRoute: LooksLookIdEditRoute,
+  HousesLabelIdCollectionIdStyleIdRoute: HousesLabelIdCollectionIdStyleIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

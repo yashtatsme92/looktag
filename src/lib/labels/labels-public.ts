@@ -20,6 +20,10 @@ import {
   parseLook,
 } from "./labels-shared";
 
+export const getHousesAvailability = createServerFn({ method: "GET" }).handler(async () => {
+  return labelsEnabled();
+});
+
 export const listFashionLabels = createServerFn({ method: "GET" }).handler(async () => {
   return withSpan("looktag.houses.list", async (span) => {
     if (!(await labelsEnabled())) {

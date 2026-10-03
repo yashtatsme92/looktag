@@ -1,26 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { HouseCard } from "@/components/labels/house-card";
+import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
 import { AppShell } from "@/components/layout/app-shell";
-import { ScreenTitle } from "@/components/layout/screen-title";
-import { listFashionLabels } from "@/lib/labels/api";
-import {
-  consumerHouseIndex,
-  looksBelongToHouse,
-  type FashionLabel,
-} from "@/lib/labels/model";
-import { useLooksStore } from "@/lib/looks/store";
-import { useSettingsStore } from "@/lib/settings/store";
+import { getHousesAvailability, listFashionCollections, listFashionLabels } from "@/lib/labels/api";
+import { consumerHouseIndex, houseCoverSrc, publicLines, type FashionLabel } from "@/lib/labels/model";
+import { SEED_STYLES } from "@/lib/labels/seed";
 
 export const Route = createFileRoute("/houses")({
   ssr: true,
   loader: async () => {
     try {
-      const labels = await listFashionLabels();
-      return { labels };
+      const open = await getHousesAvailability();
+      if (!open) return { open: false, labels: [] as FashionLabel[], covers: {} as Record<string, string> };
+      const [labels, collections] = await Promise.all([listFashionLabels(), listFashionCollections()]);
+      const covers: Record<string, string> = {};
+      for (const label of labels) {
+        const lines = publicLines(
+          collections.filter((collection) => collection.labelId === label.id),
+          SEED_STYLES,
+        );
+        covers[label.id] = houseCoverSrc(lines);
+      }
+      return { open: true, labels, covers };
     } catch {
-      return { labels: [] as FashionLabel[] };
+      return { open: true, labels: [] as FashionLabel[], covers: {} as Record<string, string> };
     }
   },
   head: () => ({
@@ -37,12 +42,12 @@ export const Route = createFileRoute("/houses")({
 
 function HousesPage() {
   const seeded = Route.useLoaderData();
-  const labelsEnabled = useSettingsStore((s) => s.labelsEnabled);
-  const looks = useLooksStore((s) => s.looks);
+  const closed = useHousesClosed(seeded.open);
   const [labels, setLabels] = useState<FashionLabel[]>(seeded.labels);
+  const covers = seeded.covers;
 
   useEffect(() => {
-    if (!labelsEnabled) return;
+    if (closed) return;
     let alive = true;
     void listFashionLabels()
       .then((next) => {
@@ -54,21 +59,18 @@ function HousesPage() {
     return () => {
       alive = false;
     };
-  }, [labelsEnabled]);
+  }, [closed]);
 
   const index = useMemo(() => consumerHouseIndex(labels), [labels]);
 
-  if (!labelsEnabled) return <Navigate to="/" />;
+  if (closed) return <HousesClosed />;
 
   function grid(items: FashionLabel[]) {
     return (
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 min-[1440px]:grid-cols-4">
-        {items.map((label) => {
-          const houseLooks = looks.filter((look) => looksBelongToHouse(look, label));
-          return (
-            <HouseCard key={label.id} label={label} cover={houseLooks[0]} looks={houseLooks} />
-          );
-        })}
+      <div className="house-index-grid">
+        {items.map((label) => (
+          <HouseCard key={label.id} label={label} coverSrc={covers[label.id]} />
+        ))}
       </div>
     );
   }
@@ -76,19 +78,34 @@ function HousesPage() {
   const empty = index.scouted.length === 0 && index.more.length === 0;
 
   return (
-    <AppShell title="Houses">
-      <ScreenTitle>Houses</ScreenTitle>
-      <p className="mb-6 text-sm text-muted-foreground">Picked by Looktag — clothes and covers first.</p>
+    <AppShell
+      title="Houses"
+      largeTitle={false}
+      trailing={
+        <Link to="/house" className="houses-for">
+          For houses
+        </Link>
+      }
+    >
+      <div className="houses-wide-hd">
+        <p className="houses-wide-title">Houses</p>
+        <Link to="/house" className="houses-for">
+          For houses
+        </Link>
+      </div>
       {empty ? (
         <p className="text-sm text-muted-foreground">No houses yet.</p>
       ) : (
         <>
           {index.scouted.length > 0 ? (
-            <section className="mb-8">
-              <div className="mb-3 flex items-center gap-2">
-                <h2 className="ds-section-title">Scouted</h2>
+            <section className="mb-8" aria-labelledby="houses-scouted">
+              <div className="mb-1 flex items-center gap-2">
+                <h1 id="houses-scouted" className="ds-section-title">
+                  Scouted
+                </h1>
                 <ScoutedMark />
               </div>
+              <p className="houses-scouted-note">Picked by Looktag — clothes and covers first.</p>
               {grid(index.scouted)}
             </section>
           ) : null}
@@ -100,9 +117,6 @@ function HousesPage() {
           ) : null}
         </>
       )}
-      <Link to="/house" className="ops-scarce">
-        Continue as a House
-      </Link>
     </AppShell>
   );
 }

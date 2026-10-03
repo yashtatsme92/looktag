@@ -14,9 +14,11 @@ import {
   getMyHouse,
   listFashionLabels,
   listMyCollections,
+  moveMyCollection,
   saveMyCollection,
   updateMyHouse,
 } from "@/lib/labels/api";
+import { useSettingsStore } from "@/lib/settings/store";
 import {
   consumerHouseIndex,
   houseSessionMode,
@@ -53,6 +55,8 @@ function HouseSession() {
     signedIn: Boolean(user),
     hasHouse: Boolean(house),
   });
+  const housesOn = useSettingsStore((s) => s.labelsEnabled);
+  const settingsReady = useSettingsStore((s) => s.hydrated);
 
   return (
     <SessionSplit>
@@ -71,6 +75,16 @@ function HouseSession() {
           <div className="house-body">
             {isPending || (user && house === undefined) ? (
               <p className="ops-lead">Checking your session…</p>
+            ) : !housesOn && settingsReady && mode === "manage" ? (
+              <HouseNotice
+                title="Houses are paused"
+                body="Houses are paused on Looktag right now. Your Lines and Styles are safe."
+              />
+            ) : !housesOn && settingsReady ? (
+              <HouseNotice
+                title="Houses aren't available right now"
+                body=""
+              />
             ) : mode === "gate" ? (
               <HouseGate />
             ) : (
@@ -220,10 +234,10 @@ function HouseStudio({
         setCollections((current) => [...current, saved]);
         setCollectionName("");
         setCollectionSeason("");
-        toast.success("Collection added");
+        toast.success("Line added");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add the collection.");
+      toast.error(error instanceof Error ? error.message : "Could not add the line.");
     } finally {
       setCollectionBusy(false);
     }
@@ -233,9 +247,18 @@ function HouseStudio({
     try {
       await deleteMyCollection({ data: { id } });
       setCollections((current) => current.filter((item) => item.id !== id));
-      toast.success("Collection removed");
+      toast.success("Line removed");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not remove the collection.");
+      toast.error(error instanceof Error ? error.message : "Could not remove the line.");
+    }
+  }
+
+  async function moveLine(id: string, direction: "up" | "down") {
+    try {
+      const next = await moveMyCollection({ data: { id, direction } });
+      setCollections(next);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not reorder the line.");
     }
   }
 
@@ -263,7 +286,7 @@ function HouseStudio({
     return (
       <HouseNotice
         title="House paused"
-        body="Your House is hidden from shoppers right now. Your collections are safe."
+        body="Your House is hidden from shoppers right now. Your Lines and Styles are safe."
       />
     );
   }
@@ -299,9 +322,9 @@ function HouseStudio({
           </button>
         </div>
       </form>
-      <section className="house-collections" aria-label="Collections">
+      <section className="house-collections" aria-label="Lines">
         <div className="house-collections-head">
-          <h2 className="ops-section">Collections</h2>
+          <h2 className="ops-section">Lines</h2>
         </div>
         <form className="house-add" onSubmit={(event) => void handleAddCollection(event)}>
           <div className="ops-field">
@@ -316,38 +339,58 @@ function HouseStudio({
             />
           </div>
           <div className="ops-field">
-            <Label htmlFor="collection-season">Season</Label>
+            <Label htmlFor="collection-season">Tag</Label>
             <Input
               id="collection-season"
               value={collectionSeason}
-              placeholder="FW25"
+              placeholder="Capsule"
               onChange={(event) => setCollectionSeason(event.target.value)}
             />
           </div>
           <button type="submit" className="house-ghost" disabled={collectionBusy}>
-            {collectionBusy ? "Adding…" : "Add collection"}
+            {collectionBusy ? "Adding…" : "Add line"}
           </button>
         </form>
-        {collections.length > 0 ? (
+        {collections.length === 0 ? (
+          <p className="ops-lead">No Lines yet. Add your first Line.</p>
+        ) : (
           <ul className="ops-collections">
-            {collections.map((collection) => (
+            {collections.map((collection, index) => (
               <li key={collection.id} className="ops-collection">
                 <div>
                   <p className="ops-row-title">{collection.name}</p>
                   <p className="ops-row-note">{collection.season || "—"}</p>
                 </div>
-                <button
-                  type="button"
-                  className="house-ghost"
-                  aria-label={`Remove ${collection.name}`}
-                  onClick={() => void handleRemoveCollection(collection.id)}
-                >
-                  Remove
-                </button>
+                <div className="house-line-actions">
+                  <button
+                    type="button"
+                    className="house-ghost"
+                    disabled={index === 0}
+                    onClick={() => void moveLine(collection.id, "up")}
+                  >
+                    Move up
+                  </button>
+                  <button
+                    type="button"
+                    className="house-ghost"
+                    disabled={index === collections.length - 1}
+                    onClick={() => void moveLine(collection.id, "down")}
+                  >
+                    Move down
+                  </button>
+                  <button
+                    type="button"
+                    className="house-ghost"
+                    aria-label={`Remove ${collection.name}`}
+                    onClick={() => void handleRemoveCollection(collection.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
-        ) : null}
+        )}
       </section>
     </div>
   );
@@ -358,7 +401,7 @@ function HouseNotice({ title, body }: { title: string; body: string }) {
     <div className="house-apply">
       <p className="ops-kicker">House</p>
       <h1 className="ops-title">{title}</h1>
-      <p className="ops-lead">{body}</p>
+      {body ? <p className="ops-lead">{body}</p> : null}
       <Link to="/" className="house-exit">
         Back to Looks
       </Link>

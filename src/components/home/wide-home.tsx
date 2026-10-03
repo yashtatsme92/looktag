@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Radio } from "lucide-react";
+import { Radio } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
+import { StyleFrame } from "@/components/labels/style-frame";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { listFashionLabels } from "@/lib/labels/api";
-import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
+import { pickFeedStyle, styleCardSlot, type FashionLabel } from "@/lib/labels/model";
+import { SEED_COLLECTIONS, SEED_STYLES } from "@/lib/labels/seed";
 import { useSavedLooks } from "@/lib/looks/saved";
 import type { Look } from "@/lib/looks/types";
+import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
 type WideMode = "feed" | "lane" | "creator";
@@ -21,6 +24,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
+  const housesOn = useSettingsStore((s) => s.labelsEnabled);
   const { user, isPending } = useCurrentUserState();
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const savedIds = useSavedLooks((s) => s.ids);
@@ -70,10 +74,8 @@ export function WideHome({ looks }: { looks: Look[] }) {
 
   const beat = mode === "feed" ? deck.map((look) => beatLabel(look)).find(Boolean) : null;
   const tiles = beat ? [...plates.slice(0, 4), ...plates.slice(4)] : plates;
-
-  function houseName(look: Look) {
-    return labels.find((label) => looksBelongToHouse(look, label))?.name;
-  }
+  const feedStyle = housesOn && mode === "feed" ? pickFeedStyle(SEED_STYLES, labels) : null;
+  const styleAt = feedStyle ? styleCardSlot(tiles.length) : null;
 
   function save(look: Look) {
     if (authEnabled && !isPending && !user) {
@@ -109,16 +111,12 @@ export function WideHome({ looks }: { looks: Look[] }) {
                 For you
               </button>
             ) : null}
-            <Link to="/houses" className="wide-houses">
-              Houses
-              <ArrowRight className="size-4" strokeWidth={1.75} />
-            </Link>
           </div>
         </header>
 
         <DesktopLead
           look={anchor}
-          kicker={echoKicker(anchor, houseName(anchor))}
+          kicker={echoKicker(anchor)}
           saved={savedIds.includes(anchor.id)}
           onSave={() => save(anchor)}
           onEcho={() => echo(anchor)}
@@ -129,7 +127,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
         />
         <TabletLead
           look={anchor}
-          kicker={echoKicker(anchor, houseName(anchor))}
+          kicker={echoKicker(anchor)}
           saved={savedIds.includes(anchor.id)}
           onSave={() => save(anchor)}
           onEcho={() => echo(anchor)}
@@ -140,17 +138,32 @@ export function WideHome({ looks }: { looks: Look[] }) {
         />
 
         <div className="wide-grid">
-          {tiles.map((look, index) => (
-            <Tile
-              key={look.id}
-              look={look}
-              kicker={echoKicker(look, houseName(look))}
-              saved={savedIds.includes(look.id)}
-              onSave={() => save(look)}
-              beatAfter={Boolean(beat) && index === 3}
-              beat={beat ?? ""}
-            />
-          ))}
+          {tiles.flatMap((look, index) => {
+            const nodes = [];
+            if (styleAt === index && feedStyle) {
+              const slug = SEED_COLLECTIONS.find((row) => row.id === feedStyle.style.collectionId)?.slug ?? feedStyle.style.collectionId;
+              nodes.push(
+                <StyleFrame
+                  key={feedStyle.style.id}
+                  style={feedStyle.style}
+                  houseName={feedStyle.houseName}
+                  lineSlug={slug}
+                />,
+              );
+            }
+            nodes.push(
+              <Tile
+                key={look.id}
+                look={look}
+                kicker={echoKicker(look)}
+                saved={savedIds.includes(look.id)}
+                onSave={() => save(look)}
+                beatAfter={Boolean(beat) && index === 3}
+                beat={beat ?? ""}
+              />,
+            );
+            return nodes;
+          })}
           {beat && tiles.length < 4 ? (
             <div className="wide-beat">
               <p>From the edit</p>

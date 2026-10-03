@@ -9,8 +9,6 @@ import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
 import { markEditOpenedFromLook } from "@/lib/nav/back";
-import { listFashionLabels } from "@/lib/labels/api";
-import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
@@ -39,27 +37,11 @@ export function WideLook({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [labels, setLabels] = useState<FashionLabel[]>([]);
 
   useEffect(() => {
     hydrateSaved();
   }, [hydrateSaved]);
 
-  useEffect(() => {
-    let alive = true;
-    void listFashionLabels()
-      .then((rows) => {
-        if (alive) setLabels(rows);
-      })
-      .catch(() => {
-        if (alive) setLabels([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const house = labels.find((label) => looksBelongToHouse(look, label));
   const echo = useMemo(() => echoLane(look, looks.length > 0 ? looks : [look]).slice(0, 4), [look, looks]);
 
   function openShop(tag: ProductTag, source: "piece_shop" | "shop_look") {
@@ -141,15 +123,7 @@ export function WideLook({
           </div>
           <aside className="wide-panel" aria-label="Shop">
             <div className="wide-panel-hd">
-              <p className="wide-kicker">
-                {house ? (
-                  <Link to="/houses/$labelId" params={{ labelId: house.id }} className="wide-kicker-link">
-                    {house.name}
-                  </Link>
-                ) : null}
-                {house && look.creator ? " · " : null}
-                {look.creator || (!house ? echoKicker(look) : null)}
-              </p>
+              <p className="wide-kicker">{echoKicker(look)}</p>
               <h1>{look.title || "Untitled look"}</h1>
               <div className="wide-acts">
                 <button

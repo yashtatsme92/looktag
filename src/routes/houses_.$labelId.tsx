@@ -3,14 +3,16 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { Button } from "@/components/ui/button";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { getFashionLabel, type FashionLabelPage } from "@/lib/labels/api";
-import { houseProfileLooks, toggleHouseFollow } from "@/lib/labels/model";
+import { getFashionLabel, getHousesAvailability, type FashionLabelPage } from "@/lib/labels/api";
+import { houseCoverSrc, publicLines, toggleHouseFollow } from "@/lib/labels/model";
+import { SEED_STYLES } from "@/lib/labels/seed";
 import { shareOrCopy } from "@/lib/looks/share";
 import { recordShareView } from "@/lib/share/api";
 import {
@@ -36,13 +38,15 @@ export const Route = createFileRoute("/houses_/$labelId")({
   ssr: true,
   loader: async ({ params }) => {
     try {
+      const open = await getHousesAvailability();
+      if (!open) return { open: false, house: null as FashionLabelPage | null, origin: "" };
       const data = await getFashionLabel({ data: params.labelId });
       const share = await recordShareView({
         data: { kind: "house", id: params.labelId, found: Boolean(data) },
       });
-      return { house: data as FashionLabelPage | null, origin: share.origin };
+      return { open: true, house: data as FashionLabelPage | null, origin: share.origin };
     } catch {
-      return { house: null, origin: "" };
+      return { open: true, house: null, origin: "" };
     }
   },
   headers: ({ loaderData }) => shareCacheHeaders(Boolean(loaderData?.house)),
@@ -57,7 +61,8 @@ export const Route = createFileRoute("/houses_/$labelId")({
 
 function HouseProfile() {
   const { labelId } = Route.useParams();
-  const { house } = Route.useLoaderData();
+  const { house, open } = Route.useLoaderData();
+  const closed = useHousesClosed(open);
   const { user, isPending } = useCurrentUserState();
   const [sharing, setSharing] = useState(false);
   const [follows, setFollows] = useState<string[]>([]);
@@ -66,6 +71,8 @@ function HouseProfile() {
   useEffect(() => {
     setFollows(readFollows());
   }, []);
+
+  if (closed) return <HousesClosed />;
 
   if (!house) {
     return (
@@ -80,7 +87,7 @@ function HouseProfile() {
   }
 
   const { label } = house;
-  const looks = houseProfileLooks(house.collection ?? [], label);
+  const lines = publicLines(house.collections.map((row) => row.collection), SEED_STYLES);
   const following = follows.includes(label.id);
 
   async function shareHouse() {
@@ -112,7 +119,7 @@ function HouseProfile() {
     toast.success(next.includes(label.id) ? `Following ${label.name}` : `Unfollowed ${label.name}`);
   }
 
-  const cover = looks.find((look) => look.imageSrc)?.imageSrc ?? "";
+  const cover = houseCoverSrc(lines);
   const line = label.bio?.trim() || label.city?.trim() || "";
 
   return (
@@ -145,16 +152,24 @@ function HouseProfile() {
         <button type="button" className="house-primary house-follow" onClick={follow}>
           {following ? "Following" : "Follow"}
         </button>
-        <h2 className="ops-section house-looks-title">Looks</h2>
-        {looks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No looks yet.</p>
+        <h2 className="ops-section house-looks-title">Lines</h2>
+        {lines.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No Lines yet.</p>
         ) : (
-          <ul className="house-looks">
-            {looks.map((look) => (
-              <li key={look.id}>
-                <Link to="/looks/$lookId" params={{ lookId: look.id }} className="house-look">
-                  <img src={look.imageSrc} alt="" />
-                  <span>{look.title || "Untitled look"}</span>
+          <ul className="house-lines">
+            {lines.map(({ collection, styles }) => (
+              <li key={collection.id}>
+                <Link
+                  to="/houses/$labelId/$collectionId"
+                  params={{ labelId: label.id, collectionId: collection.slug }}
+                  className="house-card"
+                  aria-label={`${collection.name}, Line`}
+                >
+                  <img src={styles[0]?.imageSrc} alt="" />
+                  <div className="house-card-caption">
+                    <span className="house-card-scout">Line</span>
+                    <p className="house-card-name">{collection.name}</p>
+                  </div>
                 </Link>
               </li>
             ))}
