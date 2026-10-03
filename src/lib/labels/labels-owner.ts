@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { withSpan } from "@/lib/observability/instrument";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { type FashionCollection } from "./model";
+import { moveLineOrder, type FashionCollection } from "./model";
 import {
   LABEL_ID_PREFIX,
   type LabelRow,
@@ -113,7 +113,7 @@ export const saveMyCollection = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     return withSpan("looktag.houses.collection_save", async (span) => {
       const name = data.name.trim();
-      if (name.length < 2) throw new Error("Give the collection a name.");
+      if (name.length < 2) throw new Error("Give the line a name.");
       const sql = await getSql();
       const house = await ownedHouse(sql, context.userId);
       if (!house) throw new Error("Register a house first.");
@@ -177,5 +177,28 @@ export const deleteMyCollection = createServerFn({ method: "POST" })
         where id = ${data.id} and label_id = ${house.id}
       `;
       return { ok: true };
+    });
+  });
+
+export const moveMyCollection = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; direction: "up" | "down" }) => input)
+  .handler(async ({ context, data }) => {
+    return withSpan("looktag.houses.line_move", async () => {
+      const sql = await getSql();
+      const house = await ownedHouse(sql, context.userId);
+      if (!house) throw new Error("Register a house first.");
+      const current = await collectionsForLabel(sql, house.id);
+      const next = moveLineOrder(current, data.id, data.direction);
+      if (!next) return current;
+      for (let index = 0; index < next.length; index += 1) {
+        const row = next[index]!;
+        await sql`
+          update fashion_collections
+          set sort_order = ${index}
+          where id = ${row.id} and label_id = ${house.id}
+        `;
+      }
+      return collectionsForLabel(sql, house.id);
     });
   });

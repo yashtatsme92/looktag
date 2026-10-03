@@ -4,13 +4,16 @@ import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
+import { StyleFrame } from "@/components/labels/style-frame";
 import { listFashionLabels } from "@/lib/labels/api";
-import { looksBelongToHouse, type FashionLabel } from "@/lib/labels/model";
+import { pickFeedStyle, styleCardSlot, type FashionLabel } from "@/lib/labels/model";
+import { SEED_COLLECTIONS, SEED_STYLES } from "@/lib/labels/seed";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, echoSnapIndex, echoSwipe, pieceLine } from "@/lib/home/echo";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useSavedLooks } from "@/lib/looks/saved";
 import type { Look } from "@/lib/looks/types";
+import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
 type EchoMode = "feed" | "lane" | "creator";
@@ -28,6 +31,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const savedIds = useSavedLooks((s) => s.ids);
   const toggleSaved = useSavedLooks((s) => s.toggle);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
+  const housesOn = useSettingsStore((s) => s.labelsEnabled);
 
   useEffect(() => {
     hydrateSaved();
@@ -127,10 +131,6 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     setMode("lane");
   }, [anchor, deck]);
 
-  function houseName(look: Look) {
-    return labels.find((label) => looksBelongToHouse(look, label))?.name;
-  }
-
   function save(look: Look) {
     if (authEnabled && !isPending && !user) {
       setSheetOpen(true);
@@ -202,9 +202,9 @@ export function EchoHome({ looks }: { looks: Look[] }) {
 
   if (!anchor) return null;
 
-  if (!anchor) return null;
-
   const paperBar = mode !== "feed";
+  const feedStyle = housesOn && mode === "feed" ? pickFeedStyle(SEED_STYLES, labels) : null;
+  const styleAt = feedStyle ? styleCardSlot(plates.length) : null;
 
   return (
     <div className={cn("echo-stage", paperBar && "echo-stage-paper")} data-mode={mode}>
@@ -216,9 +216,6 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         ) : (
           <span className="echo-wordmark">Looktag</span>
         )}
-        <Link to="/houses" className={paperBar ? "echo-houses echo-houses-ink" : "echo-houses"}>
-          Houses
-        </Link>
       </header>
 
       {mode === "lane" ? <p className="echo-pill">More like this</p> : null}
@@ -233,42 +230,57 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
       >
-        {plates.map((look, plateIndex) => (
-          <article className="echo-plate" key={look.id}>
-            {mode === "feed" && plateIndex === 0 ? <span className="echo-peel" aria-hidden /> : null}
-            <Link
-              to="/looks/$lookId"
-              params={{ lookId: look.id }}
-              className="echo-photo"
-              aria-label={look.title || "Look"}
-              onClick={(event) => {
-                if (!dragRef.current.moved) return;
-                event.preventDefault();
-                dragRef.current.moved = false;
-              }}
-            >
-              <img src={look.imageSrc} alt="" />
-            </Link>
-            {mode === "feed" && beatLabel(look) ? <p className="echo-beat">{beatLabel(look)}</p> : null}
-            <div className="echo-meta">
-              <button type="button" className="echo-kicker" onClick={() => openCreator(look)}>
-                {echoKicker(look, houseName(look))}
+        {plates.flatMap((look, plateIndex) => {
+          const nodes = [];
+          if (styleAt === plateIndex && feedStyle) {
+            const slug = SEED_COLLECTIONS.find((row) => row.id === feedStyle.style.collectionId)?.slug ?? feedStyle.style.collectionId;
+            nodes.push(
+              <article className="echo-plate echo-style" key={feedStyle.style.id}>
+                <StyleFrame style={feedStyle.style} houseName={feedStyle.houseName} lineSlug={slug} />
+              </article>,
+            );
+          }
+          const kicker = echoKicker(look);
+          nodes.push(
+            <article className="echo-plate" key={look.id}>
+              {mode === "feed" && plateIndex === 0 ? <span className="echo-peel" aria-hidden /> : null}
+              <Link
+                to="/looks/$lookId"
+                params={{ lookId: look.id }}
+                className="echo-photo"
+                aria-label={look.title || "Look"}
+                onClick={(event) => {
+                  if (!dragRef.current.moved) return;
+                  event.preventDefault();
+                  dragRef.current.moved = false;
+                }}
+              >
+                <img src={look.imageSrc} alt="" />
+              </Link>
+              {mode === "feed" && beatLabel(look) ? <p className="echo-beat">{beatLabel(look)}</p> : null}
+              <div className="echo-meta">
+                {kicker ? (
+                  <button type="button" className="echo-kicker" onClick={() => openCreator(look)}>
+                    {kicker}
+                  </button>
+                ) : null}
+                <h2 className="echo-title">{look.title || "Untitled look"}</h2>
+                <span className="echo-rule" />
+                {pieceLine(look) ? <p className="echo-pieces">{pieceLine(look)}</p> : null}
+              </div>
+              <button
+                type="button"
+                className={cn("echo-save", savedIds.includes(look.id) && "echo-save-on")}
+                aria-label={savedIds.includes(look.id) ? "Remove saved look" : "Save look"}
+                aria-pressed={savedIds.includes(look.id)}
+                onClick={() => save(look)}
+              >
+                <HangtagIcon className="size-5" filled={savedIds.includes(look.id)} />
               </button>
-              <h2 className="echo-title">{look.title || "Untitled look"}</h2>
-              <span className="echo-rule" />
-              {pieceLine(look) ? <p className="echo-pieces">{pieceLine(look)}</p> : null}
-            </div>
-            <button
-              type="button"
-              className={cn("echo-save", savedIds.includes(look.id) && "echo-save-on")}
-              aria-label={savedIds.includes(look.id) ? "Remove saved look" : "Save look"}
-              aria-pressed={savedIds.includes(look.id)}
-              onClick={() => save(look)}
-            >
-              <HangtagIcon className="size-5" filled={savedIds.includes(look.id)} />
-            </button>
-          </article>
-        ))}
+            </article>,
+          );
+          return nodes;
+        })}
         {mode === "creator" ? (
           <button type="button" className="echo-return" onClick={backToFeed}>
             Returning to For You

@@ -5,6 +5,7 @@ export {
   listFashionCollections,
   getFashionLabel,
   getFashionCollection,
+  getHousesAvailability,
   listRankedLabels,
 } from "./labels-public";
 export { setLabelScouted, listAdminHouses, setHouseStatus } from "./labels-admin";
@@ -15,4 +16,5 @@ export {
   listMyCollections,
   saveMyCollection,
   deleteMyCollection,
+  moveMyCollection,
 } from "./labels-owner";

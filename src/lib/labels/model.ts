@@ -95,6 +95,93 @@ export function toggleHouseFollow(ids: readonly string[], id: string): string[] 
   return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
 }
 
+export type FashionStyle = {
+  id: string;
+  labelId: string;
+  collectionId: string;
+  name: string;
+  description: string;
+  imageSrc: string;
+  sortOrder: number;
+};
+
+/** Shopper lines are collections that actually contain Styles. Empty lines stay hidden. */
+export function publicLines(
+  collections: FashionCollection[],
+  styles: FashionStyle[],
+): Array<{ collection: FashionCollection; styles: FashionStyle[] }> {
+  const ordered = [...collections].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+  );
+  return ordered
+    .map((collection) => ({
+      collection,
+      styles: styles
+        .filter((style) => style.collectionId === collection.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+    }))
+    .filter((row) => row.styles.length > 0);
+}
+
+/** House covers come from the first Style, never from a look. */
+export function houseCoverSrc(lines: Array<{ styles: FashionStyle[] }>): string {
+  return lines[0]?.styles[0]?.imageSrc ?? "";
+}
+
+/** One feed Style card, Scouted live Houses only. */
+export function pickFeedStyle(
+  styles: FashionStyle[],
+  labels: Array<Pick<FashionLabel, "id" | "name" | "scouted" | "status">>,
+): { style: FashionStyle; houseName: string } | null {
+  const live = new Map(
+    labels.filter((label) => label.scouted && isPublicHouse(label)).map((label) => [label.id, label.name]),
+  );
+  const style = [...styles]
+    .filter((item) => live.has(item.labelId))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))[0];
+  if (!style) return null;
+  const houseName = live.get(style.labelId);
+  return houseName ? { style, houseName } : null;
+}
+
+/**
+ * Where to insert the single Style card in a run of looks.
+ * Never the lead (index 0). Null when the run is too short to keep it inside 1-in-8.
+ */
+export function styleCardSlot(lookCount: number): number | null {
+  if (lookCount < 4) return null;
+  return 4;
+}
+
+export function housesSwitchCopy(turningOff: boolean): { title: string; body: string; confirm: string } {
+  if (turningOff) {
+    return {
+      title: "Turn off Houses?",
+      body: "Shoppers won't see Houses, Lines, Styles or Follow. House accounts are paused. Nothing is deleted.",
+      confirm: "Turn off Houses",
+    };
+  }
+  return {
+    title: "Turn Houses back on?",
+    body: "Shoppers will see Houses again. Each House comes back as it was.",
+    confirm: "Turn on Houses",
+  };
+}
+
+export function moveLineOrder<T extends { id: string }>(
+  rows: readonly T[],
+  id: string,
+  direction: "up" | "down",
+): T[] | null {
+  const index = rows.findIndex((row) => row.id === id);
+  const next = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || next < 0 || next >= rows.length) return null;
+  const copy = rows.slice();
+  const [row] = copy.splice(index, 1);
+  copy.splice(next, 0, row!);
+  return copy;
+}
+
 export type HouseQueueAction = {
   id: "approve" | "decline" | "hold" | "disable" | "enable" | "scouted";
   label: string;

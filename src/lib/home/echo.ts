@@ -9,13 +9,9 @@ export function pieceLine(look: Pick<Look, "tags">): string {
   return count === 1 ? "1 piece" : `${count} pieces`;
 }
 
-export function echoKicker(look: Pick<Look, "creator">, houseName?: string): string {
-  const house = houseName?.trim() ?? "";
-  const creator = look.creator?.trim() ?? "";
-  if (house && creator && house.toLowerCase() !== creator.toLowerCase()) {
-    return `${house} · ${creator}`;
-  }
-  return house || creator || "Looktag";
+/** Creator only. Look-level House names are not kickers (locked 2026-10-02). */
+export function echoKicker(look: Pick<Look, "creator">, _houseName?: string): string {
+  return look.creator?.trim() ?? "";
 }
 
 /** Quiet beat whisper. Captions only — not a mood filter. */

@@ -45,12 +45,10 @@ describe("pieceLine", () => {
 });
 
 describe("echoKicker", () => {
-  it("joins a house and a different creator", () => {
-    assert.equal(echoKicker(look({ id: "a", creator: "Maya Chen" }), "Atelier Noir"), "Atelier Noir · Maya Chen");
-  });
-
-  it("does not repeat the same name", () => {
+  it("shows the creator only, never the house", () => {
+    assert.equal(echoKicker(look({ id: "a", creator: "Maya Chen" }), "Atelier Noir"), "Maya Chen");
     assert.equal(echoKicker(look({ id: "a", creator: "Atelier Noir" }), "Atelier Noir"), "Atelier Noir");
+    assert.equal(echoKicker(look({ id: "b", creator: "  " })), "");
   });
 });
 

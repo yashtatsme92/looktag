@@ -1,11 +1,37 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { AppShell } from "@/components/layout/app-shell";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { isAdminEmail } from "@/lib/admin/access";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { housesSwitchCopy } from "@/lib/labels/model";
+import { useSettingsStore } from "@/lib/settings/store";
 
 export function AdminHubBody({ linked }: { linked: boolean }) {
+  const enabled = useSettingsStore((s) => s.labelsEnabled);
+  const save = useSettingsStore((s) => s.save);
+  const [pending, setPending] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const copy = pending === null ? null : housesSwitchCopy(!pending);
+
+  async function apply() {
+    if (pending === null) return;
+    setBusy(true);
+    try {
+      await save({ labelsEnabled: pending });
+      setPending(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const row = (
     <>
       <span className="ops-row-title">Houses</span>
@@ -25,6 +51,32 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
           {row}
         </div>
       )}
+      <div className="ops-row ops-switch-row">
+        <div>
+          <span className="ops-row-title">Houses for shoppers</span>
+          <span className="ops-row-note">{enabled ? "On · visible to shoppers" : "Off · hidden from shoppers"}</span>
+        </div>
+        <Switch
+          checked={enabled}
+          disabled={!linked || busy}
+          aria-label="Houses for shoppers"
+          onCheckedChange={(next) => setPending(next)}
+        />
+      </div>
+      <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
+        <DialogContent className="max-w-[480px]">
+          <DialogTitle>{copy?.title}</DialogTitle>
+          <DialogDescription>{copy?.body}</DialogDescription>
+          <div className="flex flex-col gap-2">
+            <button type="button" className="house-primary" disabled={busy} onClick={() => void apply()}>
+              {copy?.confirm}
+            </button>
+            <button type="button" className="house-ghost" disabled={busy} onClick={() => setPending(null)}>
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

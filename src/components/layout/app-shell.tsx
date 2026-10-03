@@ -48,7 +48,8 @@ function inferTitle(pathname: string) {
   if (pathname === "/admin/look" || pathname === "/design") return "Look";
   if (pathname.endsWith("/edit")) return "Edit";
   if (pathname.startsWith("/looks/")) return "Look";
-  if (/^\/houses\/[^/]+\/[^/]+/.test(pathname)) return "Collection";
+  if (/^\/houses\/[^/]+\/[^/]+\/[^/]+/.test(pathname)) return "Style";
+  if (/^\/houses\/[^/]+\/[^/]+/.test(pathname)) return "Line";
   if (pathname.startsWith("/houses/")) return "House";
   if (pathname.startsWith("/creators/")) return "You";
   return "Looktag";
@@ -57,6 +58,9 @@ function inferTitle(pathname: string) {
 function inferBackTo(pathname: string) {
   if (isTabRoot(pathname) && pathname !== "/admin") return undefined;
   const houseParts = pathname.split("/").filter(Boolean);
+  if (houseParts[0] === "houses" && houseParts.length >= 4) {
+    return `/houses/${houseParts[1]}/${houseParts[2]}`;
+  }
   if (houseParts[0] === "houses" && houseParts.length >= 3) {
     return `/houses/${houseParts[1]}`;
   }

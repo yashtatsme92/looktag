@@ -1,21 +1,25 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutGrid, Plus, UserRound } from "lucide-react";
+import { Building2, LayoutGrid, Plus, UserRound } from "lucide-react";
 import { APP_NAV, isYouPath, navItemActive } from "@/components/layout/app-nav";
+import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
 const icons = {
   looks: LayoutGrid,
+  houses: Building2,
   create: Plus,
 } as const;
 
 export function TabBar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const housesOn = useSettingsStore((s) => s.labelsEnabled);
   const youActive = isYouPath(pathname);
+  const items = APP_NAV.filter((item) => item.id !== "houses" || housesOn);
 
   return (
     <nav aria-label="App" className="tab-bar">
-      <ul className="grid h-14 grid-cols-3">
-        {APP_NAV.map((item) => {
+      <ul className="grid h-14" style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }}>
+        {items.map((item) => {
           const Icon = icons[item.id];
           const active = navItemActive(item.id, pathname);
           return (
@@ -24,7 +28,7 @@ export function TabBar() {
                 to={item.to}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex h-full min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide",
+                  "relative flex h-full min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide uppercase",
                   active ? "text-foreground" : "text-muted-foreground",
                 )}
               >
@@ -42,7 +46,7 @@ export function TabBar() {
             to="/login"
             aria-current={youActive ? "page" : undefined}
             className={cn(
-              "relative flex h-full min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide",
+              "relative flex h-full min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide uppercase",
               youActive ? "text-foreground" : "text-muted-foreground",
             )}
           >

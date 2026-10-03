@@ -96,7 +96,7 @@ async function screenHome(page) {
   await goto(page, "/");
   await page.getByRole("navigation", { name: "App" }).waitFor({ timeout: 10_000 });
   const nav = await page.getByRole("navigation", { name: "App" }).innerText();
-  record("screen.home.tabs", /Looks/.test(nav) && /Create/.test(nav) && /You/.test(nav) && !/Rank/.test(nav), nav);
+  record("screen.home.tabs", /looks/i.test(nav) && /houses/i.test(nav) && /create/i.test(nav) && /you/i.test(nav) && !/rank/i.test(nav), nav);
   const text = await page.locator("body").innerText();
   record("screen.home.look", /Sunday Coat|Coastal|Gallery|Quiet|Studio|City/i.test(text), text.slice(0, 120));
 }
@@ -232,23 +232,30 @@ async function flowCreateBranches(page) {
 
 async function screenHouses(page) {
   await goto(page, "/houses");
-  await page.getByRole("heading", { name: "Houses", exact: true }).waitFor({ timeout: 10_000 });
+  await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 10_000 });
   const text = await page.locator("body").innerText();
-  record("screen.houses.scouted", /Scouted/.test(text) && /Atelier Noir/.test(text), text.slice(0, 140));
-  record("screen.houses.more", /More/.test(text));
-  await page.getByRole("link", { name: /Atelier Noir/i }).first().click();
-  await page.getByRole("heading", { name: /Atelier Noir/i }).waitFor({ timeout: 8_000 });
-  record("screen.house.profile", /Scouted/i.test(await page.locator("body").innerText()));
+  record("screen.houses.scouted", /Scouted/.test(text) && /Atelier Noir/.test(text) && /Picked by Looktag/.test(text), text.slice(0, 180));
+  record("screen.houses.more", /More houses/.test(text));
+  record("screen.houses.for", /For houses/.test(text));
+  await page.getByRole("link", { name: "Atelier Noir", exact: true }).click();
+  await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
+  const profile = await page.locator("body").innerText();
+  record("screen.house.profile", /Scouted/i.test(profile) && /Lines/.test(profile) && /Kinkistyles/.test(profile), profile.slice(0, 220));
   const houseTitle = await centerDelta(page, ".native-header-title");
   record("flow.header.house-title", houseTitle <= 8, String(Math.round(houseTitle)));
   await page.getByRole("button", { name: "Back" }).click();
   await page.waitForFunction(() => location.pathname === "/houses", null, { timeout: 8_000 });
   record("flow.header.back", new URL(page.url()).pathname === "/houses");
   await goto(page, "/houses/label-atelier-noir/kinkistyles");
-  await page.getByRole("heading", { name: /Kinkistyles/i }).waitFor({ timeout: 8_000 });
-  record("screen.house.collection", /Kinkistyles/.test(await page.locator("body").innerText()));
+  await page.getByRole("heading", { name: "Kinkistyles", exact: true }).waitFor({ timeout: 8_000 });
+  const line = await page.locator("body").innerText();
+  record("screen.house.line", /Styles/.test(line) && /Column Dress/.test(line) && !/Pins/.test(line), line.slice(0, 180));
+  await page.getByRole("link", { name: "Column Dress", exact: true }).click();
+  await page.getByRole("heading", { name: "Column Dress", exact: true }).waitFor({ timeout: 8_000 });
+  const style = await page.locator("body").innerText();
+  record("screen.house.style", /Column Dress/.test(style) && !/Shop/.test(style) && !/\$/.test(style), style.slice(0, 180));
   await goto(page, "/houses/label-atelier-noir");
-  await page.getByRole("heading", { name: /Atelier Noir/i }).waitFor({ timeout: 8_000 });
+  await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
   await page.getByRole("button", { name: "Back" }).click();
   await page.waitForFunction(() => location.pathname === "/houses", null, { timeout: 8_000 });
   record("flow.header.back-direct", new URL(page.url()).pathname === "/houses");
@@ -256,9 +263,9 @@ async function screenHouses(page) {
 
 async function flowHouseGate(page) {
   await goto(page, "/houses");
-  await page.getByRole("link", { name: "Continue as a House" }).click();
-  await page.waitForURL(/\/house$/, { timeout: 8_000 });
-  await page.waitForFunction(() => /For houses/.test(document.body.innerText), null, { timeout: 8_000 });
+  await page.locator(".native-header-trailing").getByRole("link", { name: "For houses" }).click();
+  await page.waitForURL((url) => url.pathname === "/house", { timeout: 8_000 });
+  await page.getByText("Continue with email").waitFor({ timeout: 8_000 });
   const text = await page.locator("body").innerText();
   record("flow.house.gate", /For houses/.test(text) && /Continue with email/i.test(text), text.slice(0, 160));
   const tab = await page.locator(".tab-bar").evaluate((el) => getComputedStyle(el).display).catch(() => "missing");
@@ -357,12 +364,12 @@ async function screenDesktop(page) {
   const header = await page.locator(".web-header").innerText();
   record(
     "screen.desktop.nav",
-    /Looks/.test(text) && /Create/.test(text) && /You/.test(text) && !/Houses/.test(text) && !/Rank/.test(text) && !/Get the app/.test(header),
+    /Looks/.test(text) && /Houses/.test(text) && /Create/.test(text) && /You/.test(text) && !/Rank/.test(text) && !/Get the app/.test(header) && text.indexOf("Looks") < text.indexOf("Houses") && text.indexOf("Houses") < text.indexOf("Create"),
     `${text} | ${header}`,
   );
   await page.locator(".wide-pagehd").waitFor({ timeout: 8_000 });
   const pageHead = await page.locator(".wide-pagehd").innerText();
-  record("screen.desktop.houses-link", /For you/.test(pageHead) && /Houses/.test(pageHead), pageHead);
+  record("screen.desktop.houses-link", /For you/.test(pageHead) && !/Houses/.test(pageHead), pageHead);
   const order = await page.evaluate(() => {
     const word = document.querySelector(".web-wordmark")?.getBoundingClientRect();
     const tabs = document.querySelector(".web-nav")?.getBoundingClientRect();
@@ -375,7 +382,7 @@ async function screenDesktop(page) {
   const lookText = await page.locator("body").innerText();
   record("screen.desktop.look", /Shop this look/.test(lookText) && !/\$/.test(lookText), lookText.slice(0, 180));
   await goto(page, "/houses");
-  await page.getByRole("heading", { name: "Houses", exact: true }).waitFor({ timeout: 8_000 });
+  await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 8_000 });
   record("screen.desktop.houses", /Scouted/.test(await page.locator("body").innerText()));
   await goto(page, "/rank");
   record("screen.rank", (await page.locator("body").innerText()).length > 20);

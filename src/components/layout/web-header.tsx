@@ -1,10 +1,13 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { APP_NAV, isYouPath, navItemActive } from "@/components/layout/app-nav";
+import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
 export function WebHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const housesOn = useSettingsStore((s) => s.labelsEnabled);
   const youActive = isYouPath(pathname);
+  const items = APP_NAV.filter((item) => item.id !== "houses" || housesOn);
 
   return (
     <header className="web-header">
@@ -13,7 +16,7 @@ export function WebHeader() {
           Looktag
         </Link>
         <nav aria-label="App" className="web-nav">
-          {APP_NAV.map((item) => {
+          {items.map((item) => {
             const active = navItemActive(item.id, pathname);
             return (
               <Link
