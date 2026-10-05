@@ -9,12 +9,14 @@ import {
   consumerHouseIndex,
   groupLooksByCollection,
   houseCoverSrc,
+  houseCoverDraft,
   houseProfileLooks,
   housesSwitchCopy,
   moveLineOrder,
   pickFeedStyle,
   publicLines,
   styleCardSlot,
+  styleDraft,
   houseQueueActions,
   houseSessionMode,
   isLabelUserId,
@@ -25,6 +27,7 @@ import {
   looksBelongToHouse,
   looksForYou,
   nextCollectionSlug,
+  normalizeHouseWebsite,
   parseHouseStatus,
   queueStatusLabel,
   rankLabels,
@@ -485,7 +488,27 @@ describe("lines and styles", () => {
     assert.equal(noir[0]?.collection.id, "col-noir-kinkistyles");
     assert.equal(noir[0]?.styles[0]?.name, "Column Dress");
     assert.equal(houseCoverSrc(noir), "/looks/gallery-hour.jpg");
+    assert.equal(houseCoverSrc(noir, "  /covers/noir.jpg  "), "/covers/noir.jpg");
     assert.equal(houseCoverSrc([]), "");
+  });
+
+  it("accepts a style name and photos, and a blank or http website", () => {
+    assert.throws(() => styleDraft({ name: "A", imageSrc: "/a.jpg" }), /name/);
+    assert.throws(() => styleDraft({ name: "Coat", imageSrc: "javascript:alert(1)" }), /photo/);
+    const draft = styleDraft({
+      name: "  Column Dress  ",
+      description: "Black wool",
+      imageSrc: "/looks/gallery-hour.jpg",
+      images: ["/looks/gallery-hour.jpg", "/looks/sunday-coat.jpg"],
+    });
+    assert.equal(draft.name, "Column Dress");
+    assert.deepEqual(draft.images, ["/looks/gallery-hour.jpg", "/looks/sunday-coat.jpg"]);
+    assert.equal(draft.imageSrc, "/looks/gallery-hour.jpg");
+    assert.equal(houseCoverDraft(""), "");
+    assert.throws(() => houseCoverDraft("not-a-photo"), /photo/);
+    assert.equal(normalizeHouseWebsite(""), "");
+    assert.equal(normalizeHouseWebsite("atelier.example/shop"), "https://atelier.example/shop");
+    assert.throws(() => normalizeHouseWebsite("::::"), /website/);
   });
 
   it("places one feed style card after the lead and only from scouted houses", () => {

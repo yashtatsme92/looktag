@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { StyleFrame } from "@/components/labels/style-frame";
-import { listFashionLabels } from "@/lib/labels/api";
-import { pickFeedStyle, styleCardSlot, type FashionLabel } from "@/lib/labels/model";
-import { SEED_COLLECTIONS, SEED_STYLES } from "@/lib/labels/seed";
+import { listFashionLabels, listFashionStyles } from "@/lib/labels/api";
+import { pickFeedStyle, styleCardSlot, type FashionLabel, type FashionStyle } from "@/lib/labels/model";
+import { SEED_STYLES } from "@/lib/labels/seed";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, echoSnapIndex, echoSwipe, pieceLine } from "@/lib/home/echo";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -31,6 +31,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const savedIds = useSavedLooks((s) => s.ids);
   const toggleSaved = useSavedLooks((s) => s.toggle);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
+  const [styles, setStyles] = useState<FashionStyle[]>(SEED_STYLES);
   const housesOn = useSettingsStore((s) => s.labelsEnabled);
 
   useEffect(() => {
@@ -50,6 +51,19 @@ export function EchoHome({ looks }: { looks: Look[] }) {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!housesOn) return;
+    let alive = true;
+    void listFashionStyles()
+      .then((rows) => {
+        if (alive) setStyles(rows);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [housesOn]);
 
   const anchor = deck.find((look) => look.id === anchorId) ?? deck[0];
   const plates = useMemo(() => {
@@ -203,7 +217,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   if (!anchor) return null;
 
   const paperBar = mode !== "feed";
-  const feedStyle = housesOn && mode === "feed" ? pickFeedStyle(SEED_STYLES, labels) : null;
+  const feedStyle = housesOn && mode === "feed" ? pickFeedStyle(styles, labels) : null;
   const styleAt = feedStyle ? styleCardSlot(plates.length) : null;
 
   return (
@@ -233,7 +247,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         {plates.flatMap((look, plateIndex) => {
           const nodes = [];
           if (styleAt === plateIndex && feedStyle) {
-            const slug = SEED_COLLECTIONS.find((row) => row.id === feedStyle.style.collectionId)?.slug ?? feedStyle.style.collectionId;
+            const slug = feedStyle.style.collectionSlug || feedStyle.style.collectionId;
             nodes.push(
               <article className="echo-plate echo-style" key={feedStyle.style.id}>
                 <StyleFrame style={feedStyle.style} houseName={feedStyle.houseName} lineSlug={slug} />

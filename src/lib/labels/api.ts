@@ -3,6 +3,7 @@ export { ensureFashionLabels } from "./labels-shared";
 export {
   listFashionLabels,
   listFashionCollections,
+  listFashionStyles,
   getFashionLabel,
   getFashionCollection,
   getHousesAvailability,
@@ -17,4 +18,8 @@ export {
   saveMyCollection,
   deleteMyCollection,
   moveMyCollection,
+  listMyStyles,
+  saveMyStyle,
+  deleteMyStyle,
+  moveMyStyle,
 } from "./labels-owner";

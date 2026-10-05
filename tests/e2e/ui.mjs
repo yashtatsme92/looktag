@@ -237,10 +237,14 @@ async function screenHouses(page) {
   record("screen.houses.scouted", /Scouted/.test(text) && /Atelier Noir/.test(text) && /Picked by Looktag/.test(text), text.slice(0, 180));
   record("screen.houses.more", /More houses/.test(text));
   record("screen.houses.for", /For houses/.test(text));
+  const covers = await page.locator(".house-card img").count();
+  record("screen.houses.covers", covers >= 4, String(covers));
   await page.getByRole("link", { name: "Atelier Noir", exact: true }).click();
   await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
   const profile = await page.locator("body").innerText();
   record("screen.house.profile", /Scouted/i.test(profile) && /Lines/.test(profile) && /Kinkistyles/.test(profile), profile.slice(0, 220));
+  const hero = await page.locator(".house-hero").getAttribute("src");
+  record("screen.house.hero", Boolean(hero && hero.includes("/looks/")), hero ?? "");
   const houseTitle = await centerDelta(page, ".native-header-title");
   record("flow.header.house-title", houseTitle <= 8, String(Math.round(houseTitle)));
   await page.getByRole("button", { name: "Back" }).click();
@@ -254,6 +258,12 @@ async function screenHouses(page) {
   await page.getByRole("heading", { name: "Column Dress", exact: true }).waitFor({ timeout: 8_000 });
   const style = await page.locator("body").innerText();
   record("screen.house.style", /Column Dress/.test(style) && !/Shop/.test(style) && !/\$/.test(style), style.slice(0, 180));
+  const photo = await page.locator(".style-detail img").first().getAttribute("src");
+  record(
+    "screen.house.style-photo",
+    Boolean(photo && photo.includes("gallery-hour")) && !/Visit /.test(style),
+    photo ?? "",
+  );
   await goto(page, "/houses/label-atelier-noir");
   await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
   await page.getByRole("button", { name: "Back" }).click();

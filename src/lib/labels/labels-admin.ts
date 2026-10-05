@@ -23,11 +23,12 @@ export const setLabelScouted = createServerFn({ method: "POST" })
       span.setAttribute("looktag.house.id", data.id);
       span.setAttribute("looktag.house.scouted", data.scouted);
       const sql = await getSql();
+      await ensureFashionLabels(sql);
       await sql`
         update fashion_labels set scouted = ${data.scouted} where id = ${data.id}
       `;
       const rows = await sql<LabelRow>`
-        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
         from fashion_labels where id = ${data.id} limit 1
       `;
       return rows[0] ? parseLabel(rows[0]) : null;
@@ -41,7 +42,7 @@ export const listAdminHouses = createServerFn({ method: "GET" })
     const sql = await getSql();
     await ensureFashionLabels(sql);
     const rows = await sql<LabelRow>`
-      select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+      select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
       from fashion_labels
       order by
         case status when 'pending' then 0 when 'approved' then 1 else 2 end,
@@ -80,6 +81,7 @@ export const setHouseStatus = createServerFn({ method: "POST" })
       span.setAttribute("looktag.house.id", data.id);
       span.setAttribute("looktag.house.status", data.status);
       const sql = await getSql();
+      await ensureFashionLabels(sql);
       if (data.status !== "approved") {
         await sql`
           update fashion_labels set status = ${data.status}, scouted = false where id = ${data.id}
@@ -90,7 +92,7 @@ export const setHouseStatus = createServerFn({ method: "POST" })
         `;
       }
       const rows = await sql<LabelRow>`
-        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
         from fashion_labels where id = ${data.id} limit 1
       `;
       return rows[0] ? parseLabel(rows[0]) : null;

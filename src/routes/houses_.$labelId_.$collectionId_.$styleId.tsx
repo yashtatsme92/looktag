@@ -3,7 +3,6 @@ import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { getFashionCollection, getHousesAvailability } from "@/lib/labels/api";
-import { SEED_STYLES } from "@/lib/labels/seed";
 
 export const Route = createFileRoute("/houses_/$labelId_/$collectionId_/$styleId")({
   ssr: true,
@@ -14,13 +13,8 @@ export const Route = createFileRoute("/houses_/$labelId_/$collectionId_/$styleId
       const data = await getFashionCollection({
         data: { labelId: params.labelId, collectionId: params.collectionId },
       });
-      const style = SEED_STYLES.find(
-        (item) =>
-          item.id === params.styleId &&
-          item.labelId === params.labelId &&
-          (item.collectionId === data?.collection.id || data?.collection.slug === params.collectionId),
-      );
-      if (!data || !style || style.collectionId !== data.collection.id) return { open: true, page: null };
+      const style = data?.styles.find((item) => item.id === params.styleId);
+      if (!data || !style) return { open: true, page: null };
       return {
         open: true,
         page: {
@@ -29,6 +23,7 @@ export const Route = createFileRoute("/houses_/$labelId_/$collectionId_/$styleId
           lineName: data.collection.name,
           lineSlug: data.collection.slug,
           labelId: data.label.id,
+          website: data.label.website ?? "",
         },
       };
     } catch {
@@ -56,10 +51,16 @@ function StylePage() {
     );
   }
 
+  const photos = page.style.images?.length ? page.style.images : [page.style.imageSrc];
+
   return (
     <AppShell title="Style" backTo={`/houses/${page.labelId}/${page.lineSlug}`}>
       <article className="style-detail">
-        <img src={page.style.imageSrc} alt="" />
+        <div className="style-photos">
+          {photos.map((src) => (
+            <img key={src} src={src} alt="" />
+          ))}
+        </div>
         <div>
           <p className="wide-kicker">Style</p>
           <h1 className="ds-screen-title">{page.style.name}</h1>
@@ -73,6 +74,11 @@ function StylePage() {
             </Link>
           </p>
           {page.style.description ? <p className="house-line">{page.style.description}</p> : null}
+          {page.website ? (
+            <a className="house-exit" href={page.website} target="_blank" rel="noreferrer">
+              Visit {page.houseName}
+            </a>
+          ) : null}
         </div>
       </article>
     </AppShell>

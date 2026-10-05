@@ -2,25 +2,34 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { withSpan } from "@/lib/observability/instrument";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { moveLineOrder, type FashionCollection } from "./model";
+import { houseCoverDraft, moveLineOrder, normalizeHouseWebsite, type FashionCollection, type FashionStyle } from "./model";
 import {
   LABEL_ID_PREFIX,
   type LabelRow,
   type CollectionRow,
   collectionsForLabel,
+  ensureFashionLabels,
   parseLabel,
   parseCollection,
   uniqueHandle,
   ownedHouse,
   uniqueCollectionSlug,
 } from "./labels-shared";
+import {
+  deleteLineStyles,
+  deleteStyleForHouse,
+  listStylesForLabel,
+  moveStyleForHouse,
+  saveStyleForHouse,
+} from "./style-record";
 
 export const getMyHouse = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
+    await ensureFashionLabels(sql);
     const rows = await sql<LabelRow>`
-      select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+      select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
       from fashion_labels
       where owner_user_id = ${context.userId}
       order by created_at desc
@@ -37,8 +46,9 @@ export const applyHouse = createServerFn({ method: "POST" })
       const name = data.name.trim();
       if (name.length < 2) throw new Error("Give the house a name.");
       const sql = await getSql();
+      await ensureFashionLabels(sql);
       const existing = await sql<LabelRow>`
-        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
         from fashion_labels
         where owner_user_id = ${context.userId}
         limit 1
@@ -61,7 +71,7 @@ export const applyHouse = createServerFn({ method: "POST" })
       span.setAttribute("looktag.house.id", id);
       span.setAttribute("looktag.house.status", "pending");
       const rows = await sql<LabelRow>`
-        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
         from fashion_labels where id = ${id} limit 1
       `;
       return rows[0] ? parseLabel(rows[0]) : null;
@@ -70,15 +80,18 @@ export const applyHouse = createServerFn({ method: "POST" })
 
 export const updateMyHouse = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { name: string; city: string; bio: string; moods: string[] }) => input)
+  .validator((input: { name: string; city: string; bio: string; moods: string[]; website?: string; coverSrc?: string }) => input)
   .handler(async ({ context, data }) => {
     return withSpan("looktag.houses.update", async (span) => {
       const name = data.name.trim();
       if (name.length < 2) throw new Error("Give the house a name.");
       const sql = await getSql();
+      await ensureFashionLabels(sql);
       const house = await ownedHouse(sql, context.userId);
       if (!house) throw new Error("Register a house first.");
       const nextStatus = house.status === "rejected" ? "pending" : house.status;
+      const website = data.website === undefined ? (house.website ?? "") : normalizeHouseWebsite(data.website);
+      const coverSrc = data.coverSrc === undefined ? (house.coverSrc ?? "") : houseCoverDraft(data.coverSrc);
       span.setAttribute("looktag.house.id", house.id);
       span.setAttribute("looktag.house.status", nextStatus);
       await sql`
@@ -87,11 +100,13 @@ export const updateMyHouse = createServerFn({ method: "POST" })
             bio = ${data.bio.trim()},
             city = ${data.city.trim()},
             moods_json = ${JSON.stringify(data.moods.slice(0, 4))},
-            status = ${nextStatus}
+            status = ${nextStatus},
+            website = ${website},
+            cover_src = ${coverSrc}
         where id = ${house.id} and owner_user_id = ${context.userId}
       `;
       const rows = await sql<LabelRow>`
-        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+        select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
         from fashion_labels where id = ${house.id} limit 1
       `;
       return rows[0] ? parseLabel(rows[0]) : null;
@@ -102,6 +117,7 @@ export const listMyCollections = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
+    await ensureFashionLabels(sql);
     const house = await ownedHouse(sql, context.userId);
     if (!house) return [] as FashionCollection[];
     return collectionsForLabel(sql, house.id);
@@ -115,8 +131,10 @@ export const saveMyCollection = createServerFn({ method: "POST" })
       const name = data.name.trim();
       if (name.length < 2) throw new Error("Give the line a name.");
       const sql = await getSql();
+      await ensureFashionLabels(sql);
       const house = await ownedHouse(sql, context.userId);
       if (!house) throw new Error("Register a house first.");
+      if (house.status !== "approved") throw new Error("Your House isn't live yet.");
       const caption = data.caption.trim();
       const season = data.season.trim();
       if (data.id) {
@@ -165,9 +183,12 @@ export const deleteMyCollection = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     return withSpan("looktag.houses.collection_delete", async (span) => {
       const sql = await getSql();
+      await ensureFashionLabels(sql);
       const house = await ownedHouse(sql, context.userId);
       if (!house) throw new Error("Register a house first.");
+      if (house.status !== "approved") throw new Error("Your House isn't live yet.");
       span.setAttribute("looktag.collection.id", data.id);
+      await deleteLineStyles(sql, house.id, data.id);
       await sql`
         update looks set collection_id = null
         where collection_id = ${data.id}
@@ -186,8 +207,10 @@ export const moveMyCollection = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     return withSpan("looktag.houses.line_move", async () => {
       const sql = await getSql();
+      await ensureFashionLabels(sql);
       const house = await ownedHouse(sql, context.userId);
       if (!house) throw new Error("Register a house first.");
+      if (house.status !== "approved") throw new Error("Your House isn't live yet.");
       const current = await collectionsForLabel(sql, house.id);
       const next = moveLineOrder(current, data.id, data.direction);
       if (!next) return current;
@@ -200,5 +223,62 @@ export const moveMyCollection = createServerFn({ method: "POST" })
         `;
       }
       return collectionsForLabel(sql, house.id);
+    });
+  });
+
+async function liveHouse(sql: Awaited<ReturnType<typeof getSql>>, userId: string) {
+  const house = await ownedHouse(sql, userId);
+  if (!house) throw new Error("Register a house first.");
+  if (house.status !== "approved") throw new Error("Your House isn't live yet.");
+  return house;
+}
+
+export const listMyStyles = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await ensureFashionLabels(sql);
+    const house = await ownedHouse(sql, context.userId);
+    if (!house || house.status !== "approved") return [] as FashionStyle[];
+    return listStylesForLabel(sql, house.id);
+  });
+
+export const saveMyStyle = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id?: string; collectionId: string; name: string; description?: string; imageSrc: string; images?: string[] }) => input)
+  .handler(async ({ context, data }) => {
+    return withSpan("looktag.houses.style_save", async (span) => {
+      const sql = await getSql();
+      await ensureFashionLabels(sql);
+      const house = await liveHouse(sql, context.userId);
+      const saved = await saveStyleForHouse(sql, house.id, data);
+      span.setAttribute("looktag.style.id", saved.id);
+      return saved;
+    });
+  });
+
+export const deleteMyStyle = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string }) => input)
+  .handler(async ({ context, data }) => {
+    return withSpan("looktag.houses.style_delete", async (span) => {
+      const sql = await getSql();
+      await ensureFashionLabels(sql);
+      const house = await liveHouse(sql, context.userId);
+      span.setAttribute("looktag.style.id", data.id);
+      await deleteStyleForHouse(sql, house.id, data.id);
+      return { ok: true };
+    });
+  });
+
+export const moveMyStyle = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; direction: "up" | "down" }) => input)
+  .handler(async ({ context, data }) => {
+    return withSpan("looktag.houses.style_move", async () => {
+      const sql = await getSql();
+      await ensureFashionLabels(sql);
+      const house = await liveHouse(sql, context.userId);
+      return moveStyleForHouse(sql, house.id, data.id, data.direction);
     });
   });
