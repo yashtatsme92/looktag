@@ -12,7 +12,6 @@ import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getFashionLabel, getHousesAvailability, type FashionLabelPage } from "@/lib/labels/api";
 import { houseCoverSrc, publicLines, toggleHouseFollow } from "@/lib/labels/model";
-import { SEED_STYLES } from "@/lib/labels/seed";
 import { shareOrCopy } from "@/lib/looks/share";
 import { recordShareView } from "@/lib/share/api";
 import {
@@ -53,7 +52,7 @@ export const Route = createFileRoute("/houses_/$labelId")({
   head: ({ loaderData }) => {
     const label = loaderData?.house?.label;
     if (!label) return notFoundShareHead("house");
-    const imageSrc = loaderData.house?.collection?.[0]?.imageSrc ?? "";
+    const imageSrc = label.coverSrc || loaderData.house?.styles[0]?.imageSrc || "";
     return shareHead(houseShareMeta(label, loaderData.origin, imageSrc));
   },
   component: HouseProfile,
@@ -87,7 +86,7 @@ function HouseProfile() {
   }
 
   const { label } = house;
-  const lines = publicLines(house.collections.map((row) => row.collection), SEED_STYLES);
+  const lines = publicLines(house.lines, house.styles);
   const following = follows.includes(label.id);
 
   async function shareHouse() {
@@ -119,7 +118,7 @@ function HouseProfile() {
     toast.success(next.includes(label.id) ? `Following ${label.name}` : `Unfollowed ${label.name}`);
   }
 
-  const cover = houseCoverSrc(lines);
+  const cover = houseCoverSrc(lines, label.coverSrc);
   const line = label.bio?.trim() || label.city?.trim() || "";
 
   return (

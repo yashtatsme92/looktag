@@ -5,25 +5,32 @@ import { normalizeLookTags } from "@/lib/looks/offers";
 import { readSettings } from "@/lib/settings/store.server";
 import {
   collectionSlug,
+  houseCoverSrc,
   LABEL_ID_PREFIX,
   nextCollectionSlug,
   parseHouseStatus,
+  publicLines,
   type FashionCollection,
   type FashionLabel,
+  type FashionStyle,
   type HouseCollectionGroup,
   type RankedLabel,
 } from "./model";
-import { SEED_COLLECTIONS, SEED_LABEL_LOOKS, SEED_LABELS } from "./seed";
+import { SEED_COLLECTIONS, SEED_LABEL_LOOKS, SEED_LABELS, SEED_STYLES } from "./seed";
+import { ensureHouseStyleSchema, insertSeedStyles, listStylesForLabel } from "./style-record";
 
 export type FashionLabelPage = RankedLabel & {
   collection: Look[];
   collections: HouseCollectionGroup[];
+  lines: FashionCollection[];
+  styles: FashionStyle[];
 };
 
 export type FashionCollectionPage = {
   label: FashionLabel;
   collection: FashionCollection;
   looks: Look[];
+  styles: FashionStyle[];
   pins: number;
   compared: number;
 };
@@ -39,6 +46,8 @@ export type LabelRow = {
   created_at: number;
   status?: string | null;
   owner_user_id?: string | null;
+  website?: string | null;
+  cover_src?: string | null;
 };
 
 export type CollectionRow = {
@@ -88,6 +97,8 @@ export function parseLabel(row: LabelRow): FashionLabel {
     status: parseHouseStatus(row.status),
     ownerUserId: row.owner_user_id ? String(row.owner_user_id) : undefined,
     createdAt: Number(row.created_at),
+    website: row.website ? String(row.website) : "",
+    coverSrc: row.cover_src ? String(row.cover_src) : "",
   };
 }
 
@@ -152,6 +163,7 @@ export async function insertLook(sql: Sql, look: Look) {
 }
 
 export async function ensureFashionLabels(sql: Sql) {
+  await ensureHouseStyleSchema(sql);
   for (const label of SEED_LABELS) {
     await sql`
       insert into fashion_labels (id, name, handle, bio, city, moods_json, scouted, created_at, status)
@@ -181,6 +193,19 @@ export async function ensureFashionLabels(sql: Sql) {
   }
   for (const look of SEED_LABEL_LOOKS) {
     await insertLook(sql, look);
+  }
+  await insertSeedStyles(sql, SEED_STYLES);
+  const bare = await sql<{ id: string }>`select id from fashion_labels where cover_src = ''`;
+  for (const row of bare) {
+    const collections = await collectionsForLabel(sql, row.id);
+    const styles = await listStylesForLabel(sql, row.id);
+    const cover = houseCoverSrc(publicLines(collections, styles));
+    if (!cover) continue;
+    await sql`
+      update fashion_labels
+      set cover_src = ${cover}
+      where id = ${row.id} and cover_src = ''
+    `;
   }
 }
 
@@ -212,7 +237,7 @@ export async function uniqueHandle(sql: Sql, name: string, userId: string): Prom
 
 export async function ownedHouse(sql: Sql, userId: string): Promise<FashionLabel | null> {
   const rows = await sql<LabelRow>`
-    select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+    select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
     from fashion_labels
     where owner_user_id = ${userId}
     order by created_at desc

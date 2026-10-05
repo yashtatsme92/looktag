@@ -22,6 +22,8 @@ export type FashionLabel = {
   status: HouseStatus;
   ownerUserId?: string;
   createdAt: number;
+  website?: string;
+  coverSrc?: string;
 };
 
 export type FashionCollection = {
@@ -99,9 +101,11 @@ export type FashionStyle = {
   id: string;
   labelId: string;
   collectionId: string;
+  collectionSlug?: string;
   name: string;
   description: string;
   imageSrc: string;
+  images?: string[];
   sortOrder: number;
 };
 
@@ -123,9 +127,68 @@ export function publicLines(
     .filter((row) => row.styles.length > 0);
 }
 
-/** House covers come from the first Style, never from a look. */
-export function houseCoverSrc(lines: Array<{ styles: FashionStyle[] }>): string {
+/** House covers come from House manage, else the first Style. Never a look. */
+export function houseCoverSrc(lines: Array<{ styles: FashionStyle[] }>, explicit?: string): string {
+  const cover = explicit?.trim();
+  if (cover) return cover;
   return lines[0]?.styles[0]?.imageSrc ?? "";
+}
+
+const MAX_STYLE_PHOTO = 1_500_000;
+const MAX_STYLE_PHOTOS = 6;
+
+export function isStylePhoto(src: string): boolean {
+  if (!src) return false;
+  return (
+    src.startsWith("/") ||
+    src.startsWith("https://") ||
+    src.startsWith("http://") ||
+    src.startsWith("data:image/")
+  );
+}
+
+/** A Style is a name plus at least one photo. No price field. */
+export function styleDraft(input: {
+  name: string;
+  description?: string;
+  imageSrc: string;
+  images?: string[];
+}): { name: string; description: string; imageSrc: string; images: string[] } {
+  const name = input.name.trim();
+  if (name.length < 2) throw new Error("Give the style a name.");
+  const photos = [...new Set([input.imageSrc, ...(input.images ?? [])].map((item) => item.trim()).filter(isStylePhoto))];
+  if (photos.length === 0) throw new Error("Add a photo.");
+  if (photos.length > MAX_STYLE_PHOTOS) photos.length = MAX_STYLE_PHOTOS;
+  if (photos.some((src) => src.length > MAX_STYLE_PHOTO)) throw new Error("That photo is too large.");
+  return {
+    name: name.slice(0, 80),
+    description: (input.description ?? "").trim().slice(0, 600),
+    imageSrc: photos[0] ?? "",
+    images: photos,
+  };
+}
+
+export function houseCoverDraft(src: string): string {
+  const value = src.trim();
+  if (!value) return "";
+  if (!isStylePhoto(value) || value.length > MAX_STYLE_PHOTO) throw new Error("Add a photo, or a smaller one.");
+  return value;
+}
+
+export function normalizeHouseWebsite(raw: string): string {
+  const value = raw.trim();
+  if (!value) return "";
+  const withProto = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  let url: URL;
+  try {
+    url = new URL(withProto);
+  } catch {
+    throw new Error("Enter a website, or leave it blank.");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Enter a website, or leave it blank.");
+  }
+  return url.toString();
 }
 
 /** One feed Style card, Scouted live Houses only. */

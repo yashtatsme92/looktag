@@ -5,7 +5,7 @@ import { EDITORIAL_USER_ID, type Look } from "@/lib/looks/types";
 import { withSpan } from "@/lib/observability/instrument";
 import { rankWeights } from "@/lib/settings/model";
 import { readSettings } from "@/lib/settings/store.server";
-import { groupLooksByCollection, rankLabels, type FashionCollection, type FashionLabel, type RankedLabel } from "./model";
+import { groupLooksByCollection, rankLabels, type FashionCollection, type FashionLabel, type FashionStyle, type RankedLabel } from "./model";
 import {
   type FashionLabelPage,
   type FashionCollectionPage,
@@ -19,6 +19,7 @@ import {
   parseCollection,
   parseLook,
 } from "./labels-shared";
+import { listPublicStyles, listStylesForLabel } from "./style-record";
 
 export const getHousesAvailability = createServerFn({ method: "GET" }).handler(async () => {
   return labelsEnabled();
@@ -33,7 +34,7 @@ export const listFashionLabels = createServerFn({ method: "GET" }).handler(async
     const sql = await getSql();
     await ensureFashionLabels(sql);
     const rows = await sql<LabelRow>`
-      select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+      select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
       from fashion_labels
       where status = 'approved'
       order by scouted desc, name asc
@@ -78,7 +79,7 @@ export const getFashionLabel = createServerFn({ method: "GET" })
         const sql = await getSql();
         await ensureFashionLabels(sql);
         const labels = await sql<LabelRow>`
-          select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+          select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
           from fashion_labels
           where id = ${id}
           limit 1
@@ -108,6 +109,7 @@ export const getFashionLabel = createServerFn({ method: "GET" })
           return next;
         });
         const grouped = groupLooksByCollection(collections, looks);
+        const styles = await listStylesForLabel(sql, id);
         const pins = looks.reduce((sum, look) => sum + look.tags.length, 0);
         const compared = looks.reduce((sum, look) => sum + lookStats(look).comparedCount, 0);
         const settings = await readSettings();
@@ -123,7 +125,13 @@ export const getFashionLabel = createServerFn({ method: "GET" })
         span.setAttribute("looktag.house.looks", looks.length);
         span.setAttribute("looktag.house.collections", grouped.length);
         span.setAttribute("looktag.house.scouted", label.scouted);
-        const page: FashionLabelPage = { ...ranked, collection: looks, collections: grouped };
+        const page: FashionLabelPage = {
+          ...ranked,
+          collection: looks,
+          collections: grouped,
+          lines: collections,
+          styles,
+        };
         return page;
       },
       { attributes: { "rpc.method": "getFashionLabel" } },
@@ -145,7 +153,7 @@ export const getFashionCollection = createServerFn({ method: "GET" })
         const sql = await getSql();
         await ensureFashionLabels(sql);
         const labels = await sql<LabelRow>`
-          select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+          select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
           from fashion_labels
           where id = ${data.labelId}
           limit 1
@@ -174,15 +182,32 @@ export const getFashionCollection = createServerFn({ method: "GET" })
           order by created_at desc
         `;
         const looks = lookRows.map(parseLook);
+        const styles = (await listStylesForLabel(sql, data.labelId)).filter(
+          (style) => style.collectionId === collection.id,
+        );
         const pins = looks.reduce((sum, look) => sum + look.tags.length, 0);
         const compared = looks.reduce((sum, look) => sum + lookStats(look).comparedCount, 0);
         span.setAttribute("looktag.collection.looks", looks.length);
-        const page: FashionCollectionPage = { label, collection, looks, pins, compared };
+        const page: FashionCollectionPage = { label, collection, looks, styles, pins, compared };
         return page;
       },
       { attributes: { "rpc.method": "getFashionCollection" } },
     );
   });
+
+export const listFashionStyles = createServerFn({ method: "GET" }).handler(async () => {
+  return withSpan("looktag.styles.list", async (span) => {
+    if (!(await labelsEnabled())) {
+      span.setAttribute("looktag.houses.enabled", false);
+      return [] as FashionStyle[];
+    }
+    const sql = await getSql();
+    await ensureFashionLabels(sql);
+    const styles = await listPublicStyles(sql);
+    span.setAttribute("looktag.styles.count", styles.length);
+    return styles;
+  });
+});
 
 export const listRankedLabels = createServerFn({ method: "GET" }).handler(async () => {
   return withSpan("looktag.houses.rank", async (span) => {
@@ -193,7 +218,7 @@ export const listRankedLabels = createServerFn({ method: "GET" }).handler(async 
     const sql = await getSql();
     await ensureFashionLabels(sql);
     const labels = await sql<LabelRow>`
-      select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id
+      select id, name, handle, bio, city, moods_json, scouted, created_at, status, owner_user_id, website, cover_src
       from fashion_labels
     `;
     const lookRows = await sql<LookRow>`

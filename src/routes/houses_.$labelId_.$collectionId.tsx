@@ -8,7 +8,6 @@ import { ScreenTitle } from "@/components/layout/screen-title";
 import { Button } from "@/components/ui/button";
 import { getFashionCollection, getHousesAvailability, type FashionCollectionPage } from "@/lib/labels/api";
 import { publicLines } from "@/lib/labels/model";
-import { SEED_STYLES } from "@/lib/labels/seed";
 import { shareOrCopy } from "@/lib/looks/share";
 import { recordShareView } from "@/lib/share/api";
 import {
@@ -43,7 +42,7 @@ export const Route = createFileRoute("/houses_/$labelId_/$collectionId")({
   head: ({ loaderData }) => {
     const page = loaderData?.page;
     if (!page) return notFoundShareHead("collection");
-    const imageSrc = publicLines([page.collection], SEED_STYLES)[0]?.styles[0]?.imageSrc ?? "";
+    const imageSrc = page.styles[0]?.imageSrc ?? "";
     return shareHead(collectionShareMeta(page.label, page.collection, loaderData.origin, imageSrc));
   },
   component: LinePage,
@@ -57,7 +56,7 @@ function LinePage() {
 
   if (closed) return <HousesClosed />;
 
-  const line = page ? publicLines([page.collection], SEED_STYLES)[0] : undefined;
+  const line = page ? publicLines([page.collection], page.styles)[0] : undefined;
 
   if (!page || !line) {
     return (

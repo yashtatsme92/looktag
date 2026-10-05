@@ -4,9 +4,8 @@ import { HouseCard } from "@/components/labels/house-card";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
 import { AppShell } from "@/components/layout/app-shell";
-import { getHousesAvailability, listFashionCollections, listFashionLabels } from "@/lib/labels/api";
+import { getHousesAvailability, listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { consumerHouseIndex, houseCoverSrc, publicLines, type FashionLabel } from "@/lib/labels/model";
-import { SEED_STYLES } from "@/lib/labels/seed";
 
 export const Route = createFileRoute("/houses")({
   ssr: true,
@@ -14,14 +13,18 @@ export const Route = createFileRoute("/houses")({
     try {
       const open = await getHousesAvailability();
       if (!open) return { open: false, labels: [] as FashionLabel[], covers: {} as Record<string, string> };
-      const [labels, collections] = await Promise.all([listFashionLabels(), listFashionCollections()]);
+      const [labels, collections, styles] = await Promise.all([
+        listFashionLabels(),
+        listFashionCollections(),
+        listFashionStyles(),
+      ]);
       const covers: Record<string, string> = {};
       for (const label of labels) {
         const lines = publicLines(
           collections.filter((collection) => collection.labelId === label.id),
-          SEED_STYLES,
+          styles.filter((style) => style.labelId === label.id),
         );
-        covers[label.id] = houseCoverSrc(lines);
+        covers[label.id] = houseCoverSrc(lines, label.coverSrc);
       }
       return { open: true, labels, covers };
     } catch {
@@ -69,7 +72,7 @@ function HousesPage() {
     return (
       <div className="house-index-grid">
         {items.map((label) => (
-          <HouseCard key={label.id} label={label} coverSrc={covers[label.id]} />
+          <HouseCard key={label.id} label={label} coverSrc={label.coverSrc || covers[label.id]} />
         ))}
       </div>
     );
