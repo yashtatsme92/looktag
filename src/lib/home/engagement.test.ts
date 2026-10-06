@@ -11,6 +11,7 @@ import {
   feedFeatureStatus,
   feedModulesNote,
   feedSwitchCopy,
+  FEED_FEATURES,
   followingHouseCards,
   followingLooks,
   freshDivider,
@@ -114,6 +115,9 @@ describe("feed engagement", () => {
     assert.equal(feedSwitchCopy("Echo trail", true).confirm, "Turn off Echo trail");
     assert.equal(feedSwitchCopy("Echo trail", false).title, "Turn Echo trail back on?");
     assert.equal(feedModulesNote(7), "7 modules · 7 on");
+    assert.equal(FEED_FEATURES[0]?.label, "Follow creators / Following tab");
+    assert.equal(FEED_FEATURES[0]?.settings, false);
+    assert.equal(FEED_FEATURES.find((feature) => feature.key === "feedEchoTrail")?.settings, true);
     assert.equal(DEFAULT_INTERLEAVE, "1 Lead · 3 Drop · 8 Beat · 11 Style · 16 Beat · 20 Because · 24 Run");
   });
 

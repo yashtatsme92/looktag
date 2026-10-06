@@ -121,6 +121,7 @@ export function FeedAdmin() {
   const placed = placeFeed(previewCadence);
 
   function statusFor(key: FeedFeatureKey, on: boolean): string {
+    if (key === "feedFollow" && on && !housesOn) return "On · House items paused while Houses are off";
     if (key === "feedRuns") {
       const state = moodRunState(settings.feedRunTitle, settings.feedRunIds);
       return feedFeatureStatus({ on, housesOn, attention: state === "attention", scheduled: state === "empty" ? false : undefined });
@@ -224,33 +225,49 @@ export function FeedAdmin() {
   return (
     <div className="ops-stage">
       <h1 className="ops-title">Feed & discovery</h1>
-      <p className="ops-lead">Shopper feed modules. A module can only get rarer or later.</p>
-      {FEED_FEATURES.map((feature) => {
-        const on = Boolean(settings[feature.key]);
-        const changed = audit[feature.key];
-        return (
-          <div className="ops-row ops-switch-row" key={feature.key}>
-            <div>
-              <span className="ops-row-title">{feature.label}</span>
-              <span className="ops-row-note">{statusFor(feature.key, on)}</span>
-              <span className="ops-row-note">
-                {changed ? `Last changed by ${changed.by} · ${berlinStamp(changed.at)}` : "Not changed yet · default"}
-              </span>
-              <button type="button" className="house-ghost" onClick={() => openSettings(feature.key)}>
-                Settings
-              </button>
-            </div>
-            <Switch
-              checked={on}
-              disabled={busy}
-              aria-label={feature.label}
-              onCheckedChange={(next) => setPending({ key: feature.key, label: feature.label, next })}
-            />
-          </div>
-        );
-      })}
+      <p className="ops-lead">Changes reach each shopper on their next feed load. Nothing moves mid-scroll.</p>
+      <div className="feed-modules">
+        {FEED_FEATURES.map((feature) => {
+          const on = Boolean(settings[feature.key]);
+          const changed = audit[feature.key];
+          const status = statusFor(feature.key, on);
+          const tone = status.startsWith("Off") ? "off" : status.includes("needs attention") ? "att" : "on";
+          return (
+            <article className="feed-module" key={feature.key}>
+              <div className="feed-module-top">
+                <div className="feed-module-copy">
+                  <span className="feed-module-title">{feature.label}</span>
+                  <span className="feed-module-status">
+                    <i data-tone={tone} aria-hidden="true" />
+                    {status}
+                  </span>
+                </div>
+                <span className="feed-swbox">
+                  <Switch
+                    checked={on}
+                    disabled={busy}
+                    aria-label={feature.label}
+                    onCheckedChange={(next) => setPending({ key: feature.key, label: feature.label, next })}
+                  />
+                </span>
+              </div>
+              <p className="feed-module-detail">{feature.detail}</p>
+              <div className="feed-module-bot">
+                <span className="feed-module-audit">
+                  {changed ? `Last changed by ${changed.by} · ${berlinStamp(changed.at)}` : "Not changed yet · default"}
+                </span>
+                {feature.settings ? (
+                  <button type="button" className="house-ghost" onClick={() => openSettings(feature.key)}>
+                    Settings
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
       <section className="ops-row">
-        <div>
+        <div className="ops-switch-copy">
           <span className="ops-row-title">Interleave preview</span>
           <span className="ops-row-note">{proofFromCadence(previewCadence)}</span>
           {placed.notes.map((note) => (
