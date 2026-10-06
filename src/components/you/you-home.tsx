@@ -3,10 +3,12 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient, authEnabled, signOut } from "@/lib/auth/client";
 import type { AppUser } from "@/lib/auth/use-current-user";
+import { resetFeedTuning } from "@/lib/home/follows";
 import { captureSessionToken } from "@/lib/login-next";
 import { isAdminEmail, normalizeLoginEmail } from "@/lib/admin/access";
 import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
@@ -157,6 +159,7 @@ function ProfilePane({ user, onSignIn }: { user: AppUser | null; onSignIn: () =>
         <button type="button" className="create-btn-primary you-sign-in" onClick={onSignIn}>
           Sign in
         </button>
+        <ResetFeedTuning />
       </div>
     );
   }
@@ -185,7 +188,41 @@ function ProfilePane({ user, onSignIn }: { user: AppUser | null; onSignIn: () =>
       >
         Sign out
       </button>
+      <ResetFeedTuning />
     </div>
+  );
+}
+
+function ResetFeedTuning() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="house-ghost you-reset" onClick={() => setOpen(true)}>
+        Reset feed tuning
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-[480px]">
+          <DialogTitle>Reset your feed?</DialogTitle>
+          <DialogDescription>Saves stay. The feed forgets what you asked to see less of.</DialogDescription>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              className="house-primary"
+              onClick={() => {
+                resetFeedTuning();
+                setOpen(false);
+                toast.success("Feed tuning reset");
+              }}
+            >
+              Reset
+            </button>
+            <button type="button" className="house-ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

@@ -62,7 +62,7 @@ export function echoSwipe(input: {
   dy: number;
   index: number;
   length: number;
-  mode: "feed" | "lane" | "creator";
+  mode: "feed" | "lane" | "creator" | "following";
   showingReturn?: boolean;
 }): EchoSwipe {
   const { dx, dy, index, length, mode, showingReturn } = input;

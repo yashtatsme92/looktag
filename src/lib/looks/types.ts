@@ -22,6 +22,8 @@ export type ProductTag = {
   offers?: ProductOffer[];
   wornUrl?: string;
   wornRetailerId?: string;
+  /** Optional House Style this pin points at. Absent means a plain pin. */
+  styleId?: string;
 };
 
 export type Look = {

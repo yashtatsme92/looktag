@@ -19,6 +19,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as RankRouteImport } from './routes/rank'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as AdminFeedRouteImport } from './routes/admin_.feed'
 import { Route as AdminHousesRouteImport } from './routes/admin_.houses'
 import { Route as AdminLookRouteImport } from './routes/admin_.look'
 import { Route as AdminObservabilityRouteImport } from './routes/admin_.observability'
@@ -81,6 +82,11 @@ const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminFeedRoute = AdminFeedRouteImport.update({
+  id: '/admin_/feed',
+  path: '/admin/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminHousesRoute = AdminHousesRouteImport.update({
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/rank': typeof RankRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/feed': typeof AdminFeedRoute
   '/admin/houses': typeof AdminHousesRoute
   '/admin/look': typeof AdminLookRoute
   '/admin/observability': typeof AdminObservabilityRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/rank': typeof RankRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/feed': typeof AdminFeedRoute
   '/admin/houses': typeof AdminHousesRoute
   '/admin/look': typeof AdminLookRoute
   '/admin/observability': typeof AdminObservabilityRoute
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/rank': typeof RankRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin_/feed': typeof AdminFeedRoute
   '/admin_/houses': typeof AdminHousesRoute
   '/admin_/look': typeof AdminLookRoute
   '/admin_/observability': typeof AdminObservabilityRoute
@@ -240,6 +249,7 @@ export interface FileRouteTypes {
     | '/rank'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/admin/feed'
     | '/admin/houses'
     | '/admin/look'
     | '/admin/observability'
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/rank'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/admin/feed'
     | '/admin/houses'
     | '/admin/look'
     | '/admin/observability'
@@ -290,6 +301,7 @@ export interface FileRouteTypes {
     | '/rank'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/admin_/feed'
     | '/admin_/houses'
     | '/admin_/look'
     | '/admin_/observability'
@@ -316,6 +328,7 @@ export interface RootRouteChildren {
   RankRoute: typeof RankRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  AdminFeedRoute: typeof AdminFeedRoute
   AdminHousesRoute: typeof AdminHousesRoute
   AdminLookRoute: typeof AdminLookRoute
   AdminObservabilityRoute: typeof AdminObservabilityRoute
@@ -401,6 +414,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/feed': {
+      id: '/admin_/feed'
+      path: '/admin/feed'
+      fullPath: '/admin/feed'
+      preLoaderRoute: typeof AdminFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin_/houses': {
@@ -508,6 +528,7 @@ const rootRouteChildren: RootRouteChildren = {
   RankRoute: RankRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  AdminFeedRoute: AdminFeedRoute,
   AdminHousesRoute: AdminHousesRoute,
   AdminLookRoute: AdminLookRoute,
   AdminObservabilityRoute: AdminObservabilityRoute,

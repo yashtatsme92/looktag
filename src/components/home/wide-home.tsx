@@ -1,22 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Radio } from "lucide-react";
+import { ChevronLeft, Radio } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { FollowButton } from "@/components/home/follow-button";
+import { FollowingHouseTile } from "@/components/home/following-card";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { StyleFrame } from "@/components/labels/style-frame";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
+import {
+  ECHO_TRAIL_CHIPS,
+  followingHouseCards,
+  followingLooks,
+  pickWeeklyDrop,
+  pushTrail,
+  refineLane,
+  styleCardAfterDrop,
+} from "@/lib/home/engagement";
+import { CREATOR_FOLLOWS_KEY, FOLLOWING_SEEN_KEY, HOUSE_FOLLOWS_KEY, readStoredIds, writeStoredIds } from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { listFashionLabels, listFashionStyles } from "@/lib/labels/api";
-import { pickFeedStyle, styleCardSlot, type FashionLabel, type FashionStyle } from "@/lib/labels/model";
+import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
+import { pickFeedStyle, type FashionCollection, type FashionLabel, type FashionStyle } from "@/lib/labels/model";
 import { SEED_STYLES } from "@/lib/labels/seed";
 import { useSavedLooks } from "@/lib/looks/saved";
 import type { Look } from "@/lib/looks/types";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
-type WideMode = "feed" | "lane" | "creator";
+type WideMode = "feed" | "lane" | "creator" | "following";
 
 export function WideHome({ looks }: { looks: Look[] }) {
   const deck = useMemo(() => looks.filter((look) => look.imageSrc), [looks]);
@@ -25,7 +37,16 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
   const [styles, setStyles] = useState<FashionStyle[]>(SEED_STYLES);
+  const [collections, setCollections] = useState<FashionCollection[]>([]);
+  const [followed, setFollowed] = useState<string[]>([]);
+  const [houseFollows, setHouseFollows] = useState<string[]>([]);
+  const [seen, setSeen] = useState<string[]>([]);
+  const [trail, setTrail] = useState<string[]>([]);
   const housesOn = useSettingsStore((s) => s.labelsEnabled);
+  const feedDropOn = useSettingsStore((s) => s.feedDrop);
+  const feedStyleOn = useSettingsStore((s) => s.feedStyleCards);
+  const feedFollowOn = useSettingsStore((s) => s.feedFollow);
+  const feedTrailOn = useSettingsStore((s) => s.feedEchoTrail);
   const { user, isPending } = useCurrentUserState();
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const savedIds = useSavedLooks((s) => s.ids);
@@ -57,10 +78,21 @@ export function WideHome({ looks }: { looks: Look[] }) {
         if (alive) setStyles(rows);
       })
       .catch(() => undefined);
+    void listFashionCollections()
+      .then((rows) => {
+        if (alive) setCollections(rows);
+      })
+      .catch(() => undefined);
     return () => {
       alive = false;
     };
   }, [housesOn]);
+
+  useEffect(() => {
+    setFollowed(readStoredIds(CREATOR_FOLLOWS_KEY));
+    setHouseFollows(readStoredIds(HOUSE_FOLLOWS_KEY));
+    setSeen(readStoredIds(FOLLOWING_SEEN_KEY));
+  }, [mode]);
 
   useEffect(() => {
     if (deck.length === 0) return;
@@ -79,17 +111,28 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const anchor = deck.find((look) => look.id === anchorId) ?? deck[0];
   const plates = useMemo(() => {
     if (!anchor) return [];
-    if (mode === "lane") return echoLane(anchor, deck);
+    if (mode === "following") return followingLooks(deck, followed);
+    if (mode === "lane") {
+      const lane = echoLane(anchor, deck);
+      return trail.reduce((list, chip) => refineLane(list, chip), lane);
+    }
     if (mode === "creator") return creatorRun(anchor, deck).filter((look) => look.id !== anchor.id);
     return deck.slice(1);
-  }, [anchor, deck, mode]);
+  }, [anchor, deck, followed, mode, trail]);
+
+  const houseCards = useMemo(
+    () => (mode === "following" ? followingHouseCards(labels, collections, styles, houseFollows) : []),
+    [collections, houseFollows, labels, mode, styles],
+  );
 
   if (!anchor) return null;
 
   const beat = mode === "feed" ? deck.map((look) => beatLabel(look)).find(Boolean) : null;
-  const tiles = beat ? [...plates.slice(0, 4), ...plates.slice(4)] : plates;
-  const feedStyle = housesOn && mode === "feed" ? pickFeedStyle(styles, labels) : null;
-  const styleAt = feedStyle ? styleCardSlot(tiles.length) : null;
+  const tiles = beat && mode === "feed" ? plates : plates;
+  const drop = housesOn && feedDropOn && mode === "feed" ? pickWeeklyDrop(labels, collections, styles) : null;
+  const feedStyle = housesOn && feedStyleOn && mode === "feed" ? pickFeedStyle(styles, labels) : null;
+  const styleAt = feedStyle ? styleCardAfterDrop(deck.length, drop ? 3 : null) : null;
+  const unseen = followingLooks(deck, followed).filter((look) => !seen.includes(look.id)).length;
 
   function save(look: Look) {
     if (authEnabled && !isPending && !user) {
@@ -101,11 +144,22 @@ export function WideHome({ looks }: { looks: Look[] }) {
   }
 
   function echo(look: Look) {
+    setTrail([]);
     setAnchorId(look.id);
     setMode("lane");
   }
 
-  const heading = mode === "lane" ? "More like this" : mode === "creator" ? anchor.creator || "This creator" : "For you";
+  function openFollowing() {
+    const ids = followingLooks(deck, followed).map((look) => look.id);
+    const next = [...new Set([...readStoredIds(FOLLOWING_SEEN_KEY), ...ids])];
+    writeStoredIds(FOLLOWING_SEEN_KEY, next);
+    setSeen(next);
+    setMode("following");
+    setAnchorId(null);
+  }
+
+  const heading =
+    mode === "lane" ? "More like this" : mode === "creator" ? anchor.creator || "This creator" : mode === "following" ? "Following" : "For you";
 
   return (
     <div className="wide-home">
@@ -113,11 +167,36 @@ export function WideHome({ looks }: { looks: Look[] }) {
         <header className="wide-pagehd">
           <h1>{heading}</h1>
           <div className="wide-pagehd-side">
-            {mode !== "feed" ? (
+            {feedFollowOn && (mode === "feed" || mode === "following") ? (
+              <nav className="wide-tabs" aria-label="Looks">
+                <button
+                  type="button"
+                  aria-current={mode === "feed" ? "page" : undefined}
+                  onClick={() => {
+                    setTrail([]);
+                    setMode("feed");
+                    setAnchorId(null);
+                  }}
+                >
+                  For you
+                </button>
+                <button
+                  type="button"
+                  aria-current={mode === "following" ? "page" : undefined}
+                  aria-label={unseen > 0 ? `Following, ${unseen} new` : "Following"}
+                  onClick={openFollowing}
+                >
+                  Following
+                  {unseen > 0 && mode !== "following" ? <span className="echo-dot" aria-hidden /> : null}
+                </button>
+              </nav>
+            ) : null}
+            {mode === "lane" || mode === "creator" ? (
               <button
                 type="button"
                 className="wide-houses"
                 onClick={() => {
+                  setTrail([]);
                   setMode("feed");
                   setAnchorId(null);
                 }}
@@ -128,6 +207,30 @@ export function WideHome({ looks }: { looks: Look[] }) {
           </div>
         </header>
 
+        {mode === "lane" && feedTrailOn ? (
+          <div className="echo-chips echo-chips-ink">
+            {trail.length > 0 ? (
+              <>
+                <ol className="echo-crumbs">
+                  {trail.map((step, index) => (
+                    <li key={`${step}-${index}`}>{step}</li>
+                  ))}
+                </ol>
+                <button type="button" className="echo-chip-back" aria-label="Back one step" onClick={() => setTrail((current) => current.slice(0, -1))}>
+                  <ChevronLeft className="size-5" />
+                </button>
+              </>
+            ) : null}
+            {ECHO_TRAIL_CHIPS.map((chip) => (
+              <button type="button" key={chip} className="echo-chip" onClick={() => setTrail((current) => pushTrail(current, chip))}>
+                {chip}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {mode === "following" ? null : (
+          <>
         <DesktopLead
           look={anchor}
           kicker={echoKicker(anchor)}
@@ -138,6 +241,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
             setAnchorId(anchor.id);
             setMode("creator");
           }}
+          follow={feedFollowOn && mode === "feed" ? anchor.userId : ""}
         />
         <TabletLead
           look={anchor}
@@ -149,12 +253,35 @@ export function WideHome({ looks }: { looks: Look[] }) {
             setAnchorId(anchor.id);
             setMode("creator");
           }}
+          follow={feedFollowOn && mode === "feed" ? anchor.userId : ""}
         />
+          </>
+        )}
 
         <div className="wide-grid">
+          {mode === "following"
+            ? houseCards.map((card) => <FollowingHouseTile key={`${card.kind}-${card.id}`} card={card} />)
+            : null}
           {tiles.flatMap((look, index) => {
             const nodes = [];
-            if (styleAt === index && feedStyle) {
+            if (drop && index === 1 && mode === "feed") {
+              nodes.push(
+                <Link
+                  key="weekly-drop"
+                  to="/houses/$labelId/$collectionId"
+                  params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
+                  className="wide-tile wide-drop"
+                >
+                  <img src={drop.imageSrc} alt="" />
+                  <div className="wide-tile-cap">
+                    <p className="wide-kicker">This week's drop</p>
+                    <h3>{drop.lineName}</h3>
+                    <span className="house-ghost">View Line</span>
+                  </div>
+                </Link>,
+              );
+            }
+            if (styleAt != null && styleAt - 1 === index && feedStyle && mode === "feed") {
               const slug = feedStyle.style.collectionSlug || feedStyle.style.collectionId;
               nodes.push(
                 <StyleFrame
@@ -172,19 +299,27 @@ export function WideHome({ looks }: { looks: Look[] }) {
                 kicker={echoKicker(look)}
                 saved={savedIds.includes(look.id)}
                 onSave={() => save(look)}
-                beatAfter={Boolean(beat) && index === 3}
+                beatAfter={Boolean(beat) && mode === "feed" && index === 3}
                 beat={beat ?? ""}
               />,
             );
             return nodes;
           })}
-          {beat && tiles.length < 4 ? (
+          {beat && mode === "feed" && tiles.length < 4 ? (
             <div className="wide-beat">
               <p>From the edit</p>
               <p>{beat}</p>
             </div>
           ) : null}
         </div>
+        {mode === "following" ? (
+          <div className="echo-end echo-end-ink">
+            <p>That's everything from who you follow.</p>
+            <button type="button" className="house-ghost" onClick={() => setMode("feed")}>
+              Back to For you
+            </button>
+          </div>
+        ) : null}
       </div>
       <AccountSheet
         open={sheetOpen}
@@ -206,6 +341,7 @@ function DesktopLead({
   onSave,
   onEcho,
   onCreator,
+  follow,
 }: {
   look: Look;
   kicker: string;
@@ -213,6 +349,7 @@ function DesktopLead({
   onSave: () => void;
   onEcho: () => void;
   onCreator: () => void;
+  follow: string;
 }) {
   return (
     <div className="wide-leadrow">
@@ -222,7 +359,7 @@ function DesktopLead({
         </Link>
       </div>
       <div className="wide-lead-copy">
-        <Kicker text={kicker} onCreator={onCreator} />
+        <Kicker text={kicker} onCreator={onCreator} follow={follow} />
         <h2>{look.title || "Untitled look"}</h2>
         <span className="wide-rule" />
         {pieceLine(look) ? <p className="wide-meta">{pieceLine(look)}</p> : null}
@@ -246,6 +383,7 @@ function TabletLead({
   onSave,
   onEcho,
   onCreator,
+  follow,
 }: {
   look: Look;
   kicker: string;
@@ -253,6 +391,7 @@ function TabletLead({
   onSave: () => void;
   onEcho: () => void;
   onCreator: () => void;
+  follow: string;
 }) {
   return (
     <article className="wide-leadcard">
@@ -261,7 +400,7 @@ function TabletLead({
       </Link>
       <span className="wide-peel" aria-hidden />
       <div className="wide-tile-cap wide-leadcard-cap">
-        <Kicker text={kicker} onCreator={onCreator} light />
+        <Kicker text={kicker} onCreator={onCreator} light follow={follow} />
         <h2>{look.title || "Untitled look"}</h2>
         <span className="wide-rule wide-rule-light" />
         <div className="wide-tile-row">
@@ -319,25 +458,32 @@ function Tile({
   );
 }
 
-function Kicker({ text, onCreator, light = false }: { text: string; onCreator: () => void; light?: boolean }) {
+function Kicker({ text, onCreator, light = false, follow = "" }: { text: string; onCreator: () => void; light?: boolean; follow?: string }) {
   const parts = text.split(" · ");
+  const followBtn = follow ? <FollowButton creatorId={follow} name={text || "this creator"} tone={light ? "photo" : "paper"} /> : null;
   if (parts.length < 2) {
     return (
-      <p className={cn("wide-kicker", light && "wide-kicker-light")}>
-        <button type="button" className="wide-kicker-link" onClick={onCreator}>
-          {text}
-        </button>
-      </p>
+      <span className="echo-kicker-row">
+        <p className={cn("wide-kicker", light && "wide-kicker-light")}>
+          <button type="button" className="wide-kicker-link" onClick={onCreator}>
+            {text}
+          </button>
+        </p>
+        {followBtn}
+      </span>
     );
   }
   return (
-    <p className={cn("wide-kicker", light && "wide-kicker-light")}>
-      {parts[0]}
-      {" · "}
-      <button type="button" className="wide-kicker-link" onClick={onCreator}>
-        {parts.slice(1).join(" · ")}
-      </button>
-    </p>
+    <span className="echo-kicker-row">
+      <p className={cn("wide-kicker", light && "wide-kicker-light")}>
+        {parts[0]}
+        {" · "}
+        <button type="button" className="wide-kicker-link" onClick={onCreator}>
+          {parts.slice(1).join(" · ")}
+        </button>
+      </p>
+      {followBtn}
+    </span>
   );
 }
 

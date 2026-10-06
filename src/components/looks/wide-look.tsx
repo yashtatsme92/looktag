@@ -9,6 +9,8 @@ import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
 import { markEditOpenedFromLook } from "@/lib/nav/back";
+import { StylePinNote } from "@/components/labels/style-pin-note";
+import { FollowButton } from "@/components/home/follow-button";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
@@ -124,6 +126,7 @@ export function WideLook({
           <aside className="wide-panel" aria-label="Shop">
             <div className="wide-panel-hd">
               <p className="wide-kicker">{echoKicker(look)}</p>
+              {look.userId ? <FollowButton creatorId={look.userId} name={look.creator || "this creator"} /> : null}
               <h1>{look.title || "Untitled look"}</h1>
               <div className="wide-acts">
                 <button
@@ -208,6 +211,7 @@ export function WideLook({
                         <span className="wide-prt">{target ? retailerLabel(tag) : "No close match yet"}</span>
                       </span>
                     </button>
+                    <StylePinNote styleId={tag.styleId} />
                     {target ? (
                       <button type="button" className="wide-btn wide-btn-primary" onClick={() => shopPiece(tag)}>
                         Shop

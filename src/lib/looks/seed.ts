@@ -83,6 +83,7 @@ const RAW_SEED: Array<Omit<Look, "userId">> = [
         wornUrl:
           "https://www.cos.com/en-de/women/womenswear/coatsjackets/coats/product/oversized-double-breasted-wool-coat-dark-green-1298577001",
         wornRetailerId: "cos",
+        styleId: "style-noir-column",
         offers: [
           offer(
             "sc-coat-zal",

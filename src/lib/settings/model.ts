@@ -24,6 +24,13 @@ export type AppSettings = {
   scoreCompared: number;
   themeId: ThemeId;
   splashId: SplashId;
+  feedFollow: boolean;
+  feedEchoTrail: boolean;
+  feedFresh: boolean;
+  feedRuns: boolean;
+  feedSaves: boolean;
+  feedDrop: boolean;
+  feedStyleCards: boolean;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -38,6 +45,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   scoreCompared: 5,
   themeId: DEFAULT_THEME,
   splashId: DEFAULT_SPLASH,
+  feedFollow: true,
+  feedEchoTrail: true,
+  feedFresh: true,
+  feedRuns: true,
+  feedSaves: true,
+  feedDrop: true,
+  feedStyleCards: true,
 };
 
 export type OauthProvider = {
@@ -85,6 +99,13 @@ export function parseSettings(raw: unknown): AppSettings {
     scoreCompared: asScore(extras.scoreCompared ?? row.scoreCompared, DEFAULT_SETTINGS.scoreCompared),
     themeId: parseThemeId(extras.themeId ?? row.themeId),
     splashId: parseSplashId(extras.splashId ?? row.splashId),
+    feedFollow: asBoolean(extras.feedFollow ?? row.feedFollow, true),
+    feedEchoTrail: asBoolean(extras.feedEchoTrail ?? row.feedEchoTrail, true),
+    feedFresh: asBoolean(extras.feedFresh ?? row.feedFresh, true),
+    feedRuns: asBoolean(extras.feedRuns ?? row.feedRuns, true),
+    feedSaves: asBoolean(extras.feedSaves ?? row.feedSaves, true),
+    feedDrop: asBoolean(extras.feedDrop ?? row.feedDrop, true),
+    feedStyleCards: asBoolean(extras.feedStyleCards ?? row.feedStyleCards, true),
   };
 }
 
@@ -97,6 +118,13 @@ export function extrasFromSettings(settings: AppSettings): Record<string, unknow
     scoreCompared: settings.scoreCompared,
     themeId: settings.themeId,
     splashId: settings.splashId,
+    feedFollow: settings.feedFollow,
+    feedEchoTrail: settings.feedEchoTrail,
+    feedFresh: settings.feedFresh,
+    feedRuns: settings.feedRuns,
+    feedSaves: settings.feedSaves,
+    feedDrop: settings.feedDrop,
+    feedStyleCards: settings.feedStyleCards,
   };
 }
 
@@ -109,6 +137,13 @@ export const EXTRAS_KEYS = [
   "scoreCompared",
   "themeId",
   "splashId",
+  "feedFollow",
+  "feedEchoTrail",
+  "feedFresh",
+  "feedRuns",
+  "feedSaves",
+  "feedDrop",
+  "feedStyleCards",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 export function parseExtrasRecord(raw: unknown): Record<string, unknown> {

@@ -11,12 +11,14 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { isAdminEmail } from "@/lib/admin/access";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { FEED_FEATURES, feedModulesNote } from "@/lib/home/engagement";
 import { housesSwitchCopy } from "@/lib/labels/model";
 import { useSettingsStore } from "@/lib/settings/store";
 
 export function AdminHubBody({ linked }: { linked: boolean }) {
   const enabled = useSettingsStore((s) => s.labelsEnabled);
   const save = useSettingsStore((s) => s.save);
+  const feedOn = useSettingsStore((s) => FEED_FEATURES.filter((feature) => s[feature.key]).length);
   const [pending, setPending] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const copy = pending === null ? null : housesSwitchCopy(!pending);
@@ -63,6 +65,17 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
           onCheckedChange={(next) => setPending(next)}
         />
       </div>
+      {linked ? (
+        <Link to="/admin/feed" className="ops-row">
+          <span className="ops-row-title">Feed & discovery</span>
+          <span className="ops-row-note">{feedModulesNote(feedOn)}</span>
+        </Link>
+      ) : (
+        <div className="ops-row" aria-hidden>
+          <span className="ops-row-title">Feed & discovery</span>
+          <span className="ops-row-note">{feedModulesNote(feedOn)}</span>
+        </div>
+      )}
       <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
         <DialogContent className="max-w-[480px]">
           <DialogTitle>{copy?.title}</DialogTitle>
