@@ -1,4 +1,5 @@
 import { DEFAULT_THEME, parseThemeId, type ThemeId } from "../design/themes.ts";
+import { clampCadence, type FeedCadence, type FreshWindow } from "../home/engagement.ts";
 import { DEFAULT_SPLASH, parseSplashId, type SplashId } from "../pwa/splash.ts";
 
 export const SETTINGS_ID = "default";
@@ -31,6 +32,14 @@ export type AppSettings = {
   feedSaves: boolean;
   feedDrop: boolean;
   feedStyleCards: boolean;
+  feedDropSlot: FeedCadence["dropSlot"];
+  feedStyleEvery: FeedCadence["styleEvery"];
+  feedBecauseEvery: FeedCadence["becauseEvery"];
+  feedRunEvery: FeedCadence["runEvery"];
+  feedFreshWindow: FreshWindow;
+  feedRunTitle: string;
+  feedRunIds: string;
+  feedAuditJson: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -52,6 +61,14 @@ export const DEFAULT_SETTINGS: AppSettings = {
   feedSaves: true,
   feedDrop: true,
   feedStyleCards: true,
+  feedDropSlot: 3,
+  feedStyleEvery: 12,
+  feedBecauseEvery: 20,
+  feedRunEvery: 24,
+  feedFreshWindow: "3d",
+  feedRunTitle: "",
+  feedRunIds: "",
+  feedAuditJson: "",
 };
 
 export type OauthProvider = {
@@ -83,6 +100,26 @@ function asScore(value: unknown, fallback: number): number {
   return Math.max(0, Math.min(40, Math.round(n)));
 }
 
+function asCadence(raw: Record<string, unknown>): FeedCadence {
+  const numeric = (value: unknown) => {
+    const n = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const window = raw.feedFreshWindow;
+  return clampCadence({
+    dropSlot: numeric(raw.feedDropSlot) as FeedCadence["dropSlot"] | undefined,
+    styleEvery: numeric(raw.feedStyleEvery) as FeedCadence["styleEvery"] | undefined,
+    becauseEvery: numeric(raw.feedBecauseEvery) as FeedCadence["becauseEvery"] | undefined,
+    runEvery: numeric(raw.feedRunEvery) as FeedCadence["runEvery"] | undefined,
+    freshWindow: window === "24h" || window === "3d" || window === "7d" ? window : undefined,
+  });
+}
+
+function asLine(value: unknown, max: number): string {
+  if (typeof value !== "string") return "";
+  return value.replace(/[^\w\s,.'-]/g, "").trim().slice(0, max);
+}
+
 export function parseSettings(raw: unknown): AppSettings {
   const row = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const extras =
@@ -106,6 +143,21 @@ export function parseSettings(raw: unknown): AppSettings {
     feedSaves: asBoolean(extras.feedSaves ?? row.feedSaves, true),
     feedDrop: asBoolean(extras.feedDrop ?? row.feedDrop, true),
     feedStyleCards: asBoolean(extras.feedStyleCards ?? row.feedStyleCards, true),
+    ...(() => {
+      const cadence = asCadence({ ...row, ...extras });
+      return {
+        feedDropSlot: cadence.dropSlot,
+        feedStyleEvery: cadence.styleEvery,
+        feedBecauseEvery: cadence.becauseEvery,
+        feedRunEvery: cadence.runEvery,
+        feedFreshWindow: cadence.freshWindow,
+      };
+    })(),
+    feedRunTitle: asLine(extras.feedRunTitle ?? row.feedRunTitle, 60),
+    feedRunIds: asLine(extras.feedRunIds ?? row.feedRunIds, 400),
+    feedAuditJson: typeof (extras.feedAuditJson ?? row.feedAuditJson) === "string"
+      ? String(extras.feedAuditJson ?? row.feedAuditJson).slice(0, 4000)
+      : "",
   };
 }
 
@@ -125,6 +177,14 @@ export function extrasFromSettings(settings: AppSettings): Record<string, unknow
     feedSaves: settings.feedSaves,
     feedDrop: settings.feedDrop,
     feedStyleCards: settings.feedStyleCards,
+    feedDropSlot: settings.feedDropSlot,
+    feedStyleEvery: settings.feedStyleEvery,
+    feedBecauseEvery: settings.feedBecauseEvery,
+    feedRunEvery: settings.feedRunEvery,
+    feedFreshWindow: settings.feedFreshWindow,
+    feedRunTitle: settings.feedRunTitle,
+    feedRunIds: settings.feedRunIds,
+    feedAuditJson: settings.feedAuditJson,
   };
 }
 
@@ -144,6 +204,14 @@ export const EXTRAS_KEYS = [
   "feedSaves",
   "feedDrop",
   "feedStyleCards",
+  "feedDropSlot",
+  "feedStyleEvery",
+  "feedBecauseEvery",
+  "feedRunEvery",
+  "feedFreshWindow",
+  "feedRunTitle",
+  "feedRunIds",
+  "feedAuditJson",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 export function parseExtrasRecord(raw: unknown): Record<string, unknown> {

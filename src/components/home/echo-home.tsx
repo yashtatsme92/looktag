@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { BecausePlate, RunPlate, ShowLess } from "@/components/home/feed-modules";
 import { FollowButton } from "@/components/home/follow-button";
 import { FollowingHousePlate } from "@/components/home/following-card";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
@@ -13,14 +14,30 @@ import { SEED_STYLES } from "@/lib/labels/seed";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, echoSnapIndex, echoSwipe, pieceLine } from "@/lib/home/echo";
 import {
   ECHO_TRAIL_CHIPS,
+  becauseYouSaved,
+  freshDivider,
+  freshDividerAt,
+  freshFirst,
   followingHouseCards,
   followingLooks,
+  mixFollowing,
+  parseMoodRun,
   pickWeeklyDrop,
   pushTrail,
   refineLane,
+  savesTune,
+  showLessOrder,
   styleCardAfterDrop,
 } from "@/lib/home/engagement";
-import { CREATOR_FOLLOWS_KEY, FOLLOWING_SEEN_KEY, HOUSE_FOLLOWS_KEY, readStoredIds, writeStoredIds } from "@/lib/home/follows";
+import {
+  CREATOR_FOLLOWS_KEY,
+  FEED_LESS_KEY,
+  FOLLOWING_SEEN_KEY,
+  HOUSE_FOLLOWS_KEY,
+  consumeFreshVisit,
+  readStoredIds,
+  writeStoredIds,
+} from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useSavedLooks } from "@/lib/looks/saved";
@@ -49,11 +66,22 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const [houseFollows, setHouseFollows] = useState<string[]>([]);
   const [seen, setSeen] = useState<string[]>([]);
   const [trail, setTrail] = useState<string[]>([]);
+  const [lessIds, setLessIds] = useState<string[]>([]);
+  const [returning, setReturning] = useState(false);
+  const [now] = useState(() => Date.now());
   const housesOn = useSettingsStore((s) => s.labelsEnabled);
   const feedDropOn = useSettingsStore((s) => s.feedDrop);
   const feedStyleOn = useSettingsStore((s) => s.feedStyleCards);
   const feedFollowOn = useSettingsStore((s) => s.feedFollow);
   const feedTrailOn = useSettingsStore((s) => s.feedEchoTrail);
+  const feedFreshOn = useSettingsStore((s) => s.feedFresh);
+  const feedRunsOn = useSettingsStore((s) => s.feedRuns);
+  const feedSavesOn = useSettingsStore((s) => s.feedSaves);
+  const freshWindow = useSettingsStore((s) => s.feedFreshWindow);
+  const becauseEvery = useSettingsStore((s) => s.feedBecauseEvery);
+  const runEvery = useSettingsStore((s) => s.feedRunEvery);
+  const runTitle = useSettingsStore((s) => s.feedRunTitle);
+  const runIds = useSettingsStore((s) => s.feedRunIds);
 
   useEffect(() => {
     hydrateSaved();
@@ -90,7 +118,13 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     setFollowed(readStoredIds(CREATOR_FOLLOWS_KEY));
     setHouseFollows(readStoredIds(HOUSE_FOLLOWS_KEY));
     setSeen(readStoredIds(FOLLOWING_SEEN_KEY));
+    setLessIds(readStoredIds(FEED_LESS_KEY));
   }, [mode]);
+
+  useEffect(() => {
+    if (!user || !feedFreshOn) return;
+    setReturning(consumeFreshVisit());
+  }, [feedFreshOn, user]);
 
   useEffect(() => {
     let alive = true;
@@ -107,6 +141,11 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   }, []);
 
   const anchor = deck.find((look) => look.id === anchorId) ?? deck[0];
+  const tuned = useMemo(() => {
+    const muted = showLessOrder(deck, lessIds);
+    const tunedSaves = feedSavesOn ? savesTune(muted, savedIds) : muted;
+    return feedFreshOn ? freshFirst(tunedSaves, now, freshWindow) : tunedSaves;
+  }, [deck, feedFreshOn, feedSavesOn, freshWindow, lessIds, now, savedIds]);
   const plates = useMemo(() => {
     if (!anchor) return [];
     if (mode === "following") return followingLooks(deck, followed);
@@ -115,11 +154,15 @@ export function EchoHome({ looks }: { looks: Look[] }) {
       return trail.reduce((list, chip) => refineLane(list, chip), lane);
     }
     if (mode === "creator") return creatorRun(anchor, deck);
-    return deck;
-  }, [anchor, deck, followed, mode, trail]);
+    return tuned;
+  }, [anchor, deck, followed, mode, trail, tuned]);
   const houseCards = useMemo(
     () => (mode === "following" ? followingHouseCards(labels, collections, styles, houseFollows) : []),
     [collections, houseFollows, labels, mode, styles],
+  );
+  const followMix = useMemo(
+    () => (mode === "following" ? mixFollowing(plates, houseCards) : []),
+    [houseCards, mode, plates],
   );
 
   useEffect(() => {
@@ -236,7 +279,8 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     const raw = el.clientHeight > 0 ? el.scrollTop / el.clientHeight : 0;
     const nearest = Math.round(raw);
     if (Math.abs(raw - nearest) > 0.08) return;
-    const next = echoSnapIndex(el.scrollTop, el.clientHeight, plates.length);
+    const count = mode === "following" ? followMix.length : plates.length;
+    const next = echoSnapIndex(el.scrollTop, el.clientHeight, count);
     if (next === indexRef.current) return;
     indexRef.current = next;
   }
@@ -281,6 +325,17 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const feedStyle = housesOn && feedStyleOn && mode === "feed" ? pickFeedStyle(styles, labels) : null;
   const styleAt = feedStyle ? styleCardAfterDrop(plates.length, drop ? 3 : null) : null;
   const unseen = followingLooks(deck, followed).filter((look) => !seen.includes(look.id)).length;
+  const dividerCopy = freshDivider({
+    signedIn: Boolean(user),
+    returning,
+    freshCount: tuned.filter((look) => look.createdAt >= now - (freshWindow === "24h" ? 86400000 : freshWindow === "7d" ? 7 * 86400000 : 3 * 86400000)).length,
+  });
+  const dividerAt = dividerCopy && feedFreshOn ? freshDividerAt(plates, now, freshWindow) : null;
+  const because = feedSavesOn && user && savedIds.length > 0 ? becauseYouSaved(tuned, savedIds) : [];
+  const run = feedRunsOn ? parseMoodRun(runTitle, runIds) : null;
+  const runLooks = run ? run.lookIds.map((id) => deck.find((look) => look.id === id)).filter((look): look is Look => Boolean(look)) : [];
+  const becauseAt = becauseEvery - 1;
+  const runAt = runEvery - 1;
 
   return (
     <div className={cn("echo-stage", paperBar && "echo-stage-paper")} data-mode={mode}>
@@ -343,7 +398,9 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
       >
-        {plates.flatMap((look, plateIndex) => {
+        {mode === "following"
+          ? null
+          : plates.flatMap((look, plateIndex) => {
           const nodes = [];
           if (drop && plateIndex === 2 && mode === "feed") {
             nodes.push(
@@ -372,13 +429,19 @@ export function EchoHome({ looks }: { looks: Look[] }) {
               </article>,
             );
           }
-          if (styleAt === plateIndex && feedStyle) {
+          if (styleAt === plateIndex && feedStyle && mode === "feed") {
             const slug = feedStyle.style.collectionSlug || feedStyle.style.collectionId;
             nodes.push(
               <article className="echo-plate echo-style" key={feedStyle.style.id}>
                 <StyleFrame style={feedStyle.style} houseName={feedStyle.houseName} lineSlug={slug} />
               </article>,
             );
+          }
+          if (mode === "feed" && because.length > 0 && plateIndex === becauseAt) {
+            nodes.push(<BecausePlate key="because-saved" looks={because} />);
+          }
+          if (mode === "feed" && runLooks.length >= 5 && plateIndex === runAt) {
+            nodes.push(<RunPlate key="mood-run" title={run?.title || "Run"} looks={runLooks} />);
           }
           const kicker = echoKicker(look);
           nodes.push(
@@ -411,7 +474,9 @@ export function EchoHome({ looks }: { looks: Look[] }) {
                 ) : null}
                 <h2 className="echo-title">{look.title || "Untitled look"}</h2>
                 <span className="echo-rule" />
+                {dividerAt === plateIndex && mode === "feed" ? <p className="echo-fresh">New since your last visit</p> : null}
                 {pieceLine(look) ? <p className="echo-pieces">{pieceLine(look)}</p> : null}
+                {feedSavesOn && mode === "feed" && plateIndex > 0 ? <ShowLess lookId={look.id} onChange={setLessIds} /> : null}
               </div>
               <button
                 type="button"
@@ -427,7 +492,23 @@ export function EchoHome({ looks }: { looks: Look[] }) {
           return nodes;
         })}
         {mode === "following"
-          ? houseCards.map((card) => <FollowingHousePlate key={`${card.kind}-${card.id}`} card={card} />)
+          ? followMix.map((item) =>
+              item.kind === "house" ? (
+                <FollowingHousePlate key={`${item.card.kind}-${item.card.id}`} card={item.card} />
+              ) : (
+                <article className="echo-plate" key={item.look.id}>
+                  <Link to="/looks/$lookId" params={{ lookId: item.look.id }} className="echo-photo" aria-label={item.look.title || "Look"}>
+                    <img src={item.look.imageSrc} alt="" />
+                  </Link>
+                  <div className="echo-meta">
+                    {echoKicker(item.look) ? <p className="echo-kicker">{echoKicker(item.look)}</p> : null}
+                    <h2 className="echo-title">{item.look.title || "Untitled look"}</h2>
+                    <span className="echo-rule" />
+                    {pieceLine(item.look) ? <p className="echo-pieces">{pieceLine(item.look)}</p> : null}
+                  </div>
+                </article>
+              ),
+            )
           : null}
         {mode === "following" ? (
           <div className="echo-end">

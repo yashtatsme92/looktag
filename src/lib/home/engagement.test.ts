@@ -3,18 +3,29 @@ import { describe, it } from "node:test";
 import { SEED_COLLECTIONS, SEED_LABELS, SEED_STYLES } from "../labels/seed.ts";
 import type { Look } from "../looks/types.ts";
 import {
+  DEFAULT_CADENCE,
   DEFAULT_INTERLEAVE,
   berlinWeekKey,
+  becauseYouSaved,
+  clampCadence,
   feedFeatureStatus,
   feedModulesNote,
   feedSwitchCopy,
   followingHouseCards,
   followingLooks,
   freshDivider,
+  freshDividerAt,
   freshFirst,
+  mixFollowing,
+  moodRunState,
+  parseMoodRun,
   pickWeeklyDrop,
+  placeFeed,
+  proofFromCadence,
   pushTrail,
   refineLane,
+  savesTune,
+  showLessOrder,
   styleCardAfterDrop,
 } from "./engagement.ts";
 
@@ -121,5 +132,64 @@ describe("feed engagement", () => {
     assert.ok(cards.some((card) => card.kind === "line" && card.title === "Kinkistyles"));
     assert.ok(cards.some((card) => card.kind === "style" && card.houseName === "Atelier Noir"));
     assert.equal(followingHouseCards(SEED_LABELS, SEED_COLLECTIONS, SEED_STYLES, ["label-salt-loom"]).every((card) => card.houseId === "label-salt-loom"), true);
+  });
+
+  it("keeps the default 24 slots and only allows a rarer cadence", () => {
+    assert.equal(proofFromCadence(DEFAULT_CADENCE), DEFAULT_INTERLEAVE);
+    assert.equal(clampCadence({ dropSlot: 2 as 3, styleEvery: 8 as 12 }).dropSlot, 3);
+    assert.equal(clampCadence({ styleEvery: 8 as 12 }).styleEvery, 12);
+    assert.equal(clampCadence({ dropSlot: 4 }).dropSlot, 4);
+    const moved = placeFeed({ ...DEFAULT_CADENCE, styleEvery: 16 });
+    assert.ok(moved.notes.some((note) => note.startsWith("Style moved")));
+  });
+
+  it("tunes saves without moving the first two looks or dropping one", () => {
+    const deck = [
+      look({ id: "lead", moods: ["evening"] }),
+      look({ id: "second", moods: ["knit"] }),
+      look({ id: "quiet", moods: ["coastal"] }),
+      look({ id: "saved", moods: ["evening"] }),
+      look({ id: "again", moods: ["evening"] }),
+    ];
+    const tuned = savesTune(deck, ["saved"]);
+    assert.deepEqual(tuned.slice(0, 2).map((item) => item.id), ["lead", "second"]);
+    assert.equal(tuned.length, deck.length);
+    const muted = showLessOrder(deck, ["second"]);
+    assert.equal(muted[0]?.id, "lead");
+    assert.equal(muted.at(-1)?.id, "second");
+    assert.equal(becauseYouSaved(deck, ["saved"]).some((item) => item.id === "again"), true);
+    assert.equal(becauseYouSaved(deck, ["saved"]).some((item) => item.id === "saved"), false);
+  });
+
+  it("parses a run of five looks and refuses the word mood", () => {
+    assert.equal(parseMoodRun("After dark", "a,b,c,d,e")?.lookIds.length, 5);
+    assert.equal(parseMoodRun("Mood board", "a,b,c,d,e"), null);
+    assert.equal(moodRunState("", ""), "empty");
+    assert.equal(moodRunState("After dark", "a,b"), "attention");
+    assert.equal(moodRunState("After dark", "a,b,c,d,e"), "ready");
+  });
+
+  it("puts the fresh line on the next look and mixes Following by time", () => {
+    const now = Date.parse("2026-10-06T12:00:00Z");
+    const deck = [
+      look({ id: "new", createdAt: now - 3600_000 }),
+      look({ id: "old", createdAt: now - 10 * 86400000 }),
+    ];
+    assert.equal(freshDividerAt(deck, now), 1);
+    assert.equal(freshDividerAt([deck[1]!], now), null);
+    const mixed = mixFollowing(deck, [
+      {
+        kind: "line",
+        id: "line",
+        houseId: "h",
+        houseName: "House",
+        title: "Line",
+        imageSrc: "/looks/a.jpg",
+        lineSlug: "line",
+        createdAt: now,
+      },
+    ]);
+    assert.equal(mixed[0]?.kind, "house");
+    assert.equal(mixed[1]?.kind, "look");
   });
 });
