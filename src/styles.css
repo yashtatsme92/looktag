@@ -5361,4 +5361,144 @@ html.native-app .house-manage[data-editor="open"] .house-save {
   margin-top: 0.15rem;
 }
 
+.echo-less {
+  margin-top: 0.55rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgb(255 255 255 / 78%);
+  font-size: 0.75rem;
+  text-align: left;
+}
+
+.echo-less-ink,
+.echo-fresh-ink {
+  color: #6b6b6b;
+}
+
+.echo-fresh {
+  margin: 0 0 0.45rem;
+  color: rgb(255 255 255 / 80%);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.echo-because-row,
+.feed-because-row {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+}
+
+.echo-because-row a {
+  display: flex;
+  width: 7.5rem;
+  flex: none;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: white;
+  font-size: 0.75rem;
+}
+
+.echo-because-row img,
+.feed-run-photo img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.feed-because,
+.feed-run,
+.feed-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.feed-run {
+  display: grid;
+  grid-template-columns: 1fr 8rem auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.feed-run-title {
+  margin: 0.2rem 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+.feed-run-count,
+.feed-dock {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 0.8125rem;
+}
+
+.feed-run-nav,
+.feed-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.feed-choice {
+  height: 44px;
+  padding: 0 0.9rem;
+  border: 1px solid rgb(17 17 17 / 16%);
+  border-radius: 999px;
+  background: transparent;
+  color: #111111;
+  font-size: 0.8125rem;
+}
+
+.feed-choice.is-on {
+  border-color: #111111;
+  background: #111111;
+  color: #f4f4f4;
+}
+
+.feed-settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.feed-run-picks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feed-run-picks button {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 0.4rem;
+  padding: 0 0.75rem;
+  border: 1px solid rgb(17 17 17 / 12%);
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+}
+
+.feed-run-picks button[aria-pressed="true"] {
+  border-color: #111111;
+}
+
+.echo-chip-back-ink {
+  border-color: rgb(17 17 17 / 16%);
+  background: transparent;
+  color: #111111;
+}
+
+@media (max-width: 767px) {
+  .feed-run {
+    grid-template-columns: 1fr;
+  }
+}
+
 

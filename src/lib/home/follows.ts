@@ -3,6 +3,8 @@ export const HOUSE_FOLLOWS_KEY = "looktag-followed-houses-v1";
 export const FEED_LESS_KEY = "looktag-feed-less-v1";
 export const FOLLOWING_SEEN_KEY = "looktag-following-seen-v1";
 export const FEED_AUDIT_KEY = "looktag-feed-audit-v1";
+export const FEED_VISIT_KEY = "looktag-feed-visit-v1";
+export const FEED_DIVIDER_SEEN_KEY = "looktag-feed-divider-v1";
 
 export type FeedAudit = Record<string, { by: string; at: number }>;
 
@@ -55,5 +57,20 @@ export function writeFeedAudit(audit: FeedAudit) {
     localStorage.setItem(FEED_AUDIT_KEY, JSON.stringify(audit));
   } catch {
     // private mode
+  }
+}
+
+/** True once per browser session, and only after an earlier visit. */
+export function consumeFreshVisit(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  try {
+    const previous = localStorage.getItem(FEED_VISIT_KEY);
+    const shown = sessionStorage.getItem(FEED_DIVIDER_SEEN_KEY);
+    localStorage.setItem(FEED_VISIT_KEY, String(Date.now()));
+    if (!previous || shown) return false;
+    sessionStorage.setItem(FEED_DIVIDER_SEEN_KEY, "1");
+    return true;
+  } catch {
+    return false;
   }
 }

@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronLeft, Radio } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { BecauseRow, RunRow, ShowLess } from "@/components/home/feed-modules";
 import { FollowButton } from "@/components/home/follow-button";
 import { FollowingHouseTile } from "@/components/home/following-card";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
@@ -10,14 +11,30 @@ import { StyleFrame } from "@/components/labels/style-frame";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
 import {
   ECHO_TRAIL_CHIPS,
+  becauseYouSaved,
+  freshDivider,
+  freshDividerAt,
+  freshFirst,
   followingHouseCards,
   followingLooks,
+  mixFollowing,
+  parseMoodRun,
   pickWeeklyDrop,
   pushTrail,
   refineLane,
+  savesTune,
+  showLessOrder,
   styleCardAfterDrop,
 } from "@/lib/home/engagement";
-import { CREATOR_FOLLOWS_KEY, FOLLOWING_SEEN_KEY, HOUSE_FOLLOWS_KEY, readStoredIds, writeStoredIds } from "@/lib/home/follows";
+import {
+  CREATOR_FOLLOWS_KEY,
+  FEED_LESS_KEY,
+  FOLLOWING_SEEN_KEY,
+  HOUSE_FOLLOWS_KEY,
+  consumeFreshVisit,
+  readStoredIds,
+  writeStoredIds,
+} from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
@@ -42,11 +59,22 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const [houseFollows, setHouseFollows] = useState<string[]>([]);
   const [seen, setSeen] = useState<string[]>([]);
   const [trail, setTrail] = useState<string[]>([]);
+  const [lessIds, setLessIds] = useState<string[]>([]);
+  const [returning, setReturning] = useState(false);
+  const [now] = useState(() => Date.now());
   const housesOn = useSettingsStore((s) => s.labelsEnabled);
   const feedDropOn = useSettingsStore((s) => s.feedDrop);
   const feedStyleOn = useSettingsStore((s) => s.feedStyleCards);
   const feedFollowOn = useSettingsStore((s) => s.feedFollow);
   const feedTrailOn = useSettingsStore((s) => s.feedEchoTrail);
+  const feedFreshOn = useSettingsStore((s) => s.feedFresh);
+  const feedRunsOn = useSettingsStore((s) => s.feedRuns);
+  const feedSavesOn = useSettingsStore((s) => s.feedSaves);
+  const freshWindow = useSettingsStore((s) => s.feedFreshWindow);
+  const becauseEvery = useSettingsStore((s) => s.feedBecauseEvery);
+  const runEvery = useSettingsStore((s) => s.feedRunEvery);
+  const runTitle = useSettingsStore((s) => s.feedRunTitle);
+  const runIds = useSettingsStore((s) => s.feedRunIds);
   const { user, isPending } = useCurrentUserState();
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const savedIds = useSavedLooks((s) => s.ids);
@@ -92,7 +120,13 @@ export function WideHome({ looks }: { looks: Look[] }) {
     setFollowed(readStoredIds(CREATOR_FOLLOWS_KEY));
     setHouseFollows(readStoredIds(HOUSE_FOLLOWS_KEY));
     setSeen(readStoredIds(FOLLOWING_SEEN_KEY));
+    setLessIds(readStoredIds(FEED_LESS_KEY));
   }, [mode]);
+
+  useEffect(() => {
+    if (!user || !feedFreshOn) return;
+    setReturning(consumeFreshVisit());
+  }, [feedFreshOn, user]);
 
   useEffect(() => {
     if (deck.length === 0) return;
@@ -108,7 +142,12 @@ export function WideHome({ looks }: { looks: Look[] }) {
     setMode("lane");
   }, [deck]);
 
-  const anchor = deck.find((look) => look.id === anchorId) ?? deck[0];
+  const tuned = useMemo(() => {
+    const muted = showLessOrder(deck, lessIds);
+    const tunedSaves = feedSavesOn ? savesTune(muted, savedIds) : muted;
+    return feedFreshOn ? freshFirst(tunedSaves, now, freshWindow) : tunedSaves;
+  }, [deck, feedFreshOn, feedSavesOn, freshWindow, lessIds, now, savedIds]);
+  const anchor = (mode === "feed" ? tuned : deck).find((look) => look.id === anchorId) ?? (mode === "feed" ? tuned[0] : deck[0]);
   const plates = useMemo(() => {
     if (!anchor) return [];
     if (mode === "following") return followingLooks(deck, followed);
@@ -117,12 +156,16 @@ export function WideHome({ looks }: { looks: Look[] }) {
       return trail.reduce((list, chip) => refineLane(list, chip), lane);
     }
     if (mode === "creator") return creatorRun(anchor, deck).filter((look) => look.id !== anchor.id);
-    return deck.slice(1);
-  }, [anchor, deck, followed, mode, trail]);
+    return tuned.slice(1);
+  }, [anchor, deck, followed, mode, trail, tuned]);
 
   const houseCards = useMemo(
     () => (mode === "following" ? followingHouseCards(labels, collections, styles, houseFollows) : []),
     [collections, houseFollows, labels, mode, styles],
+  );
+  const followMix = useMemo(
+    () => (mode === "following" ? mixFollowing(plates, houseCards) : []),
+    [houseCards, mode, plates],
   );
 
   if (!anchor) return null;
@@ -133,6 +176,15 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const feedStyle = housesOn && feedStyleOn && mode === "feed" ? pickFeedStyle(styles, labels) : null;
   const styleAt = feedStyle ? styleCardAfterDrop(deck.length, drop ? 3 : null) : null;
   const unseen = followingLooks(deck, followed).filter((look) => !seen.includes(look.id)).length;
+  const dividerCopy = freshDivider({
+    signedIn: Boolean(user),
+    returning,
+    freshCount: tuned.filter((look) => look.createdAt >= now - (freshWindow === "24h" ? 86400000 : freshWindow === "7d" ? 7 * 86400000 : 3 * 86400000)).length,
+  });
+  const dividerAt = dividerCopy && feedFreshOn ? freshDividerAt(tuned, now, freshWindow) : null;
+  const because = feedSavesOn && user && savedIds.length > 0 ? becauseYouSaved(tuned, savedIds) : [];
+  const run = feedRunsOn ? parseMoodRun(runTitle, runIds) : null;
+  const runLooks = run ? run.lookIds.map((id) => deck.find((look) => look.id === id)).filter((look): look is Look => Boolean(look)) : [];
 
   function save(look: Look) {
     if (authEnabled && !isPending && !user) {
@@ -260,9 +312,22 @@ export function WideHome({ looks }: { looks: Look[] }) {
 
         <div className="wide-grid">
           {mode === "following"
-            ? houseCards.map((card) => <FollowingHouseTile key={`${card.kind}-${card.id}`} card={card} />)
-            : null}
-          {tiles.flatMap((look, index) => {
+            ? followMix.map((item) =>
+                item.kind === "house" ? (
+                  <FollowingHouseTile key={`${item.card.kind}-${item.card.id}`} card={item.card} />
+                ) : (
+                  <Tile
+                    key={item.look.id}
+                    look={item.look}
+                    kicker={echoKicker(item.look)}
+                    saved={savedIds.includes(item.look.id)}
+                    onSave={() => save(item.look)}
+                    beatAfter={false}
+                    beat=""
+                  />
+                ),
+              )
+            : tiles.flatMap((look, index) => {
             const nodes = [];
             if (drop && index === 1 && mode === "feed") {
               nodes.push(
@@ -292,6 +357,12 @@ export function WideHome({ looks }: { looks: Look[] }) {
                 />,
               );
             }
+            if (mode === "feed" && because.length > 0 && index === becauseEvery - 2) {
+              nodes.push(<BecauseRow key="because-saved" looks={because} />);
+            }
+            if (mode === "feed" && runLooks.length >= 5 && index === runEvery - 2) {
+              nodes.push(<RunRow key="feed-run" title={run?.title || "Run"} looks={runLooks} />);
+            }
             nodes.push(
               <Tile
                 key={look.id}
@@ -301,6 +372,9 @@ export function WideHome({ looks }: { looks: Look[] }) {
                 onSave={() => save(look)}
                 beatAfter={Boolean(beat) && mode === "feed" && index === 3}
                 beat={beat ?? ""}
+                fresh={dividerAt === index + 1}
+                less={feedSavesOn && mode === "feed"}
+                onLess={setLessIds}
               />,
             );
             return nodes;
@@ -425,6 +499,9 @@ function Tile({
   onSave,
   beatAfter,
   beat,
+  fresh = false,
+  less = false,
+  onLess,
 }: {
   look: Look;
   kicker: string;
@@ -432,6 +509,9 @@ function Tile({
   onSave: () => void;
   beatAfter: boolean;
   beat: string;
+  fresh?: boolean;
+  less?: boolean;
+  onLess?: (ids: string[]) => void;
 }) {
   return (
     <>
@@ -440,12 +520,14 @@ function Tile({
           <img src={look.imageSrc} alt="" />
         </Link>
         <div className="wide-tile-cap">
+          {fresh ? <p className="echo-fresh echo-fresh-ink">New since your last visit</p> : null}
           <p className="wide-kicker">{kicker}</p>
           <h3>{look.title || "Untitled look"}</h3>
           <div className="wide-tile-row">
             <span>{pieceLine(look)}</span>
             <SaveButton saved={saved} onSave={onSave} onPhoto />
           </div>
+          {less ? <ShowLess lookId={look.id} onChange={onLess} /> : null}
         </div>
       </article>
       {beatAfter ? (
