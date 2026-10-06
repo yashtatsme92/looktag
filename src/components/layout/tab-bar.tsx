@@ -18,7 +18,7 @@ export function TabBar() {
 
   return (
     <nav aria-label="App" className="tab-bar">
-      <ul className="grid h-14" style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }}>
+      <ul className="grid h-full" style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }}>
         {items.map((item) => {
           const Icon = icons[item.id];
           const active = navItemActive(item.id, pathname);
@@ -28,7 +28,7 @@ export function TabBar() {
                 to={item.to}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex h-full min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide uppercase",
+                  "relative flex h-full min-h-[44px] flex-col items-center justify-center gap-1.5 text-[11px] font-medium tracking-wide uppercase",
                   active ? "text-foreground" : "text-muted-foreground",
                 )}
               >
@@ -46,7 +46,7 @@ export function TabBar() {
             to="/login"
             aria-current={youActive ? "page" : undefined}
             className={cn(
-              "relative flex h-full min-h-[var(--target-min)] flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium tracking-wide uppercase",
+              "relative flex h-full min-h-[44px] flex-col items-center justify-center gap-1.5 text-[11px] font-medium tracking-wide uppercase",
               youActive ? "text-foreground" : "text-muted-foreground",
             )}
           >

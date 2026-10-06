@@ -341,9 +341,12 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     <div className={cn("echo-stage", paperBar && "echo-stage-paper")} data-mode={mode}>
       <header className={cn("echo-bar", paperBar ? "echo-bar-paper" : "echo-bar-photo")}>
         {paperBar ? (
-          <button type="button" className="echo-back" onClick={backToFeed} aria-label="Back to For You">
-            <ChevronLeft className="size-6" strokeWidth={1.8} />
-          </button>
+          <div className="echo-brand">
+            <button type="button" className="echo-back" onClick={backToFeed} aria-label="Back to For You">
+              <ChevronLeft className="size-5" strokeWidth={1.75} />
+            </button>
+            <span className="echo-wordmark">Looktag</span>
+          </div>
         ) : (
           <span className="echo-wordmark">Looktag</span>
         )}
