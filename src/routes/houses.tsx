@@ -4,15 +4,17 @@ import { HouseCard } from "@/components/labels/house-card";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
 import { AppShell } from "@/components/layout/app-shell";
+import { pickWeeklyDrop, type WeeklyDrop } from "@/lib/home/engagement";
 import { getHousesAvailability, listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { consumerHouseIndex, houseCoverSrc, publicLines, type FashionLabel } from "@/lib/labels/model";
+import { useSettingsStore } from "@/lib/settings/store";
 
 export const Route = createFileRoute("/houses")({
   ssr: true,
   loader: async () => {
     try {
       const open = await getHousesAvailability();
-      if (!open) return { open: false, labels: [] as FashionLabel[], covers: {} as Record<string, string> };
+      if (!open) return { open: false, labels: [] as FashionLabel[], covers: {} as Record<string, string>, drop: null as WeeklyDrop | null };
       const [labels, collections, styles] = await Promise.all([
         listFashionLabels(),
         listFashionCollections(),
@@ -26,9 +28,9 @@ export const Route = createFileRoute("/houses")({
         );
         covers[label.id] = houseCoverSrc(lines, label.coverSrc);
       }
-      return { open: true, labels, covers };
+      return { open: true, labels, covers, drop: pickWeeklyDrop(labels, collections, styles) };
     } catch {
-      return { open: true, labels: [] as FashionLabel[], covers: {} as Record<string, string> };
+      return { open: true, labels: [] as FashionLabel[], covers: {} as Record<string, string>, drop: null as WeeklyDrop | null };
     }
   },
   head: () => ({
@@ -48,6 +50,8 @@ function HousesPage() {
   const closed = useHousesClosed(seeded.open);
   const [labels, setLabels] = useState<FashionLabel[]>(seeded.labels);
   const covers = seeded.covers;
+  const feedDropOn = useSettingsStore((s) => s.feedDrop);
+  const drop = !closed && feedDropOn ? seeded.drop : null;
 
   useEffect(() => {
     if (closed) return;
@@ -96,6 +100,28 @@ function HousesPage() {
           For houses
         </Link>
       </div>
+      {drop ? (
+        <section className="house-drop" aria-label="This week's drop">
+          <Link
+            to="/houses/$labelId/$collectionId"
+            params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
+          >
+            <img src={drop.imageSrc} alt="" />
+          </Link>
+          <div>
+            <p className="house-drop-kicker">This week's drop</p>
+            <h2 className="house-drop-title">{drop.lineName}</h2>
+            <p className="house-drop-house">{drop.houseName}</p>
+            <Link
+              to="/houses/$labelId/$collectionId"
+              params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
+              className="house-ghost"
+            >
+              View Line
+            </Link>
+          </div>
+        </section>
+      ) : null}
       {empty ? (
         <p className="text-sm text-muted-foreground">No houses yet.</p>
       ) : (

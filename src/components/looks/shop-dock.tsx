@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronUp, ExternalLink } from "lucide-react";
 import { ProductList } from "@/components/looks/product-list";
+import { StylePinNote } from "@/components/labels/style-pin-note";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -175,6 +176,7 @@ export function ShopDock({
                   <span className="shop-dock-name [overflow-wrap:anywhere] whitespace-normal">
                     {pieceName}
                   </span>
+                  <StylePinNote styleId={resolved?.styleId} />
                 </span>
                 {target?.url ? (
                   <Button asChild size="sm" className="min-h-11 shrink-0 px-4">

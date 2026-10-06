@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight, Download } from "lucide-react";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
+import { FollowButton } from "@/components/home/follow-button";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { LookCard } from "@/components/looks/look-card";
@@ -28,6 +29,7 @@ function CreatorPage() {
   const { user, isPending } = useCurrentUserState();
   const standalone = useStandaloneDisplay();
   const labelsEnabled = useSettingsStore((s) => s.labelsEnabled);
+  const feedFollow = useSettingsStore((s) => s.feedFollow);
   const sessionState = resolveYouSessionState({ user, isPending });
   const admin = sessionState === "admin";
   const [data, setData] = useState<{ creator: CreatorProfile; looks: Look[] } | null | undefined>(
@@ -169,6 +171,7 @@ function CreatorPage() {
   return (
     <AppShell title={mine ? "You" : creator.displayName} largeTitle={mine} backTo={mine ? undefined : "/rank"}>
       <ScreenTitle kicker={`@${creator.handle}`}>{creator.displayName}</ScreenTitle>
+      {!mine && feedFollow ? <FollowButton creatorId={userId} name={creator.displayName} primary /> : null}
       {mine ? (
         <div className="mb-4 rounded-xl bg-card p-4 shadow-[var(--shadow-border)]">
           <p className="text-[0.65rem] tracking-[0.14em] text-muted-foreground uppercase">

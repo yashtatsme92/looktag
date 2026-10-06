@@ -1,5 +1,6 @@
 import { Camera, ChevronLeft, ImagePlus, Plus, ScanSearch } from "lucide-react";
 import { LookCanvas } from "@/components/looks/look-canvas";
+import { StyleLinkField } from "@/components/labels/style-pin-note";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import { pieceLine } from "@/lib/home/echo";
 import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
@@ -271,6 +272,7 @@ function PieceChip({
           });
         }}
       />
+      <StyleLinkField styleId={tag.styleId} onChange={(styleId) => onChange({ ...tag, styleId })} />
       <button type="button" className="create-btn-primary" onClick={onDone}>
         Done
       </button>

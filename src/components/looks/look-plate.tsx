@@ -3,6 +3,7 @@ import { useNavigate, useRouter, Link } from "@tanstack/react-router";
 import { ChevronLeft, ExternalLink, Pencil, Radio, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { FollowButton } from "@/components/home/follow-button";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { ECHO_FROM_KEY, echoKicker, pieceLine } from "@/lib/home/echo";
@@ -15,6 +16,7 @@ import { useSavedLooks } from "@/lib/looks/saved";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
+import { useSettingsStore } from "@/lib/settings/store";
 
 export function LookPlate({
   look,
@@ -33,6 +35,7 @@ export function LookPlate({
   const toggleSaved = useSavedLooks((s) => s.toggle);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const feedFollow = useSettingsStore((s) => s.feedFollow);
 
   useEffect(() => {
     hydrateSaved();
@@ -139,7 +142,14 @@ export function LookPlate({
         </div>
       </header>
       <div className="look-plate-meta">
-        {kicker ? <p className="look-plate-kicker">{kicker}</p> : null}
+        {kicker || (feedFollow && look.userId) ? (
+          <span className="echo-kicker-row">
+            {kicker ? <p className="look-plate-kicker">{kicker}</p> : null}
+            {feedFollow && look.userId ? (
+              <FollowButton creatorId={look.userId} name={look.creator || "this creator"} />
+            ) : null}
+          </span>
+        ) : null}
         <h1 className="look-plate-title">{look.title || "Untitled look"}</h1>
         <span className="look-plate-rule" />
         <div className="flex items-end justify-between gap-3">

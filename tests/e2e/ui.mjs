@@ -99,6 +99,7 @@ async function screenHome(page) {
   record("screen.home.tabs", /looks/i.test(nav) && /houses/i.test(nav) && /create/i.test(nav) && /you/i.test(nav) && !/rank/i.test(nav), nav);
   const text = await page.locator("body").innerText();
   record("screen.home.look", /Sunday Coat|Coastal|Gallery|Quiet|Studio|City/i.test(text), text.slice(0, 120));
+  record("screen.home.following", /Following/.test(text) && /For you/.test(text));
 }
 
 async function flowHomeSnap(page) {
@@ -389,11 +390,18 @@ async function screenDesktop(page) {
   record("flow.header.desktop-nav", order, String(order));
   await goto(page, "/looks/seed-sunday-coat");
   await page.getByRole("heading", { name: "Sunday Coat", exact: true }).waitFor({ timeout: 8_000 });
+  await page.getByRole("link", { name: "View Style" }).first().waitFor({ timeout: 8_000 }).catch(() => undefined);
   const lookText = await page.locator("body").innerText();
   record("screen.desktop.look", /Shop this look/.test(lookText) && !/\$/.test(lookText), lookText.slice(0, 180));
+  record(
+    "screen.desktop.style-pin",
+    /View Style/.test(lookText) && /Column Dress/.test(lookText) && !/\$/.test(lookText),
+    lookText.slice(0, 240),
+  );
   await goto(page, "/houses");
   await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 8_000 });
-  record("screen.desktop.houses", /Scouted/.test(await page.locator("body").innerText()));
+  const housesText = await page.locator("body").innerText();
+  record("screen.desktop.houses", /Scouted/.test(housesText) && /this week's drop/i.test(housesText), housesText.slice(0, 180));
   await goto(page, "/rank");
   record("screen.rank", (await page.locator("body").innerText()).length > 20);
 }

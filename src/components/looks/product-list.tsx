@@ -1,3 +1,4 @@
+import { StylePinNote } from "@/components/labels/style-pin-note";
 import { ShopOffers, priceLabel } from "@/components/looks/shop-offers";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import type { FunnelUserState } from "@/lib/looks/funnel";
@@ -97,6 +98,7 @@ export function ProductList({
                   {price.text}
                 </span>
               </button>
+              {selected ? <StylePinNote styleId={tag.styleId} /> : null}
               {shoppable && selected && target?.url ? (
                 <ShopOffers
                   tag={tag}
