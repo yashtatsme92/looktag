@@ -27,16 +27,11 @@ export function TabBar() {
               <Link
                 to={item.to}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "relative flex h-full min-h-[44px] flex-col items-center justify-center gap-1.5 text-[11px] font-medium tracking-wide uppercase",
-                  active ? "text-foreground" : "text-muted-foreground",
-                )}
+                className={cn("tab-item", active && "tab-item-on")}
               >
-                {active ? (
-                  <span className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-foreground" />
-                ) : null}
-                <Icon className="size-5" strokeWidth={active ? 2.2 : 1.8} />
-                {item.label}
+                {active ? <span className="tab-item-ind" aria-hidden /> : null}
+                <Icon className="size-5" strokeWidth={1.75} />
+                <span>{item.label}</span>
               </Link>
             </li>
           );
@@ -45,16 +40,11 @@ export function TabBar() {
           <Link
             to="/login"
             aria-current={youActive ? "page" : undefined}
-            className={cn(
-              "relative flex h-full min-h-[44px] flex-col items-center justify-center gap-1.5 text-[11px] font-medium tracking-wide uppercase",
-              youActive ? "text-foreground" : "text-muted-foreground",
-            )}
+            className={cn("tab-item", youActive && "tab-item-on")}
           >
-            {youActive ? (
-              <span className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-foreground" />
-            ) : null}
-            <UserRound className="size-5" strokeWidth={youActive ? 2.2 : 1.8} />
-            You
+            {youActive ? <span className="tab-item-ind" aria-hidden /> : null}
+            <UserRound className="size-5" strokeWidth={1.75} />
+            <span>You</span>
           </Link>
         </li>
       </ul>
