@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { CREATOR_FOLLOWS_KEY, readStoredIds, toggleStoredId, writeStoredIds } from "@/lib/home/follows";
+import { CREATOR_FOLLOWS_KEY, omitSelfFollow, readStoredIds, toggleStoredId, viewerCanFollow, writeStoredIds } from "@/lib/home/follows";
 
 export function FollowButton({
   creatorId,
@@ -19,11 +19,20 @@ export function FollowButton({
   const { user, isPending } = useCurrentUserState();
   const [ids, setIds] = useState<string[]>([]);
   const [sheet, setSheet] = useState(false);
+  const self = !viewerCanFollow(user?.id, creatorId);
   useEffect(() => {
-    setIds(readStoredIds(CREATOR_FOLLOWS_KEY));
-  }, []);
+    const stored = readStoredIds(CREATOR_FOLLOWS_KEY);
+    if (user?.id && user.id === creatorId) {
+      const next = omitSelfFollow(stored, user.id);
+      if (next.length !== stored.length) writeStoredIds(CREATOR_FOLLOWS_KEY, next);
+      return;
+    }
+    setIds(stored);
+  }, [creatorId, user?.id]);
+  if (self) return null;
   const on = ids.includes(creatorId);
   function click() {
+    if (!viewerCanFollow(user?.id, creatorId)) return;
     if (authEnabled && !isPending && !user) {
       setSheet(true);
       return;

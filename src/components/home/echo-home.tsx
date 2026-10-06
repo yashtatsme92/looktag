@@ -35,6 +35,7 @@ import {
   FOLLOWING_SEEN_KEY,
   HOUSE_FOLLOWS_KEY,
   consumeFreshVisit,
+  omitSelfFollow,
   readStoredIds,
   writeStoredIds,
 } from "@/lib/home/follows";
@@ -115,11 +116,14 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   }, [housesOn]);
 
   useEffect(() => {
-    setFollowed(readStoredIds(CREATOR_FOLLOWS_KEY));
+    const stored = readStoredIds(CREATOR_FOLLOWS_KEY);
+    const next = omitSelfFollow(stored, user?.id);
+    if (user?.id && next.length !== stored.length) writeStoredIds(CREATOR_FOLLOWS_KEY, next);
+    setFollowed(next);
     setHouseFollows(readStoredIds(HOUSE_FOLLOWS_KEY));
     setSeen(readStoredIds(FOLLOWING_SEEN_KEY));
     setLessIds(readStoredIds(FEED_LESS_KEY));
-  }, [mode]);
+  }, [mode, user?.id]);
 
   useEffect(() => {
     if (!user || !feedFreshOn) return;

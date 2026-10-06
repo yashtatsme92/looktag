@@ -31,6 +31,19 @@ export function toggleStoredId(ids: readonly string[], id: string): string[] {
   return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
 }
 
+/** Guests may follow. A signed-in shopper cannot follow their own creator id. */
+export function viewerCanFollow(viewerId: string | null | undefined, creatorId: string): boolean {
+  if (!creatorId) return false;
+  if (!viewerId) return true;
+  return viewerId !== creatorId;
+}
+
+/** Drop the viewer's own id. Other creators stay. */
+export function omitSelfFollow(ids: readonly string[], viewerId: string | null | undefined): string[] {
+  if (!viewerId) return ids.slice();
+  return ids.filter((id) => id !== viewerId);
+}
+
 export function resetFeedTuning() {
   try {
     localStorage.removeItem(FEED_LESS_KEY);
