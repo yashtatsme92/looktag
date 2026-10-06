@@ -29,6 +29,7 @@ import {
   showLessOrder,
   styleCardAfterDrop,
 } from "./engagement.ts";
+import { omitSelfFollow, viewerCanFollow } from "./follows.ts";
 
 function look(partial: Partial<Look> & Pick<Look, "id">): Look {
   return {
@@ -195,5 +196,14 @@ describe("feed engagement", () => {
     ]);
     assert.equal(mixed[0]?.kind, "house");
     assert.equal(mixed[1]?.kind, "look");
+  });
+
+  it("refuses a follow of yourself and keeps everyone else", () => {
+    assert.equal(viewerCanFollow(null, "maya"), true);
+    assert.equal(viewerCanFollow("ada", "maya"), true);
+    assert.equal(viewerCanFollow("ada", "ada"), false);
+    assert.equal(viewerCanFollow("ada", ""), false);
+    assert.deepEqual(omitSelfFollow(["ada", "maya"], "ada"), ["maya"]);
+    assert.deepEqual(omitSelfFollow(["maya"], null), ["maya"]);
   });
 });
