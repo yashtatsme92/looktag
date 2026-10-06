@@ -9,13 +9,48 @@ export const DEFAULT_INTERLEAVE =
   "1 Lead · 3 Drop · 8 Beat · 11 Style · 16 Beat · 20 Because · 24 Run";
 
 export const FEED_FEATURES = [
-  { key: "feedFollow", label: "Follow creators" },
-  { key: "feedEchoTrail", label: "Echo trail" },
-  { key: "feedFresh", label: "Fresh first" },
-  { key: "feedRuns", label: "Mood runs" },
-  { key: "feedSaves", label: "Saves tune the feed" },
-  { key: "feedDrop", label: "Weekly House drop" },
-  { key: "feedStyleCards", label: "House Style cards in feed" },
+  {
+    key: "feedFollow",
+    label: "Follow creators / Following tab",
+    detail: "Follow on creator names, the For you · Following tabs and the Following feed.",
+    settings: false,
+  },
+  {
+    key: "feedEchoTrail",
+    label: "Echo trail",
+    detail: "Up to 4 refine chips and a breadcrumb trail inside the Echo lane.",
+    settings: true,
+  },
+  {
+    key: "feedFresh",
+    label: "Fresh first",
+    detail: "Boosts recent looks in For you and shows the “New since your last visit” divider.",
+    settings: true,
+  },
+  {
+    key: "feedRuns",
+    label: "Mood runs",
+    detail: "Curated runs of 5–6 looks in For you.",
+    settings: true,
+  },
+  {
+    key: "feedSaves",
+    label: "Saves tune the feed",
+    detail: "Saves reweight For you; “Because you saved” and “Show less like this”.",
+    settings: true,
+  },
+  {
+    key: "feedDrop",
+    label: "Weekly House drop",
+    detail: "One Line from a Scouted House each week, in For you and on Houses.",
+    settings: true,
+  },
+  {
+    key: "feedStyleCards",
+    label: "House Style cards in feed",
+    detail: "Style cards from Scouted Houses in For you.",
+    settings: true,
+  },
 ] as const;
 
 export type FeedFeatureKey = (typeof FEED_FEATURES)[number]["key"];
