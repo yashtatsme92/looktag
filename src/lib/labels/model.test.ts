@@ -30,6 +30,7 @@ import {
   normalizeHouseWebsite,
   parseHouseStatus,
   queueStatusLabel,
+  lineStyleMeta,
   rankLabels,
   suggestLooks,
   toggleHouseFollow,
@@ -533,5 +534,8 @@ describe("lines and styles", () => {
     assert.deepEqual(moveLineOrder(rows, "b", "down")?.map((row) => row.id), ["a", "c", "b"]);
     assert.equal(moveLineOrder(rows, "a", "up"), null);
     assert.equal(moveLineOrder(rows, "missing", "down"), null);
+    assert.equal(lineStyleMeta("FW25", 8), "FW25 · 8 Styles");
+    assert.equal(lineStyleMeta("Evening", 1), "Evening · 1 Style");
+    assert.equal(lineStyleMeta("  ", 0), "0 Styles");
   });
 });

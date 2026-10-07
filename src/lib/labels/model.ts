@@ -282,6 +282,13 @@ export function queueStatusLabel(status: HouseStatus): string {
   return "Declined";
 }
 
+/** Line row subtitle: "FW25 · 8 Styles". A blank tag is just the count. */
+export function lineStyleMeta(tag: string, count: number): string {
+  const styles = `${count} ${count === 1 ? "Style" : "Styles"}`;
+  const trimmed = tag.trim();
+  return trimmed ? `${trimmed} · ${styles}` : styles;
+}
+
 export type HouseSessionMode = "gate" | "apply" | "manage";
 
 /** Guest stays on the gate. A signed-in house manages; everyone else applies. */

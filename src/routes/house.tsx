@@ -4,9 +4,6 @@ import { toast } from "sonner";
 import { SessionSplit } from "@/components/admin/admin-gate";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { AppShell } from "@/components/layout/app-shell";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
   applyHouse,
@@ -27,6 +24,7 @@ import { useSettingsStore } from "@/lib/settings/store";
 import {
   consumerHouseIndex,
   houseSessionMode,
+  lineStyleMeta,
   queueStatusLabel,
   type FashionCollection,
   type FashionLabel,
@@ -70,10 +68,15 @@ function HouseSession() {
         <div className="house-session">
           <header className="house-bar">
             <div className="house-bar-inner">
-              <Link to="/" className="web-wordmark">
+              <Link to="/" className="house-back house-back-phone">
+                Back to Looktag
+              </Link>
+              <span className="house-bar-title">House</span>
+              <span className="house-bar-pad" aria-hidden />
+              <Link to="/" className="web-wordmark house-wordmark">
                 Looktag
               </Link>
-              <Link to="/" className="house-back">
+              <Link to="/" className="house-back house-back-wide">
                 Back to Looktag
               </Link>
             </div>
@@ -202,6 +205,7 @@ function HouseStudio({
   const [stylePhotos, setStylePhotos] = useState<string[]>([]);
   const [styleBusy, setStyleBusy] = useState(false);
   const dragId = useRef<string | null>(null);
+  const photoDrag = useRef<number | null>(null);
 
   useEffect(() => {
     if (!house || house.status !== "approved") return;
@@ -245,17 +249,6 @@ function HouseStudio({
       toast.error(error instanceof Error ? error.message : "Could not save the house.");
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function onCover(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    try {
-      setCoverSrc(await readLookImage(file));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not read that photo.");
     }
   }
 
@@ -456,10 +449,18 @@ function HouseStudio({
   if (!managing) {
     return (
       <form className="house-apply" onSubmit={(event) => void handleSubmit(event)}>
-        <p className="ops-kicker">House</p>
-        <h1 className="ops-title">Apply</h1>
-        <p className="ops-lead">First-time house — name, city, about.</p>
-        <HouseFields name={name} city={city} bio={bio} onName={setName} onCity={setCity} onBio={setBio} />
+        <p className="studio-kicker studio-wide-only">House</p>
+        <h1 className="studio-h1">Apply</h1>
+        <p className="studio-sub">First-time house — name, city, about. No moods.</p>
+        <HouseFields
+          name={name}
+          city={city}
+          bio={bio}
+          onName={setName}
+          onCity={setCity}
+          onBio={setBio}
+          placeholders
+        />
         <button type="submit" className="house-primary" disabled={busy}>
           {busy ? "Saving…" : "Submit"}
         </button>
@@ -472,258 +473,330 @@ function HouseStudio({
     .filter((style) => style.collectionId === lineId)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
-  return (
-    <div className="house-manage" data-editor={editor ? "open" : "closed"}>
-      <form className="contents" onSubmit={(event) => void handleSubmit(event)}>
-        <section className="house-details" aria-label="House details">
-          <p className="ops-kicker">House</p>
-          <div className="ops-title-row">
-            <h1 className="ops-title">{house?.name || "House"}</h1>
-            {house ? <span className="ops-badge" data-status={house.status}>{queueStatusLabel(house.status)}</span> : null}
-          </div>
-          <HouseFields name={name} city={city} bio={bio} onName={setName} onCity={setCity} onBio={setBio} />
-          <div className="ops-field">
-            <Label htmlFor="house-website">Website</Label>
-            <Input
-              id="house-website"
-              value={website}
-              placeholder="https://atelier.example"
-              onChange={(event) => setWebsite(event.target.value)}
-            />
-          </div>
-          <div className="ops-field">
-            <Label htmlFor="house-cover">Cover</Label>
-            {coverSrc ? <img className="house-cover-preview" src={coverSrc} alt="" /> : null}
-            <div className="house-line-actions">
-              <label className="house-ghost" htmlFor="house-cover">
-                {coverSrc ? "Change cover" : "Add cover"}
-              </label>
-              {coverSrc ? (
-                <button type="button" className="house-ghost" onClick={() => setCoverSrc("")}>
-                  Remove cover
-                </button>
-              ) : null}
-            </div>
-            <input id="house-cover" className="house-file" type="file" accept="image/*" onChange={(event) => void onCover(event)} />
-          </div>
-        </section>
-        <div className="house-save">
-          <button type="submit" className="house-primary" disabled={busy}>
-            {busy ? "Saving…" : "Save changes"}
+  const styleLine =
+    editor?.kind === "style" ? collections.find((row) => row.id === editor.lineId) : null;
+  const styleLineName = styleLine?.name || lineName || "Line";
+
+  function addStyle() {
+    void (async () => {
+      const id = editor?.kind === "line" ? (editor.id ?? (await saveLine())) : null;
+      if (id) openStyle(id);
+    })();
+  }
+
+  function dropPhoto(index: number) {
+    const from = photoDrag.current;
+    photoDrag.current = null;
+    if (from == null || from === index) return;
+    setStylePhotos((current) => {
+      const next = current.slice();
+      const [item] = next.splice(from, 1);
+      if (!item) return current;
+      next.splice(index, 0, item);
+      return next;
+    });
+  }
+
+  if (editor?.kind === "style") {
+    const styleTitle = styleName.trim() || "New style";
+    return (
+      <form className="studio" data-screen="style" onSubmit={(event) => void saveStyle(event)}>
+        <header className="studio-phone-hd">
+          <button type="button" onClick={() => setEditor({ kind: "line", id: editor.lineId })}>
+            <IconChevron />
+            {styleLineName}
           </button>
+          <span className="studio-phone-title">Style</span>
+          <span className="house-bar-pad" aria-hidden />
+        </header>
+        <div className="studio-scroll">
+          <button
+            type="button"
+            className="studio-back-wide"
+            onClick={() => setEditor({ kind: "line", id: editor.lineId })}
+          >
+            <IconChevron />
+            Back to {styleLineName}
+          </button>
+          <p className="studio-kicker">{styleLineName} · Style</p>
+          <h1 className="studio-h1">{styleTitle}</h1>
+          <div className="studio-style-card">
+            <div className="studio-stack">
+              <div>
+                <span className="studio-label">Photos</span>
+                <div className="studio-photos">
+                  {stylePhotos.map((src, index) => (
+                    <div
+                      key={`${index}-${src.slice(0, 24)}`}
+                      className="studio-photo"
+                      draggable
+                      onDragStart={() => {
+                        photoDrag.current = index;
+                      }}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={() => dropPhoto(index)}
+                    >
+                      <img src={src} alt={`Photo ${index + 1}`} />
+                    </div>
+                  ))}
+                  {stylePhotos.length < 6 ? (
+                    <label className="studio-addph" htmlFor="style-photos">
+                      <IconPlus />
+                      <span>Add photo</span>
+                    </label>
+                  ) : null}
+                </div>
+                <input
+                  id="style-photos"
+                  className="house-file"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(event) => void onStylePhotos(event)}
+                />
+                <p className="studio-photo-note">First photo is the cover. Drag to reorder.</p>
+              </div>
+              <div>
+                <label className="studio-label" htmlFor="style-name">
+                  Style name
+                </label>
+                <input
+                  id="style-name"
+                  className="studio-field"
+                  required
+                  minLength={2}
+                  value={styleName}
+                  onChange={(event) => setStyleName(event.target.value)}
+                />
+              </div>
+              <div>
+                <label className="studio-label" htmlFor="style-note">
+                  Description
+                </label>
+                <textarea
+                  id="style-note"
+                  className="studio-area"
+                  rows={3}
+                  value={styleNote}
+                  onChange={(event) => setStyleNote(event.target.value)}
+                />
+              </div>
+            </div>
+            <div className="studio-card-save studio-wide-only">
+              <button type="submit" className="house-primary" disabled={styleBusy}>
+                {styleBusy ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
         </div>
-      </form>
-      {editor?.kind === "style" ? (
-        <form className="house-editor" onSubmit={(event) => void saveStyle(event)}>
-          <button type="button" className="house-ghost" onClick={() => setEditor({ kind: "line", id: editor.lineId })}>
-            Back
-          </button>
-          <h2 className="ops-section">{editor.id ? "Style" : "New style"}</h2>
-          <div className="house-photos">
-            {stylePhotos.map((src, index) => (
-              <figure key={`${index}-${src.slice(0, 24)}`} className="house-photo">
-                <img src={src} alt="" />
-                <button
-                  type="button"
-                  className="house-ghost"
-                  aria-label={`Remove photo ${index + 1}`}
-                  onClick={() => setStylePhotos((current) => current.filter((_, photo) => photo !== index))}
-                >
-                  Remove
-                </button>
-              </figure>
-            ))}
-          </div>
-          {stylePhotos.length < 6 ? (
-            <div className="ops-field">
-              <label className="house-ghost" htmlFor="style-photos">
-                Add photo
-              </label>
-              <input
-                id="style-photos"
-                className="house-file"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(event) => void onStylePhotos(event)}
-              />
-            </div>
-          ) : null}
-          <div className="ops-field">
-            <Label htmlFor="style-name">Name</Label>
-            <Input
-              id="style-name"
-              required
-              minLength={2}
-              value={styleName}
-              placeholder="Column Dress"
-              onChange={(event) => setStyleName(event.target.value)}
-            />
-          </div>
-          <div className="ops-field">
-            <Label htmlFor="style-note">Description</Label>
-            <Textarea
-              id="style-note"
-              rows={3}
-              value={styleNote}
-              placeholder="A black wool column. No price."
-              onChange={(event) => setStyleNote(event.target.value)}
-            />
-          </div>
+        <div className="studio-save studio-phone-only">
           <button type="submit" className="house-primary" disabled={styleBusy}>
             {styleBusy ? "Saving…" : "Save changes"}
           </button>
-        </form>
-      ) : editor?.kind === "line" ? (
-        <section className="house-editor" aria-label="Line">
-          <button type="button" className="house-ghost" onClick={() => setEditor(null)}>
-            Back
+        </div>
+      </form>
+    );
+  }
+
+  if (editor?.kind === "line") {
+    const lineTitle = lineName.trim() || "New line";
+    const emptyStyles = lineStyles.length === 0;
+    return (
+      <section className="studio" data-screen="line" aria-label="Line">
+        <header className="studio-phone-hd">
+          <button type="button" onClick={() => setEditor(null)}>
+            <IconChevron />
+            Lines
           </button>
-          <h2 className="ops-section">{editor.id ? "Line" : "New line"}</h2>
-          <div className="ops-field">
-            <Label htmlFor="line-name">Name</Label>
-            <Input
-              id="line-name"
-              required
-              minLength={2}
-              value={lineName}
-              placeholder="Kinkistyles"
-              onChange={(event) => setLineName(event.target.value)}
-            />
+          <span className="studio-phone-title">Line</span>
+          <span className="house-bar-pad" aria-hidden />
+        </header>
+        <div className="studio-scroll">
+          <button type="button" className="studio-back-wide" onClick={() => setEditor(null)}>
+            <IconChevron />
+            Back to Lines
+          </button>
+          <p className="studio-kicker">{house?.name || "House"} · Line</p>
+          <h1 className="studio-h1">{lineTitle}</h1>
+          <div className="studio-split">
+            <div className="studio-fields">
+              <div className="studio-stack">
+                <div>
+                  <label className="studio-label" htmlFor="line-name">
+                    Line name
+                  </label>
+                  <input
+                    id="line-name"
+                    className="studio-field"
+                    required
+                    minLength={2}
+                    value={lineName}
+                    onChange={(event) => setLineName(event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="studio-label" htmlFor="line-tag">
+                    Tag
+                  </label>
+                  <input
+                    id="line-tag"
+                    className="studio-field"
+                    value={lineTag}
+                    placeholder="Tag (optional)"
+                    onChange={(event) => setLineTag(event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="studio-label" htmlFor="line-note">
+                    Note
+                  </label>
+                  <textarea
+                    id="line-note"
+                    className="studio-area"
+                    rows={2}
+                    value={lineNote}
+                    onChange={(event) => setLineNote(event.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="studio-card-save studio-wide-only">
+                <button
+                  type="button"
+                  className={emptyStyles ? "house-primary ol" : "house-primary"}
+                  disabled={lineBusy}
+                  onClick={() => void saveLine()}
+                >
+                  {lineBusy ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </div>
+            <div className="studio-styles">
+              <div className="studio-head">
+                <h2>Styles</h2>
+                {emptyStyles ? null : (
+                  <button type="button" className="studio-sm" disabled={lineBusy} onClick={addStyle}>
+                    Add style
+                  </button>
+                )}
+              </div>
+              {emptyStyles ? (
+                <div className="studio-empty">
+                  <p>No Styles in this Line yet.</p>
+                  <button type="button" className="house-primary" disabled={lineBusy} onClick={addStyle}>
+                    Add style
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  {lineStyles.map((style, index) => (
+                    <StudioRow
+                      key={style.id}
+                      name={style.name}
+                      thumb={style.imageSrc}
+                      onDragStart={() => {
+                        dragId.current = style.id;
+                      }}
+                      onDrop={() => void dropStyle(style.id, style.collectionId)}
+                      onUp={() => void moveStyle(style.id, "up")}
+                      onDown={() => void moveStyle(style.id, "down")}
+                      upDisabled={index === 0}
+                      downDisabled={index === lineStyles.length - 1}
+                      onEdit={() => openStyle(style.collectionId, style)}
+                      onRemove={() => void removeStyle(style)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="ops-field">
-            <Label htmlFor="line-tag">Tag</Label>
-            <Input id="line-tag" value={lineTag} placeholder="Capsule" onChange={(event) => setLineTag(event.target.value)} />
-          </div>
-          <div className="ops-field">
-            <Label htmlFor="line-note">Note</Label>
-            <Textarea
-              id="line-note"
-              rows={3}
-              value={lineNote}
-              placeholder="Sculptural black."
-              onChange={(event) => setLineNote(event.target.value)}
-            />
-          </div>
-          <button type="button" className="house-primary" disabled={lineBusy} onClick={() => void saveLine()}>
+        </div>
+        <div className="studio-save studio-phone-only">
+          <button
+            type="button"
+            className={emptyStyles ? "house-primary ol" : "house-primary"}
+            disabled={lineBusy}
+            onClick={() => void saveLine()}
+          >
             {lineBusy ? "Saving…" : "Save changes"}
           </button>
-          <div className="house-collections-head">
-            <h3 className="ops-section">Styles</h3>
-            <button
-              type="button"
-              className="house-ghost"
-              disabled={lineBusy}
-              onClick={() => {
-                void (async () => {
-                  const id = editor.id ?? (await saveLine());
-                  if (id) openStyle(id);
-                })();
-              }}
-            >
-              Add style
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <div className="house-manage" data-editor="closed">
+      <div className="house-manage-scroll">
+        <div className="house-left">
+          <form
+            id="house-form"
+            className="house-details"
+            aria-label="House details"
+            onSubmit={(event) => void handleSubmit(event)}
+          >
+            <p className="studio-kicker studio-wide-only">House</p>
+            <div className="studio-title-row">
+              <h1 className="studio-h1">{house?.name || "House"}</h1>
+              {house ? (
+                <span className="ops-badge" data-status={house.status}>
+                  {queueStatusLabel(house.status)}
+                </span>
+              ) : null}
+            </div>
+            <HouseFields name={name} city={city} bio={bio} onName={setName} onCity={setCity} onBio={setBio} />
+            <div>
+              <label className="studio-label" htmlFor="house-website">
+                Website
+              </label>
+              <input
+                id="house-website"
+                className="studio-field"
+                value={website}
+                onChange={(event) => setWebsite(event.target.value)}
+              />
+            </div>
+          </form>
+          <div className="house-save">
+            <button type="submit" form="house-form" className="house-primary" disabled={busy}>
+              {busy ? "Saving…" : "Save changes"}
             </button>
           </div>
-          {lineStyles.length === 0 ? (
-            <p className="ops-lead">No Styles in this Line yet.</p>
-          ) : (
-            <ul className="ops-collections">
-              {lineStyles.map((style, index) => (
-                <li
-                  key={style.id}
-                  className="ops-collection"
-                  draggable
-                  onDragStart={() => {
-                    dragId.current = style.id;
-                  }}
-                  onDragOver={(event: DragEvent) => event.preventDefault()}
-                  onDrop={() => void dropStyle(style.id, style.collectionId)}
-                >
-                  <img className="house-thumb" src={style.imageSrc} alt="" />
-                  <div>
-                    <p className="ops-row-title">{style.name}</p>
-                  </div>
-                  <div className="house-line-actions">
-                    <button type="button" className="house-ghost" disabled={index === 0} onClick={() => void moveStyle(style.id, "up")}>
-                      Move up
-                    </button>
-                    <button
-                      type="button"
-                      className="house-ghost"
-                      disabled={index === lineStyles.length - 1}
-                      onClick={() => void moveStyle(style.id, "down")}
-                    >
-                      Move down
-                    </button>
-                    <button type="button" className="house-ghost" onClick={() => openStyle(style.collectionId, style)}>
-                      Edit
-                    </button>
-                    <button type="button" className="house-ghost" aria-label={`Remove ${style.name}`} onClick={() => void removeStyle(style)}>
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ) : (
+        </div>
         <section className="house-collections" aria-label="Lines">
-          <div className="house-collections-head">
-            <h2 className="ops-section">Lines</h2>
-            <button type="button" className="house-ghost" onClick={() => openLine()}>
+          <div className="studio-head">
+            <h2>Lines</h2>
+            <button type="button" className="studio-sm" onClick={() => openLine()}>
               Add line
             </button>
           </div>
           {collections.length === 0 ? (
-            <p className="ops-lead">No Lines yet. Add your first Line.</p>
+            <p className="studio-empty-lines">No Lines yet. Add your first Line.</p>
           ) : (
-            <ul className="ops-collections">
-              {collections.map((collection, index) => (
-                <li
-                  key={collection.id}
-                  className="ops-collection"
-                  draggable
-                  onDragStart={() => {
-                    dragId.current = collection.id;
-                  }}
-                  onDragOver={(event: DragEvent) => event.preventDefault()}
-                  onDrop={() => void dropLine(collection.id)}
-                >
-                  <div>
-                    <p className="ops-row-title">{collection.name}</p>
-                    <p className="ops-row-note">{collection.season || "—"}</p>
-                  </div>
-                  <div className="house-line-actions">
-                    <button type="button" className="house-ghost" disabled={index === 0} onClick={() => void moveLine(collection.id, "up")}>
-                      Move up
-                    </button>
-                    <button
-                      type="button"
-                      className="house-ghost"
-                      disabled={index === collections.length - 1}
-                      onClick={() => void moveLine(collection.id, "down")}
-                    >
-                      Move down
-                    </button>
-                    <button type="button" className="house-ghost" onClick={() => openLine(collection)}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="house-ghost"
-                      aria-label={`Remove ${collection.name}`}
-                      onClick={() => void handleRemoveCollection(collection.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div>
+              {collections.map((collection, index) => {
+                const count = styles.filter((style) => style.collectionId === collection.id).length;
+                return (
+                  <StudioRow
+                    key={collection.id}
+                    name={collection.name}
+                    meta={lineStyleMeta(collection.season, count)}
+                    onDragStart={() => {
+                      dragId.current = collection.id;
+                    }}
+                    onDrop={() => void dropLine(collection.id)}
+                    onUp={() => void moveLine(collection.id, "up")}
+                    onDown={() => void moveLine(collection.id, "down")}
+                    upDisabled={index === 0}
+                    downDisabled={index === collections.length - 1}
+                    onEdit={() => openLine(collection)}
+                    onRemove={() => void handleRemoveCollection(collection.id)}
+                  />
+                );
+              })}
+            </div>
           )}
         </section>
-      )}
+      </div>
     </div>
   );
 }
@@ -750,6 +823,7 @@ function HouseFields({
   onName,
   onCity,
   onBio,
+  placeholders = false,
 }: {
   name: string;
   city: string;
@@ -757,41 +831,169 @@ function HouseFields({
   onName: (value: string) => void;
   onCity: (value: string) => void;
   onBio: (value: string) => void;
+  placeholders?: boolean;
 }) {
   return (
-    <div className="house-fields">
-      <div className="ops-field">
-        <Label htmlFor="house-name">House name</Label>
-        <Input
+    <div className="studio-stack">
+      <div>
+        <label className="studio-label" htmlFor="house-name">
+          House name
+        </label>
+        <input
           id="house-name"
+          className="studio-field"
           required
           minLength={2}
           value={name}
           autoComplete="organization"
-          placeholder="Atelier Noir"
+          placeholder={placeholders ? "House name" : undefined}
           onChange={(event) => onName(event.target.value)}
         />
       </div>
-      <div className="ops-field">
-        <Label htmlFor="house-city">City</Label>
-        <Input
+      <div>
+        <label className="studio-label" htmlFor="house-city">
+          City
+        </label>
+        <input
           id="house-city"
+          className="studio-field"
           value={city}
           autoComplete="address-level2"
-          placeholder="Paris"
+          placeholder={placeholders ? "City" : undefined}
           onChange={(event) => onCity(event.target.value)}
         />
       </div>
-      <div className="ops-field">
-        <Label htmlFor="house-bio">About</Label>
-        <Textarea
+      <div>
+        <label className="studio-label" htmlFor="house-bio">
+          About
+        </label>
+        <textarea
           id="house-bio"
-          rows={3}
+          className={placeholders ? "studio-area studio-area-apply" : "studio-area"}
+          rows={placeholders ? 4 : 2}
           value={bio}
-          placeholder="Charcoal coats and numbered cuts."
+          placeholder={placeholders ? "Short about" : undefined}
           onChange={(event) => onBio(event.target.value)}
         />
       </div>
     </div>
+  );
+}
+
+function StudioRow({
+  name,
+  meta,
+  thumb,
+  upDisabled,
+  downDisabled,
+  onDragStart,
+  onDrop,
+  onUp,
+  onDown,
+  onEdit,
+  onRemove,
+}: {
+  name: string;
+  meta?: string;
+  thumb?: string;
+  upDisabled: boolean;
+  downDisabled: boolean;
+  onDragStart: () => void;
+  onDrop: () => void;
+  onUp: () => void;
+  onDown: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="lrow" onDragOver={(event: DragEvent) => event.preventDefault()} onDrop={onDrop}>
+      <div className="lrow-top">
+        <span
+          className="lrow-grip"
+          draggable
+          aria-hidden
+          onDragStart={onDragStart}
+        >
+          <IconGrip />
+        </span>
+        {thumb ? <img className="lrow-thumb" src={thumb} alt="" /> : null}
+        <div className="lrow-text">
+          <p className="t1">{name}</p>
+          {meta ? <p className="t2">{meta}</p> : null}
+        </div>
+        <button type="button" className="studio-sm studio-edit" aria-label={`Edit ${name}`} onClick={onEdit}>
+          Edit
+        </button>
+      </div>
+      <div className="lrow-bot">
+        <button
+          type="button"
+          className="studio-sq studio-up"
+          aria-label={`Move ${name} up`}
+          disabled={upDisabled}
+          onClick={onUp}
+        >
+          <IconUp />
+        </button>
+        <button
+          type="button"
+          className="studio-sq studio-down"
+          aria-label={`Move ${name} down`}
+          disabled={downDisabled}
+          onClick={onDown}
+        >
+          <IconDown />
+        </button>
+        <span className="lrow-spacer" />
+        <button type="button" className="studio-sm studio-remove" aria-label={`Remove ${name}`} onClick={onRemove}>
+          Remove
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function IconChevron() {
+  return (
+    <svg className="studio-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14.75 5.4 8.15 12l6.6 6.6" />
+    </svg>
+  );
+}
+
+function IconGrip() {
+  return (
+    <svg className="studio-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="9" cy="6" r="1.2" />
+      <circle cx="15" cy="6" r="1.2" />
+      <circle cx="9" cy="12" r="1.2" />
+      <circle cx="15" cy="12" r="1.2" />
+      <circle cx="9" cy="18" r="1.2" />
+      <circle cx="15" cy="18" r="1.2" />
+    </svg>
+  );
+}
+
+function IconUp() {
+  return (
+    <svg className="studio-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="m6.6 14.75 5.4-5.4 5.4 5.4" />
+    </svg>
+  );
+}
+
+function IconDown() {
+  return (
+    <svg className="studio-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="m6.6 9.25 5.4 5.4 5.4-5.4" />
+    </svg>
+  );
+}
+
+function IconPlus() {
+  return (
+    <svg className="studio-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
   );
 }
