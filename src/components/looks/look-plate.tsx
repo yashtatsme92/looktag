@@ -1,17 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useRouter, Link } from "@tanstack/react-router";
-import { ChevronLeft, ExternalLink, Pencil, Radio, Share2 } from "lucide-react";
+import { ChevronLeft, ExternalLink, Pencil, Radio, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { FollowButton } from "@/components/home/follow-button";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
+import { useStylePin } from "@/components/labels/style-pin-note";
 import { LookCanvas } from "@/components/looks/look-canvas";
+import { PieceThumb } from "@/components/looks/piece-thumb";
 import { ECHO_FROM_KEY, echoKicker, pieceLine } from "@/lib/home/echo";
 import { shouldUseHistoryBack, markEditOpenedFromLook } from "@/lib/nav/back";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
-import { visualShopTarget } from "@/lib/looks/offers";
+import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
+import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
@@ -41,8 +44,40 @@ export function LookPlate({
     hydrateSaved();
   }, [hydrateSaved]);
 
+  const swipeRef = useRef<number | null>(null);
   const focus = look.tags.find((tag) => tag.id === selectedId) ?? look.tags[0] ?? null;
+  const spotlight = selectedId ? (look.tags.find((tag) => tag.id === selectedId) ?? null) : null;
+  const spotlightIndex = spotlight ? look.tags.indexOf(spotlight) : -1;
+  const stylePin = useStylePin(spotlight?.styleId);
+  const spotlightTarget = spotlight ? visualShopTarget(spotlight) : null;
+
+  /** Swipe the piece card to move to the next or previous pin. */
+  function stepSpotlight(direction: 1 | -1) {
+    if (look.tags.length < 2 || spotlightIndex < 0) return;
+    const next = (spotlightIndex + direction + look.tags.length) % look.tags.length;
+    setSelectedId(look.tags[next].id);
+  }
   const kicker = echoKicker(look);
+
+  /** Esc, or a tap on the bare plate, clears the spotlight. Pins and the card keep it. */
+  useEffect(() => {
+    if (!selectedId) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedId(null);
+    }
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Element | null;
+      if (!target?.closest(".look-plate-canvas")) return;
+      if (target.closest(".tag-pin, .look-plate-piece")) return;
+      setSelectedId(null);
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [selectedId]);
 
   function save() {
     if (authEnabled && !isPending && !user) {
@@ -89,6 +124,16 @@ export function LookPlate({
     });
   }
 
+  /** One destination per tap: the first pin that has a visual shop target. */
+  function shopWholeLook() {
+    const tag = look.tags.find((item) => visualShopTarget(item)?.url);
+    if (!tag) {
+      toast.message("No close match yet");
+      return;
+    }
+    shop(tag);
+  }
+
   return (
     <div className="look-plate">
       <LookCanvas
@@ -100,6 +145,81 @@ export function LookPlate({
         fit="fill"
         className="look-plate-canvas"
       />
+      {spotlight ? <div className="look-plate-vignette" aria-hidden /> : null}
+      {spotlight ? (
+        <div
+          className="look-plate-piece"
+          data-side={spotlight.y > 50 ? "top" : "bottom"}
+          data-h={spotlight.x > 50 ? "left" : "right"}
+          role="dialog"
+          aria-label="Selected piece"
+          onPointerDown={(event) => {
+            swipeRef.current = event.clientX;
+          }}
+          onPointerUp={(event) => {
+            const start = swipeRef.current;
+            swipeRef.current = null;
+            if (start === null) return;
+            const dx = event.clientX - start;
+            if (Math.abs(dx) > 48) stepSpotlight(dx < 0 ? 1 : -1);
+          }}
+        >
+          <div className="look-plate-piece-row">
+            <PieceThumb
+              lookSrc={look.imageSrc}
+              x={spotlight.x}
+              y={spotlight.y}
+              productSrc={tagOffers(spotlight).find((offer) => offer.imageUrl)?.imageUrl}
+              size="md"
+            />
+            <div className="look-plate-piece-text">
+              {stylePin ? (
+                <>
+                  <span className="look-plate-piece-name">{stylePin.styleName}</span>
+                  <span className="look-plate-piece-retailer">{stylePin.houseName}</span>
+                </>
+              ) : (
+                <>
+                  <span className="look-plate-piece-name">{spotlight.name || "Piece"}</span>
+                  <span className="look-plate-piece-retailer">
+                    {spotlightTarget ? retailerLabel(spotlight) : "No close match yet"}
+                  </span>
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              className="look-plate-piece-x"
+              aria-label="Dismiss"
+              onClick={() => setSelectedId(null)}
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          {stylePin || spotlightTarget ? (
+            <div className="look-plate-piece-actions">
+              {stylePin ? (
+                <Link
+                  to="/houses/$labelId/$collectionId/$styleId"
+                  params={{
+                    labelId: stylePin.labelId,
+                    collectionId: stylePin.lineSlug,
+                    styleId: stylePin.styleId,
+                  }}
+                  className="look-plate-piece-view"
+                >
+                  View Style
+                </Link>
+              ) : null}
+              {spotlightTarget ? (
+                <button type="button" className="look-plate-piece-shop" onClick={() => shop(spotlight)}>
+                  Shop
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <header className="look-plate-bar">
         <button
           type="button"
@@ -154,9 +274,7 @@ export function LookPlate({
         <span className="look-plate-rule" />
         <div className="flex items-end justify-between gap-3">
           <div>
-            {selectedId && focus?.name ? (
-              <p className="look-plate-pieces">{focus.name}</p>
-            ) : pieceLine(look) ? (
+            {pieceLine(look) ? (
               <p className="look-plate-pieces">{pieceLine(look)}</p>
             ) : null}
             <button
@@ -175,10 +293,20 @@ export function LookPlate({
               Echo
             </button>
           </div>
-          <button type="button" className="look-plate-shop" onClick={() => (focus ? shop(focus) : toast.message("No pieces on this look yet"))}>
-            Shop
-            <ExternalLink className="size-4" />
-          </button>
+          {spotlight ? (
+            <button
+              type="button"
+              className="look-plate-shop-whole"
+              onClick={() => (look.tags.length ? shopWholeLook() : toast.message("No pieces on this look yet"))}
+            >
+              Shop whole look
+            </button>
+          ) : (
+            <button type="button" className="look-plate-shop" onClick={() => (focus ? shop(focus) : toast.message("No pieces on this look yet"))}>
+              Shop
+              <ExternalLink className="size-4" />
+            </button>
+          )}
         </div>
       </div>
 
