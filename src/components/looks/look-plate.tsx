@@ -65,7 +65,11 @@ export function LookPlate({
   useEffect(() => {
     if (!selectedId) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setSelectedId(null);
+      if (event.key !== "Escape") return;
+      // Esc belongs to whichever sheet is open (account sheet, Shop sheet); only a bare Esc clears the spotlight.
+      if (event.defaultPrevented || sheetOpen || shopSheetOpen) return;
+      if ((event.target as Element | null)?.closest?.("[data-vaul-drawer], .look-sheet")) return;
+      setSelectedId(null);
     }
     function onPointerDown(event: PointerEvent) {
       const target = event.target as Element | null;
@@ -79,7 +83,7 @@ export function LookPlate({
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [selectedId]);
+  }, [selectedId, sheetOpen, shopSheetOpen]);
 
   function save() {
     if (authEnabled && !isPending && !user) {

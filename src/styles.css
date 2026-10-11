@@ -2943,6 +2943,20 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   outline: none;
 }
 
+/* Tablet and up: a centred sheet, about 600px wide with 24px padding (frames L-T2 and RESPONSIVE-PATTERN 11). Phone stays full-bleed. */
+@media (min-width: 768px) {
+  /* While the tablet sheet is open the caption and bottom bar step aside so nothing peeks out beside the 600px sheet. */
+  .look-plate[data-sheet="open"] .look-plate-meta {
+    visibility: hidden;
+  }
+
+  .look-sheet {
+    width: min(37.5rem, 100%);
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+}
+
 .look-sheet-grab {
   align-self: center;
   width: 2.25rem;

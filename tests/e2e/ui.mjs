@@ -262,12 +262,71 @@ async function flowLookShopSheet(page) {
   await page.locator(".look-sheet-whole").click();
   const opens = await page.evaluate(() => window.__opens);
   record("flow.look.shop-sheet-whole-one", opens.length === 1, JSON.stringify(opens));
+  // Dialog semantics: modal, focus inside, Tab cycles inside the sheet.
+  const modal = await sheet.getAttribute("aria-modal");
+  const focusedInside = await page.evaluate(() => document.activeElement?.closest(".look-sheet") !== null);
+  const tabbed = [];
+  for (let i = 0; i < 14; i += 1) {
+    await page.keyboard.press("Tab");
+    tabbed.push(await page.evaluate(() => document.activeElement?.closest(".look-sheet") !== null));
+  }
+  await page.keyboard.press("Shift+Tab");
+  const shiftInside = await page.evaluate(() => document.activeElement?.closest(".look-sheet") !== null);
+  record(
+    "flow.look.shop-sheet-focus-trap",
+    modal === "true" && focusedInside && tabbed.every(Boolean) && shiftInside,
+    JSON.stringify({ modal, focusedInside, tabbed: tabbed.filter((x) => !x).length, shiftInside }),
+  );
   await page.keyboard.press("Escape");
   const closedByEsc = (await sheet.count()) === 0;
+  const openerFocused = await page
+    .waitForFunction(() => document.activeElement?.classList.contains("look-plate-shop") ?? false, null, { timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+  const activeAfter = await page.evaluate(() => document.activeElement?.className || document.activeElement?.tagName);
+  record("flow.look.shop-sheet-focus-return", closedByEsc && openerFocused, String(activeAfter));
   await page.locator(".look-plate-shop").click();
   await sheet.waitFor({ timeout: 4_000 });
   await page.mouse.click(195, 60);
   record("flow.look.shop-sheet-dismiss", closedByEsc && (await sheet.count()) === 0, `esc=${closedByEsc}`);
+}
+
+/** Tablet: the Shop sheet is centred and about 600px wide; Esc with the account sheet open keeps the pin card. */
+async function flowLookShopSheetTablet(page) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.locator(".look-plate-shop").click();
+  const sheet = page.getByRole("dialog", { name: "Shop this look" });
+  await sheet.waitFor({ timeout: 4_000 });
+  await page.waitForTimeout(450);
+  const m = await page.evaluate(() => {
+    const r = document.querySelector(".look-sheet").getBoundingClientRect();
+    return { left: r.left, right: r.right, width: r.width, vw: window.innerWidth };
+  });
+  record(
+    "flow.look.shop-sheet-tablet-width",
+    m.width >= 560 && m.width <= 604 && Math.abs(m.left - (m.vw - m.right)) <= 1,
+    JSON.stringify(m),
+  );
+  await page.keyboard.press("Escape");
+  await sheet.waitFor({ state: "detached", timeout: 3_000 }).catch(() => undefined);
+  record("flow.look.shop-sheet-tablet-esc", (await sheet.count()) === 0);
+}
+
+/** Esc closes the account sheet and leaves the pin card (and its place on the plate) alone. */
+async function flowEscAccountSheet(page, label) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
+  await page.locator(".look-plate .tag-pin").nth(1).click();
+  const card = page.getByRole("dialog", { name: "Selected piece" });
+  await card.waitFor({ timeout: 4_000 });
+  await page.getByRole("button", { name: "Save look" }).click();
+  await page.locator("[data-vaul-drawer]").waitFor({ timeout: 5_000 });
+  await page.keyboard.press("Escape");
+  const sheetClosed = await page
+    .waitForFunction(() => document.querySelectorAll("[data-vaul-drawer]").length === 0, null, { timeout: 4_000 })
+    .then(() => true)
+    .catch(() => false);
+  record(`flow.look.esc-account-sheet-${label}`, sheetClosed && (await card.count()) === 1, `sheetClosed=${sheetClosed} card=${await card.count()}`);
 }
 
 async function screenLook(page) {
@@ -679,6 +738,7 @@ try {
     await screenLook(page);
     await screenLookTabbar(page);
     await flowLookShopSheet(page);
+    await flowEscAccountSheet(page, "phone");
     await screenCreateEntry(page);
     await screenHouses(page);
     await flowHouseGate(page);
@@ -699,6 +759,8 @@ try {
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
+    await flowLookShopSheetTablet(page);
+    await flowEscAccountSheet(page, "tablet");
     await screenHousesTablet(page);
   }, "ui-tablet", { viewport: { width: 834, height: 1112 } });
 
