@@ -129,6 +129,9 @@ export function LookPlate({
   /** Esc, arrow keys and taps on the bare plate act on this plate only, never on the whole document. */
   function onPlateKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (!selectedId) return;
+    // React bubbles events out of portals (the account sheet); only keys typed inside the plate's own DOM belong here.
+    if (event.defaultPrevented || sheetOpen) return;
+    if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
     if (event.key === "Escape") {
       event.stopPropagation();
       dismiss();

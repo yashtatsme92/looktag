@@ -124,11 +124,6 @@ function ProductRow({
             {price.text}
           </span>
         </button>
-        {selected && stylePin ? (
-          <div className="mt-2">
-            <StyleViewLink pin={stylePin} />
-          </div>
-        ) : null}
         {shoppable && selected && target?.url ? (
           <ShopOffers
             tag={tag}
@@ -136,6 +131,11 @@ function ProductRow({
             mode={primaryInDock ? "compare" : "shop"}
             userState={userState}
           />
+        ) : null}
+        {selected && stylePin ? (
+          <div className="mt-2">
+            <StyleViewLink pin={stylePin} />
+          </div>
         ) : null}
       </div>
     </li>

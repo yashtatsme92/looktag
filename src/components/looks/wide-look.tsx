@@ -312,7 +312,6 @@ function WidePieceRow({
         </span>
       </button>
       <div className="wide-prow-acts">
-        {stylePin ? <StyleViewLink pin={stylePin} /> : null}
         {target ? (
           <button
             type="button"
@@ -323,6 +322,7 @@ function WidePieceRow({
             Shop
           </button>
         ) : null}
+        {stylePin ? <StyleViewLink pin={stylePin} /> : null}
       </div>
     </div>
   );

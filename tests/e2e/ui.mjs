@@ -152,6 +152,54 @@ async function flowHomeSnap(page) {
   record("flow.home.snap-chrome", after.navTop === before.navTop, `${before.navTop} -> ${after.navTop}`);
 }
 
+/** Phone look detail keeps the 4-tab bar: the photo is full-bleed and ends where the bar starts. */
+async function screenLookTabbar(page) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.locator(".look-plate").waitFor({ timeout: 10_000 });
+  const read = () =>
+    page.evaluate(() => {
+      const box = (selector) => {
+        const el = document.querySelector(selector);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, height: r.height, display: getComputedStyle(el).display };
+      };
+      return {
+        tab: box(".tab-bar"),
+        plate: box(".look-plate"),
+        card: box(".look-plate-piece"),
+        echo: box(".look-plate-echo"),
+        items: [...document.querySelectorAll(".tab-bar .tab-item")].map((el) => el.textContent?.trim()),
+        vh: window.innerHeight,
+      };
+    });
+  const m = await read();
+  record(
+    "screen.look.tabbar",
+    Boolean(m.tab && m.plate) &&
+      m.tab.display !== "none" &&
+      m.tab.height >= 72 &&
+      m.items.length === 4 &&
+      m.plate.top <= 1 &&
+      Math.abs(m.plate.bottom - m.tab.top) <= 1 &&
+      Math.abs(m.tab.bottom - m.vh) <= 1 &&
+      m.echo.bottom <= m.tab.top,
+    JSON.stringify(m),
+  );
+  await page.locator(".look-plate .tag-pin").nth(0).click();
+  await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 4_000 });
+  await page.waitForTimeout(350);
+  const s = await read();
+  record(
+    "screen.look.tabbar-spotlight",
+    Boolean(s.card && s.tab) && s.card.bottom <= s.tab.top && s.card.top >= 0 && s.tab.display !== "none",
+    JSON.stringify(s),
+  );
+  await page.getByRole("navigation", { name: "App" }).getByRole("link", { name: /Houses/ }).click();
+  await page.waitForFunction(() => location.pathname === "/houses", null, { timeout: 8_000 });
+  record("screen.look.tabbar-nav", new URL(page.url()).pathname === "/houses");
+}
+
 async function screenLook(page) {
   await goto(page, "/looks/seed-sunday-coat");
   await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
@@ -225,6 +273,55 @@ async function screenLook(page) {
   record("flow.look.echo", new URL(page.url()).pathname === "/");
 }
 
+/** Esc closes the account sheet and leaves the pin card (and its place on the plate) alone. */
+async function flowEscAccountSheet(page, label) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
+  await page.locator(".look-plate .tag-pin").nth(1).click();
+  const card = page.getByRole("dialog", { name: "Selected piece" });
+  await card.waitFor({ timeout: 4_000 });
+  await page.getByRole("button", { name: "Save look" }).click();
+  const sheet = page.locator("[data-vaul-drawer]");
+  await sheet.waitFor({ timeout: 5_000 });
+  await page.keyboard.press("Escape");
+  const sheetClosed = await page
+    .waitForFunction(() => document.querySelectorAll("[data-vaul-drawer]").length === 0, null, { timeout: 4_000 })
+    .then(() => true)
+    .catch(() => false);
+  record(`flow.look.esc-account-sheet-${label}`, sheetClosed && (await card.count()) === 1, `sheetClosed=${sheetClosed} card=${await card.count()}`);
+}
+
+/** For every pin on the seed look: select it and check the card hides neither that pin nor any other. */
+async function flowSelectedPinClear(page, label) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
+  const total = await page.locator(".look-plate .tag-pin").count();
+  const rows = [];
+  for (let i = 0; i < total; i += 1) {
+    await page.locator(".look-plate .tag-pin").nth(i).evaluate((node) => node.click());
+    await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 4_000 });
+    await page.waitForTimeout(450); // card rise animation + placement
+    rows.push(
+      await page.evaluate((index) => {
+        const card = document.querySelector(".look-plate-piece").getBoundingClientRect();
+        const plate = document.querySelector(".look-plate").getBoundingClientRect();
+        return [...document.querySelectorAll(".look-plate .tag-pin")].map((pin, j) => {
+          const r = pin.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const onPlate = cx > plate.left && cx < plate.right && cy > plate.top && cy < plate.bottom;
+          const covered = onPlate && cx > card.left - 16 && cx < card.right + 16 && cy > card.top - 16 && cy < card.bottom + 16;
+          return { pin: j, selected: j === index, onPlate, covered };
+        });
+      }, i),
+    );
+  }
+  const selectedHidden = rows.flatMap((row) => row.filter((p) => p.selected && p.covered));
+  const anyHidden = rows.flatMap((row) => row.filter((p) => p.covered));
+  record(`flow.look.pin-card-selected-clear-${label}`, total >= 4 && selectedHidden.length === 0, JSON.stringify(selectedHidden));
+  record(`flow.look.pin-card-no-pin-covered-${label}`, anyHidden.length === 0, JSON.stringify(anyHidden));
+}
+
 async function screenCreateEntry(page) {
   await goto(page, "/create");
   await page.getByRole("heading", { name: "Create" }).waitFor({ timeout: 8_000 });
@@ -242,6 +339,24 @@ async function flowCreateBranches(page) {
   record("flow.create.pins", (await page.locator(".look-studio").getAttribute("data-step")) === "pins");
   record("flow.create.find", (await page.getByRole("button", { name: /Find pieces/i }).count()) > 0);
   record("flow.create.add-pin", (await page.getByRole("button", { name: "Add pin" }).count()) > 0);
+  const doneGhost = await page.evaluate(() => {
+    const el = document.querySelector(".create-pin-actions .create-btn-done");
+    if (!el) return null;
+    const style = getComputedStyle(el);
+    return { height: Math.round(el.getBoundingClientRect().height), border: style.borderTopWidth };
+  });
+  record("flow.create.done-ghost", doneGhost?.height === 44 && doneGhost.border === "1px", JSON.stringify(doneGhost));
+  const phoneAdd = await page.evaluate(() => {
+    const el = document.querySelector(".create-pin-actions .create-btn-pin");
+    if (!el) return null;
+    const style = getComputedStyle(el);
+    return { bg: style.backgroundColor, color: style.color };
+  });
+  record(
+    "flow.create.add-pin-phone-unchanged",
+    phoneAdd?.bg === "rgb(255, 255, 255)" && phoneAdd.color === "rgb(17, 17, 17)",
+    JSON.stringify(phoneAdd),
+  );
 
   await page.locator("[data-tag-pin]").first().click();
   await page.locator(".create-piece").waitFor({ timeout: 5_000 });
@@ -299,6 +414,11 @@ async function screenHouses(page) {
   const text = await page.locator("body").innerText();
   record("screen.houses.scouted", /Scouted/.test(text) && /Atelier Noir/.test(text) && /Picked by Looktag/.test(text), text.slice(0, 180));
   record("screen.houses.more", /More houses/.test(text));
+  const scoutedHead = await page.evaluate(() => {
+    const row = document.querySelector("#houses-scouted")?.parentElement;
+    return { dot: Boolean(row?.querySelector(".houses-scouted-dot")), pill: Boolean(row?.querySelector(".scouted-mark")) };
+  });
+  record("screen.houses.scouted-dot", scoutedHead.dot && !scoutedHead.pill, JSON.stringify(scoutedHead));
   record("screen.houses.for", /For houses/.test(text));
   const covers = await page.locator(".house-card img").count();
   record("screen.houses.covers", covers >= 4, String(covers));
@@ -306,6 +426,16 @@ async function screenHouses(page) {
   await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
   const profile = await page.locator("body").innerText();
   record("screen.house.profile", /Scouted/i.test(profile) && /Lines/.test(profile) && /Kinkistyles/.test(profile), profile.slice(0, 220));
+  const followBox = await page.evaluate(() => {
+    const follow = document.querySelector(".house-profile .house-follow")?.getBoundingClientRect();
+    const profile = document.querySelector(".house-profile")?.getBoundingClientRect();
+    return follow && profile ? { followW: Math.round(follow.width), followH: Math.round(follow.height), profileW: Math.round(profile.width) } : null;
+  });
+  record(
+    "screen.house.follow-full",
+    Boolean(followBox) && followBox.followW >= followBox.profileW - 2 && followBox.followH === 44,
+    JSON.stringify(followBox),
+  );
   const hero = await page.locator(".house-hero").getAttribute("src");
   record("screen.house.hero", Boolean(hero && hero.includes("/looks/")), hero ?? "");
   const houseTitle = await centerDelta(page, ".native-header-title");
@@ -317,6 +447,8 @@ async function screenHouses(page) {
   await page.getByRole("heading", { name: "Kinkistyles", exact: true }).waitFor({ timeout: 8_000 });
   const line = await page.locator("body").innerText();
   record("screen.house.line", /Styles/.test(line) && /Column Dress/.test(line) && !/Pins/.test(line), line.slice(0, 180));
+  const lineKicker = (await page.locator(".house-line-kicker").innerText()).replace(/\s+/g, " ");
+  record("screen.house.line-kicker", /^ATELIER NOIR · LINE$/i.test(lineKicker) && !/Capsule/.test(line), lineKicker);
   await page.getByRole("link", { name: "Column Dress", exact: true }).click();
   await page.getByRole("heading", { name: "Column Dress", exact: true }).waitFor({ timeout: 8_000 });
   const style = await page.locator("body").innerText();
@@ -655,6 +787,41 @@ async function screenDesktopLook(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
 }
 
+/** Desktop panel rows: Shop left, View Style right, Style name and House on one line each at 1280, 1100 and 1024. */
+async function screenDesktopStyleRow(page) {
+  for (const [w, h] of [[1280, 800], [1100, 800], [1024, 768]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await goto(page, "/looks/seed-sunday-coat");
+    await page.locator(".wide-prow").first().waitFor({ timeout: 10_000 });
+    await page.getByRole("link", { name: "View Style" }).first().waitFor({ timeout: 8_000 });
+    const m = await page.evaluate(() => {
+      const row = document.querySelector(".wide-prow");
+      const name = row.querySelector(".wide-pnm");
+      const house = row.querySelector(".wide-prt");
+      const shop = row.querySelector("button.wide-btn-primary")?.getBoundingClientRect();
+      const view = row.querySelector("a")?.getBoundingClientRect();
+      const lh = (el) => parseFloat(getComputedStyle(el).lineHeight) || 20;
+      return {
+        nameText: name.textContent,
+        nameLines: Math.round(name.getBoundingClientRect().height / lh(name)),
+        houseLines: Math.round(house.getBoundingClientRect().height / lh(house)),
+        truncated: name.scrollWidth > name.clientWidth,
+        rowH: Math.round(row.getBoundingClientRect().height),
+        shopLeft: shop && view ? shop.right <= view.left + 1 : false,
+        shopH: shop ? Math.round(shop.height) : 0,
+        viewH: view ? Math.round(view.height) : 0,
+        overflowX: document.documentElement.scrollWidth > window.innerWidth,
+      };
+    });
+    record(
+      `screen.desktop.style-row-${w}`,
+      m.nameLines === 1 && m.houseLines === 1 && !m.truncated && m.shopLeft && m.shopH === 44 && m.viewH === 44 && !m.overflowX && m.rowH <= 130,
+      JSON.stringify(m),
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+}
+
 async function screenDesktop(page) {
   await goto(page, "/");
   const nav = page.locator(".web-nav");
@@ -690,9 +857,65 @@ async function screenDesktop(page) {
   await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 8_000 });
   const housesText = await page.locator("body").innerText();
   record("screen.desktop.houses", /Scouted/.test(housesText) && /this week's drop/i.test(housesText), housesText.slice(0, 180));
+  const indexCols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
+  record("screen.desktop.houses-cols", indexCols === 4, String(indexCols));
+  await goto(page, "/houses/label-atelier-noir");
+  await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
+  record("screen.desktop.house-hero-row", ...(await heroRow(page, { coverW: 215, linesCols: 4, followMax: 640 })));
   await screenYouEmptyChip(page, "desktop");
   await goto(page, "/rank");
   record("screen.rank", (await page.locator("body").innerText()).length > 20);
+}
+
+async function heroRow(page, { coverW, linesCols, followMax }) {
+  const m = await page.evaluate(() => {
+    const r = (sel) => {
+      const b = document.querySelector(sel)?.getBoundingClientRect();
+      return b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height), right: Math.round(b.right), bottom: Math.round(b.bottom) } : null;
+    };
+    const lines = document.querySelector(".house-profile-lines .house-lines");
+    return {
+      cover: r(".house-hero"),
+      info: r(".house-profile-info"),
+      follow: r(".house-profile .house-follow"),
+      lines: r(".house-profile-lines .house-lines"),
+      cols: lines ? getComputedStyle(lines).gridTemplateColumns.split(" ").length : 0,
+      sticky: getComputedStyle(document.querySelector(".house-profile-hero")).position === "sticky",
+      overflow: document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  const ok =
+    Boolean(m.cover && m.info && m.lines) &&
+    Math.abs(m.cover.w - coverW) <= 3 &&
+    Math.abs(m.cover.h / m.cover.w - 4 / 3) < 0.02 &&
+    m.info.x >= m.cover.right &&
+    m.lines.y >= m.cover.bottom &&
+    m.lines.x === m.cover.x &&
+    m.cols === linesCols &&
+    m.follow.bottom <= followMax &&
+    !m.sticky &&
+    !m.overflow;
+  return [ok, JSON.stringify(m)];
+}
+
+async function screenHousesTablet(page) {
+  await goto(page, "/houses");
+  await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 10_000 });
+  const cols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
+  record("screen.tablet.houses-cols", cols === 2, String(cols));
+  await goto(page, "/houses/label-atelier-noir");
+  await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
+  record("screen.tablet.house-hero-row", ...(await heroRow(page, { coverW: 352, linesCols: 2, followMax: 1000 })));
+}
+
+async function screenHouses1024(page) {
+  await goto(page, "/houses");
+  await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 10_000 });
+  const cols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
+  record("screen.1024.houses-cols", cols === 3, String(cols));
+  await goto(page, "/houses/label-atelier-noir");
+  await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
+  record("screen.1024.house-hero-row", ...(await heroRow(page, { coverW: 215, linesCols: 3, followMax: 640 })));
 }
 
 const phone = { viewport: { width: 390, height: 844 } };
@@ -705,6 +928,9 @@ try {
     await screenHome(page);
     await flowHomeSnap(page);
     await screenLook(page);
+    await flowEscAccountSheet(page, "phone");
+    await flowSelectedPinClear(page, "phone");
+    await screenLookTabbar(page);
     await screenCreateEntry(page);
     await screenHouses(page);
     await flowHouseGate(page);
@@ -721,13 +947,22 @@ try {
   await withPage(browser, origin, async (page) => {
     await prime(page);
     await screenDesktop(page);
+    await screenDesktopStyleRow(page);
     await screenDesktopLook(page);
   }, "ui-desktop", desk);
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
+    await screenHousesTablet(page);
     await screenYouEmptyChip(page, "tablet");
+    await flowEscAccountSheet(page, "tablet");
+    await flowSelectedPinClear(page, "tablet");
   }, "ui-tablet", { viewport: { width: 834, height: 1112 } });
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await screenHouses1024(page);
+  }, "ui-1024", { viewport: { width: 1024, height: 768 } });
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
@@ -743,6 +978,88 @@ try {
     await prime(page, { draft: true });
     await goto(page, "/create");
     await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+    const deskDone = await page.evaluate(() => {
+      const done = document.querySelector(".create-pin-actions .create-btn-done");
+      const add = document.querySelector(".create-pin-actions .create-btn-pin");
+      const back = document.querySelector(".create-plate-back");
+      if (!done || !add || !back) return null;
+      const style = getComputedStyle(done);
+      return {
+        height: Math.round(done.getBoundingClientRect().height),
+        width: Math.round(done.getBoundingClientRect().width),
+        addWidth: Math.round(add.getBoundingClientRect().width),
+        border: style.borderTopWidth,
+        borderColor: style.borderTopColor,
+        backBorderColor: getComputedStyle(back).borderTopColor,
+        color: style.color,
+        background: style.backgroundColor,
+        radius: style.borderTopLeftRadius,
+      };
+    });
+    record(
+      "flow.desktop.done-ghost",
+      deskDone?.height === 44 &&
+        deskDone.border === "1px" &&
+        deskDone.radius === "12px" &&
+        deskDone.background === "rgb(255, 255, 255)" &&
+        deskDone.color === "rgb(17, 17, 17)" &&
+        deskDone.borderColor === deskDone.backBorderColor &&
+        Math.abs(deskDone.width - deskDone.addWidth) <= 1,
+      JSON.stringify(deskDone),
+    );
+    const deskAdd = await page.evaluate(() => {
+      const done = document.querySelector(".create-pin-actions .create-btn-done");
+      const add = document.querySelector(".create-pin-actions .create-btn-pin");
+      const hint = document.querySelector(".create-pin-hint");
+      const find = document.querySelector(".create-find");
+      if (!done || !add || !hint || !find) return null;
+      const rgb = (c, over = [255, 255, 255]) => {
+        const n = (c.match(/[\d.]+/g) || []).map(Number);
+        const alpha = n.length > 3 ? n[3] : 1;
+        return [0, 1, 2].map((i) => n[i] * alpha + over[i] * (1 - alpha));
+      };
+      const lum = ([r, g, b]) => {
+        const f = (v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const contrast = (fg, bg) => {
+        const a = lum(rgb(fg));
+        const b = lum(rgb(bg));
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      };
+      const card = getComputedStyle(document.querySelector(".create-pin-dock")).backgroundColor;
+      const a = getComputedStyle(add);
+      const ar = add.getBoundingClientRect();
+      const dr = done.getBoundingClientRect();
+      return {
+        bg: a.backgroundColor,
+        color: a.color,
+        height: Math.round(ar.height),
+        width: Math.round(ar.width),
+        doneWidth: Math.round(dr.width),
+        doneHeight: Math.round(dr.height),
+        radius: a.borderTopLeftRadius,
+        card,
+        addContrast: Math.round(contrast(a.color, a.backgroundColor) * 10) / 10,
+        hintContrast: Math.round(contrast(getComputedStyle(hint).color, card) * 10) / 10,
+        findContrast: Math.round(contrast(getComputedStyle(find).color, card) * 10) / 10,
+      };
+    });
+    record(
+      "flow.desktop.add-pin-primary",
+      deskAdd?.bg === "rgb(17, 17, 17)" &&
+        deskAdd.addContrast >= 12 &&
+        deskAdd.height === 44 &&
+        deskAdd.doneHeight === 44 &&
+        deskAdd.radius === "12px" &&
+        Math.abs(deskAdd.width - deskAdd.doneWidth) <= 1,
+      JSON.stringify(deskAdd),
+    );
+    record(
+      "flow.desktop.pin-dock-text-legible",
+      deskAdd && deskAdd.card === "rgb(255, 255, 255)" && deskAdd.hintContrast >= 4.5 && deskAdd.findContrast >= 4.5,
+      JSON.stringify(deskAdd),
+    );
     await page.getByRole("button", { name: "Done" }).first().click();
     await page.locator("#create-title").fill("Wide cut");
     await page.getByRole("button", { name: "Continue" }).click();
