@@ -202,7 +202,7 @@ function PinPlate({
             </button>
           </div>
           <div className="create-pin-actions">
-            <button type="button" className="create-btn-ghost" onClick={onDonePins}>
+            <button type="button" className="create-btn-ghost create-btn-done" onClick={onDonePins}>
               Done
             </button>
             <button type="button" className="create-btn-primary create-btn-pin" onClick={onAddPin}>

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { HouseCard } from "@/components/labels/house-card";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
-import { ScoutedMark } from "@/components/labels/scouted-mark";
 import { AppShell } from "@/components/layout/app-shell";
 import { pickWeeklyDrop, type WeeklyDrop } from "@/lib/home/engagement";
 import { getHousesAvailability, listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
@@ -132,7 +131,7 @@ function HousesPage() {
                 <h1 id="houses-scouted" className="ds-section-title">
                   Scouted
                 </h1>
-                <ScoutedMark />
+                <span className="houses-scouted-dot" aria-hidden />
               </div>
               <p className="houses-scouted-note">Picked by Looktag — clothes and covers first.</p>
               {grid(index.scouted)}
