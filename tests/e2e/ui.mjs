@@ -450,6 +450,17 @@ try {
     await prime(page, { draft: true });
     await goto(page, "/create");
     await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+    const deskDone = await page.evaluate(() => {
+      const el = document.querySelector(".create-pin-actions .create-btn-done");
+      if (!el) return null;
+      const style = getComputedStyle(el);
+      return { height: Math.round(el.getBoundingClientRect().height), border: style.borderTopWidth, color: style.color, borderColor: style.borderTopColor };
+    });
+    record(
+      "flow.desktop.done-ghost",
+      deskDone?.height === 44 && deskDone.border === "1px" && deskDone.color === "rgb(17, 17, 17)" && deskDone.borderColor === "rgb(17, 17, 17)",
+      JSON.stringify(deskDone),
+    );
     await page.getByRole("button", { name: "Done" }).first().click();
     await page.locator("#create-title").fill("Wide cut");
     await page.getByRole("button", { name: "Continue" }).click();

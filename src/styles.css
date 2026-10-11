@@ -3768,6 +3768,12 @@ input[type="search"]::-webkit-search-decoration {
     border-radius: 24px;
   }
 
+  /* Desktop: the pin dock is a white card, so the ghost Done is Ink on white, not white on the plate. */
+  html:not(.native-app) .create-plate .create-btn-ghost.create-btn-done {
+    border-color: var(--color-ink);
+    color: var(--color-ink);
+  }
+
   html[data-chrome="desktop"] [data-vaul-drawer] {
     inset: auto !important;
     top: 50% !important;
