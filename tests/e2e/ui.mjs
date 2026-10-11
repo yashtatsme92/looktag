@@ -180,6 +180,13 @@ async function flowCreateBranches(page) {
   record("flow.create.pins", (await page.locator(".look-studio").getAttribute("data-step")) === "pins");
   record("flow.create.find", (await page.getByRole("button", { name: /Find pieces/i }).count()) > 0);
   record("flow.create.add-pin", (await page.getByRole("button", { name: "Add pin" }).count()) > 0);
+  const doneGhost = await page.evaluate(() => {
+    const el = document.querySelector(".create-pin-actions .create-btn-done");
+    if (!el) return null;
+    const style = getComputedStyle(el);
+    return { height: Math.round(el.getBoundingClientRect().height), border: style.borderTopWidth };
+  });
+  record("flow.create.done-ghost", doneGhost?.height === 44 && doneGhost.border === "1px", JSON.stringify(doneGhost));
 
   await page.locator("[data-tag-pin]").first().click();
   await page.locator(".create-piece").waitFor({ timeout: 5_000 });

@@ -939,6 +939,12 @@ html[data-theme="moss"] {
     color: rgb(255 255 255 / 0.7);
   }
 
+  /* Pin step: bottom Done is an outlined ghost beside the primary Add pin (CREATE frame 3). */
+  .create-plate .create-btn-ghost.create-btn-done {
+    border: 1px solid rgb(255 255 255 / 0.55);
+    color: rgb(255 255 255 / 0.92);
+  }
+
   .create-btn-secondary {
     background: #fff;
     color: #111111;
