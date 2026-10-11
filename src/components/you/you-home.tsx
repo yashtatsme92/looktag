@@ -83,8 +83,11 @@ function SavedPane({
 }) {
   if (saved.length === 0) {
     return (
-      <div className="you-empty">
-        <p className="you-empty-title">{guest ? "Saved" : "Nothing saved yet"}</p>
+      <div className="you-empty you-empty-card">
+        <span className="you-empty-chip" aria-hidden>
+          <HangtagIcon className="size-5" />
+        </span>
+        <p className="you-empty-title you-empty-title-lg">{guest ? "Saved" : "Nothing saved yet"}</p>
         <p className="you-empty-body">
           {guest
             ? "Save looks while you browse"
