@@ -235,7 +235,7 @@ describe("likings and match", () => {
 describe("rankLabels", () => {
   it("scores houses like creators: looks, pins, compared prices", () => {
     const ranked = rankLabels(SEED_LABELS, SEED_LABEL_LOOKS);
-    assert.ok(ranked.length === 4);
+    assert.ok(ranked.length === SEED_LABELS.length);
     assert.ok(ranked[0].score >= ranked[1].score);
     assert.equal(
       ranked.find((row) => row.label.id === "label-atelier-noir")?.looks,
