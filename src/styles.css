@@ -3778,8 +3778,25 @@ input[type="search"]::-webkit-search-decoration {
     color: #111111;
   }
 
+  /* Desktop: Add pin is the Ink primary (frame create-d2-pin), same 44px / radius 12 / width as Done. The white phone fill vanishes on the white card. */
   html:not(.native-app) .create-plate .create-pin-actions .create-btn-pin {
     flex: 0 0 calc(50% - 0.375rem);
+    box-sizing: border-box;
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+    box-shadow: none;
+  }
+
+  /* Desktop: hint line and Find pieces are muted Ink on the white card (frame: quiet grey text, no pill), not white-on-white. */
+  html:not(.native-app) .create-plate .create-pin-hint {
+    color: rgb(17 17 17 / 0.6);
+  }
+
+  html:not(.native-app) .create-plate .create-find {
+    border-color: transparent;
+    background: transparent;
+    color: rgb(17 17 17 / 0.6);
+    backdrop-filter: none;
   }
 
   html[data-chrome="desktop"] [data-vaul-drawer] {
