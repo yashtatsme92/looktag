@@ -1,4 +1,4 @@
-import { StylePinNote } from "@/components/labels/style-pin-note";
+import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { ShopOffers, priceLabel } from "@/components/looks/shop-offers";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import type { FunnelUserState } from "@/lib/looks/funnel";
@@ -39,78 +39,105 @@ export function ProductList({
 
   return (
     <ul className="flex flex-col gap-2">
-      {tags.map((tag) => {
-        const selected = tag.id === selectedId;
-        const target = shopTarget(tag);
-        const shops = tagOffers(tag).filter((offer) => offer.url);
-        const labels = [
-          ...new Set(
-            [tag.brand, ...(shops.length ? shops.map((offer) => retailerLabel(offer)) : [retailerLabel(tag)])].filter(
-              Boolean,
-            ),
-          ),
-        ];
-        const cheap = cheapestOffer(tag);
-        const price = priceLabel(tag);
-        return (
-          <li key={tag.id}>
-            <div
+      {tags.map((tag) => (
+        <ProductRow
+          key={tag.id}
+          tag={tag}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          shoppable={shoppable}
+          lookId={lookId}
+          primaryInDock={primaryInDock}
+          lookSrc={lookSrc}
+          userState={userState}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function ProductRow({
+  tag,
+  selectedId,
+  onSelect,
+  shoppable,
+  lookId,
+  primaryInDock,
+  lookSrc,
+  userState,
+}: { tag: ProductTag } & Omit<ProductListProps, "tags">) {
+  const stylePin = useStylePin(tag.styleId);
+  const selected = tag.id === selectedId;
+  const target = shopTarget(tag);
+  const shops = tagOffers(tag).filter((offer) => offer.url);
+  const labels = [
+    ...new Set(
+      [
+        tag.brand,
+        ...(shops.length ? shops.map((offer) => retailerLabel(offer)) : [retailerLabel(tag)]),
+      ].filter(Boolean),
+    ),
+  ];
+  const cheap = cheapestOffer(tag);
+  const price = priceLabel(tag);
+  return (
+    <li key={tag.id}>
+      <div
+        className={cn(
+          "w-full rounded-xl border bg-card text-left transition-[border-color,box-shadow] duration-150",
+          selected ? "border-foreground shadow-[var(--shadow-border)]" : "border-border",
+          selected ? "p-3" : "px-3 py-2",
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => onSelect?.(tag.id)}
+          className={cn(
+            "flex w-full items-center gap-3 text-left",
+            selected ? "items-start" : "min-h-11",
+          )}
+        >
+          <PieceThumb
+            lookSrc={lookSrc}
+            x={tag.x}
+            y={tag.y}
+            productSrc={cheap?.imageUrl}
+            size="sm"
+          />
+          <span className="min-w-0 flex-1">
+            <span
               className={cn(
-                "w-full rounded-xl border bg-card text-left transition-[border-color,box-shadow] duration-150",
-                selected
-                  ? "border-foreground shadow-[var(--shadow-border)]"
-                  : "border-border",
-                selected ? "p-3" : "px-3 py-2",
+                "block font-medium leading-snug [overflow-wrap:anywhere]",
+                !selected && "line-clamp-2",
               )}
             >
-              <button
-                type="button"
-                onClick={() => onSelect?.(tag.id)}
-                className={cn(
-                  "flex w-full items-center gap-3 text-left",
-                  selected ? "items-start" : "min-h-11",
-                )}
-              >
-                <PieceThumb
-                  lookSrc={lookSrc}
-                  x={tag.x}
-                  y={tag.y}
-                  productSrc={cheap?.imageUrl}
-                  size="sm"
-                />
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={cn(
-                      "block font-medium leading-snug [overflow-wrap:anywhere]",
-                      !selected && "line-clamp-2",
-                    )}
-                  >
-                    {tag.name || "Untitled piece"}
-                  </span>
-                  {selected ? (
-                    <span className="mt-0.5 block text-sm leading-snug text-muted-foreground [overflow-wrap:anywhere]">
-                      {labels.join(" · ")}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="shrink-0 text-sm tabular-nums">
-                  {price.from ? <span className="text-muted-foreground">from </span> : null}
-                  {price.text}
-                </span>
-              </button>
-              {selected ? <StylePinNote styleId={tag.styleId} /> : null}
-              {shoppable && selected && target?.url ? (
-                <ShopOffers
-                  tag={tag}
-                  lookId={lookId}
-                  mode={primaryInDock ? "compare" : "shop"}
-                  userState={userState}
-                />
-              ) : null}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+              {stylePin ? stylePin.styleName : tag.name || "Untitled piece"}
+            </span>
+            {selected ? (
+              <span className="mt-0.5 block text-sm leading-snug text-muted-foreground [overflow-wrap:anywhere]">
+                {stylePin ? stylePin.houseName : labels.join(" · ")}
+              </span>
+            ) : null}
+          </span>
+          <span className="shrink-0 text-sm tabular-nums">
+            {price.from ? <span className="text-muted-foreground">from </span> : null}
+            {price.text}
+          </span>
+        </button>
+        {shoppable && selected && target?.url ? (
+          <ShopOffers
+            tag={tag}
+            lookId={lookId}
+            mode={primaryInDock ? "compare" : "shop"}
+            userState={userState}
+          />
+        ) : null}
+        {selected && stylePin ? (
+          <div className="mt-2">
+            <StyleViewLink pin={stylePin} />
+          </div>
+        ) : null}
+      </div>
+    </li>
   );
 }

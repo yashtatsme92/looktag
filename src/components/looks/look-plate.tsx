@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useNavigate, useRouter, Link } from "@tanstack/react-router";
 import { ChevronLeft, ExternalLink, Pencil, Radio, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { FollowButton } from "@/components/home/follow-button";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
-import { useStylePin } from "@/components/labels/style-pin-note";
+import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import { ECHO_FROM_KEY, echoKicker, pieceLine } from "@/lib/home/echo";
@@ -14,8 +14,10 @@ import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
+import { placePinCard } from "@/lib/looks/pin-card";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
+import { firstShopTag } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
@@ -45,6 +47,11 @@ export function LookPlate({
   }, [hydrateSaved]);
 
   const swipeRef = useRef<number | null>(null);
+  const plateRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const lastIndexRef = useRef(0);
+  const [plateSize, setPlateSize] = useState({ w: 0, h: 0 });
+  const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null);
   const focus = look.tags.find((tag) => tag.id === selectedId) ?? look.tags[0] ?? null;
   const spotlight = selectedId ? (look.tags.find((tag) => tag.id === selectedId) ?? null) : null;
   const spotlightIndex = spotlight ? look.tags.indexOf(spotlight) : -1;
@@ -59,25 +66,88 @@ export function LookPlate({
   }
   const kicker = echoKicker(look);
 
-  /** Esc, or a tap on the bare plate, clears the spotlight. Pins and the card keep it. */
+  /** Closes the spotlight and hands focus back to the pin that opened it. */
+  const dismiss = useCallback(() => {
+    setSelectedId(null);
+    const pin = plateRef.current?.querySelectorAll<HTMLElement>(".tag-pin")[lastIndexRef.current];
+    if (pin) requestAnimationFrame(() => pin.focus({ preventScroll: true }));
+  }, []);
+
   useEffect(() => {
+    if (spotlightIndex >= 0) lastIndexRef.current = spotlightIndex;
+  }, [spotlightIndex]);
+
+  useEffect(() => {
+    const node = plateRef.current;
+    if (!node) return;
+    const read = () => setPlateSize({ w: node.clientWidth, h: node.clientHeight });
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+
+  /** Move focus into the card when it opens, and keep it clear of every other pin. */
+  const hasSpotlight = Boolean(spotlight);
+  useEffect(() => {
+    if (hasSpotlight) cardRef.current?.focus({ preventScroll: true });
+  }, [hasSpotlight]);
+
+  useLayoutEffect(() => {
+    const plate = plateRef.current;
+    const card = cardRef.current;
+    if (!plate || !card || !selectedId || plateSize.w === 0) {
+      setCardPos(null);
+      return;
+    }
+    const plateRect = plate.getBoundingClientRect();
+    const pinNodes = plate.querySelectorAll<HTMLElement>(".tag-pin");
+    const pins = look.tags.flatMap((tag, index) => {
+      const rect = pinNodes[index]?.getBoundingClientRect();
+      if (!rect) return [];
+      return [{ id: tag.id, x: rect.left + rect.width / 2 - plateRect.left, y: rect.top + rect.height / 2 - plateRect.top }];
+    });
+    const meta = plate.querySelector<HTMLElement>(".look-plate-meta");
+    const bar = plate.querySelector<HTMLElement>(".look-plate-bar");
+    const cardRect = card.getBoundingClientRect();
+    const placed = placePinCard({
+      pins,
+      selectedId,
+      plate: { w: plateRect.width, h: plateRect.height },
+      card: { w: cardRect.width, h: cardRect.height },
+      inset: {
+        top: (bar?.getBoundingClientRect().bottom ?? plateRect.top + 72) - plateRect.top + 4,
+        bottom: meta ? plateRect.bottom - meta.getBoundingClientRect().top + 8 : 190,
+      },
+      margin: 16,
+      pinRadius: 22,
+      fixedX: plateRect.width < 768,
+    });
+    setCardPos({ top: placed.top, left: placed.left });
+  }, [selectedId, look.tags, plateSize.w, plateSize.h]);
+
+  /** Esc, arrow keys and taps on the bare plate act on this plate only, never on the whole document. */
+  function onPlateKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (!selectedId) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setSelectedId(null);
+    // React bubbles events out of portals (the account sheet); only keys typed inside the plate's own DOM belong here.
+    if (event.defaultPrevented || sheetOpen) return;
+    if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      dismiss();
+    } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      stepSpotlight(event.key === "ArrowRight" ? 1 : -1);
     }
-    function onPointerDown(event: PointerEvent) {
-      const target = event.target as Element | null;
-      if (!target?.closest(".look-plate-canvas")) return;
-      if (target.closest(".tag-pin, .look-plate-piece")) return;
-      setSelectedId(null);
-    }
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [selectedId]);
+  }
+
+  function onPlatePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (!selectedId) return;
+    const target = event.target as Element | null;
+    if (!target?.closest(".look-plate-canvas")) return;
+    if (target.closest(".tag-pin, .look-plate-piece")) return;
+    setSelectedId(null);
+  }
 
   function save() {
     if (authEnabled && !isPending && !user) {
@@ -107,7 +177,9 @@ export function LookPlate({
       toast.message("No shop for this piece yet");
       return;
     }
-    const win = window.open(target.url, "_blank", "noopener,noreferrer");
+    // "noopener" in the features string makes window.open return null even when it worked, so detach the opener by hand.
+    const win = window.open(target.url, "_blank");
+    if (win) win.opener = null;
     if (!win) {
       toast.message("Allow pop-ups to open the shop");
       return;
@@ -126,16 +198,16 @@ export function LookPlate({
 
   /** One destination per tap: the first pin that has a visual shop target. */
   function shopWholeLook() {
-    const tag = look.tags.find((item) => visualShopTarget(item)?.url);
-    if (!tag) {
+    const first = firstShopTag(look.tags);
+    if (!first) {
       toast.message("No close match yet");
       return;
     }
-    shop(tag);
+    shop(first.tag);
   }
 
   return (
-    <div className="look-plate">
+    <div className="look-plate" ref={plateRef} onKeyDown={onPlateKeyDown} onPointerDown={onPlatePointerDown}>
       <LookCanvas
         imageSrc={look.imageSrc}
         title={look.title}
@@ -148,9 +220,10 @@ export function LookPlate({
       {spotlight ? <div className="look-plate-vignette" aria-hidden /> : null}
       {spotlight ? (
         <div
+          ref={cardRef}
           className="look-plate-piece"
-          data-side={spotlight.y > 50 ? "top" : "bottom"}
-          data-h={spotlight.x > 50 ? "left" : "right"}
+          style={cardPos ? (plateSize.w >= 768 ? { top: cardPos.top, left: cardPos.left, right: "auto" } : { top: cardPos.top }) : undefined}
+          tabIndex={-1}
           role="dialog"
           aria-label="Selected piece"
           onPointerDown={(event) => {
@@ -187,35 +260,23 @@ export function LookPlate({
                 </>
               )}
             </div>
-            <button
-              type="button"
-              className="look-plate-piece-x"
-              aria-label="Dismiss"
-              onClick={() => setSelectedId(null)}
-            >
+            <button type="button" className="look-plate-piece-x" aria-label="Dismiss" onClick={dismiss}>
               <X className="size-4" />
             </button>
           </div>
           {stylePin || spotlightTarget ? (
             <div className="look-plate-piece-actions">
-              {stylePin ? (
-                <Link
-                  to="/houses/$labelId/$collectionId/$styleId"
-                  params={{
-                    labelId: stylePin.labelId,
-                    collectionId: stylePin.lineSlug,
-                    styleId: stylePin.styleId,
-                  }}
-                  className="look-plate-piece-view"
-                >
-                  View Style
-                </Link>
-              ) : null}
               {spotlightTarget ? (
-                <button type="button" className="look-plate-piece-shop" onClick={() => shop(spotlight)}>
+                <button
+                  type="button"
+                  className="look-plate-piece-shop"
+                  aria-label={`Shop ${spotlight.name || "piece"}`}
+                  onClick={() => shop(spotlight)}
+                >
                   Shop
                 </button>
               ) : null}
+              {stylePin ? <StyleViewLink pin={stylePin} className="look-plate-piece-view" /> : null}
             </div>
           ) : null}
         </div>

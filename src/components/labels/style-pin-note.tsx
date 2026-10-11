@@ -38,23 +38,23 @@ export function useStylePin(styleId?: string): StylePin | null {
   return resolveStylePin(styleId, styles, labels, housesOn);
 }
 
-export function StylePinNote({ styleId }: { styleId?: string }) {
-  const { housesOn, styles, labels } = useStyleCatalog();
-  const pin = resolveStylePin(styleId, styles, labels, housesOn);
-  if (!pin) return null;
+/** The quiet ghost `View Style` button of a Style-linked pin. The title and House are rendered by the caller. */
+export function StyleViewLink({ pin, className }: { pin: StylePin; className?: string }) {
   return (
-    <span className="style-pin">
-      <span className="style-pin-name">{pin.styleName}</span>
-      <span className="style-pin-house">{pin.houseName}</span>
-      <Link
-        to="/houses/$labelId/$collectionId/$styleId"
-        params={{ labelId: pin.labelId, collectionId: pin.lineSlug, styleId: pin.styleId }}
-        className="style-pin-view"
-      >
-        View Style
-      </Link>
-    </span>
+    <Link
+      to="/houses/$labelId/$collectionId/$styleId"
+      params={{ labelId: pin.labelId, collectionId: pin.lineSlug, styleId: pin.styleId }}
+      className={className ?? "style-view-ghost"}
+    >
+      View Style
+    </Link>
   );
+}
+
+export function StylePinNote({ styleId }: { styleId?: string }) {
+  const pin = useStylePin(styleId);
+  if (!pin) return null;
+  return <StyleViewLink pin={pin} />;
 }
 
 export function StyleLinkField({
