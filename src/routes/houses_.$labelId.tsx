@@ -139,41 +139,45 @@ function HouseProfile() {
       }
     >
       <article className="house-profile">
-        {cover ? <img className="house-hero" src={cover} alt="" /> : null}
-        <p className="wide-kicker">House</p>
-        <ScreenTitle>{label.name}</ScreenTitle>
-        {label.scouted ? (
-          <div className="mb-3 flex items-center gap-2">
-            <ScoutedMark />
-          </div>
-        ) : null}
-        {line ? <p className="house-line">{line}</p> : null}
-        <button type="button" className="house-primary house-follow" onClick={follow}>
-          {following ? "Following" : "Follow"}
-        </button>
-        <h2 className="ops-section house-looks-title">Lines</h2>
-        {lines.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No Lines yet.</p>
-        ) : (
-          <ul className="house-lines">
-            {lines.map(({ collection, styles }) => (
-              <li key={collection.id}>
-                <Link
-                  to="/houses/$labelId/$collectionId"
-                  params={{ labelId: label.id, collectionId: collection.slug }}
-                  className="house-card"
-                  aria-label={`${collection.name}, Line`}
-                >
-                  <img src={styles[0]?.imageSrc} alt="" />
-                  <div className="house-card-caption">
-                    <span className="house-card-scout">Line</span>
-                    <p className="house-card-name">{collection.name}</p>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="house-profile-hero">
+          {cover ? <img className="house-hero" src={cover} alt="" /> : null}
+          <p className="wide-kicker">House</p>
+          <ScreenTitle>{label.name}</ScreenTitle>
+          {label.scouted ? (
+            <div className="mb-3 flex items-center gap-2">
+              <ScoutedMark />
+            </div>
+          ) : null}
+          {line ? <p className="house-line">{line}</p> : null}
+          <button type="button" className="house-primary house-follow" onClick={follow}>
+            {following ? "Following" : "Follow"}
+          </button>
+        </div>
+        <div className="house-profile-lines">
+          <h2 className="ops-section house-looks-title">Lines</h2>
+          {lines.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No Lines yet.</p>
+          ) : (
+            <ul className="house-lines">
+              {lines.map(({ collection, styles }) => (
+                <li key={collection.id}>
+                  <Link
+                    to="/houses/$labelId/$collectionId"
+                    params={{ labelId: label.id, collectionId: collection.slug }}
+                    className="house-card"
+                    aria-label={`${collection.name}, Line`}
+                  >
+                    <img src={styles[0]?.imageSrc} alt="" />
+                    <div className="house-card-caption">
+                      <span className="house-card-scout">Line</span>
+                      <p className="house-card-name">{collection.name}</p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </article>
       <AccountSheet
         open={sheetOpen}

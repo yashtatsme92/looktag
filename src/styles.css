@@ -4322,6 +4322,16 @@ input[type="search"]::-webkit-search-decoration {
   font-weight: 500;
 }
 
+/* Scouted index heading: a small status dot beside the title, no pill (Houses frame 1). */
+.houses-scouted-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+  border-radius: 999px;
+  background: var(--color-muted-foreground);
+}
+
 .houses-scouted-note {
   margin: 0 0 1rem;
   color: #6b6b6b;
@@ -4557,7 +4567,7 @@ html.native-app .house-manage[data-editor="open"] .house-save {
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1280px) {
   .house-index-grid,
   .house-lines {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5166,6 +5176,53 @@ html.native-app .house-manage[data-editor="open"] .house-save {
 
 .house-looks-title {
   margin-bottom: 0.85rem;
+}
+
+/* Line view kicker: "<House> · LINE" (Houses frame 7). */
+.house-line-kicker {
+  margin-bottom: 0.25rem;
+}
+
+.house-line-kicker a {
+  color: inherit;
+}
+
+/* Phone: Follow spans the width under the hero line (Houses frame 2). */
+html[data-chrome="phone"] .house-profile .house-follow {
+  width: 100%;
+}
+
+/* Desktop: two panes. The hero, name and Follow stay in view on the left, the Lines scroll on the right.
+   Tablet and phone keep a single column. */
+html[data-chrome="desktop"] .house-profile {
+  display: grid;
+  grid-template-columns: 24rem minmax(0, 1fr);
+  gap: 2rem 3rem;
+  align-items: start;
+}
+
+html[data-chrome="desktop"] .house-profile-hero {
+  position: sticky;
+  top: 5.5rem;
+}
+
+html[data-chrome="desktop"] .house-profile .house-hero {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+}
+
+html[data-chrome="desktop"] .house-profile .house-looks-title {
+  margin-top: 0;
+}
+
+html[data-chrome="desktop"] .house-profile-lines .house-lines {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 1280px) {
+  html[data-chrome="desktop"] .house-profile-lines .house-lines {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .house-looks {
