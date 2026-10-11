@@ -237,6 +237,11 @@ async function screenHouses(page) {
   const text = await page.locator("body").innerText();
   record("screen.houses.scouted", /Scouted/.test(text) && /Atelier Noir/.test(text) && /Picked by Looktag/.test(text), text.slice(0, 180));
   record("screen.houses.more", /More houses/.test(text));
+  const scoutedHead = await page.evaluate(() => {
+    const row = document.querySelector("#houses-scouted")?.parentElement;
+    return { dot: Boolean(row?.querySelector(".houses-scouted-dot")), pill: Boolean(row?.querySelector(".scouted-mark")) };
+  });
+  record("screen.houses.scouted-dot", scoutedHead.dot && !scoutedHead.pill, JSON.stringify(scoutedHead));
   record("screen.houses.for", /For houses/.test(text));
   const covers = await page.locator(".house-card img").count();
   record("screen.houses.covers", covers >= 4, String(covers));
@@ -244,6 +249,16 @@ async function screenHouses(page) {
   await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
   const profile = await page.locator("body").innerText();
   record("screen.house.profile", /Scouted/i.test(profile) && /Lines/.test(profile) && /Kinkistyles/.test(profile), profile.slice(0, 220));
+  const followBox = await page.evaluate(() => {
+    const follow = document.querySelector(".house-profile .house-follow")?.getBoundingClientRect();
+    const profile = document.querySelector(".house-profile")?.getBoundingClientRect();
+    return follow && profile ? { followW: Math.round(follow.width), followH: Math.round(follow.height), profileW: Math.round(profile.width) } : null;
+  });
+  record(
+    "screen.house.follow-full",
+    Boolean(followBox) && followBox.followW >= followBox.profileW - 2 && followBox.followH === 44,
+    JSON.stringify(followBox),
+  );
   const hero = await page.locator(".house-hero").getAttribute("src");
   record("screen.house.hero", Boolean(hero && hero.includes("/looks/")), hero ?? "");
   const houseTitle = await centerDelta(page, ".native-header-title");
@@ -255,6 +270,8 @@ async function screenHouses(page) {
   await page.getByRole("heading", { name: "Kinkistyles", exact: true }).waitFor({ timeout: 8_000 });
   const line = await page.locator("body").innerText();
   record("screen.house.line", /Styles/.test(line) && /Column Dress/.test(line) && !/Pins/.test(line), line.slice(0, 180));
+  const lineKicker = (await page.locator(".house-line-kicker").innerText()).replace(/\s+/g, " ");
+  record("screen.house.line-kicker", /^ATELIER NOIR · LINE$/i.test(lineKicker) && !/Capsule/.test(line), lineKicker);
   await page.getByRole("link", { name: "Column Dress", exact: true }).click();
   await page.getByRole("heading", { name: "Column Dress", exact: true }).waitFor({ timeout: 8_000 });
   const style = await page.locator("body").innerText();
@@ -402,8 +419,39 @@ async function screenDesktop(page) {
   await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 8_000 });
   const housesText = await page.locator("body").innerText();
   record("screen.desktop.houses", /Scouted/.test(housesText) && /this week's drop/i.test(housesText), housesText.slice(0, 180));
+  const indexCols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
+  record("screen.desktop.houses-cols", indexCols === 4, String(indexCols));
+  await goto(page, "/houses/label-atelier-noir");
+  await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
+  const panes = await page.evaluate(() => {
+    const r = (s) => {
+      const b = document.querySelector(s)?.getBoundingClientRect();
+      return b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), bottom: Math.round(b.bottom) } : null;
+    };
+    return { hero: r(".house-profile-hero"), lines: r(".house-profile-lines"), follow: r(".house-profile .house-follow") };
+  });
+  record(
+    "screen.desktop.house-two-pane",
+    Boolean(panes.hero && panes.lines) && panes.lines.x >= panes.hero.x + panes.hero.w && panes.follow.bottom <= 800,
+    JSON.stringify(panes),
+  );
   await goto(page, "/rank");
   record("screen.rank", (await page.locator("body").innerText()).length > 20);
+}
+
+async function screenHousesTablet(page) {
+  await goto(page, "/houses");
+  await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 10_000 });
+  const cols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
+  record("screen.tablet.houses-cols", cols === 2, String(cols));
+  await goto(page, "/houses/label-atelier-noir");
+  await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
+  const stack = await page.evaluate(() => {
+    const hero = document.querySelector(".house-profile-hero")?.getBoundingClientRect();
+    const lines = document.querySelector(".house-profile-lines")?.getBoundingClientRect();
+    return hero && lines ? { heroBottom: Math.round(hero.bottom), linesTop: Math.round(lines.top), heroX: Math.round(hero.x), linesX: Math.round(lines.x) } : null;
+  });
+  record("screen.tablet.house-single-column", Boolean(stack) && stack.linesTop >= stack.heroBottom && stack.linesX === stack.heroX, JSON.stringify(stack));
 }
 
 const phone = { viewport: { width: 390, height: 844 } };
@@ -433,6 +481,11 @@ try {
     await prime(page);
     await screenDesktop(page);
   }, "ui-desktop", desk);
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await screenHousesTablet(page);
+  }, "ui-tablet", { viewport: { width: 834, height: 1112 } });
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
