@@ -191,8 +191,35 @@ async function screenLook(page) {
       (await card.getByRole("button", { name: "Shop" }).count()) === 1,
     styleText,
   );
+  // Shop sits on the left, View Style on the right, and Shop is named for the piece.
+  const shopBtn = card.getByRole("button", { name: "Shop Oversized Wool Coat" });
+  const shopBox = await shopBtn.boundingBox();
+  record(
+    "flow.look.spotlight-order",
+    Boolean(shopBox && viewBox) && shopBox.x + shopBox.width <= viewBox.x + 1 && (await shopBtn.count()) === 1,
+    JSON.stringify({ shop: shopBox, view: viewBox }),
+  );
+  // Focus moves into the dialog when it opens.
+  const focusInCard = await page.evaluate(() => document.activeElement?.getAttribute("role") === "dialog");
+  record("flow.look.spotlight-focus", focusInCard);
+  // Arrow keys step between pins.
+  await page.keyboard.press("ArrowRight");
+  await page.waitForFunction(() => /Cashmere Turtleneck/.test(document.querySelector('[role="dialog"]')?.textContent ?? ""), null, { timeout: 3_000 }).catch(() => undefined);
+  const stepped = (await card.innerText()).replace(/\s+/g, " ");
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForFunction(() => /Column Dress/.test(document.querySelector('[role="dialog"]')?.textContent ?? ""), null, { timeout: 3_000 }).catch(() => undefined);
+  const back = (await card.innerText()).replace(/\s+/g, " ");
+  record("flow.look.spotlight-arrows", /Cashmere Turtleneck/.test(stepped) && /Column Dress/.test(back), `${stepped} | ${back}`);
+  // Esc is scoped to the plate: a key event elsewhere in the document leaves the card open.
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  const stillOpen = (await card.count()) === 1;
   await page.keyboard.press("Escape");
-  record("flow.look.spotlight-esc", (await card.count()) === 0);
+  const pinFocused = await page
+    .waitForFunction(() => document.activeElement?.classList.contains("tag-pin") ?? false, null, { timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+  record("flow.look.spotlight-esc", stillOpen && (await card.count()) === 0, `stillOpen=${stillOpen}`);
+  record("flow.look.spotlight-focus-return", pinFocused);
   await page.locator(".look-plate-echo").click();
   await page.waitForFunction(() => location.pathname === "/", null, { timeout: 8_000 });
   record("flow.look.echo", new URL(page.url()).pathname === "/");
@@ -331,14 +358,15 @@ async function flowYou(page) {
       barBg: getComputedStyle(bar).backgroundColor,
       barRadius: parseFloat(getComputedStyle(bar).borderTopLeftRadius),
       onBg: getComputedStyle(on).backgroundColor,
-      chip: Boolean(chip),
+      chip: chip ? getComputedStyle(chip).display : null,
     };
   });
   record(
     "screen.you.segmented-pill",
-    Boolean(pill) && pill.barBg === "rgb(236, 236, 236)" && pill.barRadius >= 20 && pill.onBg === "rgb(17, 17, 17)" && pill.chip,
+    Boolean(pill) && pill.barBg === "rgb(236, 236, 236)" && pill.barRadius >= 20 && pill.onBg === "rgb(17, 17, 17)",
     JSON.stringify(pill),
   );
+  record("screen.you.empty-chip-phone", pill?.chip === "flex", String(pill?.chip));
   await page.getByRole("tab", { name: "Drafts" }).click();
   record("flow.you.drafts", /In progress/.test(await page.locator("body").innerText()));
   await page.getByRole("tab", { name: "Profile" }).click();
@@ -419,6 +447,151 @@ async function flowSignedInEdit(page) {
   );
 }
 
+/** The decorative hangtag chip is a phone-only element: hidden (display none) on tablet and desktop. */
+async function screenYouEmptyChip(page, label) {
+  await goto(page, "/login");
+  await page.locator(".you-empty-chip").waitFor({ state: "attached", timeout: 8_000 });
+  const display = await page.evaluate(() => {
+    const chip = document.querySelector(".you-empty-chip");
+    return chip ? getComputedStyle(chip).display : null;
+  });
+  record(`screen.you.empty-chip-${label}`, display === "none", String(display));
+}
+
+const CREATED_LOOK = {
+  ...DRAFT,
+  title: "Four pins",
+  tags: [
+    { id: "pin-style", x: 48, y: 40, name: "Wool Coat", brand: "", price: "", currency: "EUR", url: "", retailerId: "", offers: [], styleId: "style-noir-column" },
+    { id: "pin-b", x: 50, y: 70, name: "Wide Trouser", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/weekday-wide-trouser-black-we121a0aa-q11.html", retailerId: "zalando", offers: [] },
+    { id: "pin-c", x: 40, y: 24, name: "Leather Boot", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/dr-martens-leather-boot-black-dr211b00j-q11.html", retailerId: "zalando", offers: [] },
+    { id: "pin-d", x: 62, y: 16, name: "Knit Scarf", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/pieces-knit-scarf-beige-pe351g0k2-b11.html", retailerId: "zalando", offers: [] },
+  ],
+};
+
+/** Publishes a four-pin look with a Style-linked pin that has no offers, then checks every placement of the pin card. */
+async function flowPinCardClear(page) {
+  const stamp = `pc${Date.now().toString(36)}`;
+  await goto(page, `/login?next=${encodeURIComponent("/create")}`);
+  await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await page.locator("#creator-name").fill("Pin Tester");
+  await page.locator("#creator-handle").fill(`pc${stamp.slice(-6)}`);
+  await page.locator("#creator-city").fill("Berlin");
+  await page.locator("#creator-email").fill(`${stamp}@looktag.test`);
+  await page.locator("#creator-password").fill("looktag-e2e-pass-1");
+  await page.locator("form").getByRole("button", { name: "Create account" }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 15_000 });
+  await page.evaluate(
+    ({ key, raw }) => sessionStorage.setItem(key, raw),
+    { key: CREATE_DRAFT_KEY, raw: JSON.stringify({ ...CREATED_LOOK, id: `ui-${stamp}` }) },
+  );
+  await goto(page, "/create");
+  await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  if ((await page.locator(".look-studio").getAttribute("data-step")) === "pins") {
+    await page.getByRole("button", { name: "Done" }).first().click();
+    await page.locator("#create-title").fill("Four pins");
+    await page.getByRole("button", { name: "Continue" }).click();
+  }
+  await page.getByRole("button", { name: "Publish" }).click();
+  await page.waitForURL(/\/looks\//, { timeout: 15_000 }).catch(async (error) => {
+    console.log("PUBLISH-STUCK", page.url(), await page.locator("[data-sonner-toast], [role=status], [role=alert]").allInnerTexts());
+    throw error;
+  });
+  const path = new URL(page.url()).pathname;
+  record("flow.pins4.published", /\/looks\//.test(path), path);
+
+  async function pinsClear(label) {
+    await goto(page, path);
+    await page.locator(".look-plate .tag-pin").first().waitFor({ timeout: 10_000 });
+    const card = page.getByRole("dialog", { name: "Selected piece" });
+    const rows = [];
+    for (let index = 0; index < 4; index += 1) {
+      await page.locator(".look-plate .tag-pin").nth(index).click();
+      await card.waitFor({ timeout: 4_000 });
+      await page.waitForTimeout(350);
+      rows.push(
+        await page.evaluate((selected) => {
+          const plate = document.querySelector(".look-plate").getBoundingClientRect();
+          const cardRect = document.querySelector('[role="dialog"]').getBoundingClientRect();
+          const pins = [...document.querySelectorAll(".look-plate .tag-pin")].map((node, i) => {
+            const r = node.getBoundingClientRect();
+            return { i, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+          });
+          const hidden = pins
+            .filter((pin) => pin.x > cardRect.left - 8 && pin.x < cardRect.right + 8 && pin.y > cardRect.top - 8 && pin.y < cardRect.bottom + 8)
+            .map((pin) => pin.i + 1);
+          const inside = cardRect.left >= plate.left && cardRect.right <= plate.right && cardRect.top >= plate.top && cardRect.bottom <= plate.bottom;
+          return { selected: selected + 1, hidden, inside };
+        }, index),
+      );
+    }
+    record(
+      `flow.pins4.card-clear-${label}`,
+      rows.every((row) => row.hidden.length === 0 && row.inside),
+      JSON.stringify(rows),
+    );
+  }
+
+  await pinsClear("phone");
+  // Style-linked pin with no offers: Style name, House, View Style only. No "No close match yet", no Shop.
+  await page.locator(".look-plate .tag-pin").nth(0).click();
+  const card = page.getByRole("dialog", { name: "Selected piece" });
+  await card.getByRole("link", { name: "View Style" }).waitFor({ timeout: 6_000 });
+  const text = (await card.innerText()).replace(/\s+/g, " ");
+  record(
+    "flow.look.style-no-offers",
+    /Column Dress/.test(text) &&
+      /Atelier Noir/.test(text) &&
+      !/Wool Coat/.test(text) &&
+      !/No close match yet/.test(text) &&
+      (await card.getByRole("button", { name: /Shop/ }).count()) === 0,
+    text,
+  );
+
+  await page.setViewportSize({ width: 834, height: 1112 });
+  await pinsClear("tablet");
+
+  // Desktop panel: Style-linked row, and Shop whole look opens a single window.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await goto(page, path);
+  await page.locator(".wide-prow .style-view-ghost").first().waitFor({ timeout: 10_000 });
+  const row = await page.evaluate(() => {
+    const first = document.querySelector(".wide-prow");
+    const view = first.querySelector(".style-view-ghost");
+    return {
+      title: first.querySelector(".wide-pnm")?.textContent,
+      sub: first.querySelector(".wide-prt")?.textContent,
+      viewH: view ? Math.round(view.getBoundingClientRect().height) : null,
+      shop: Boolean([...first.querySelectorAll("button")].find((b) => /^Shop/.test(b.getAttribute("aria-label") || ""))),
+      underlined: Boolean(first.querySelector(".style-pin, .style-pin-view")),
+    };
+  });
+  record(
+    "flow.desktop.style-row",
+    row.title === "Column Dress" && row.sub === "Atelier Noir" && row.viewH === 44 && !row.shop && !row.underlined,
+    JSON.stringify(row),
+  );
+  // Count window.open calls: a stalled external popup may never raise a context "page" event.
+  await page.evaluate(() => {
+    window.__opens = [];
+    const real = window.open.bind(window);
+    window.open = (...args) => {
+      window.__opens.push(String(args[0]));
+      return real(...args);
+    };
+  });
+  await page.getByRole("button", { name: "Shop whole look" }).click();
+  await page.waitForTimeout(1500);
+  const opens = await page.evaluate(() => window.__opens);
+  record(
+    "flow.desktop.shop-whole-one-window",
+    opens.length === 1 && /zalando\.de\/weekday-wide-trouser/.test(opens[0]),
+    JSON.stringify(opens),
+  );
+  for (const popup of page.context().pages().slice(1)) await popup.close().catch(() => undefined);
+}
+
 async function screenDesktop(page) {
   await goto(page, "/");
   const nav = page.locator(".web-nav");
@@ -454,6 +627,7 @@ async function screenDesktop(page) {
   await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 8_000 });
   const housesText = await page.locator("body").innerText();
   record("screen.desktop.houses", /Scouted/.test(housesText) && /this week's drop/i.test(housesText), housesText.slice(0, 180));
+  await screenYouEmptyChip(page, "desktop");
   await goto(page, "/rank");
   record("screen.rank", (await page.locator("body").innerText()).length > 20);
 }
@@ -485,6 +659,16 @@ try {
     await prime(page);
     await screenDesktop(page);
   }, "ui-desktop", desk);
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await screenYouEmptyChip(page, "tablet");
+  }, "ui-tablet", { viewport: { width: 834, height: 1112 } });
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await flowPinCardClear(page);
+  }, "ui-pins", phone);
 
   await withPage(browser, origin, async (page) => {
     await prime(page);

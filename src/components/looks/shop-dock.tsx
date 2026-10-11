@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronUp, ExternalLink } from "lucide-react";
 import { ProductList } from "@/components/looks/product-list";
-import { StylePinNote } from "@/components/labels/style-pin-note";
+import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -66,7 +66,8 @@ export function ShopDock({
   const resolved = selected ?? tags[0] ?? null;
   const selectedIndex = resolved ? tags.findIndex((tag) => tag.id === resolved.id) : 0;
   const target = resolved ? shopTarget(resolved) : null;
-  const pieceName = resolved?.name.trim() || "Shop the look";
+  const stylePin = useStylePin(resolved?.styleId);
+  const pieceName = stylePin ? stylePin.styleName : resolved?.name.trim() || "Shop the look";
   const offerCount = resolved ? tagOffers(resolved).filter((offer) => offer.url).length : 0;
   const shopableCount = tags.filter((tag) => shopTarget(tag)?.url).length;
   const lookSheet = sheet === "look";
@@ -176,7 +177,12 @@ export function ShopDock({
                   <span className="shop-dock-name [overflow-wrap:anywhere] whitespace-normal">
                     {pieceName}
                   </span>
-                  <StylePinNote styleId={resolved?.styleId} />
+                  {stylePin ? <span className="style-pin-house block">{stylePin.houseName}</span> : null}
+                  {stylePin ? (
+                    <span className="mt-2 block">
+                      <StyleViewLink pin={stylePin} />
+                    </span>
+                  ) : null}
                 </span>
                 {target?.url ? (
                   <Button asChild size="sm" className="min-h-11 shrink-0 px-4">

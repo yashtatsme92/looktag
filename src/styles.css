@@ -2824,12 +2824,13 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   animation: look-piece-rise var(--motion-fast, 250ms) ease-out both;
 }
 
-.look-plate-piece[data-side="bottom"] {
+/* The card is placed by script so it never hides another pin; this is the position before it is measured. */
+.look-plate-piece {
   top: 54%;
 }
 
-.look-plate-piece[data-side="top"] {
-  top: 16%;
+.look-plate-piece:focus {
+  outline: none;
 }
 
 .look-plate-piece-row {
@@ -2904,6 +2905,22 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   font-weight: 600;
 }
 
+/* Style-linked rows (panel, dock): the quiet 44px outline ghost View Style. */
+.style-view-ghost {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .look-plate-shop-whole {
   min-height: 2.75rem;
   padding: 0 0.25rem;
@@ -2914,18 +2931,14 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   text-underline-offset: 4px;
 }
 
-/* Tablet: a card of about 360px beside its pin, never over it (G25a). */
+/* Tablet: a card of about 360px beside its pin, never over any pin (G25a). */
 @media (min-width: 768px) {
   .look-plate-piece {
     width: 22.5rem;
   }
 
-  .look-plate-piece[data-h="right"] {
+  .look-plate-piece {
     left: auto;
-  }
-
-  .look-plate-piece[data-h="left"] {
-    right: auto;
   }
 }
 
@@ -4377,11 +4390,12 @@ input[type="search"]::-webkit-search-decoration {
   border-bottom: 1px solid #f0f0f0;
 }
 
-/* A Style-linked pin keeps its Style note on its own line under the piece. */
-.wide-prow .style-pin {
-  order: 3;
-  flex: 1 0 100%;
-  margin: -0.5rem 0 0.75rem 2.5rem;
+.wide-prow-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .wide-prow.is-on {
