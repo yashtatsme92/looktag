@@ -32,6 +32,12 @@ function useStyleCatalog() {
   return { housesOn, ...catalog };
 }
 
+/** The resolved Style for a pin, or null when the pin is plain (Houses off, or the House is not live). */
+export function useStylePin(styleId?: string): StylePin | null {
+  const { housesOn, styles, labels } = useStyleCatalog();
+  return resolveStylePin(styleId, styles, labels, housesOn);
+}
+
 export function StylePinNote({ styleId }: { styleId?: string }) {
   const { housesOn, styles, labels } = useStyleCatalog();
   const pin = resolveStylePin(styleId, styles, labels, housesOn);

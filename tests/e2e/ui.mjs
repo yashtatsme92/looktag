@@ -173,6 +173,26 @@ async function screenLook(page) {
   );
   await card.getByRole("button", { name: "Dismiss" }).click();
   record("flow.look.spotlight-dismiss", (await card.count()) === 0);
+  // Style-linked pin: Style name as the title, House beneath, ghost View Style beside Shop, no piece name.
+  await page.locator(".tag-pin").nth(0).click();
+  await card.waitFor({ timeout: 4_000 });
+  const viewStyle = card.getByRole("link", { name: "View Style" });
+  await viewStyle.waitFor({ timeout: 6_000 });
+  const styleText = (await card.innerText()).replace(/\s+/g, " ");
+  const viewBox = await viewStyle.boundingBox();
+  record(
+    "flow.look.spotlight-style",
+    /Column Dress/.test(styleText) &&
+      /Atelier Noir/.test(styleText) &&
+      !/Oversized Wool Coat/.test(styleText) &&
+      !/No close match yet/.test(styleText) &&
+      Boolean(viewBox) &&
+      Math.round(viewBox.height) === 44 &&
+      (await card.getByRole("button", { name: "Shop" }).count()) === 1,
+    styleText,
+  );
+  await page.keyboard.press("Escape");
+  record("flow.look.spotlight-esc", (await card.count()) === 0);
   await page.locator(".look-plate-echo").click();
   await page.waitForFunction(() => location.pathname === "/", null, { timeout: 8_000 });
   record("flow.look.echo", new URL(page.url()).pathname === "/");

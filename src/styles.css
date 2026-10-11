@@ -2750,7 +2750,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   gap: 0.75rem;
   padding: 1rem;
   border: 1px solid rgb(224 224 224 / 55%);
-  border-radius: 1.125rem;
+  border-radius: var(--radius-lg);
   background: rgb(255 255 255 / 94%);
   color: #111111;
   box-shadow: var(--shadow-border);
@@ -2805,10 +2805,31 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   color: #6b6b6b;
 }
 
+.look-plate-piece-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* View Style: 44px outline ghost beside the one primary Shop (LOOK-SHOP v2, L18). */
+.look-plate-piece-view {
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 .look-plate-piece-shop {
   display: inline-flex;
   width: 100%;
   min-height: 2.75rem;
+  flex: 1;
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
@@ -2826,6 +2847,21 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+
+/* Tablet: a card of about 360px beside its pin, never over it (G25a). */
+@media (min-width: 768px) {
+  .look-plate-piece {
+    width: 22.5rem;
+  }
+
+  .look-plate-piece[data-h="right"] {
+    left: auto;
+  }
+
+  .look-plate-piece[data-h="left"] {
+    right: auto;
+  }
 }
 
 @keyframes look-piece-rise {
