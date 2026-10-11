@@ -200,6 +200,76 @@ async function screenLookTabbar(page) {
   record("screen.look.tabbar-nav", new URL(page.url()).pathname === "/houses");
 }
 
+/** `Shop this look` sheet (Look/3): slides up above the always-visible tab bar, one Shop per piece, no prices. */
+async function flowLookShopSheet(page) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.locator(".look-plate-shop").click();
+  const sheet = page.getByRole("dialog", { name: "Shop this look" });
+  await sheet.waitFor({ timeout: 4_000 });
+  await page.getByRole("link", { name: "View Style" }).first().waitFor({ timeout: 6_000 });
+  await page.waitForTimeout(450);
+  const m = await page.evaluate(() => {
+    const box = (selector) => {
+      const el = document.querySelector(selector);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height };
+    };
+    const tab = box(".tab-bar");
+    const hit = tab ? document.elementFromPoint((tab.left + tab.right) / 2, (tab.top + tab.bottom) / 2) : null;
+    const whole = document.querySelector(".look-sheet-whole");
+    const wholeCs = whole ? getComputedStyle(whole) : null;
+    return {
+      sheet: box(".look-sheet"),
+      tab,
+      tabVisible: Boolean(hit?.closest(".tab-bar")),
+      rows: document.querySelectorAll(".look-sheet-row").length,
+      shops: document.querySelectorAll(".look-sheet-shop").length,
+      wholeH: whole ? Math.round(whole.getBoundingClientRect().height) : null,
+      wholeBg: wholeCs?.backgroundColor,
+      wholeBorder: wholeCs?.borderTopWidth,
+      text: document.querySelector(".look-sheet")?.textContent ?? "",
+    };
+  });
+  record(
+    "flow.look.shop-sheet",
+    Boolean(m.sheet && m.tab) &&
+      Math.abs(m.sheet.bottom - m.tab.top) <= 1 &&
+      m.tabVisible &&
+      m.rows === 4 &&
+      m.shops === 4 &&
+      !/[$€£]/.test(m.text),
+    JSON.stringify({ ...m, text: undefined }),
+  );
+  const styleRow = (await page.locator(".look-sheet-row").first().innerText()).replace(/\s+/g, " ");
+  record(
+    "flow.look.shop-sheet-style-row",
+    /Column Dress/.test(styleRow) && /Atelier Noir/.test(styleRow) && /View Style/.test(styleRow) && !/Oversized Wool Coat/.test(styleRow),
+    styleRow,
+  );
+  record(
+    "flow.look.shop-sheet-whole-ghost",
+    m.wholeH === 44 && m.wholeBorder === "1px" && m.wholeBg === "rgba(0, 0, 0, 0)",
+    JSON.stringify({ h: m.wholeH, bg: m.wholeBg, border: m.wholeBorder }),
+  );
+  await page.evaluate(() => {
+    window.__opens = [];
+    window.open = (...args) => {
+      window.__opens.push(String(args[0]));
+      return {};
+    };
+  });
+  await page.locator(".look-sheet-whole").click();
+  const opens = await page.evaluate(() => window.__opens);
+  record("flow.look.shop-sheet-whole-one", opens.length === 1, JSON.stringify(opens));
+  await page.keyboard.press("Escape");
+  const closedByEsc = (await sheet.count()) === 0;
+  await page.locator(".look-plate-shop").click();
+  await sheet.waitFor({ timeout: 4_000 });
+  await page.mouse.click(195, 60);
+  record("flow.look.shop-sheet-dismiss", closedByEsc && (await sheet.count()) === 0, `esc=${closedByEsc}`);
+}
+
 async function screenLook(page) {
   await goto(page, "/looks/seed-sunday-coat");
   await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
@@ -517,6 +587,7 @@ try {
     await flowHomeSnap(page);
     await screenLook(page);
     await screenLookTabbar(page);
+    await flowLookShopSheet(page);
     await screenCreateEntry(page);
     await screenHouses(page);
     await flowHouseGate(page);

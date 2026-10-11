@@ -7,6 +7,7 @@ import { FollowButton } from "@/components/home/follow-button";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { useStylePin } from "@/components/labels/style-pin-note";
 import { LookCanvas } from "@/components/looks/look-canvas";
+import { LookShopSheet } from "@/components/looks/look-shop-sheet";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import { ECHO_FROM_KEY, echoKicker, pieceLine } from "@/lib/home/echo";
 import { shouldUseHistoryBack, markEditOpenedFromLook } from "@/lib/nav/back";
@@ -38,6 +39,7 @@ export function LookPlate({
   const toggleSaved = useSavedLooks((s) => s.toggle);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [shopSheetOpen, setShopSheetOpen] = useState(false);
   const feedFollow = useSettingsStore((s) => s.feedFollow);
 
   useEffect(() => {
@@ -134,8 +136,14 @@ export function LookPlate({
     shop(tag);
   }
 
+  /** `Shop this look`: the sheet lists every piece, so the pin card gives way to it. */
+  function openShopSheet() {
+    setSelectedId(null);
+    setShopSheetOpen(true);
+  }
+
   return (
-    <div className="look-plate">
+    <div className="look-plate" data-sheet={shopSheetOpen ? "open" : undefined}>
       <LookCanvas
         imageSrc={look.imageSrc}
         title={look.title}
@@ -297,18 +305,26 @@ export function LookPlate({
             <button
               type="button"
               className="look-plate-shop-whole"
-              onClick={() => (look.tags.length ? shopWholeLook() : toast.message("No pieces on this look yet"))}
+              onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}
             >
               Shop whole look
             </button>
           ) : (
-            <button type="button" className="look-plate-shop" onClick={() => (focus ? shop(focus) : toast.message("No pieces on this look yet"))}>
+            <button type="button" className="look-plate-shop" onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}>
               Shop
               <ExternalLink className="size-4" />
             </button>
           )}
         </div>
       </div>
+
+      <LookShopSheet
+        tags={look.tags}
+        open={shopSheetOpen}
+        onClose={() => setShopSheetOpen(false)}
+        onShopPiece={shop}
+        onShopWhole={shopWholeLook}
+      />
 
       <AccountSheet
         open={sheetOpen}
