@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 import { mkdirSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
-/** OS launch image — ink wordmark only, never the Classy coat. */
+/**
+ * OS launch image — ink wordmark only, never the Classy coat.
+ * Wordmark is Playfair Display italic, the same display face as the app chrome
+ * (--font-display in src/styles.css). Run from anywhere: `node scripts/generate-splash.mjs`.
+ */
 const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=Figtree:wght@500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,500;1,600&family=Figtree:wght@500&display=swap" />
   <style>
     html, body { margin: 0; height: 100%; background: #111111; color: #f3eee6; }
     .wrap {
@@ -18,12 +23,12 @@ const html = `<!doctype html>
     }
     .word {
       margin: 0;
-      font-family: "Cormorant Garamond", "Times New Roman", serif;
+      font-family: "Playfair Display", "Times New Roman", serif;
       font-style: italic; font-size: 92px; font-weight: 500;
       letter-spacing: -0.03em; line-height: 0.86;
     }
     .kicker {
-      margin-top: 18px;
+      margin-top: 28px;
       font-family: Figtree, system-ui, sans-serif;
       font-size: 13px; font-weight: 500; letter-spacing: 0.22em;
       text-transform: uppercase; opacity: 0.62;
@@ -49,7 +54,8 @@ const sizes = [
   { w: 2048, h: 2048, name: "splash-2048.png" },
 ];
 
-mkdirSync("/workspace/public", { recursive: true });
+const outDir = fileURLToPath(new URL("../public/", import.meta.url));
+mkdirSync(outDir, { recursive: true });
 
 const browser = await chromium.launch({
   headless: true,
@@ -59,9 +65,10 @@ const browser = await chromium.launch({
 for (const size of sizes) {
   const page = await browser.newPage({ viewport: { width: size.w, height: size.h } });
   await page.setContent(html, { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(400);
   const buf = await page.screenshot({ type: "png" });
-  writeFileSync(`/workspace/public/${size.name}`, buf);
+  writeFileSync(`${outDir}${size.name}`, buf);
   await page.close();
 }
 

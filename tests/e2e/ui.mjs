@@ -152,6 +152,54 @@ async function flowHomeSnap(page) {
   record("flow.home.snap-chrome", after.navTop === before.navTop, `${before.navTop} -> ${after.navTop}`);
 }
 
+/** Phone look detail keeps the 4-tab bar: the photo is full-bleed and ends where the bar starts. */
+async function screenLookTabbar(page) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.locator(".look-plate").waitFor({ timeout: 10_000 });
+  const read = () =>
+    page.evaluate(() => {
+      const box = (selector) => {
+        const el = document.querySelector(selector);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, height: r.height, display: getComputedStyle(el).display };
+      };
+      return {
+        tab: box(".tab-bar"),
+        plate: box(".look-plate"),
+        card: box(".look-plate-piece"),
+        echo: box(".look-plate-echo"),
+        items: [...document.querySelectorAll(".tab-bar .tab-item")].map((el) => el.textContent?.trim()),
+        vh: window.innerHeight,
+      };
+    });
+  const m = await read();
+  record(
+    "screen.look.tabbar",
+    Boolean(m.tab && m.plate) &&
+      m.tab.display !== "none" &&
+      m.tab.height >= 72 &&
+      m.items.length === 4 &&
+      m.plate.top <= 1 &&
+      Math.abs(m.plate.bottom - m.tab.top) <= 1 &&
+      Math.abs(m.tab.bottom - m.vh) <= 1 &&
+      m.echo.bottom <= m.tab.top,
+    JSON.stringify(m),
+  );
+  await page.locator(".look-plate .tag-pin").nth(0).click();
+  await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 4_000 });
+  await page.waitForTimeout(350);
+  const s = await read();
+  record(
+    "screen.look.tabbar-spotlight",
+    Boolean(s.card && s.tab) && s.card.bottom <= s.tab.top && s.card.top >= 0 && s.tab.display !== "none",
+    JSON.stringify(s),
+  );
+  await page.getByRole("navigation", { name: "App" }).getByRole("link", { name: /Houses/ }).click();
+  await page.waitForFunction(() => location.pathname === "/houses", null, { timeout: 8_000 });
+  record("screen.look.tabbar-nav", new URL(page.url()).pathname === "/houses");
+}
+
 async function screenLook(page) {
   await goto(page, "/looks/seed-sunday-coat");
   await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
@@ -819,6 +867,7 @@ try {
     await screenLook(page);
     await flowEscAccountSheet(page, "phone");
     await flowSelectedPinClear(page, "phone");
+    await screenLookTabbar(page);
     await screenCreateEntry(page);
     await screenHouses(page);
     await flowHouseGate(page);
