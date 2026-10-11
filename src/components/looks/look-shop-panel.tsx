@@ -40,7 +40,9 @@ function shopLookCheapest(tags: ProductTag[], context?: { lookId?: string; userS
   const chrome = chromeLayout();
   let opened = 0;
   for (const row of unique) {
-    const win = window.open(row.url, "_blank", "noopener,noreferrer");
+    // "noopener" in the features string makes window.open return null even when it worked, so detach the opener by hand.
+    const win = window.open(row.url, "_blank");
+    if (win) win.opener = null;
     if (win) {
       opened += 1;
       recordOutboundShopClick({
