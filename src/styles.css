@@ -5192,37 +5192,44 @@ html[data-chrome="phone"] .house-profile .house-follow {
   width: 100%;
 }
 
-/* Desktop: two panes. The hero, name and Follow stay in view on the left, the Lines scroll on the right.
-   Tablet and phone keep a single column. */
-html[data-chrome="desktop"] .house-profile {
-  display: grid;
-  grid-template-columns: 24rem minmax(0, 1fr);
-  gap: 2rem 3rem;
-  align-items: start;
+/* Tablet and desktop (Houses frames HS-T2, HS-D2): a hero row, with the cover on the left and the House text beside it,
+   then the Lines full width below on the same column scale as the index. Phone stays stacked. */
+html:not([data-chrome="phone"]) .house-profile-hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
-html[data-chrome="desktop"] .house-profile-hero {
-  position: sticky;
-  top: 5.5rem;
+html:not([data-chrome="phone"]) .house-profile .house-hero {
+  width: 22rem;
+  flex-shrink: 0;
+  margin-bottom: 0;
 }
 
 html[data-chrome="desktop"] .house-profile .house-hero {
-  width: 100%;
-  aspect-ratio: 4 / 3;
+  width: 13.5rem;
 }
 
-html[data-chrome="desktop"] .house-profile .house-looks-title {
-  margin-top: 0;
+html:not([data-chrome="phone"]) .house-profile-info .house-follow {
+  margin-bottom: 0;
 }
 
-html[data-chrome="desktop"] .house-profile-lines .house-lines {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+html:not([data-chrome="phone"]) .house-profile-info {
+  min-width: 0;
 }
 
-@media (min-width: 1280px) {
-  html[data-chrome="desktop"] .house-profile-lines .house-lines {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+/* Scouted on the profile: a quiet dot and label, no pill. */
+.house-profile-scout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-foreground);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .house-looks {

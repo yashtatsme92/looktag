@@ -4,7 +4,6 @@ import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
-import { ScoutedMark } from "@/components/labels/scouted-mark";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { Button } from "@/components/ui/button";
@@ -141,17 +140,20 @@ function HouseProfile() {
       <article className="house-profile">
         <div className="house-profile-hero">
           {cover ? <img className="house-hero" src={cover} alt="" /> : null}
-          <p className="wide-kicker">House</p>
-          <ScreenTitle>{label.name}</ScreenTitle>
-          {label.scouted ? (
-            <div className="mb-3 flex items-center gap-2">
-              <ScoutedMark />
-            </div>
-          ) : null}
-          {line ? <p className="house-line">{line}</p> : null}
-          <button type="button" className="house-primary house-follow" onClick={follow}>
-            {following ? "Following" : "Follow"}
-          </button>
+          <div className="house-profile-info">
+            <p className="wide-kicker">House</p>
+            <ScreenTitle>{label.name}</ScreenTitle>
+            {label.scouted ? (
+              <p className="house-profile-scout">
+                <span className="scouted-dot" aria-hidden />
+                Scouted
+              </p>
+            ) : null}
+            {line ? <p className="house-line">{line}</p> : null}
+            <button type="button" className="house-primary house-follow" onClick={follow}>
+              {following ? "Following" : "Follow"}
+            </button>
+          </div>
         </div>
         <div className="house-profile-lines">
           <h2 className="ops-section house-looks-title">Lines</h2>

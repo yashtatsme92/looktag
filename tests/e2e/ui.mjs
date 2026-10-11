@@ -423,20 +423,40 @@ async function screenDesktop(page) {
   record("screen.desktop.houses-cols", indexCols === 4, String(indexCols));
   await goto(page, "/houses/label-atelier-noir");
   await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
-  const panes = await page.evaluate(() => {
-    const r = (s) => {
-      const b = document.querySelector(s)?.getBoundingClientRect();
-      return b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), bottom: Math.round(b.bottom) } : null;
-    };
-    return { hero: r(".house-profile-hero"), lines: r(".house-profile-lines"), follow: r(".house-profile .house-follow") };
-  });
-  record(
-    "screen.desktop.house-two-pane",
-    Boolean(panes.hero && panes.lines) && panes.lines.x >= panes.hero.x + panes.hero.w && panes.follow.bottom <= 800,
-    JSON.stringify(panes),
-  );
+  record("screen.desktop.house-hero-row", ...(await heroRow(page, { coverW: 215, linesCols: 4, followMax: 640 })));
   await goto(page, "/rank");
   record("screen.rank", (await page.locator("body").innerText()).length > 20);
+}
+
+async function heroRow(page, { coverW, linesCols, followMax }) {
+  const m = await page.evaluate(() => {
+    const r = (sel) => {
+      const b = document.querySelector(sel)?.getBoundingClientRect();
+      return b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height), right: Math.round(b.right), bottom: Math.round(b.bottom) } : null;
+    };
+    const lines = document.querySelector(".house-profile-lines .house-lines");
+    return {
+      cover: r(".house-hero"),
+      info: r(".house-profile-info"),
+      follow: r(".house-profile .house-follow"),
+      lines: r(".house-profile-lines .house-lines"),
+      cols: lines ? getComputedStyle(lines).gridTemplateColumns.split(" ").length : 0,
+      sticky: getComputedStyle(document.querySelector(".house-profile-hero")).position === "sticky",
+      overflow: document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  const ok =
+    Boolean(m.cover && m.info && m.lines) &&
+    Math.abs(m.cover.w - coverW) <= 3 &&
+    Math.abs(m.cover.h / m.cover.w - 4 / 3) < 0.02 &&
+    m.info.x >= m.cover.right &&
+    m.lines.y >= m.cover.bottom &&
+    m.lines.x === m.cover.x &&
+    m.cols === linesCols &&
+    m.follow.bottom <= followMax &&
+    !m.sticky &&
+    !m.overflow;
+  return [ok, JSON.stringify(m)];
 }
 
 async function screenHousesTablet(page) {
@@ -446,12 +466,17 @@ async function screenHousesTablet(page) {
   record("screen.tablet.houses-cols", cols === 2, String(cols));
   await goto(page, "/houses/label-atelier-noir");
   await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
-  const stack = await page.evaluate(() => {
-    const hero = document.querySelector(".house-profile-hero")?.getBoundingClientRect();
-    const lines = document.querySelector(".house-profile-lines")?.getBoundingClientRect();
-    return hero && lines ? { heroBottom: Math.round(hero.bottom), linesTop: Math.round(lines.top), heroX: Math.round(hero.x), linesX: Math.round(lines.x) } : null;
-  });
-  record("screen.tablet.house-single-column", Boolean(stack) && stack.linesTop >= stack.heroBottom && stack.linesX === stack.heroX, JSON.stringify(stack));
+  record("screen.tablet.house-hero-row", ...(await heroRow(page, { coverW: 352, linesCols: 2, followMax: 1000 })));
+}
+
+async function screenHouses1024(page) {
+  await goto(page, "/houses");
+  await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 10_000 });
+  const cols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
+  record("screen.1024.houses-cols", cols === 3, String(cols));
+  await goto(page, "/houses/label-atelier-noir");
+  await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
+  record("screen.1024.house-hero-row", ...(await heroRow(page, { coverW: 215, linesCols: 3, followMax: 640 })));
 }
 
 const phone = { viewport: { width: 390, height: 844 } };
@@ -486,6 +511,11 @@ try {
     await prime(page);
     await screenHousesTablet(page);
   }, "ui-tablet", { viewport: { width: 834, height: 1112 } });
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await screenHouses1024(page);
+  }, "ui-1024", { viewport: { width: 1024, height: 768 } });
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
