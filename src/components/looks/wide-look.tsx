@@ -125,8 +125,12 @@ export function WideLook({
           </div>
           <aside className="wide-panel" aria-label="Shop">
             <div className="wide-panel-hd">
-              <p className="wide-kicker">{echoKicker(look)}</p>
-              {look.userId ? <FollowButton creatorId={look.userId} name={look.creator || "this creator"} /> : null}
+              <span className="echo-kicker-row">
+                <p className="wide-kicker">{echoKicker(look)}</p>
+                {look.userId ? (
+                  <FollowButton creatorId={look.userId} name={look.creator || "this creator"} tone="paper" />
+                ) : null}
+              </span>
               <h1>{look.title || "Untitled look"}</h1>
               <div className="wide-acts">
                 <button

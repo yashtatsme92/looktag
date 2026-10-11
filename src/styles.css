@@ -2731,6 +2731,120 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   color: white;
 }
 
+/* Pin spotlight (Look 2): soft vignette + piece card over the plate. */
+.look-plate-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  background: radial-gradient(ellipse at 50% 42%, transparent 16%, rgb(17 17 17 / 38%) 100%);
+  pointer-events: none;
+}
+
+.look-plate-piece {
+  position: absolute;
+  right: 1rem;
+  left: 1rem;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgb(224 224 224 / 55%);
+  border-radius: 1.125rem;
+  background: rgb(255 255 255 / 94%);
+  color: #111111;
+  box-shadow: var(--shadow-border);
+  backdrop-filter: blur(16px);
+  touch-action: pan-y;
+  animation: look-piece-rise var(--motion-fast, 250ms) ease-out both;
+}
+
+.look-plate-piece[data-side="bottom"] {
+  top: 54%;
+}
+
+.look-plate-piece[data-side="top"] {
+  top: 16%;
+}
+
+.look-plate-piece-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.look-plate-piece-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.look-plate-piece-name {
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.look-plate-piece-retailer {
+  color: #6b6b6b;
+  font-size: 0.8125rem;
+}
+
+.look-plate-piece-x {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.75rem -0.75rem 0 0;
+  align-self: flex-start;
+  align-items: center;
+  justify-content: center;
+  color: #6b6b6b;
+}
+
+.look-plate-piece-shop {
+  display: inline-flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: #111111;
+  color: #f4f4f4;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.look-plate-shop-whole {
+  min-height: 2.75rem;
+  padding: 0 0.25rem;
+  color: rgb(255 255 255 / 90%);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+@keyframes look-piece-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .look-plate-piece {
+    animation: none;
+  }
+}
+
 .echo-return {
   display: flex;
   width: 100%;
@@ -4155,10 +4269,18 @@ input[type="search"]::-webkit-search-decoration {
 
 .wide-prow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
   min-height: 5rem;
   border-bottom: 1px solid #f0f0f0;
+}
+
+/* A Style-linked pin keeps its Style note on its own line under the piece. */
+.wide-prow .style-pin {
+  order: 3;
+  flex: 1 0 100%;
+  margin: -0.5rem 0 0.75rem 2.5rem;
 }
 
 .wide-prow.is-on {

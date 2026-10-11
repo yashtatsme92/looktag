@@ -158,6 +158,21 @@ async function screenLook(page) {
   const text = await page.locator("body").innerText();
   record("screen.look.shop", /Shop/.test(text) && /Sunday Coat/.test(text));
   record("screen.look.share", (await page.getByRole("button", { name: "Share" }).count()) > 0);
+  await page.locator(".tag-pin").nth(1).click();
+  const card = page.getByRole("dialog", { name: "Selected piece" });
+  await card.waitFor({ timeout: 4_000 });
+  const cardText = await card.innerText();
+  record(
+    "flow.look.spotlight-card",
+    /Cashmere Turtleneck/.test(cardText) && /Uniqlo/.test(cardText) && /Shop/.test(cardText) && !/[$€]/.test(cardText),
+    cardText.replace(/\s+/g, " "),
+  );
+  record(
+    "flow.look.spotlight-whole",
+    (await page.locator(".look-plate-shop-whole").count()) === 1 && (await page.locator(".look-plate-shop").count()) === 0,
+  );
+  await card.getByRole("button", { name: "Dismiss" }).click();
+  record("flow.look.spotlight-dismiss", (await card.count()) === 0);
   await page.locator(".look-plate-echo").click();
   await page.waitForFunction(() => location.pathname === "/", null, { timeout: 8_000 });
   record("flow.look.echo", new URL(page.url()).pathname === "/");
