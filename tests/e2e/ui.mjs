@@ -451,14 +451,32 @@ try {
     await goto(page, "/create");
     await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
     const deskDone = await page.evaluate(() => {
-      const el = document.querySelector(".create-pin-actions .create-btn-done");
-      if (!el) return null;
-      const style = getComputedStyle(el);
-      return { height: Math.round(el.getBoundingClientRect().height), border: style.borderTopWidth, color: style.color, borderColor: style.borderTopColor };
+      const done = document.querySelector(".create-pin-actions .create-btn-done");
+      const add = document.querySelector(".create-pin-actions .create-btn-pin");
+      const back = document.querySelector(".create-plate-back");
+      if (!done || !add || !back) return null;
+      const style = getComputedStyle(done);
+      return {
+        height: Math.round(done.getBoundingClientRect().height),
+        width: Math.round(done.getBoundingClientRect().width),
+        addWidth: Math.round(add.getBoundingClientRect().width),
+        border: style.borderTopWidth,
+        borderColor: style.borderTopColor,
+        backBorderColor: getComputedStyle(back).borderTopColor,
+        color: style.color,
+        background: style.backgroundColor,
+        radius: style.borderTopLeftRadius,
+      };
     });
     record(
       "flow.desktop.done-ghost",
-      deskDone?.height === 44 && deskDone.border === "1px" && deskDone.color === "rgb(17, 17, 17)" && deskDone.borderColor === "rgb(17, 17, 17)",
+      deskDone?.height === 44 &&
+        deskDone.border === "1px" &&
+        deskDone.radius === "12px" &&
+        deskDone.background === "rgb(255, 255, 255)" &&
+        deskDone.color === "rgb(17, 17, 17)" &&
+        deskDone.borderColor === deskDone.backBorderColor &&
+        Math.abs(deskDone.width - deskDone.addWidth) <= 1,
       JSON.stringify(deskDone),
     );
     await page.getByRole("button", { name: "Done" }).first().click();

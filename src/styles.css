@@ -3768,10 +3768,18 @@ input[type="search"]::-webkit-search-decoration {
     border-radius: 24px;
   }
 
-  /* Desktop: the pin dock is a white card, so the ghost Done is Ink on white, not white on the plate. */
+  /* Desktop: the pin dock is a white card, so Done is the standard ghost on white (same hairline and Ink text as Back),
+     and it matches Add pin in width. */
   html:not(.native-app) .create-plate .create-btn-ghost.create-btn-done {
-    border-color: var(--color-ink);
-    color: var(--color-ink);
+    flex: 0 0 calc(50% - 0.375rem);
+    box-sizing: border-box;
+    background: #ffffff;
+    border-color: rgb(17 17 17 / 16%);
+    color: #111111;
+  }
+
+  html:not(.native-app) .create-plate .create-pin-actions .create-btn-pin {
+    flex: 0 0 calc(50% - 0.375rem);
   }
 
   html[data-chrome="desktop"] [data-vaul-drawer] {
