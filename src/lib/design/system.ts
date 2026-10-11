@@ -16,7 +16,7 @@ export const fonts = [
   },
   {
     token: "font-display",
-    family: "Cormorant Garamond",
+    family: "Playfair Display",
     role: "Titles, wordmark, look names",
     sample: "Sunday Coat",
   },
@@ -90,7 +90,7 @@ export const insets = [
 
 export const rules = [
   "Ground, ink, studio — three surfaces. Grey only, no extra hues except destructive.",
-  "Figtree for UI, Cormorant for titles. Never a third family.",
+  "Figtree for UI, Playfair Display for titles. Never a third family.",
   "Outer radius = inner radius + padding. Cards are radius-xl; controls are radius-md.",
   "Elevation is shadow-border, not a 1px solid border on cards.",
   "Tap targets are 44px. Pins use a 44px hit area over an 32px mark.",
