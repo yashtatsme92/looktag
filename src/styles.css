@@ -939,6 +939,12 @@ html[data-theme="moss"] {
     color: rgb(255 255 255 / 0.7);
   }
 
+  /* Pin step: bottom Done is an outlined ghost beside the primary Add pin (CREATE frame 3). */
+  .create-plate .create-btn-ghost.create-btn-done {
+    border: 1px solid rgb(255 255 255 / 0.55);
+    color: rgb(255 255 255 / 0.92);
+  }
+
   .create-btn-secondary {
     background: #fff;
     color: #111111;
@@ -3975,6 +3981,37 @@ input[type="search"]::-webkit-search-decoration {
     background: #ffffff;
     color: #111111;
     border-radius: 24px;
+  }
+
+  /* Desktop: the pin dock is a white card, so Done is the standard ghost on white (same hairline and Ink text as Back),
+     and it matches Add pin in width. */
+  html:not(.native-app) .create-plate .create-btn-ghost.create-btn-done {
+    flex: 0 0 calc(50% - 0.375rem);
+    box-sizing: border-box;
+    background: #ffffff;
+    border-color: rgb(17 17 17 / 16%);
+    color: #111111;
+  }
+
+  /* Desktop: Add pin is the Ink primary (frame create-d2-pin), same 44px / radius 12 / width as Done. The white phone fill vanishes on the white card. */
+  html:not(.native-app) .create-plate .create-pin-actions .create-btn-pin {
+    flex: 0 0 calc(50% - 0.375rem);
+    box-sizing: border-box;
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+    box-shadow: none;
+  }
+
+  /* Desktop: hint line and Find pieces are muted Ink on the white card (frame: quiet grey text, no pill), not white-on-white. */
+  html:not(.native-app) .create-plate .create-pin-hint {
+    color: rgb(17 17 17 / 0.6);
+  }
+
+  html:not(.native-app) .create-plate .create-find {
+    border-color: transparent;
+    background: transparent;
+    color: rgb(17 17 17 / 0.6);
+    backdrop-filter: none;
   }
 
   html[data-chrome="desktop"] [data-vaul-drawer] {

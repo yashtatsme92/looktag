@@ -215,6 +215,24 @@ async function flowCreateBranches(page) {
   record("flow.create.pins", (await page.locator(".look-studio").getAttribute("data-step")) === "pins");
   record("flow.create.find", (await page.getByRole("button", { name: /Find pieces/i }).count()) > 0);
   record("flow.create.add-pin", (await page.getByRole("button", { name: "Add pin" }).count()) > 0);
+  const doneGhost = await page.evaluate(() => {
+    const el = document.querySelector(".create-pin-actions .create-btn-done");
+    if (!el) return null;
+    const style = getComputedStyle(el);
+    return { height: Math.round(el.getBoundingClientRect().height), border: style.borderTopWidth };
+  });
+  record("flow.create.done-ghost", doneGhost?.height === 44 && doneGhost.border === "1px", JSON.stringify(doneGhost));
+  const phoneAdd = await page.evaluate(() => {
+    const el = document.querySelector(".create-pin-actions .create-btn-pin");
+    if (!el) return null;
+    const style = getComputedStyle(el);
+    return { bg: style.backgroundColor, color: style.color };
+  });
+  record(
+    "flow.create.add-pin-phone-unchanged",
+    phoneAdd?.bg === "rgb(255, 255, 255)" && phoneAdd.color === "rgb(17, 17, 17)",
+    JSON.stringify(phoneAdd),
+  );
 
   await page.locator("[data-tag-pin]").first().click();
   await page.locator(".create-piece").waitFor({ timeout: 5_000 });
@@ -578,6 +596,88 @@ try {
     await prime(page, { draft: true });
     await goto(page, "/create");
     await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+    const deskDone = await page.evaluate(() => {
+      const done = document.querySelector(".create-pin-actions .create-btn-done");
+      const add = document.querySelector(".create-pin-actions .create-btn-pin");
+      const back = document.querySelector(".create-plate-back");
+      if (!done || !add || !back) return null;
+      const style = getComputedStyle(done);
+      return {
+        height: Math.round(done.getBoundingClientRect().height),
+        width: Math.round(done.getBoundingClientRect().width),
+        addWidth: Math.round(add.getBoundingClientRect().width),
+        border: style.borderTopWidth,
+        borderColor: style.borderTopColor,
+        backBorderColor: getComputedStyle(back).borderTopColor,
+        color: style.color,
+        background: style.backgroundColor,
+        radius: style.borderTopLeftRadius,
+      };
+    });
+    record(
+      "flow.desktop.done-ghost",
+      deskDone?.height === 44 &&
+        deskDone.border === "1px" &&
+        deskDone.radius === "12px" &&
+        deskDone.background === "rgb(255, 255, 255)" &&
+        deskDone.color === "rgb(17, 17, 17)" &&
+        deskDone.borderColor === deskDone.backBorderColor &&
+        Math.abs(deskDone.width - deskDone.addWidth) <= 1,
+      JSON.stringify(deskDone),
+    );
+    const deskAdd = await page.evaluate(() => {
+      const done = document.querySelector(".create-pin-actions .create-btn-done");
+      const add = document.querySelector(".create-pin-actions .create-btn-pin");
+      const hint = document.querySelector(".create-pin-hint");
+      const find = document.querySelector(".create-find");
+      if (!done || !add || !hint || !find) return null;
+      const rgb = (c, over = [255, 255, 255]) => {
+        const n = (c.match(/[\d.]+/g) || []).map(Number);
+        const alpha = n.length > 3 ? n[3] : 1;
+        return [0, 1, 2].map((i) => n[i] * alpha + over[i] * (1 - alpha));
+      };
+      const lum = ([r, g, b]) => {
+        const f = (v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const contrast = (fg, bg) => {
+        const a = lum(rgb(fg));
+        const b = lum(rgb(bg));
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      };
+      const card = getComputedStyle(document.querySelector(".create-pin-dock")).backgroundColor;
+      const a = getComputedStyle(add);
+      const ar = add.getBoundingClientRect();
+      const dr = done.getBoundingClientRect();
+      return {
+        bg: a.backgroundColor,
+        color: a.color,
+        height: Math.round(ar.height),
+        width: Math.round(ar.width),
+        doneWidth: Math.round(dr.width),
+        doneHeight: Math.round(dr.height),
+        radius: a.borderTopLeftRadius,
+        card,
+        addContrast: Math.round(contrast(a.color, a.backgroundColor) * 10) / 10,
+        hintContrast: Math.round(contrast(getComputedStyle(hint).color, card) * 10) / 10,
+        findContrast: Math.round(contrast(getComputedStyle(find).color, card) * 10) / 10,
+      };
+    });
+    record(
+      "flow.desktop.add-pin-primary",
+      deskAdd?.bg === "rgb(17, 17, 17)" &&
+        deskAdd.addContrast >= 12 &&
+        deskAdd.height === 44 &&
+        deskAdd.doneHeight === 44 &&
+        deskAdd.radius === "12px" &&
+        Math.abs(deskAdd.width - deskAdd.doneWidth) <= 1,
+      JSON.stringify(deskAdd),
+    );
+    record(
+      "flow.desktop.pin-dock-text-legible",
+      deskAdd && deskAdd.card === "rgb(255, 255, 255)" && deskAdd.hintContrast >= 4.5 && deskAdd.findContrast >= 4.5,
+      JSON.stringify(deskAdd),
+    );
     await page.getByRole("button", { name: "Done" }).first().click();
     await page.locator("#create-title").fill("Wide cut");
     await page.getByRole("button", { name: "Continue" }).click();
