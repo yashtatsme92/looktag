@@ -200,6 +200,118 @@ async function screenLookTabbar(page) {
   record("screen.look.tabbar-nav", new URL(page.url()).pathname === "/houses");
 }
 
+/** `Shop this look` sheet (Look/3): slides up above the always-visible tab bar, one Shop per piece, no prices. */
+async function flowLookShopSheet(page) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.locator(".look-plate-shop").click();
+  const sheet = page.getByRole("dialog", { name: "Shop this look" });
+  await sheet.waitFor({ timeout: 4_000 });
+  await page.getByRole("link", { name: "View Style" }).first().waitFor({ timeout: 6_000 });
+  await page.waitForTimeout(450);
+  const m = await page.evaluate(() => {
+    const box = (selector) => {
+      const el = document.querySelector(selector);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height };
+    };
+    const tab = box(".tab-bar");
+    const hit = tab ? document.elementFromPoint((tab.left + tab.right) / 2, (tab.top + tab.bottom) / 2) : null;
+    const whole = document.querySelector(".look-sheet-whole");
+    const wholeCs = whole ? getComputedStyle(whole) : null;
+    return {
+      sheet: box(".look-sheet"),
+      tab,
+      tabVisible: Boolean(hit?.closest(".tab-bar")),
+      rows: document.querySelectorAll(".look-sheet-row").length,
+      shops: document.querySelectorAll(".look-sheet-shop").length,
+      wholeH: whole ? Math.round(whole.getBoundingClientRect().height) : null,
+      wholeBg: wholeCs?.backgroundColor,
+      wholeBorder: wholeCs?.borderTopWidth,
+      text: document.querySelector(".look-sheet")?.textContent ?? "",
+    };
+  });
+  record(
+    "flow.look.shop-sheet",
+    Boolean(m.sheet && m.tab) &&
+      Math.abs(m.sheet.bottom - m.tab.top) <= 1 &&
+      m.tabVisible &&
+      m.rows === 4 &&
+      m.shops === 4 &&
+      !/[$€£]/.test(m.text),
+    JSON.stringify({ ...m, text: undefined }),
+  );
+  const styleRow = (await page.locator(".look-sheet-row").first().innerText()).replace(/\s+/g, " ");
+  record(
+    "flow.look.shop-sheet-style-row",
+    /Column Dress/.test(styleRow) && /Atelier Noir/.test(styleRow) && /View Style/.test(styleRow) && !/Oversized Wool Coat/.test(styleRow),
+    styleRow,
+  );
+  record(
+    "flow.look.shop-sheet-whole-ghost",
+    m.wholeH === 44 && m.wholeBorder === "1px" && m.wholeBg === "rgba(0, 0, 0, 0)",
+    JSON.stringify({ h: m.wholeH, bg: m.wholeBg, border: m.wholeBorder }),
+  );
+  await page.evaluate(() => {
+    window.__opens = [];
+    window.open = (...args) => {
+      window.__opens.push(String(args[0]));
+      return {};
+    };
+  });
+  await page.locator(".look-sheet-whole").click();
+  const opens = await page.evaluate(() => window.__opens);
+  record("flow.look.shop-sheet-whole-one", opens.length === 1, JSON.stringify(opens));
+  // Dialog semantics: modal, focus inside, Tab cycles inside the sheet.
+  const modal = await sheet.getAttribute("aria-modal");
+  const focusedInside = await page.evaluate(() => document.activeElement?.closest(".look-sheet") !== null);
+  const tabbed = [];
+  for (let i = 0; i < 14; i += 1) {
+    await page.keyboard.press("Tab");
+    tabbed.push(await page.evaluate(() => document.activeElement?.closest(".look-sheet") !== null));
+  }
+  await page.keyboard.press("Shift+Tab");
+  const shiftInside = await page.evaluate(() => document.activeElement?.closest(".look-sheet") !== null);
+  record(
+    "flow.look.shop-sheet-focus-trap",
+    modal === "true" && focusedInside && tabbed.every(Boolean) && shiftInside,
+    JSON.stringify({ modal, focusedInside, tabbed: tabbed.filter((x) => !x).length, shiftInside }),
+  );
+  await page.keyboard.press("Escape");
+  const closedByEsc = (await sheet.count()) === 0;
+  const openerFocused = await page
+    .waitForFunction(() => document.activeElement?.classList.contains("look-plate-shop") ?? false, null, { timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+  const activeAfter = await page.evaluate(() => document.activeElement?.className || document.activeElement?.tagName);
+  record("flow.look.shop-sheet-focus-return", closedByEsc && openerFocused, String(activeAfter));
+  await page.locator(".look-plate-shop").click();
+  await sheet.waitFor({ timeout: 4_000 });
+  await page.mouse.click(195, 60);
+  record("flow.look.shop-sheet-dismiss", closedByEsc && (await sheet.count()) === 0, `esc=${closedByEsc}`);
+}
+
+/** Tablet: the Shop sheet is centred and about 600px wide; Esc with the account sheet open keeps the pin card. */
+async function flowLookShopSheetTablet(page) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.locator(".look-plate-shop").click();
+  const sheet = page.getByRole("dialog", { name: "Shop this look" });
+  await sheet.waitFor({ timeout: 4_000 });
+  await page.waitForTimeout(450);
+  const m = await page.evaluate(() => {
+    const r = document.querySelector(".look-sheet").getBoundingClientRect();
+    return { left: r.left, right: r.right, width: r.width, vw: window.innerWidth };
+  });
+  record(
+    "flow.look.shop-sheet-tablet-width",
+    m.width >= 560 && m.width <= 604 && Math.abs(m.left - (m.vw - m.right)) <= 1,
+    JSON.stringify(m),
+  );
+  await page.keyboard.press("Escape");
+  await sheet.waitFor({ state: "detached", timeout: 3_000 }).catch(() => undefined);
+  record("flow.look.shop-sheet-tablet-esc", (await sheet.count()) === 0);
+}
+
 async function screenLook(page) {
   await goto(page, "/looks/seed-sunday-coat");
   await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
@@ -868,6 +980,7 @@ try {
     await flowEscAccountSheet(page, "phone");
     await flowSelectedPinClear(page, "phone");
     await screenLookTabbar(page);
+    await flowLookShopSheet(page);
     await screenCreateEntry(page);
     await screenHouses(page);
     await flowHouseGate(page);
@@ -889,6 +1002,7 @@ try {
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
+    await flowLookShopSheetTablet(page);
     await screenHousesTablet(page);
     await screenYouEmptyChip(page, "tablet");
     await flowEscAccountSheet(page, "tablet");

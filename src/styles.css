@@ -2910,6 +2910,226 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   font-weight: 600;
 }
 
+/* Shop this look (Look/3): a sheet inside the plate, so it sits above the always-visible tab bar. */
+.look-plate[data-sheet="open"] .look-plate-bar {
+  z-index: 47;
+}
+
+.look-sheet-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 46;
+  background: rgb(17 17 17 / 45%);
+  animation: look-sheet-fade var(--motion-fast, 250ms) ease-out both;
+}
+
+.look-sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  display: flex;
+  max-height: 72%;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 0.75rem 1rem 1.25rem;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: #ffffff;
+  color: #111111;
+  animation: look-sheet-rise var(--motion-fast, 250ms) ease-out both;
+}
+
+.look-sheet:focus {
+  outline: none;
+}
+
+/* Tablet and up: a centred sheet, about 600px wide with 24px padding (frames L-T2 and RESPONSIVE-PATTERN 11). Phone stays full-bleed. */
+@media (min-width: 768px) {
+  /* While the tablet sheet is open the caption and bottom bar step aside so nothing peeks out beside the 600px sheet. */
+  .look-plate[data-sheet="open"] .look-plate-meta {
+    visibility: hidden;
+  }
+
+  .look-sheet {
+    width: min(37.5rem, 100%);
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+}
+
+.look-sheet-grab {
+  align-self: center;
+  width: 2.25rem;
+  height: 0.25rem;
+  margin-bottom: 0.75rem;
+  border-radius: 999px;
+  background: #e0e0e0;
+}
+
+.look-sheet-x {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  color: #6b6b6b;
+}
+
+.look-sheet-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.look-sheet-sub {
+  margin-top: 0.25rem;
+  color: #6b6b6b;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.look-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.look-sheet-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--radius-lg);
+}
+
+.look-sheet-num {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.look-sheet-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.look-sheet-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.look-sheet-meta {
+  color: #6b6b6b;
+  font-size: 0.8125rem;
+}
+
+.look-sheet-shop,
+.look-sheet-view {
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.look-sheet-shop {
+  background: #111111;
+  color: #ffffff;
+}
+
+.look-sheet-view {
+  border: 1px solid var(--color-ink);
+  background: transparent;
+  color: var(--color-ink);
+}
+
+/* A Style-linked row puts its actions on their own line, Shop left and View Style right. */
+.look-sheet-acts {
+  display: flex;
+  flex: 1 0 100%;
+  gap: 0.5rem;
+}
+
+.look-sheet-acts > * {
+  flex: 1;
+}
+
+.look-sheet-whole {
+  display: inline-flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.look-sheet-count {
+  margin-top: 0.75rem;
+  color: #6b6b6b;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+@keyframes look-sheet-rise {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes look-sheet-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .look-sheet,
+  .look-sheet-scrim {
+    animation: none;
+  }
+}
+
 /* Style-linked rows (panel, dock): the quiet 44px outline ghost View Style. */
 .style-view-ghost {
   display: inline-flex;
