@@ -9,12 +9,13 @@ import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
 import { markEditOpenedFromLook } from "@/lib/nav/back";
-import { StylePinNote } from "@/components/labels/style-pin-note";
+import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { FollowButton } from "@/components/home/follow-button";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
+import { firstShopTag } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import { useLooksStore } from "@/lib/looks/store";
 import type { Look, ProductTag } from "@/lib/looks/types";
@@ -49,7 +50,9 @@ export function WideLook({
   function openShop(tag: ProductTag, source: "piece_shop" | "shop_look") {
     const target = visualShopTarget(tag);
     if (!target?.url) return false;
-    const win = window.open(target.url, "_blank", "noopener,noreferrer");
+    // "noopener" in the features string makes window.open return null even when it worked, so detach the opener by hand.
+    const win = window.open(target.url, "_blank");
+    if (win) win.opener = null;
     if (!win) return false;
     recordOutboundShopClick({
       chrome: chromeLayout(),
@@ -72,17 +75,14 @@ export function WideLook({
     if (!openShop(tag, "piece_shop")) toast.message("Allow pop-ups to open the shop");
   }
 
+  /** One destination, never one window per piece: the first pin that has a visual shop target. */
   function shopWhole() {
-    const rows = look.tags.filter((tag) => visualShopTarget(tag)?.url);
-    if (rows.length === 0) {
+    const first = firstShopTag(look.tags);
+    if (!first) {
       toast.message("No close match yet");
       return;
     }
-    let opened = 0;
-    for (const tag of rows) {
-      if (openShop(tag, "shop_look")) opened += 1;
-    }
-    if (opened === 0) toast.message("Allow pop-ups to open the shops");
+    if (!openShop(first.tag, "shop_look")) toast.message("Allow pop-ups to open the shop");
   }
 
   function save() {
@@ -191,39 +191,17 @@ export function WideLook({
                 <h2>Shop this look</h2>
                 <span>{pieceLine(look) || "No pieces"}</span>
               </div>
-              {look.tags.map((tag, index) => {
-                const target = visualShopTarget(tag);
-                const selected = tag.id === selectedId;
-                return (
-                  <div key={tag.id} className={cn("wide-prow", selected && "is-on")}>
-                    <button
-                      type="button"
-                      className="wide-prow-hit"
-                      aria-label={`Spotlight piece ${index + 1}, ${tag.name || "Piece"}`}
-                      onClick={() => setSelectedId(selected ? null : tag.id)}
-                    >
-                      <span className="wide-pn">{index + 1}</span>
-                      <span
-                        className="wide-pth"
-                        style={{
-                          backgroundImage: look.imageSrc ? `url(${look.imageSrc})` : undefined,
-                          backgroundPosition: `${tag.x}% ${tag.y}%`,
-                        }}
-                      />
-                      <span className="wide-ptx">
-                        <span className="wide-pnm">{tag.name || "Piece"}</span>
-                        <span className="wide-prt">{target ? retailerLabel(tag) : "No close match yet"}</span>
-                      </span>
-                    </button>
-                    <StylePinNote styleId={tag.styleId} />
-                    {target ? (
-                      <button type="button" className="wide-btn wide-btn-primary" onClick={() => shopPiece(tag)}>
-                        Shop
-                      </button>
-                    ) : null}
-                  </div>
-                );
-              })}
+              {look.tags.map((tag, index) => (
+                <WidePieceRow
+                  key={tag.id}
+                  tag={tag}
+                  index={index}
+                  lookSrc={look.imageSrc}
+                  selected={tag.id === selectedId}
+                  onToggle={() => setSelectedId(tag.id === selectedId ? null : tag.id)}
+                  onShop={() => shopPiece(tag)}
+                />
+              ))}
             </div>
             <div className="wide-panel-ft">
               <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={shopWhole}>
@@ -268,6 +246,65 @@ export function WideLook({
         primary="Continue with email"
         secondary="Cancel"
       />
+    </div>
+  );
+}
+
+/** One piece in the desktop panel. A Style-linked pin shows the Style name and House, with a ghost View Style beside Shop. */
+function WidePieceRow({
+  tag,
+  index,
+  lookSrc,
+  selected,
+  onToggle,
+  onShop,
+}: {
+  tag: ProductTag;
+  index: number;
+  lookSrc: string;
+  selected: boolean;
+  onToggle: () => void;
+  onShop: () => void;
+}) {
+  const stylePin = useStylePin(tag.styleId);
+  const target = visualShopTarget(tag);
+  const pieceName = tag.name || "Piece";
+  return (
+    <div className={cn("wide-prow", selected && "is-on")}>
+      <button
+        type="button"
+        className="wide-prow-hit"
+        aria-label={`Spotlight piece ${index + 1}, ${pieceName}`}
+        onClick={onToggle}
+      >
+        <span className="wide-pn">{index + 1}</span>
+        <span
+          className="wide-pth"
+          style={{
+            backgroundImage: lookSrc ? `url(${lookSrc})` : undefined,
+            backgroundPosition: `${tag.x}% ${tag.y}%`,
+          }}
+        />
+        <span className="wide-ptx">
+          <span className="wide-pnm">{stylePin ? stylePin.styleName : pieceName}</span>
+          <span className="wide-prt">
+            {stylePin ? stylePin.houseName : target ? retailerLabel(tag) : "No close match yet"}
+          </span>
+        </span>
+      </button>
+      <div className="wide-prow-acts">
+        {target ? (
+          <button
+            type="button"
+            className="wide-btn wide-btn-primary"
+            aria-label={`Shop ${pieceName}`}
+            onClick={onShop}
+          >
+            Shop
+          </button>
+        ) : null}
+        {stylePin ? <StyleViewLink pin={stylePin} /> : null}
+      </div>
     </div>
   );
 }
