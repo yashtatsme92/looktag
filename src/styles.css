@@ -4576,18 +4576,41 @@ input[type="search"]::-webkit-search-decoration {
 
 .wide-split {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(18rem, 5fr);
+  /* Photo card is 7/12 of the row but never wider than ~frame ratio (0.98) of its height, so the cover crop keeps every pin visible; the panel takes the slack. */
+  grid-template-columns:
+    minmax(0, min(calc((100% - 1.5rem) * 7 / 12), calc(var(--wide-look-h, 47rem) * 0.98)))
+    minmax(18rem, 1fr);
   gap: 1.5rem;
   align-items: stretch;
 }
 
+/* The photo card fills its frame (cover crop) and never grows past the viewport: top bar + Back row + gap are taken off the height. */
+.wide-look {
+  --wide-look-h: clamp(28rem, calc(100dvh - 9.75rem), 47rem);
+}
+
+.wide-lookbar {
+  display: flex;
+  align-items: center;
+  height: 4rem;
+}
+
 .wide-plate {
-  height: min(78dvh, 47rem);
+  height: var(--wide-look-h);
+}
+
+html:not(.native-app) .wide-plate .look-photo-cover {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  aspect-ratio: auto;
 }
 
 .wide-panel {
   display: flex;
-  min-height: min(78dvh, 47rem);
+  height: var(--wide-look-h);
+  min-height: var(--wide-look-h);
   flex-direction: column;
   overflow: hidden;
   border-radius: 24px;

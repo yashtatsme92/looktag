@@ -836,6 +836,69 @@ async function flowPinCardClear(page) {
   for (const popup of page.context().pages().slice(1)) await popup.close().catch(() => undefined);
 }
 
+/** Desktop look: a cover-cropped photo card that fits the viewport, with a top-left Back. */
+async function screenDesktopLook(page) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.locator(".wide-plate img").waitFor({ timeout: 10_000 });
+  const m = await page.evaluate(() => {
+    const rect = (el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+    };
+    const plate = document.querySelector(".wide-plate");
+    const img = plate.querySelector("img");
+    const bar = document.querySelector(".web-header, .web-nav")?.getBoundingClientRect();
+    const back = [...document.querySelectorAll(".wide-lookbar button")].find((b) => /Back/.test(b.textContent || ""));
+    const panel = document.querySelector(".wide-panel");
+    const pins = [...plate.querySelectorAll(".tag-pin")].map((p) => rect(p));
+    const p = rect(plate);
+    return {
+      plate: p,
+      img: rect(img),
+      fit: getComputedStyle(img).objectFit,
+      vh: window.innerHeight,
+      barBottom: bar ? bar.bottom : 0,
+      back: back ? rect(back) : null,
+      backH: back ? Math.round(back.getBoundingClientRect().height) : null,
+      panelH: Math.round(panel.getBoundingClientRect().height),
+      pinCount: pins.length,
+      pinsInside: pins.length > 0 && pins.every((r) => r.left >= p.left && r.right <= p.right && r.top >= p.top && r.bottom <= p.bottom),
+    };
+  });
+  record(
+    "screen.desktop.look-cover",
+    m.fit === "cover" &&
+      Math.abs(m.img.width - m.plate.width) <= 1 &&
+      Math.abs(m.img.height - m.plate.height) <= 1 &&
+      m.plate.width > 480 &&
+      m.plate.bottom <= m.vh &&
+      m.plate.height <= m.vh - m.barBottom &&
+      Math.abs(m.panelH - Math.round(m.plate.height)) <= 1 &&
+      m.pinCount === 4 &&
+      m.pinsInside,
+    JSON.stringify(m),
+  );
+  record(
+    "screen.desktop.look-back",
+    Boolean(m.back) && m.backH === 44 && m.back.left < m.plate.left + 8 && m.back.bottom <= m.plate.top,
+    JSON.stringify({ back: m.back, plateTop: m.plate.top }),
+  );
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.waitForFunction(() => location.pathname === "/", null, { timeout: 8_000 });
+  record("flow.desktop.look-back-nav", new URL(page.url()).pathname === "/");
+  // At 1440x900 the card still ends inside the viewport.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.locator(".wide-plate img").waitFor({ timeout: 10_000 });
+  const big = await page.evaluate(() => ({
+    bottom: document.querySelector(".wide-plate").getBoundingClientRect().bottom,
+    vh: window.innerHeight,
+  }));
+  big.pins = await page.locator(".wide-plate .tag-pin").count();
+  record("screen.desktop.look-cover-1440", big.bottom <= big.vh && big.pins === 4, JSON.stringify(big));
+  await page.setViewportSize({ width: 1280, height: 800 });
+}
+
 /** Desktop panel rows: Shop left, View Style right, Style name and House on one line each at 1280, 1100 and 1024. */
 async function screenDesktopStyleRow(page) {
   for (const [w, h] of [[1280, 800], [1100, 800], [1024, 768]]) {
@@ -998,6 +1061,7 @@ try {
     await prime(page);
     await screenDesktop(page);
     await screenDesktopStyleRow(page);
+    await screenDesktopLook(page);
   }, "ui-desktop", desk);
 
   await withPage(browser, origin, async (page) => {

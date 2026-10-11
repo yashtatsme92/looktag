@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   clampPin,
   coverLayout,
+  focusPosY,
+  COVER_POS_Y,
   framePercentToImage,
   imagePercentToFrame,
   inFrame,
@@ -56,5 +58,32 @@ describe("image <-> frame mapping", () => {
   it("treats off-crop pins as out of frame", () => {
     assert.equal(inFrame({ x: 50, y: 50 }), true);
     assert.equal(inFrame({ x: 50, y: -40 }), false);
+  });
+});
+
+describe("focusPosY", () => {
+  const frame = 695 / 644; // desktop look card
+  const img = 3 / 4;
+
+  it("keeps every pin inside the cover window when their span fits", () => {
+    const tags = [{ y: 28 }, { y: 40 }, { y: 72 }, { y: 90 }];
+    const posY = focusPosY(tags, frame, img);
+    for (const t of tags) {
+      const box = { frameW: 695, frameH: 644, imgW: 900, imgH: 1200, posY };
+      assert.equal(inFrame(imagePercentToFrame(50, t.y, box), 0), true, `pin at ${t.y}%`);
+    }
+  });
+
+  it("falls back to the shared default when the frame shows the whole photo height", () => {
+    assert.equal(focusPosY([{ y: 10 }], 0.5, 0.75), COVER_POS_Y);
+    assert.equal(focusPosY([], frame, img), COVER_POS_Y);
+  });
+
+  it("stays within 0..1 for pins hugging an edge", () => {
+    const top = focusPosY([{ y: 2 }, { y: 8 }], frame, img);
+    const bottom = focusPosY([{ y: 92 }, { y: 98 }], frame, img);
+    assert.ok(top >= 0 && top <= 1 && bottom >= 0 && bottom <= 1);
+    assert.equal(top, 0);
+    assert.equal(bottom, 1);
   });
 });

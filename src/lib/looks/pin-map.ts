@@ -71,3 +71,17 @@ export function clampPoint(point: Point): Point {
 export function inFrame(point: Point, pad = 8) {
   return point.x >= -pad && point.x <= 100 + pad && point.y >= -pad && point.y <= 100 + pad;
 }
+
+/**
+ * Vertical object-position (0..1) that centres the pins' span in a cover window, so a
+ * photo cropped into a short card still shows every pin. Falls back to the shared default.
+ */
+export function focusPosY(tags: ReadonlyArray<{ y: number }>, frameRatio: number, imgRatio: number): number {
+  if (!(frameRatio > 0) || !(imgRatio > 0) || tags.length === 0) return COVER_POS_Y;
+  const visible = Math.min(1, imgRatio / frameRatio); // fraction of the image height that shows
+  if (visible >= 1) return COVER_POS_Y;
+  const ys = tags.map((t) => t.y / 100);
+  const mid = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const start = Math.min(1 - visible, Math.max(0, mid - visible / 2));
+  return start / (1 - visible);
+}
