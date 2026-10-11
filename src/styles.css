@@ -2224,8 +2224,7 @@ html[data-session="admin"] .tab-bar {
 }
 
 html[data-chrome="phone"] .native-screen:has(.look-studio[data-plate]) .native-header,
-html[data-chrome="phone"] .native-screen:has(.look-studio[data-plate="bleed"]) .tab-bar,
-html[data-chrome="phone"] .native-screen:has(.look-plate) .tab-bar {
+html[data-chrome="phone"] .native-screen:has(.look-studio[data-plate="bleed"]) .tab-bar {
   display: none;
 }
 
