@@ -4545,6 +4545,16 @@ input[type="search"]::-webkit-search-decoration {
   font-weight: 500;
 }
 
+/* Scouted index heading: a small status dot beside the title, no pill (Houses frame 1). */
+.houses-scouted-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+  border-radius: 999px;
+  background: var(--color-muted-foreground);
+}
+
 .houses-scouted-note {
   margin: 0 0 1rem;
   color: #6b6b6b;
@@ -4780,7 +4790,7 @@ html.native-app .house-manage[data-editor="open"] .house-save {
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1280px) {
   .house-index-grid,
   .house-lines {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5389,6 +5399,60 @@ html.native-app .house-manage[data-editor="open"] .house-save {
 
 .house-looks-title {
   margin-bottom: 0.85rem;
+}
+
+/* Line view kicker: "<House> · LINE" (Houses frame 7). */
+.house-line-kicker {
+  margin-bottom: 0.25rem;
+}
+
+.house-line-kicker a {
+  color: inherit;
+}
+
+/* Phone: Follow spans the width under the hero line (Houses frame 2). */
+html[data-chrome="phone"] .house-profile .house-follow {
+  width: 100%;
+}
+
+/* Tablet and desktop (Houses frames HS-T2, HS-D2): a hero row, with the cover on the left and the House text beside it,
+   then the Lines full width below on the same column scale as the index. Phone stays stacked. */
+html:not([data-chrome="phone"]) .house-profile-hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+html:not([data-chrome="phone"]) .house-profile .house-hero {
+  width: 22rem;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+html[data-chrome="desktop"] .house-profile .house-hero {
+  width: 13.5rem;
+}
+
+html:not([data-chrome="phone"]) .house-profile-info .house-follow {
+  margin-bottom: 0;
+}
+
+html:not([data-chrome="phone"]) .house-profile-info {
+  min-width: 0;
+}
+
+/* Scouted on the profile: a quiet dot and label, no pill. */
+.house-profile-scout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-foreground);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .house-looks {

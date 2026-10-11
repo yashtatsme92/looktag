@@ -106,13 +106,13 @@ function LinePage() {
       }
     >
       <article>
-        <ScreenTitle>{collection.name}</ScreenTitle>
-        <p className="mb-3 text-sm text-muted-foreground">
-          <Link to="/houses/$labelId" params={{ labelId: label.id }} className="underline-offset-2 hover:underline">
+        <p className="wide-kicker house-line-kicker">
+          <Link to="/houses/$labelId" params={{ labelId: label.id }}>
             {label.name}
-          </Link>
-          {collection.season ? ` · ${collection.season}` : ""}
+          </Link>{" "}
+          · Line
         </p>
+        <ScreenTitle>{collection.name}</ScreenTitle>
         {collection.caption ? <p className="house-line">{collection.caption}</p> : null}
         <h2 className="ops-section house-looks-title">Styles</h2>
         <ul className="house-lines">
