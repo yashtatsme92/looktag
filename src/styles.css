@@ -1351,7 +1351,12 @@ html[data-theme="moss"] {
     background: #ececec;
   }
 
+  /* Decorative hangtag chip (not a control): phone card only; hidden elsewhere so no bare icon shows. */
   .you-empty-chip {
+    display: none;
+  }
+
+  html[data-chrome="phone"] .you-empty-chip {
     display: flex;
     width: 3.5rem;
     height: 3.5rem;
@@ -1364,7 +1369,7 @@ html[data-theme="moss"] {
     color: #6b6b6b;
   }
 
-  .you-empty-title-lg {
+  html[data-chrome="phone"] .you-empty-title-lg {
     font-size: 1.5rem;
   }
 
