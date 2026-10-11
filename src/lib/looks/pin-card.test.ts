@@ -66,3 +66,88 @@ describe("pin card placement", () => {
     assert.ok(placed.covered.length > 0);
   });
 });
+
+/** Pin positions of the seed look (Sunday Coat) as the plate renders them, in percent of the plate. */
+const SEED_PHONE: Array<[number, number]> = [
+  [47.1, 38],
+  [50, 26],
+  [84.6, 52],
+  [47.1, 88],
+];
+const SEED_TABLET: Array<[number, number]> = [
+  [48, 41.4],
+  [50, 27.1],
+  [74, 58.1],
+  [48, 100.9],
+];
+
+describe("pin card placement on the seed look", () => {
+  const cases: Array<{ name: string; plate: { w: number; h: number }; points: Array<[number, number]>; wide: boolean }> = [
+    { name: "phone 390x844", plate: { w: 390, h: 844 }, points: SEED_PHONE, wide: false },
+    { name: "phone 390x772 (plate above the tab bar)", plate: { w: 390, h: 772 }, points: SEED_PHONE, wide: false },
+    { name: "tablet 834x1052", plate: { w: 834, h: 1052 }, points: SEED_TABLET, wide: true },
+  ];
+  for (const c of cases) {
+    for (const cardH of [150, 176, 210]) {
+      it(`never covers the selected pin, ${c.name}, card ${cardH}px high`, () => {
+        const pins = pct(c.plate, c.points);
+        for (const pin of pins) {
+          const placed = placePinCard({
+            pins,
+            selectedId: pin.id,
+            plate: c.plate,
+            card: { w: c.wide ? 360 : c.plate.w - 32, h: cardH },
+            inset: { top: 72, bottom: 190 },
+            margin: 16,
+            pinRadius: 22,
+            fixedX: !c.wide,
+          });
+          assert.equal(placed.coversSelected, false, `selected ${pin.id}`);
+          assert.ok(!placed.covered.includes(pin.id));
+        }
+      });
+    }
+  }
+
+  it("covers no pin at all on phone 390x844 and tablet 834x1052 for any selection", () => {
+    for (const c of [cases[0], cases[2]]) {
+      const pins = pct(c.plate, c.points);
+      for (const pin of pins) {
+        const placed = placePinCard({
+          pins,
+          selectedId: pin.id,
+          plate: c.plate,
+          card: { w: c.wide ? 360 : c.plate.w - 32, h: 176 },
+          inset: { top: 72, bottom: 190 },
+          margin: 16,
+          pinRadius: 22,
+          fixedX: !c.wide,
+        });
+        assert.deepEqual(placed.covered, [], `${c.name} selected ${pin.id}`);
+      }
+    }
+  });
+});
+
+describe("pin card placement when no slot is clear", () => {
+  it("never covers the selected pin, even when it would be the nearest position", () => {
+    // Pins every 40px over the whole plate: no clear slot exists for a 176px card.
+    const pins: PinPoint[] = [];
+    for (let y = 60; y < 700; y += 40) pins.push({ id: `c${y}`, x: 195, y });
+    for (const pin of pins) {
+      const placed = place(pins, pin.id, phone, false);
+      assert.equal(placed.coversSelected, false, `selected ${pin.id}`);
+    }
+  });
+
+  it("prefers sitting over the caption block to covering a pin", () => {
+    // Free space exists only in the caption zone (below y 654).
+    const pins: PinPoint[] = [];
+    for (let y = 80; y < 600; y += 40) pins.push({ id: `c${y}`, x: 195, y });
+    const placed = place(pins, pins[pins.length - 1].id, phone, false);
+    assert.deepEqual(placed.covered, []);
+    assert.ok(placed.top + 176 > phone.h - 190, "overlaps the caption block");
+    assert.ok(placed.top + 176 <= phone.h - 16, "stays inside the plate");
+  });
+});
+

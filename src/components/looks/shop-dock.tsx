@@ -178,37 +178,37 @@ export function ShopDock({
                     {pieceName}
                   </span>
                   {stylePin ? <span className="style-pin-house block">{stylePin.houseName}</span> : null}
-                  {stylePin ? (
-                    <span className="mt-2 block">
-                      <StyleViewLink pin={stylePin} />
+                  {target?.url || stylePin ? (
+                    <span className="mt-2 flex flex-wrap items-center gap-2">
+                      {target?.url ? (
+                        <Button asChild size="sm" className="min-h-11 shrink-0 px-4">
+                          <a
+                            href={target.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={() =>
+                              recordOutboundShopClick({
+                                cheapest: Boolean(target.cheapest),
+                                chrome: chromeLayout(),
+                                lookId,
+                                offerCount,
+                                retailerId: target.retailerId,
+                                source: "piece_shop",
+                                tagId: resolved?.id,
+                                urlHost: hostFromUrl(target.url),
+                                userState,
+                              })
+                            }
+                          >
+                            Shop
+                            <ExternalLink className="size-3.5" />
+                          </a>
+                        </Button>
+                      ) : null}
+                      {stylePin ? <StyleViewLink pin={stylePin} /> : null}
                     </span>
                   ) : null}
                 </span>
-                {target?.url ? (
-                  <Button asChild size="sm" className="min-h-11 shrink-0 px-4">
-                    <a
-                      href={target.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={() =>
-                        recordOutboundShopClick({
-                          cheapest: Boolean(target.cheapest),
-                          chrome: chromeLayout(),
-                          lookId,
-                          offerCount,
-                          retailerId: target.retailerId,
-                          source: "piece_shop",
-                          tagId: resolved?.id,
-                          urlHost: hostFromUrl(target.url),
-                          userState,
-                        })
-                      }
-                    >
-                      Shop
-                      <ExternalLink className="size-3.5" />
-                    </a>
-                  </Button>
-                ) : null}
               </div>
 
               <div className="look-shop-strip mb-3">

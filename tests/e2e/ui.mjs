@@ -225,6 +225,55 @@ async function screenLook(page) {
   record("flow.look.echo", new URL(page.url()).pathname === "/");
 }
 
+/** Esc closes the account sheet and leaves the pin card (and its place on the plate) alone. */
+async function flowEscAccountSheet(page, label) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
+  await page.locator(".look-plate .tag-pin").nth(1).click();
+  const card = page.getByRole("dialog", { name: "Selected piece" });
+  await card.waitFor({ timeout: 4_000 });
+  await page.getByRole("button", { name: "Save look" }).click();
+  const sheet = page.locator("[data-vaul-drawer]");
+  await sheet.waitFor({ timeout: 5_000 });
+  await page.keyboard.press("Escape");
+  const sheetClosed = await page
+    .waitForFunction(() => document.querySelectorAll("[data-vaul-drawer]").length === 0, null, { timeout: 4_000 })
+    .then(() => true)
+    .catch(() => false);
+  record(`flow.look.esc-account-sheet-${label}`, sheetClosed && (await card.count()) === 1, `sheetClosed=${sheetClosed} card=${await card.count()}`);
+}
+
+/** For every pin on the seed look: select it and check the card hides neither that pin nor any other. */
+async function flowSelectedPinClear(page, label) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
+  const total = await page.locator(".look-plate .tag-pin").count();
+  const rows = [];
+  for (let i = 0; i < total; i += 1) {
+    await page.locator(".look-plate .tag-pin").nth(i).evaluate((node) => node.click());
+    await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 4_000 });
+    await page.waitForTimeout(450); // card rise animation + placement
+    rows.push(
+      await page.evaluate((index) => {
+        const card = document.querySelector(".look-plate-piece").getBoundingClientRect();
+        const plate = document.querySelector(".look-plate").getBoundingClientRect();
+        return [...document.querySelectorAll(".look-plate .tag-pin")].map((pin, j) => {
+          const r = pin.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const onPlate = cx > plate.left && cx < plate.right && cy > plate.top && cy < plate.bottom;
+          const covered = onPlate && cx > card.left - 16 && cx < card.right + 16 && cy > card.top - 16 && cy < card.bottom + 16;
+          return { pin: j, selected: j === index, onPlate, covered };
+        });
+      }, i),
+    );
+  }
+  const selectedHidden = rows.flatMap((row) => row.filter((p) => p.selected && p.covered));
+  const anyHidden = rows.flatMap((row) => row.filter((p) => p.covered));
+  record(`flow.look.pin-card-selected-clear-${label}`, total >= 4 && selectedHidden.length === 0, JSON.stringify(selectedHidden));
+  record(`flow.look.pin-card-no-pin-covered-${label}`, anyHidden.length === 0, JSON.stringify(anyHidden));
+}
+
 async function screenCreateEntry(page) {
   await goto(page, "/create");
   await page.getByRole("heading", { name: "Create" }).waitFor({ timeout: 8_000 });
@@ -627,6 +676,41 @@ async function flowPinCardClear(page) {
   for (const popup of page.context().pages().slice(1)) await popup.close().catch(() => undefined);
 }
 
+/** Desktop panel rows: Shop left, View Style right, Style name and House on one line each at 1280, 1100 and 1024. */
+async function screenDesktopStyleRow(page) {
+  for (const [w, h] of [[1280, 800], [1100, 800], [1024, 768]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await goto(page, "/looks/seed-sunday-coat");
+    await page.locator(".wide-prow").first().waitFor({ timeout: 10_000 });
+    await page.getByRole("link", { name: "View Style" }).first().waitFor({ timeout: 8_000 });
+    const m = await page.evaluate(() => {
+      const row = document.querySelector(".wide-prow");
+      const name = row.querySelector(".wide-pnm");
+      const house = row.querySelector(".wide-prt");
+      const shop = row.querySelector("button.wide-btn-primary")?.getBoundingClientRect();
+      const view = row.querySelector("a")?.getBoundingClientRect();
+      const lh = (el) => parseFloat(getComputedStyle(el).lineHeight) || 20;
+      return {
+        nameText: name.textContent,
+        nameLines: Math.round(name.getBoundingClientRect().height / lh(name)),
+        houseLines: Math.round(house.getBoundingClientRect().height / lh(house)),
+        truncated: name.scrollWidth > name.clientWidth,
+        rowH: Math.round(row.getBoundingClientRect().height),
+        shopLeft: shop && view ? shop.right <= view.left + 1 : false,
+        shopH: shop ? Math.round(shop.height) : 0,
+        viewH: view ? Math.round(view.height) : 0,
+        overflowX: document.documentElement.scrollWidth > window.innerWidth,
+      };
+    });
+    record(
+      `screen.desktop.style-row-${w}`,
+      m.nameLines === 1 && m.houseLines === 1 && !m.truncated && m.shopLeft && m.shopH === 44 && m.viewH === 44 && !m.overflowX && m.rowH <= 130,
+      JSON.stringify(m),
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+}
+
 async function screenDesktop(page) {
   await goto(page, "/");
   const nav = page.locator(".web-nav");
@@ -733,6 +817,8 @@ try {
     await screenHome(page);
     await flowHomeSnap(page);
     await screenLook(page);
+    await flowEscAccountSheet(page, "phone");
+    await flowSelectedPinClear(page, "phone");
     await screenCreateEntry(page);
     await screenHouses(page);
     await flowHouseGate(page);
@@ -749,12 +835,15 @@ try {
   await withPage(browser, origin, async (page) => {
     await prime(page);
     await screenDesktop(page);
+    await screenDesktopStyleRow(page);
   }, "ui-desktop", desk);
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
     await screenHousesTablet(page);
     await screenYouEmptyChip(page, "tablet");
+    await flowEscAccountSheet(page, "tablet");
+    await flowSelectedPinClear(page, "tablet");
   }, "ui-tablet", { viewport: { width: 834, height: 1112 } });
 
   await withPage(browser, origin, async (page) => {

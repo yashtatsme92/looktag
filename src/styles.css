@@ -4429,10 +4429,31 @@ input[type="search"]::-webkit-search-decoration {
 
 .wide-prow-acts {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+/* Piece name and House stay on one line each (ellipsis), as the frame draws them. */
+.wide-pnm,
+.wide-prt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* In a narrow panel (desktop 1024-1199) a Style-linked row's two actions drop under the name, Shop left and View Style right, so the name keeps its width. */
+.wide-panel {
+  container-type: inline-size;
+}
+
+@container (max-width: 31rem) {
+  .wide-prow-acts:has(a) {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    padding: 0 0 0.75rem 6.75rem;
+  }
 }
 
 .wide-prow.is-on {
