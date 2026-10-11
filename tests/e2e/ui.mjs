@@ -287,6 +287,23 @@ async function flowYou(page) {
   await goto(page, "/login");
   await page.getByRole("heading", { name: "You" }).waitFor({ timeout: 8_000 });
   record("screen.you.saved", /Saved/.test(await page.locator("body").innerText()));
+  const pill = await page.evaluate(() => {
+    const bar = document.querySelector(".you-switch");
+    const on = document.querySelector('.you-switch-item[data-on="true"]');
+    const chip = document.querySelector(".you-empty-chip");
+    if (!bar || !on) return null;
+    return {
+      barBg: getComputedStyle(bar).backgroundColor,
+      barRadius: parseFloat(getComputedStyle(bar).borderTopLeftRadius),
+      onBg: getComputedStyle(on).backgroundColor,
+      chip: Boolean(chip),
+    };
+  });
+  record(
+    "screen.you.segmented-pill",
+    Boolean(pill) && pill.barBg === "rgb(236, 236, 236)" && pill.barRadius >= 20 && pill.onBg === "rgb(17, 17, 17)" && pill.chip,
+    JSON.stringify(pill),
+  );
   await page.getByRole("tab", { name: "Drafts" }).click();
   record("flow.you.drafts", /In progress/.test(await page.locator("body").innerText()));
   await page.getByRole("tab", { name: "Profile" }).click();

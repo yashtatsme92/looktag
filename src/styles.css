@@ -1313,6 +1313,66 @@ html[data-theme="moss"] {
     line-height: 1.45;
   }
 
+  /* You frames 1-7: segmented pill, and the Saved empty state as a soft card with a hangtag chip. */
+  html[data-chrome="phone"] .you-switch {
+    gap: 0.25rem;
+    margin: 0.5rem 1rem 1rem;
+    padding: 0.25rem;
+    border-bottom: 0;
+    border-radius: 999px;
+    background: #ececec;
+  }
+
+  html[data-chrome="phone"] .you-switch-item {
+    position: relative;
+    min-height: 2rem;
+    flex: none;
+    padding: 0 0.875rem;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+
+  html[data-chrome="phone"] .you-switch-item::before {
+    content: "";
+    position: absolute;
+    inset: -0.375rem -0.125rem;
+  }
+
+  html[data-chrome="phone"] .you-switch-item[data-on="true"] {
+    background: #111111;
+    box-shadow: none;
+    color: #f4f4f4;
+    font-weight: 600;
+  }
+
+  html[data-chrome="phone"] .you-empty-card {
+    margin: 0 1rem 1rem;
+    border-radius: 1.5rem;
+    background: #ececec;
+  }
+
+  .you-empty-chip {
+    display: flex;
+    width: 3.5rem;
+    height: 3.5rem;
+    margin-bottom: 1.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 0 0 1px rgb(224 224 224 / 80%);
+    color: #6b6b6b;
+  }
+
+  .you-empty-title-lg {
+    font-size: 1.5rem;
+  }
+
+  html[data-chrome="phone"] .you-empty-card .you-sign-in {
+    width: 100%;
+    max-width: 16.25rem;
+  }
+
   .you-sign-in {
     width: auto;
     min-width: 9rem;
