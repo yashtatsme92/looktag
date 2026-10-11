@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { Radio, Share2 } from "lucide-react";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { ChevronLeft, Radio, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
@@ -8,7 +8,7 @@ import { LookCanvas } from "@/components/looks/look-canvas";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
-import { markEditOpenedFromLook } from "@/lib/nav/back";
+import { markEditOpenedFromLook, shouldUseHistoryBack } from "@/lib/nav/back";
 import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { FollowButton } from "@/components/home/follow-button";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
@@ -32,6 +32,7 @@ export function WideLook({
   canEdit?: boolean;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const looks = useLooksStore((s) => s.looks);
   const { user, isPending } = useCurrentUserState();
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
@@ -111,6 +112,23 @@ export function WideLook({
   return (
     <div className="wide-look">
       <div className="wide-wrap">
+        <div className="wide-lookbar">
+          <button
+            type="button"
+            className="wide-btn wide-btn-ghost"
+            aria-label="Back"
+            onClick={() => {
+              if (typeof window !== "undefined" && shouldUseHistoryBack(window.history.state)) {
+                router.history.back();
+                return;
+              }
+              void navigate({ to: "/" });
+            }}
+          >
+            <ChevronLeft className="size-4" />
+            Back
+          </button>
+        </div>
         <div className="wide-split">
           <div className="wide-plate">
             <LookCanvas
@@ -120,6 +138,7 @@ export function WideLook({
               selectedId={selectedId}
               onSelect={setSelectedId}
               fit="cover"
+              focusPins
               className="wide-plate-canvas"
             />
           </div>

@@ -3,6 +3,7 @@ import { ImagePlus } from "lucide-react";
 import { TagPin } from "@/components/looks/tag-pin";
 import {
   clampPoint,
+  focusPosY,
   framePercentToImage,
   imagePercentToFrame,
   inFrame,
@@ -26,6 +27,8 @@ type LookCanvasProps = {
   onImageTap?: () => void;
   /** Phone create opens the piece card on a tap, not on the drag that starts a move. */
   selectOnTap?: boolean;
+  /** Cover crop that slides vertically so every pin stays inside the visible window (desktop look card). */
+  focusPins?: boolean;
 };
 
 export function LookCanvas({
@@ -43,6 +46,7 @@ export function LookCanvas({
   fit = "natural",
   onImageTap,
   selectOnTap,
+  focusPins,
 }: LookCanvasProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
@@ -67,9 +71,14 @@ export function LookCanvas({
     return () => ro.disconnect();
   }, [imageSrc]);
 
+  const posY =
+    focusPins && fit === "cover" && natural && frame && frame.w > 0 && frame.h > 0 && tags.length > 0
+      ? focusPosY(tags, frame.w / frame.h, natural.w / natural.h)
+      : undefined;
+
   const box =
     cropped && natural && frame && frame.w > 0 && natural.w > 0
-      ? { frameW: frame.w, frameH: frame.h, imgW: natural.w, imgH: natural.h }
+      ? { frameW: frame.w, frameH: frame.h, imgW: natural.w, imgH: natural.h, posY }
       : null;
 
   function pointToFramePercent(clientX: number, clientY: number) {
@@ -155,6 +164,7 @@ export function LookCanvas({
               setNatural({ w: img.naturalWidth, h: img.naturalHeight });
             }
           }}
+          style={posY !== undefined ? { objectPosition: `50% ${posY * 100}%` } : undefined}
           className={cn(
             "look-photo-img block w-full select-none",
             fit !== "natural" && "absolute inset-0 h-full w-full object-cover",
