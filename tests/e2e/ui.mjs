@@ -412,7 +412,7 @@ async function flowSelectedPinClear(page, label) {
   for (let i = 0; i < total; i += 1) {
     await page.locator(".look-plate .tag-pin").nth(i).evaluate((node) => node.click());
     await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 4_000 });
-    await page.waitForTimeout(450); // card rise animation + placement
+    await waitForPinCardPlacement(page);
     rows.push(
       await page.evaluate((index) => {
         const card = document.querySelector(".look-plate-piece").getBoundingClientRect();
@@ -432,6 +432,24 @@ async function flowSelectedPinClear(page, label) {
   const anyHidden = rows.flatMap((row) => row.filter((p) => p.covered));
   record(`flow.look.pin-card-selected-clear-${label}`, total >= 4 && selectedHidden.length === 0, JSON.stringify(selectedHidden));
   record(`flow.look.pin-card-no-pin-covered-${label}`, anyHidden.length === 0, JSON.stringify(anyHidden));
+}
+
+async function waitForPinCardPlacement(page) {
+  await page.waitForFunction(
+    () => {
+      const card = document.querySelector(".look-plate-piece");
+      const plate = document.querySelector(".look-plate");
+      return Boolean(
+        card &&
+          plate &&
+          card.style.top &&
+          (plate.clientWidth < 768 || card.style.left) &&
+          card.getAnimations().every((animation) => animation.playState === "finished"),
+      );
+    },
+    null,
+    { timeout: 3_000 },
+  );
 }
 
 async function screenCreateEntry(page) {
@@ -526,6 +544,7 @@ async function screenHouses(page) {
   const text = await page.locator("body").innerText();
   record("screen.houses.scouted", /Scouted/.test(text) && /Atelier Noir/.test(text) && /Picked by Looktag/.test(text), text.slice(0, 180));
   record("screen.houses.more", /More houses/.test(text));
+  await recordScoutedDropAfterFirstRow(page, "screen.phone.houses.drop-after-first-row", 2);
   const scoutedHead = await page.evaluate(() => {
     const row = document.querySelector("#houses-scouted")?.parentElement;
     return { dot: Boolean(row?.querySelector(".houses-scouted-dot")), pill: Boolean(row?.querySelector(".scouted-mark")) };
@@ -576,6 +595,74 @@ async function screenHouses(page) {
   await page.getByRole("button", { name: "Back" }).click();
   await page.waitForFunction(() => location.pathname === "/houses", null, { timeout: 8_000 });
   record("flow.header.back-direct", new URL(page.url()).pathname === "/houses");
+}
+
+async function recordScoutedDropAfterFirstRow(page, name, expectedColumns) {
+  const state = await page.evaluate(() => {
+    const section = document.querySelector('section[aria-labelledby="houses-scouted"]');
+    const drop = section?.querySelector(":scope > .house-drop");
+    const grids = [...(section?.querySelectorAll(":scope > .house-index-grid") ?? [])];
+    const firstGrid = grids[0];
+    const columns = firstGrid ? getComputedStyle(firstGrid).gridTemplateColumns.split(" ").length : 0;
+    const totalHouses = grids.reduce((count, grid) => count + grid.querySelectorAll(".house-card").length, 0);
+    const firstCount = firstGrid?.querySelectorAll(".house-card").length ?? 0;
+    const followsFirstGrid = Boolean(
+      firstGrid && drop && firstGrid.compareDocumentPosition(drop) & Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    const remainingGridFollowsDrop = Boolean(
+      drop &&
+        grids[1] &&
+        drop.compareDocumentPosition(grids[1]) & Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    return {
+      hasDropInScouted: Boolean(section && drop?.parentElement === section),
+      columns,
+      totalHouses,
+      firstCount,
+      followsFirstGrid,
+      hasRemainingGrid: Boolean(grids[1]),
+      remainingGridFollowsDrop,
+      remainingCount: grids[1]?.querySelectorAll(".house-card").length ?? 0,
+    };
+  });
+  const firstRowCount = Math.min(expectedColumns, state.totalHouses);
+  record(
+    name,
+    state.hasDropInScouted &&
+      state.columns === expectedColumns &&
+      state.firstCount === firstRowCount &&
+      state.followsFirstGrid &&
+      (state.totalHouses <= expectedColumns
+        ? !state.hasRemainingGrid
+        : state.hasRemainingGrid &&
+          state.remainingGridFollowsDrop &&
+          state.remainingCount === state.totalHouses - expectedColumns),
+    JSON.stringify(state),
+  );
+}
+
+async function screenHousesWithoutScouted(page) {
+  await page.route("**/_serverFn/**", async (route) => {
+    const endpoint = new URL(route.request().url()).pathname.split("/").at(-1) || "";
+    const handler = Buffer.from(endpoint, "base64url").toString();
+    if (handler.includes("listFashionLabels_createServerFn_handler")) {
+      await route.abort();
+    } else {
+      await route.continue();
+    }
+  });
+  await goto(page, "/houses");
+  await page.getByText("No houses yet.", { exact: true }).waitFor({ timeout: 10_000 });
+  await page.getByRole("region", { name: "This week's drop" }).waitFor({ timeout: 8_000 });
+  const state = await page.evaluate(() => {
+    const drop = document.querySelector(".house-drop");
+    const empty = [...document.querySelectorAll("p")].find((node) => node.textContent?.trim() === "No houses yet.");
+    return {
+      hasScouted: Boolean(document.querySelector("#houses-scouted")),
+      dropBeforeEmpty: Boolean(drop && empty && drop.compareDocumentPosition(empty) & Node.DOCUMENT_POSITION_FOLLOWING),
+    };
+  });
+  record("screen.houses.zero-scouted-drop", !state.hasScouted && state.dropBeforeEmpty, JSON.stringify(state));
 }
 
 async function flowHouseGate(page) {
@@ -753,7 +840,7 @@ async function flowPinCardClear(page) {
     for (let index = 0; index < 4; index += 1) {
       await page.locator(".look-plate .tag-pin").nth(index).click();
       await card.waitFor({ timeout: 4_000 });
-      await page.waitForTimeout(350);
+      await waitForPinCardPlacement(page);
       rows.push(
         await page.evaluate((selected) => {
           const plate = document.querySelector(".look-plate").getBoundingClientRect();
@@ -969,13 +1056,7 @@ async function screenDesktop(page) {
   await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 8_000 });
   const housesText = await page.locator("body").innerText();
   record("screen.desktop.houses", /Scouted/.test(housesText) && /this week's drop/i.test(housesText), housesText.slice(0, 180));
-  const dropOrder = await page.evaluate(() => {
-    const scouted = document.querySelector('section[aria-labelledby="houses-scouted"]');
-    const drop = scouted?.querySelector(":scope > .house-drop");
-    const grid = scouted?.querySelector(":scope > .house-index-grid");
-    return Boolean(drop && grid && drop.nextElementSibling === grid);
-  });
-  record("screen.desktop.houses.drop-after-scouted", dropOrder);
+  await recordScoutedDropAfterFirstRow(page, "screen.desktop.houses.drop-after-first-row", 4);
   const indexCols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
   record("screen.desktop.houses-cols", indexCols === 4, String(indexCols));
   await goto(page, "/houses/label-atelier-noir");
@@ -1020,6 +1101,7 @@ async function heroRow(page, { coverW, linesCols, followMax }) {
 async function screenHousesTablet(page) {
   await goto(page, "/houses");
   await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 10_000 });
+  await recordScoutedDropAfterFirstRow(page, "screen.tablet.houses.drop-after-first-row", 2);
   const cols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
   record("screen.tablet.houses-cols", cols === 2, String(cols));
   await goto(page, "/houses/label-atelier-noir");
@@ -1030,6 +1112,7 @@ async function screenHousesTablet(page) {
 async function screenHouses1024(page) {
   await goto(page, "/houses");
   await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 10_000 });
+  await recordScoutedDropAfterFirstRow(page, "screen.1024.houses.drop-after-first-row", 3);
   const cols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
   record("screen.1024.houses-cols", cols === 3, String(cols));
   await goto(page, "/houses/label-atelier-noir");
@@ -1058,6 +1141,11 @@ try {
     await flowAdminCancel(page);
     await screenEditGuest(page);
   }, "ui-phone", phone);
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await screenHousesWithoutScouted(page);
+  }, "ui-houses-empty", phone);
 
   await withPage(browser, origin, async (page) => {
     await prime(page, { draft: true });

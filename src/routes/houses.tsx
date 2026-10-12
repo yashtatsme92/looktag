@@ -48,9 +48,17 @@ function HousesPage() {
   const seeded = Route.useLoaderData();
   const closed = useHousesClosed(seeded.open);
   const [labels, setLabels] = useState<FashionLabel[]>(seeded.labels);
+  const [scoutedColumns, setScoutedColumns] = useState(2);
   const covers = seeded.covers;
   const feedDropOn = useSettingsStore((s) => s.feedDrop);
   const drop = !closed && feedDropOn ? seeded.drop : null;
+
+  useEffect(() => {
+    const updateColumns = () => setScoutedColumns(window.innerWidth >= 1280 ? 4 : window.innerWidth >= 1024 ? 3 : 2);
+    updateColumns();
+    window.addEventListener("resize", updateColumns);
+    return () => window.removeEventListener("resize", updateColumns);
+  }, []);
 
   useEffect(() => {
     if (closed) return;
@@ -81,6 +89,28 @@ function HousesPage() {
     );
   }
 
+  const weeklyDrop = drop ? (
+    <section className="house-drop" aria-label="This week's drop">
+      <Link
+        to="/houses/$labelId/$collectionId"
+        params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
+      >
+        <img src={drop.imageSrc} alt="" />
+      </Link>
+      <div>
+        <p className="house-drop-kicker">This week's drop</p>
+        <h2 className="house-drop-title">{drop.lineName}</h2>
+        <p className="house-drop-house">{drop.houseName}</p>
+        <Link
+          to="/houses/$labelId/$collectionId"
+          params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
+          className="house-ghost"
+        >
+          View Line
+        </Link>
+      </div>
+    </section>
+  ) : null;
   const empty = index.scouted.length === 0 && index.more.length === 0;
 
   return (
@@ -99,6 +129,7 @@ function HousesPage() {
           For houses
         </Link>
       </div>
+      {index.scouted.length === 0 ? weeklyDrop : null}
       {empty ? (
         <p className="text-sm text-muted-foreground">No houses yet.</p>
       ) : (
@@ -113,28 +144,13 @@ function HousesPage() {
               </div>
               <p className="houses-scouted-note">Picked by Looktag — clothes and covers first.</p>
               {drop ? (
-                <section className="house-drop" aria-label="This week's drop">
-                  <Link
-                    to="/houses/$labelId/$collectionId"
-                    params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
-                  >
-                    <img src={drop.imageSrc} alt="" />
-                  </Link>
-                  <div>
-                    <p className="house-drop-kicker">This week's drop</p>
-                    <h2 className="house-drop-title">{drop.lineName}</h2>
-                    <p className="house-drop-house">{drop.houseName}</p>
-                    <Link
-                      to="/houses/$labelId/$collectionId"
-                      params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
-                      className="house-ghost"
-                    >
-                      View Line
-                    </Link>
-                  </div>
-                </section>
+                <>
+                  {grid(index.scouted.slice(0, scoutedColumns))}
+                  {weeklyDrop}
+                  {index.scouted.length > scoutedColumns ? grid(index.scouted.slice(scoutedColumns)) : null}
+                </>
               ) : null}
-              {grid(index.scouted)}
+              {!drop ? grid(index.scouted) : null}
             </section>
           ) : null}
           {index.more.length > 0 ? (
