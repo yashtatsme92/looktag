@@ -94,14 +94,32 @@ export async function insertLookRow(sql: Sql, look: Look, userId: string) {
   `;
 }
 
+type EditorialSeedState = {
+  seeded: boolean;
+  promise: Promise<void> | null;
+};
+
+const editorialSeedGlobal = globalThis as typeof globalThis & {
+  __looktagEditorialSeed__?: EditorialSeedState;
+};
+
 export async function ensureEditorialLooks(sql: Sql) {
-  const existing = await sql<{ id: string }>`
-    select id from looks where user_id = ${EDITORIAL_USER_ID} limit 1
-  `;
-  if (existing.length > 0) return;
-  for (const look of SEED_LOOKS) {
-    await insertLookRow(sql, look, EDITORIAL_USER_ID);
+  const state = (editorialSeedGlobal.__looktagEditorialSeed__ ??= {
+    seeded: false,
+    promise: null,
+  });
+  if (state.seeded) return;
+  if (!state.promise) {
+    state.promise = (async () => {
+      for (const look of SEED_LOOKS) {
+        await insertLookRow(sql, look, EDITORIAL_USER_ID);
+      }
+      state.seeded = true;
+    })().finally(() => {
+      state.promise = null;
+    });
   }
+  await state.promise;
 }
 
 export async function seedCatalog(sql: Sql) {
