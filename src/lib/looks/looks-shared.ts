@@ -94,32 +94,54 @@ export async function insertLookRow(sql: Sql, look: Look, userId: string) {
   `;
 }
 
-type EditorialSeedState = {
-  seeded: boolean;
-  promise: Promise<void> | null;
-};
+const editorialLooksSeeded = new WeakSet<Sql>();
+const editorialSeedPromises = new WeakMap<Sql, Promise<void>>();
 
-const editorialSeedGlobal = globalThis as typeof globalThis & {
-  __looktagEditorialSeed__?: EditorialSeedState;
-};
+async function insertEditorialSeed(sql: Sql, look: Look) {
+  const stats = lookStats(look);
+  await sql`
+    with new_seed as (
+      insert into seeded_items (kind, id)
+      values ('editorial_look', ${look.id})
+      on conflict (kind, id) do nothing
+      returning id
+    ),
+    inserted_look as (
+      insert into looks (
+        id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+        pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id
+      )
+      select
+        ${look.id}, ${EDITORIAL_USER_ID}, ${look.title.trim()}, ${look.caption},
+        ${look.creator.trim() || "Creator"}, ${look.imageSrc},
+        ${JSON.stringify(look.moods ?? [])}, ${JSON.stringify(look.tags)},
+        ${stats.pinCount}, ${stats.comparedCount}, ${stats.retailerCount}, true,
+        ${look.createdAt}, ${look.updatedAt}, ${look.collectionId ?? null}
+      from new_seed
+      on conflict (id) do nothing
+      returning id
+    )
+    select id from inserted_look
+  `;
+}
 
 export async function ensureEditorialLooks(sql: Sql) {
-  const state = (editorialSeedGlobal.__looktagEditorialSeed__ ??= {
-    seeded: false,
-    promise: null,
-  });
-  if (state.seeded) return;
-  if (!state.promise) {
-    state.promise = (async () => {
+  if (editorialLooksSeeded.has(sql)) return;
+  let promise = editorialSeedPromises.get(sql);
+  if (!promise) {
+    promise = (async () => {
       for (const look of SEED_LOOKS) {
-        await insertLookRow(sql, look, EDITORIAL_USER_ID);
+        await insertEditorialSeed(sql, look);
       }
-      state.seeded = true;
-    })().finally(() => {
-      state.promise = null;
-    });
+    })();
+    editorialSeedPromises.set(sql, promise);
   }
-  await state.promise;
+  try {
+    await promise;
+    editorialLooksSeeded.add(sql);
+  } finally {
+    editorialSeedPromises.delete(sql);
+  }
 }
 
 export async function seedCatalog(sql: Sql) {

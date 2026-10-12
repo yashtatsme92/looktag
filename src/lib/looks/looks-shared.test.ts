@@ -7,20 +7,7 @@ import { createServer } from "vite";
 import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import type { Sql } from "../db.ts";
 
-async function openDb() {
-  const pg = new PGlite();
-  await pg.waitReady;
-  const names = (await readdir(path.join(process.cwd(), "migrations"))).filter((name) =>
-    name.endsWith(".sql"),
-  );
-  const files = new Map<string, string>();
-  for (const name of names) {
-    files.set(name, await readFile(path.join(process.cwd(), "migrations", name), "utf8"));
-  }
-  for (const file of pendingMigrations([...files.keys()], [])) {
-    const source = files.get(file.name);
-    if (source) await pg.exec(source);
-  }
+function toSql(pg: PGlite): Sql {
   const sql = (async <T = Record<string, unknown>>(
     strings: TemplateStringsArray,
     ...values: unknown[]
@@ -36,12 +23,29 @@ async function openDb() {
     const result = await pg.query<T>(text, params);
     return result.rows;
   };
-  return { pg, sql };
+  return sql;
+}
+
+async function openDb() {
+  const pg = new PGlite();
+  await pg.waitReady;
+  const names = (await readdir(path.join(process.cwd(), "migrations"))).filter((name) =>
+    name.endsWith(".sql"),
+  );
+  const files = new Map<string, string>();
+  for (const name of names) {
+    files.set(name, await readFile(path.join(process.cwd(), "migrations", name), "utf8"));
+  }
+  for (const file of pendingMigrations([...files.keys()], [])) {
+    const source = files.get(file.name);
+    if (source) await pg.exec(source);
+  }
+  return { pg, sql: toSql(pg) };
 }
 
 describe("editorial look seeding", () => {
-  it("adds missing seeds without changing existing rows and is idempotent", async () => {
-    const { pg, sql } = await openDb();
+  it("preserves old rows, records deletions, and seeds each database independently", async () => {
+    const databases = [await openDb()];
     const vite = await createServer({
       configFile: false,
       root: process.cwd(),
@@ -60,6 +64,7 @@ describe("editorial look seeding", () => {
       const { SEED_LOOKS } = (await vite.ssrLoadModule(
         "/src/lib/looks/seed.ts",
       )) as typeof import("./seed.ts");
+      const { pg, sql } = databases[0]!;
       const existing = SEED_LOOKS[0];
       assert.ok(existing);
       await insertLookRow(sql, existing, EDITORIAL_USER_ID);
@@ -81,14 +86,33 @@ describe("editorial look seeding", () => {
       );
       assert.deepEqual(afterFirstSeed.find((row) => row.id === existing.id), before[0]);
 
-      await seedCatalog(sql);
+      await seedCatalog(toSql(pg));
       const afterSecondSeed = await sql`
         select * from looks where user_id = ${EDITORIAL_USER_ID} order by id
       `;
       assert.deepEqual(afterSecondSeed, afterFirstSeed);
+
+      const deleted = SEED_LOOKS[1];
+      assert.ok(deleted);
+      await sql`delete from looks where id = ${deleted.id}`;
+      await seedCatalog(toSql(pg));
+      const afterDeleteReseed = await sql`
+        select id from looks where user_id = ${EDITORIAL_USER_ID} order by id
+      `;
+      assert.equal(afterDeleteReseed.length, SEED_LOOKS.length - 1);
+      assert.equal(afterDeleteReseed.some((row) => row.id === deleted.id), false);
+
+      databases.push(await openDb(), await openDb());
+      await Promise.all(databases.slice(1).map(({ sql: otherSql }) => seedCatalog(otherSql)));
+      for (const { sql: otherSql } of databases.slice(1)) {
+        const rows = await otherSql`
+          select id from looks where user_id = ${EDITORIAL_USER_ID} order by id
+        `;
+        assert.equal(rows.length, SEED_LOOKS.length);
+      }
     } finally {
       await vite.close();
-      await pg.close();
+      await Promise.all(databases.map(({ pg }) => pg.close()));
     }
   });
 });
