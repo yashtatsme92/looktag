@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { HouseCard } from "@/components/labels/house-card";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
-import { pickWeeklyDrop, type WeeklyDrop } from "@/lib/home/engagement";
+import { pickWeeklyDrop, splitScoutedHouses, type WeeklyDrop } from "@/lib/home/engagement";
 import { getHousesAvailability, listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { consumerHouseIndex, houseCoverSrc, publicLines, type FashionLabel } from "@/lib/labels/model";
 import { useSettingsStore } from "@/lib/settings/store";
@@ -48,17 +48,9 @@ function HousesPage() {
   const seeded = Route.useLoaderData();
   const closed = useHousesClosed(seeded.open);
   const [labels, setLabels] = useState<FashionLabel[]>(seeded.labels);
-  const [scoutedColumns, setScoutedColumns] = useState(2);
   const covers = seeded.covers;
   const feedDropOn = useSettingsStore((s) => s.feedDrop);
   const drop = !closed && feedDropOn ? seeded.drop : null;
-
-  useEffect(() => {
-    const updateColumns = () => setScoutedColumns(window.innerWidth >= 1280 ? 4 : window.innerWidth >= 1024 ? 3 : 2);
-    updateColumns();
-    window.addEventListener("resize", updateColumns);
-    return () => window.removeEventListener("resize", updateColumns);
-  }, []);
 
   useEffect(() => {
     if (closed) return;
@@ -112,6 +104,16 @@ function HousesPage() {
     </section>
   ) : null;
   const empty = index.scouted.length === 0 && index.more.length === 0;
+  const scoutedDropLayouts = [2, 3, 4].map((columns) => {
+    const { firstRow, remaining } = splitScoutedHouses(index.scouted, columns);
+    return (
+      <div key={columns} className={`houses-scouted-layout houses-scouted-layout--${columns}`}>
+        {grid(firstRow)}
+        {weeklyDrop}
+        {remaining.length > 0 ? grid(remaining) : null}
+      </div>
+    );
+  });
 
   return (
     <AppShell
@@ -143,13 +145,7 @@ function HousesPage() {
                 <span className="houses-scouted-dot" aria-hidden />
               </div>
               <p className="houses-scouted-note">Picked by Looktag — clothes and covers first.</p>
-              {drop ? (
-                <>
-                  {grid(index.scouted.slice(0, scoutedColumns))}
-                  {weeklyDrop}
-                  {index.scouted.length > scoutedColumns ? grid(index.scouted.slice(scoutedColumns)) : null}
-                </>
-              ) : null}
+              {drop ? scoutedDropLayouts : null}
               {!drop ? grid(index.scouted) : null}
             </section>
           ) : null}

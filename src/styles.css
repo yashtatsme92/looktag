@@ -4876,6 +4876,11 @@ html:not(.native-app) .wide-plate .look-photo-cover {
   line-height: 1.45;
 }
 
+.houses-scouted-layout--3,
+.houses-scouted-layout--4 {
+  display: none;
+}
+
 .echo-style {
   display: flex;
   align-items: center;
@@ -5092,6 +5097,14 @@ html.native-app .house-manage[data-editor="open"] .house-save {
 }
 
 @media (min-width: 1024px) {
+  .houses-scouted-layout--2 {
+    display: none;
+  }
+
+  .houses-scouted-layout--3 {
+    display: block;
+  }
+
   .house-index-grid,
   .house-lines,
   .style-detail {
@@ -5105,6 +5118,14 @@ html.native-app .house-manage[data-editor="open"] .house-save {
 }
 
 @media (min-width: 1280px) {
+  .houses-scouted-layout--3 {
+    display: none;
+  }
+
+  .houses-scouted-layout--4 {
+    display: block;
+  }
+
   .house-index-grid,
   .house-lines {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -6088,6 +6109,10 @@ html:not([data-chrome="phone"]) .house-profile-info {
   gap: 1rem;
   align-items: center;
   margin-bottom: 1.75rem;
+}
+
+.houses-scouted-layout .house-drop {
+  margin-top: 1rem;
 }
 
 .house-drop img {

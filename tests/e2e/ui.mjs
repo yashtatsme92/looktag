@@ -600,12 +600,16 @@ async function screenHouses(page) {
 async function recordScoutedDropAfterFirstRow(page, name, expectedColumns) {
   const state = await page.evaluate(() => {
     const section = document.querySelector('section[aria-labelledby="houses-scouted"]');
-    const drop = section?.querySelector(":scope > .house-drop");
-    const grids = [...(section?.querySelectorAll(":scope > .house-index-grid") ?? [])];
+    const layouts = [...(section?.querySelectorAll(":scope > .houses-scouted-layout") ?? [])];
+    const layout = layouts.find((node) => getComputedStyle(node).display !== "none");
+    const drop = layout?.querySelector(":scope > .house-drop");
+    const grids = [...(layout?.querySelectorAll(":scope > .house-index-grid") ?? [])];
     const firstGrid = grids[0];
     const columns = firstGrid ? getComputedStyle(firstGrid).gridTemplateColumns.split(" ").length : 0;
     const totalHouses = grids.reduce((count, grid) => count + grid.querySelectorAll(".house-card").length, 0);
     const firstCount = firstGrid?.querySelectorAll(".house-card").length ?? 0;
+    const firstBottom = firstGrid?.getBoundingClientRect().bottom ?? 0;
+    const dropTop = drop?.getBoundingClientRect().top ?? 0;
     const followsFirstGrid = Boolean(
       firstGrid && drop && firstGrid.compareDocumentPosition(drop) & Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -615,10 +619,11 @@ async function recordScoutedDropAfterFirstRow(page, name, expectedColumns) {
         drop.compareDocumentPosition(grids[1]) & Node.DOCUMENT_POSITION_FOLLOWING,
     );
     return {
-      hasDropInScouted: Boolean(section && drop?.parentElement === section),
+      hasDropInScouted: Boolean(section && layout?.parentElement === section && drop?.parentElement === layout),
       columns,
       totalHouses,
       firstCount,
+      gap: dropTop - firstBottom,
       followsFirstGrid,
       hasRemainingGrid: Boolean(grids[1]),
       remainingGridFollowsDrop,
@@ -632,6 +637,7 @@ async function recordScoutedDropAfterFirstRow(page, name, expectedColumns) {
       state.columns === expectedColumns &&
       state.firstCount === firstRowCount &&
       state.followsFirstGrid &&
+      state.gap >= 16 &&
       (state.totalHouses <= expectedColumns
         ? !state.hasRemainingGrid
         : state.hasRemainingGrid &&
@@ -1057,8 +1063,18 @@ async function screenDesktop(page) {
   const housesText = await page.locator("body").innerText();
   record("screen.desktop.houses", /Scouted/.test(housesText) && /this week's drop/i.test(housesText), housesText.slice(0, 180));
   await recordScoutedDropAfterFirstRow(page, "screen.desktop.houses.drop-after-first-row", 4);
-  const indexCols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
+  const indexCols = await page.evaluate(() => {
+    const layout = [...document.querySelectorAll(".houses-scouted-layout")].find(
+      (node) => getComputedStyle(node).display !== "none",
+    );
+    return getComputedStyle(layout.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length;
+  });
   record("screen.desktop.houses-cols", indexCols === 4, String(indexCols));
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await goto(page, "/houses");
+  await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 8_000 });
+  await recordScoutedDropAfterFirstRow(page, "screen.1100.houses.drop-after-first-row", 3);
+  await page.setViewportSize({ width: 1280, height: 800 });
   await goto(page, "/houses/label-atelier-noir");
   await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
   record("screen.desktop.house-hero-row", ...(await heroRow(page, { coverW: 215, linesCols: 4, followMax: 640 })));

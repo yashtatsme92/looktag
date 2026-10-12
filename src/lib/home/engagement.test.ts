@@ -26,6 +26,7 @@ import {
   pushTrail,
   refineLane,
   savesTune,
+  splitScoutedHouses,
   showLessOrder,
   styleCardAfterDrop,
 } from "./engagement.ts";
@@ -101,7 +102,30 @@ describe("feed engagement", () => {
     assert.ok(SEED_LABELS.find((label) => label.id === drop?.houseId)?.scouted);
     assert.ok(drop?.imageSrc.startsWith("/looks/"));
     const paused = SEED_LABELS.map((label) => ({ ...label, scouted: false }));
-    assert.equal(pickWeeklyDrop(paused, SEED_COLLECTIONS, SEED_STYLES, monday), null);
+    const fallback = pickWeeklyDrop(paused, SEED_COLLECTIONS, SEED_STYLES, monday);
+    assert.ok(fallback);
+    assert.equal(paused.find((label) => label.id === fallback?.houseId)?.scouted, false);
+  });
+
+  it("splits a multi-row Scouted list after its responsive first row", () => {
+    const labels = Array.from({ length: 5 }, (_, index) => ({
+      ...SEED_LABELS[0]!,
+      id: `scouted-${index}`,
+    }));
+    for (const columns of [2, 3, 4]) {
+      const { firstRow, remaining } = splitScoutedHouses(labels, columns);
+      assert.equal(firstRow.length, columns);
+      assert.equal(remaining.length, labels.length - columns);
+      assert.equal(firstRow.at(-1)?.id, `scouted-${columns - 1}`);
+      assert.equal(remaining[0]?.id, `scouted-${columns}`);
+    }
+  });
+
+  it("keeps partial Scouted rows together before the weekly drop", () => {
+    const labels = SEED_LABELS.filter((label) => label.scouted);
+    const { firstRow, remaining } = splitScoutedHouses(labels, 4);
+    assert.equal(firstRow.length, 2);
+    assert.deepEqual(remaining, []);
   });
 
   it("keeps the Style card off the lead and away from a live drop", () => {
