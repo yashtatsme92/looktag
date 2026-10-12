@@ -610,6 +610,8 @@ async function recordScoutedDropAfterFirstRow(page, name, expectedColumns) {
     const firstCount = firstGrid?.querySelectorAll(".house-card").length ?? 0;
     const firstBottom = firstGrid?.getBoundingClientRect().bottom ?? 0;
     const dropTop = drop?.getBoundingClientRect().top ?? 0;
+    const dropBottom = drop?.getBoundingClientRect().bottom ?? 0;
+    const dropStyle = drop ? getComputedStyle(drop) : null;
     const followsFirstGrid = Boolean(
       firstGrid && drop && firstGrid.compareDocumentPosition(drop) & Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -624,6 +626,9 @@ async function recordScoutedDropAfterFirstRow(page, name, expectedColumns) {
       totalHouses,
       firstCount,
       gap: dropTop - firstBottom,
+      dropMarginTop: dropStyle ? parseFloat(dropStyle.marginTop) : 0,
+      dropMarginBottom: dropStyle ? parseFloat(dropStyle.marginBottom) : 0,
+      remainingGap: grids[1] ? grids[1].getBoundingClientRect().top - dropBottom : null,
       followsFirstGrid,
       hasRemainingGrid: Boolean(grids[1]),
       remainingGridFollowsDrop,
@@ -637,11 +642,14 @@ async function recordScoutedDropAfterFirstRow(page, name, expectedColumns) {
       state.columns === expectedColumns &&
       state.firstCount === firstRowCount &&
       state.followsFirstGrid &&
-      state.gap >= 16 &&
+      state.gap >= 32 &&
+      state.dropMarginTop === 32 &&
+      state.dropMarginBottom === 32 &&
       (state.totalHouses <= expectedColumns
         ? !state.hasRemainingGrid
         : state.hasRemainingGrid &&
           state.remainingGridFollowsDrop &&
+          state.remainingGap >= 32 &&
           state.remainingCount === state.totalHouses - expectedColumns),
     JSON.stringify(state),
   );

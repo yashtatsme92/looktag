@@ -6112,7 +6112,7 @@ html:not([data-chrome="phone"]) .house-profile-info {
 }
 
 .houses-scouted-layout .house-drop {
-  margin-top: 1rem;
+  margin-block: 2rem;
 }
 
 .house-drop img {
