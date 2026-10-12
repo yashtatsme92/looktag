@@ -969,6 +969,13 @@ async function screenDesktop(page) {
   await page.getByRole("heading", { name: "Scouted", exact: true }).waitFor({ timeout: 8_000 });
   const housesText = await page.locator("body").innerText();
   record("screen.desktop.houses", /Scouted/.test(housesText) && /this week's drop/i.test(housesText), housesText.slice(0, 180));
+  const dropOrder = await page.evaluate(() => {
+    const scouted = document.querySelector('section[aria-labelledby="houses-scouted"]');
+    const drop = scouted?.querySelector(":scope > .house-drop");
+    const grid = scouted?.querySelector(":scope > .house-index-grid");
+    return Boolean(drop && grid && drop.nextElementSibling === grid);
+  });
+  record("screen.desktop.houses.drop-after-scouted", dropOrder);
   const indexCols = await page.evaluate(() => getComputedStyle(document.querySelector(".house-index-grid")).gridTemplateColumns.split(" ").length);
   record("screen.desktop.houses-cols", indexCols === 4, String(indexCols));
   await goto(page, "/houses/label-atelier-noir");
