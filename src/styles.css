@@ -2611,6 +2611,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 
 .echo-pieces {
   max-width: calc(100% - 3.25rem);
+  padding-right: 6.5rem;
   margin: 0;
   color: rgb(255 255 255 / 80%);
   font-size: 13px;
@@ -2638,11 +2639,29 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   padding-bottom: 60px;
 }
 
-.echo-save {
+.echo-actions {
   position: absolute;
   right: 1.5rem;
   bottom: 92px;
   z-index: 20;
+  display: flex;
+  gap: 8px;
+}
+
+.echo-actions .echo-action:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+.echo-stage[data-mode="lane"] .echo-actions {
+  bottom: 88px;
+}
+
+.echo-stage[data-mode="creator"] .echo-actions {
+  bottom: 64px;
+}
+
+.echo-action {
   display: inline-flex;
   width: 44px;
   height: 44px;
@@ -2653,14 +2672,21 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   background: rgb(0 0 0 / 45%);
   color: white;
   backdrop-filter: blur(8px);
+  transition: transform 120ms ease;
 }
 
-.echo-stage[data-mode="lane"] .echo-save {
-  bottom: 88px;
+.echo-action:active {
+  transform: scale(0.94);
 }
 
-.echo-stage[data-mode="creator"] .echo-save {
-  bottom: 64px;
+@media (prefers-reduced-motion: reduce) {
+  .echo-action {
+    transition: none;
+  }
+
+  .echo-action:active {
+    transform: none;
+  }
 }
 
 .echo-save-on {
@@ -6169,6 +6195,7 @@ html:not([data-chrome="phone"]) .house-profile-info {
 
 .echo-less {
   max-width: calc(100% - 3.25rem);
+  padding-right: 6.5rem;
   margin-top: 0.55rem;
   padding: 0;
   border: 0;
