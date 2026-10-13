@@ -22,6 +22,7 @@ test("application source has no spinning or full-page spinner placeholders", asy
   for (const file of files) {
     const source = await readFile(file, "utf8");
     assert.doesNotMatch(source, /animate-spin/, `${file} contains animate-spin`);
+    assert.doesNotMatch(source, /animate-pulse/, `${file} contains animate-pulse`);
     assert.doesNotMatch(
       source,
       /(?:full-page|full-screen|page|screen)-spinner/i,

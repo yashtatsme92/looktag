@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Field } from "@/components/ds";
+import { Field, Skeleton } from "@/components/ds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,7 +59,7 @@ export function ProfileForm({
   }, []);
 
   if (!loaded) {
-    return <div className="mb-8 h-48 animate-pulse rounded-xl bg-muted" />;
+    return <Skeleton className="mb-8 h-48 rounded-xl" />;
   }
 
   if (!account) return null;
