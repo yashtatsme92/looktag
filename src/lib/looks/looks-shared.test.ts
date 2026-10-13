@@ -7,6 +7,11 @@ import { createServer } from "vite";
 import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import type { Sql } from "../db.ts";
 
+const SEED_LEDGER_MIGRATIONS = new Set([
+  "0011_seeded_items.sql",
+  "0012_backfill_creator_seeded_items.sql",
+]);
+
 function toSql(pg: PGlite): Sql {
   const sql = (async <T = Record<string, unknown>>(
     strings: TemplateStringsArray,
@@ -37,7 +42,7 @@ async function openDb(includeSeedLedger = true) {
     files.set(name, await readFile(path.join(process.cwd(), "migrations", name), "utf8"));
   }
   const migrations = [...files.keys()].filter(
-    (name) => includeSeedLedger || name !== "0011_seeded_items.sql",
+    (name) => includeSeedLedger || !SEED_LEDGER_MIGRATIONS.has(name),
   );
   for (const file of pendingMigrations(migrations, [])) {
     const source = files.get(file.name);
@@ -183,6 +188,93 @@ describe("editorial look seeding", () => {
       assert.deepEqual(
         await sql`select * from looks where user_id = ${EDITORIAL_USER_ID} order by id`,
         afterUpgrade,
+      );
+    } finally {
+      await vite.close();
+      await pg.close();
+    }
+  });
+
+  it("backfills only existing creator seeds and preserves a later deletion", async () => {
+    const { pg, sql } = await openDb(false);
+    const vite = await createServer({
+      configFile: false,
+      root: process.cwd(),
+      resolve: { alias: { "@": path.join(process.cwd(), "src") } },
+      server: { middlewareMode: true },
+      appType: "custom",
+      logLevel: "silent",
+    });
+    try {
+      const { insertLookRow, seedCatalog } = (await vite.ssrLoadModule(
+        "/src/lib/looks/looks-shared.ts",
+      )) as typeof import("./looks-shared.ts");
+      const { EDITORIAL_USER_ID } = (await vite.ssrLoadModule(
+        "/src/lib/looks/types.ts",
+      )) as typeof import("./types.ts");
+      const { SEED_LOOKS } = (await vite.ssrLoadModule(
+        "/src/lib/looks/seed.ts",
+      )) as typeof import("./seed.ts");
+
+      const seedLedgerMigration = await readFile(
+        path.join(process.cwd(), "migrations/0011_seeded_items.sql"),
+        "utf8",
+      );
+      const creatorSeedMigration = await readFile(
+        path.join(process.cwd(), "migrations/0012_backfill_creator_seeded_items.sql"),
+        "utf8",
+      );
+      await pg.exec(seedLedgerMigration);
+
+      const missingDuringBackfill = SEED_LOOKS[6]!;
+      for (const look of SEED_LOOKS) {
+        if (look.id !== missingDuringBackfill.id) {
+          await insertLookRow(sql, look, EDITORIAL_USER_ID);
+        }
+      }
+      await pg.exec(creatorSeedMigration);
+
+      const backfilledIds = await sql<{ id: string }>`
+        select id from seeded_items where kind = 'editorial_look' order by id
+      `;
+      assert.deepEqual(
+        backfilledIds.map((row) => row.id),
+        SEED_LOOKS.slice(6)
+          .filter((look) => look.id !== missingDuringBackfill.id)
+          .map((look) => look.id)
+          .sort(),
+      );
+
+      await seedCatalog(sql);
+      const allLooks = await sql<{ id: string }>`
+        select id from looks where user_id = ${EDITORIAL_USER_ID} order by id
+      `;
+      const ledgerBeforeDelete = await sql`
+        select kind, id, seeded_at from seeded_items order by kind, id
+      `;
+      assert.deepEqual(
+        allLooks.map((row) => row.id),
+        SEED_LOOKS.map((look) => look.id).sort(),
+      );
+      assert.equal(ledgerBeforeDelete.length, 34);
+
+      const deleted = SEED_LOOKS[10]!;
+      await sql`delete from looks where id = ${deleted.id}`;
+      await seedCatalog(toSql(pg));
+      assert.equal(
+        (await sql`select id from looks where id = ${deleted.id}`).length,
+        0,
+      );
+
+      await pg.exec(creatorSeedMigration);
+      assert.deepEqual(
+        await sql`select kind, id, seeded_at from seeded_items order by kind, id`,
+        ledgerBeforeDelete,
+      );
+      await seedCatalog(toSql(pg));
+      assert.equal(
+        (await sql`select id from looks where id = ${deleted.id}`).length,
+        0,
       );
     } finally {
       await vite.close();
