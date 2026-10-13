@@ -26,7 +26,7 @@ function toSql(pg: PGlite): Sql {
   return sql;
 }
 
-async function openDb() {
+async function openDb(includeSeedLedger = true) {
   const pg = new PGlite();
   await pg.waitReady;
   const names = (await readdir(path.join(process.cwd(), "migrations"))).filter((name) =>
@@ -36,7 +36,10 @@ async function openDb() {
   for (const name of names) {
     files.set(name, await readFile(path.join(process.cwd(), "migrations", name), "utf8"));
   }
-  for (const file of pendingMigrations([...files.keys()], [])) {
+  const migrations = [...files.keys()].filter(
+    (name) => includeSeedLedger || name !== "0011_seeded_items.sql",
+  );
+  for (const file of pendingMigrations(migrations, [])) {
     const source = files.get(file.name);
     if (source) await pg.exec(source);
   }
@@ -65,6 +68,7 @@ describe("editorial look seeding", () => {
         "/src/lib/looks/seed.ts",
       )) as typeof import("./seed.ts");
       const { pg, sql } = databases[0]!;
+      assert.deepEqual(await sql`select id from seeded_items`, []);
       const existing = SEED_LOOKS[0];
       assert.ok(existing);
       await insertLookRow(sql, existing, EDITORIAL_USER_ID);
@@ -113,6 +117,76 @@ describe("editorial look seeding", () => {
     } finally {
       await vite.close();
       await Promise.all(databases.map(({ pg }) => pg.close()));
+    }
+  });
+
+  it("upgrades a legacy database without restoring a deleted original seed", async () => {
+    const { pg, sql } = await openDb(false);
+    const vite = await createServer({
+      configFile: false,
+      root: process.cwd(),
+      resolve: { alias: { "@": path.join(process.cwd(), "src") } },
+      server: { middlewareMode: true },
+      appType: "custom",
+      logLevel: "silent",
+    });
+    try {
+      const { insertLookRow, seedCatalog } = (await vite.ssrLoadModule(
+        "/src/lib/looks/looks-shared.ts",
+      )) as typeof import("./looks-shared.ts");
+      const { EDITORIAL_USER_ID } = (await vite.ssrLoadModule(
+        "/src/lib/looks/types.ts",
+      )) as typeof import("./types.ts");
+      const { SEED_LOOKS } = (await vite.ssrLoadModule(
+        "/src/lib/looks/seed.ts",
+      )) as typeof import("./seed.ts");
+      const legacyLooks = SEED_LOOKS.slice(0, 6);
+      const deleted = legacyLooks[2]!;
+      for (const look of legacyLooks) {
+        await insertLookRow(sql, look, EDITORIAL_USER_ID);
+      }
+      await sql`delete from looks where id = ${deleted.id}`;
+      const existingRows = await sql`
+        select * from looks where user_id = ${EDITORIAL_USER_ID} order by id
+      `;
+
+      const migration = await readFile(
+        path.join(process.cwd(), "migrations/0011_seeded_items.sql"),
+        "utf8",
+      );
+      await pg.exec(migration);
+      const ledgerBeforeRerun = await sql`
+        select kind, id, seeded_at from seeded_items order by kind, id
+      `;
+      assert.equal(ledgerBeforeRerun.length, legacyLooks.length);
+      await pg.exec(migration);
+      assert.deepEqual(
+        await sql`select kind, id, seeded_at from seeded_items order by kind, id`,
+        ledgerBeforeRerun,
+      );
+
+      await seedCatalog(sql);
+      const afterUpgrade = await sql`
+        select * from looks where user_id = ${EDITORIAL_USER_ID} order by id
+      `;
+      assert.equal(afterUpgrade.length, SEED_LOOKS.length - 1);
+      assert.equal(afterUpgrade.some((row) => row.id === deleted.id), false);
+      assert.equal(
+        afterUpgrade.filter((row) => !legacyLooks.some((look) => look.id === row.id)).length,
+        28,
+      );
+      for (const row of existingRows) {
+        assert.deepEqual(afterUpgrade.find((candidate) => candidate.id === row.id), row);
+      }
+
+      await seedCatalog(toSql(pg));
+      assert.deepEqual(
+        await sql`select * from looks where user_id = ${EDITORIAL_USER_ID} order by id`,
+        afterUpgrade,
+      );
+    } finally {
+      await vite.close();
+      await pg.close();
     }
   });
 });

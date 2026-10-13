@@ -45,6 +45,10 @@ export type LookRow = {
   collection_id?: string | null;
 };
 
+const LOOK_INSERT_COLUMNS =
+  "id, user_id, title, caption, creator_name, image_src, moods_json, tags_json, " +
+  "pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id";
+
 export function parseLook(row: LookRow): Look {
   let tags: ProductTag[] = [];
   let moods: string[] = [];
@@ -77,21 +81,27 @@ export function parseLook(row: LookRow): Look {
 
 export async function insertLookRow(sql: Sql, look: Look, userId: string) {
   const stats = lookStats(look);
-  const moodsJson = JSON.stringify(look.moods ?? []);
-  const tagsJson = JSON.stringify(look.tags);
-  const collectionId = look.collectionId ?? null;
-  await sql`
-    insert into looks (
-      id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-      pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id
-    ) values (
-      ${look.id}, ${userId}, ${look.title.trim()}, ${look.caption}, ${look.creator.trim() || "Creator"},
-      ${look.imageSrc}, ${moodsJson}, ${tagsJson},
-      ${stats.pinCount}, ${stats.comparedCount}, ${stats.retailerCount}, true,
-      ${look.createdAt}, ${look.updatedAt}, ${collectionId}
-    )
-    on conflict (id) do nothing
-  `;
+  await sql.query(
+    `insert into looks (${LOOK_INSERT_COLUMNS})
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12, $13, $14)
+     on conflict (id) do nothing`,
+    [
+      look.id,
+      userId,
+      look.title.trim(),
+      look.caption,
+      look.creator.trim() || "Creator",
+      look.imageSrc,
+      JSON.stringify(look.moods ?? []),
+      JSON.stringify(look.tags),
+      stats.pinCount,
+      stats.comparedCount,
+      stats.retailerCount,
+      look.createdAt,
+      look.updatedAt,
+      look.collectionId ?? null,
+    ],
+  );
 }
 
 const editorialLooksSeeded = new WeakSet<Sql>();
@@ -99,30 +109,39 @@ const editorialSeedPromises = new WeakMap<Sql, Promise<void>>();
 
 async function insertEditorialSeed(sql: Sql, look: Look) {
   const stats = lookStats(look);
-  await sql`
-    with new_seed as (
+  await sql.query(
+    `with new_seed as (
       insert into seeded_items (kind, id)
-      values ('editorial_look', ${look.id})
+      values ('editorial_look', $1)
       on conflict (kind, id) do nothing
       returning id
     ),
     inserted_look as (
-      insert into looks (
-        id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-        pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id
-      )
+      insert into looks (${LOOK_INSERT_COLUMNS})
       select
-        ${look.id}, ${EDITORIAL_USER_ID}, ${look.title.trim()}, ${look.caption},
-        ${look.creator.trim() || "Creator"}, ${look.imageSrc},
-        ${JSON.stringify(look.moods ?? [])}, ${JSON.stringify(look.tags)},
-        ${stats.pinCount}, ${stats.comparedCount}, ${stats.retailerCount}, true,
-        ${look.createdAt}, ${look.updatedAt}, ${look.collectionId ?? null}
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12, $13, $14
       from new_seed
       on conflict (id) do nothing
       returning id
     )
-    select id from inserted_look
-  `;
+    select id from inserted_look`,
+    [
+      look.id,
+      EDITORIAL_USER_ID,
+      look.title.trim(),
+      look.caption,
+      look.creator.trim() || "Creator",
+      look.imageSrc,
+      JSON.stringify(look.moods ?? []),
+      JSON.stringify(look.tags),
+      stats.pinCount,
+      stats.comparedCount,
+      stats.retailerCount,
+      look.createdAt,
+      look.updatedAt,
+      look.collectionId ?? null,
+    ],
+  );
 }
 
 export async function ensureEditorialLooks(sql: Sql) {
