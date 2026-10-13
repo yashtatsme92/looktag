@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import { Minus, Plus } from "lucide-react";
 import {
   centeredCrop,
@@ -39,6 +39,8 @@ export function CropStage({
   >(null);
   const onReadyRef = useRef(onReadyChange);
   onReadyRef.current = onReadyChange;
+  const initialCropRef = useRef(initialCrop);
+  initialCropRef.current = initialCrop;
   const baseRef = useRef<CropRect | null>(initialCrop ?? null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [visible, setVisible] = useState<CropRect | null>(initialCrop ?? null);
@@ -47,11 +49,11 @@ export function CropStage({
   const maxZoom = size && baseRef.current ? zoomMaxForCrop(size.w, size.h, baseRef.current) : 1;
   const ready = Boolean(size && visible);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setSize(null);
     setVisible(null);
     setZoom(1);
-    baseRef.current = initialCrop ?? null;
+    baseRef.current = initialCropRef.current ?? null;
     onReadyRef.current(false);
   }, [imageSrc]);
 

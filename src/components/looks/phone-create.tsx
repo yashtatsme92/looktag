@@ -147,7 +147,6 @@ function PinPlate({
   onAddPin,
   onDonePins,
   onLibrary,
-  onCancel,
   onStep,
 }: PhoneCreateProps) {
   const selected = look.tags.find((tag) => tag.id === selectedId) ?? null;

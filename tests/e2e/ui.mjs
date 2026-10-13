@@ -836,6 +836,10 @@ async function flowSignedInEdit(page) {
   );
   await goto(page, "/create");
   await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  if ((await page.locator(".look-studio").getAttribute("data-step")) === "crop") {
+    await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+    await page.getByRole("button", { name: "Skip" }).click();
+  }
   if ((await page.locator(".look-studio").getAttribute("data-step")) === "pins") {
     await page.getByRole("button", { name: "Done" }).first().click();
     await page.locator("#create-title").fill("Footer cut");
@@ -912,6 +916,10 @@ async function flowPinCardClear(page) {
   );
   await goto(page, "/create");
   await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  if ((await page.locator(".look-studio").getAttribute("data-step")) === "crop") {
+    await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+    await page.getByRole("button", { name: "Skip" }).click();
+  }
   if ((await page.locator(".look-studio").getAttribute("data-step")) === "pins") {
     await page.getByRole("button", { name: "Done" }).first().click();
     await page.locator("#create-title").fill("Four pins");
@@ -1046,10 +1054,12 @@ async function screenDesktopLook(page) {
     };
   });
   record(
-    "screen.desktop.look-cover",
-    m.fit === "cover" &&
-      Math.abs(m.img.width - m.plate.width) <= 1 &&
-      Math.abs(m.img.height - m.plate.height) <= 1 &&
+    "screen.desktop.look-stored-crop",
+    m.fit === "fill" &&
+      m.img.width >= m.plate.width - 1 &&
+      m.img.height >= m.plate.height - 1 &&
+      m.img.left <= m.plate.left + 1 &&
+      m.img.top <= m.plate.top + 1 &&
       m.plate.width > 480 &&
       m.plate.bottom <= m.vh &&
       m.plate.height <= m.vh - m.barBottom &&
@@ -1302,6 +1312,10 @@ try {
     await prime(page, { draft: true });
     await goto(page, "/create");
     await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+    if ((await page.locator(".look-studio").getAttribute("data-step")) === "crop") {
+      await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+      await page.getByRole("button", { name: "Skip" }).click();
+    }
     const deskDone = await page.evaluate(() => {
       const done = document.querySelector(".create-pin-actions .create-btn-done");
       const add = document.querySelector(".create-pin-actions .create-btn-pin");

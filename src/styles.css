@@ -1481,7 +1481,8 @@ html[data-theme="moss"] {
 
   .crop-actions .create-btn-primary,
   .crop-actions .create-btn-ghost {
-    width: 50%;
+    width: auto;
+    flex: 1;
     min-height: 2.75rem;
     border-radius: 12px;
   }

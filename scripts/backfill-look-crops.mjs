@@ -18,7 +18,7 @@ export async function backfillLookCrops(sql, resolveImage = readLookImage) {
   for (const row of rows) {
     const bytes = await resolveImage(row.image_src);
     const dimensions = bytes && imageDimensions(bytes);
-    if (!dimensions) continue;
+    if (!dimensions || dimensions.width <= 0 || dimensions.height <= 0) continue;
     const crop = centeredCrop(dimensions.width, dimensions.height);
     await sql.query(
       "update looks set crop_json = $1 where id = $2 and crop_json is null",
