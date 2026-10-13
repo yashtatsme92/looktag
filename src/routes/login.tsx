@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 type LoginSearch = {
   next?: string;
+  intent?: "save";
 };
 
 function rejectAfter(ms: number, message: string): Promise<never> {
@@ -32,12 +33,13 @@ function rejectAfter(ms: number, message: string): Promise<never> {
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
     next: safeNext(search.next),
+    intent: search.intent === "save" ? "save" : undefined,
   }),
   component: Login,
 });
 
 function Login() {
-  const { next } = Route.useSearch();
+  const { next, intent } = Route.useSearch();
   const dest = postAuthPath(next, "/login");
   const navigate = useNavigate();
   const { user, isPending } = useCurrentUserState();
@@ -193,6 +195,9 @@ function Login() {
       >
         You
       </ScreenTitle>
+      {intent === "save" ? (
+        <p className="mb-2 font-display text-2xl leading-tight">Sign in to save</p>
+      ) : null}
       <p className="mb-6 text-sm text-muted-foreground">
         {sessionState === "pending"
           ? "Checking your session…"

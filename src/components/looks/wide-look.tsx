@@ -14,7 +14,9 @@ import { FollowButton } from "@/components/home/follow-button";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
+import { rememberPendingSave } from "@/lib/looks/pending-save";
 import { useSavedLooks } from "@/lib/looks/saved";
+import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { firstShopTag } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import { useLooksStore } from "@/lib/looks/store";
@@ -35,6 +37,7 @@ export function WideLook({
   const router = useRouter();
   const looks = useLooksStore((s) => s.looks);
   const { user, isPending } = useCurrentUserState();
+  useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const saved = useSavedLooks((s) => s.ids.includes(look.id));
   const toggleSaved = useSavedLooks((s) => s.toggle);
@@ -88,6 +91,7 @@ export function WideLook({
 
   function save() {
     if (authEnabled && !isPending && !user) {
+      rememberPendingSave(look.id);
       setSheetOpen(true);
       return;
     }
@@ -260,8 +264,7 @@ export function WideLook({
         onOpenChange={setSheetOpen}
         intent="save"
         title="Sign in to save"
-        next={`/looks/${look.id}`}
-        description="Save stays on this look. Cancel returns here."
+        description=""
         primary="Continue with email"
         secondary="Cancel"
       />
