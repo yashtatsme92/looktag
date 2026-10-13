@@ -9,10 +9,10 @@ describe("initialPhoneStep", () => {
     assert.equal(initialPhoneStep(empty), "photo");
   });
 
-  it("opens the pin plate after a photo, even when the look is already named or pinned", () => {
-    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "  ", tagCount: 0 }), "pins");
-    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 0 }), "pins");
-    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 1 }), "pins");
+  it("opens crop after a photo, even when the look is already named or pinned", () => {
+    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "  ", tagCount: 0 }), "crop");
+    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 0 }), "crop");
+    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 1 }), "crop");
   });
 
   it("opens edit on the ready screen when a photo exists", () => {

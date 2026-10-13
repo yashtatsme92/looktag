@@ -1,5 +1,6 @@
 export const PHONE_CREATE_STEPS = [
   { id: "photo", label: "Photo" },
+  { id: "crop", label: "Crop" },
   { id: "name", label: "Name" },
   { id: "pins", label: "Pins" },
   { id: "publish", label: "Publish" },
@@ -18,7 +19,7 @@ type LookProgress = {
 
 /**
  * Where a phone draft should open.
- * After a photo, the pin plate is the primary surface — not the name form, and not a piece card.
+ * After a photo, crop it before opening the pin plate.
  * Edit opens on the ready screen so Save changes is the primary.
  */
 export function initialPhoneStep(
@@ -27,7 +28,7 @@ export function initialPhoneStep(
 ): PhoneCreateStepId {
   if (!look.imageSrc.trim()) return "photo";
   if (mode === "edit") return "publish";
-  return "pins";
+  return "crop";
 }
 
 export function completedPhoneSteps(look: LookProgress): Array<(typeof PHONE_CREATE_STEPS)[number]["id"]> {
