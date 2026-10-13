@@ -35,11 +35,31 @@ describe("crop geometry", () => {
       w: 0.28125,
       h: 0.5,
     });
-    assert.deepEqual(visibleCrop({ x: 0.125, y: 0, w: 0.75, h: 1 }, 390, 600), {
-      x: 0.175,
-      y: 0,
-      w: 0.65,
-      h: 1,
-    });
+    const phoneCrop = visibleCrop(
+      { x: 0.21875, y: 0, w: 0.5625, h: 1 },
+      1600,
+      1200,
+      390,
+      600,
+    );
+    assert.ok(Math.abs(phoneCrop.x - 0.25625) < 1e-10);
+    assert.equal(phoneCrop.y, 0);
+    assert.ok(Math.abs(phoneCrop.w - 0.4875) < 1e-10);
+    assert.equal(phoneCrop.h, 1);
+    for (const [frameWidth, frameHeight] of [
+      [786, 1000],
+      [737, 756],
+      [681, 656],
+    ]) {
+      const rect = visibleCrop(
+        { x: 0.21875, y: 0, w: 0.5625, h: 1 },
+        1600,
+        1200,
+        frameWidth,
+        frameHeight,
+      );
+      assert.ok(rect.x >= 0 && rect.x + rect.w <= 1);
+      assert.ok(Math.abs((rect.w * 1600) / (rect.h * 1200) - frameWidth / frameHeight) < 1e-10);
+    }
   });
 });

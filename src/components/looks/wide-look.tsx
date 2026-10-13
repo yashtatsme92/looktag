@@ -135,10 +135,10 @@ export function WideLook({
               imageSrc={look.imageSrc}
               title={look.title}
               tags={look.tags}
+              crop={look.crop}
               selectedId={selectedId}
               onSelect={setSelectedId}
               fit="cover"
-              focusPins
               className="wide-plate-canvas"
             />
           </div>

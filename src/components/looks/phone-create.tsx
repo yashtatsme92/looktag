@@ -1,11 +1,13 @@
 import { Camera, ChevronLeft, ImagePlus, Plus, ScanSearch } from "lucide-react";
 import { LookCanvas } from "@/components/looks/look-canvas";
+import { CropStage } from "@/components/looks/crop-stage";
 import { StyleLinkField } from "@/components/labels/style-pin-note";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import { pieceLine } from "@/lib/home/echo";
 import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
 import type { PhoneCreateStepId } from "@/lib/looks/create-steps";
 import { detectRetailer, getRetailer, RETAILERS } from "@/lib/looks/retailers";
+import type { CropRect } from "@/lib/looks/crop";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +24,20 @@ type PhoneCreateProps = {
   dragOver: boolean;
   saveLabel: string;
   onStep: (step: PhoneCreateStepId) => void;
+  cropBase: CropRect | null;
+  cropReady: boolean;
+  cropEditing: boolean;
+  outsideCropPins: number[] | null;
+  onCropReady: (ready: boolean) => void;
+  onCropBase: (crop: CropRect) => void;
+  onCropChange: (crop: CropRect) => void;
+  onUsePhoto: () => void;
+  onSkipCrop: () => void;
+  onEditCrop: () => void;
+  onCancelCrop: () => void;
+  onSaveCrop: () => void;
+  onAdjustCrop: () => void;
+  onKeepCrop: () => void;
   onPatch: (partial: Partial<Look>) => void;
   onSelect: (id: string | null) => void;
   onAddTag: (x: number, y: number) => void;
@@ -46,6 +62,7 @@ export function PhoneCreate(props: PhoneCreateProps) {
   return (
     <>
       {step === "photo" ? <PhotoEntry {...props} /> : null}
+      {step === "crop" ? <CropStep {...props} /> : null}
       {step === "pins" || step === "piece" ? <PinPlate {...props} /> : null}
       {step === "details" ? <DetailsStep {...props} /> : null}
       {step === "publish" || step === "name" ? <ReadyStep {...props} /> : null}
@@ -117,7 +134,6 @@ function PhotoEntry({
 
 function PinPlate({
   look,
-  mode,
   step,
   selectedId,
   finding,
@@ -153,11 +169,7 @@ function PinPlate({
               onStep("pins");
               return;
             }
-            if (mode === "edit") {
-              onStep("publish");
-              return;
-            }
-            onStep("photo");
+            onStep("crop");
           }}
         >
           <ChevronLeft className="size-[18px]" strokeWidth={1.75} />
@@ -171,6 +183,7 @@ function PinPlate({
         imageSrc={look.imageSrc}
         title={look.title}
         tags={look.tags}
+        crop={look.crop}
         selectedId={selectedId}
         editable
         fit="fill"
@@ -289,7 +302,7 @@ function applyRetailer(tag: ProductTag, text: string): ProductTag {
   return { ...tag, retailerId: "", brand: text };
 }
 
-function DetailsStep({ look, onPatch, onStep, onContinueDetails }: PhoneCreateProps) {
+function DetailsStep({ look, onPatch, onStep, onContinueDetails, onEditCrop }: PhoneCreateProps) {
   return (
     <div className="create-paper">
       <header className="create-paper-bar">
@@ -306,10 +319,14 @@ function DetailsStep({ look, onPatch, onStep, onContinueDetails }: PhoneCreatePr
             imageSrc={look.imageSrc}
             title={look.title}
             tags={look.tags}
+            crop={look.crop}
             fit="fill"
             className="create-plate-canvas"
           />
         </div>
+        <button type="button" className="create-btn-ghost" onClick={onEditCrop}>
+          Edit crop
+        </button>
         <label className="create-kicker" htmlFor="create-title">
           Title
         </label>
@@ -352,6 +369,7 @@ function ReadyStep({
   onPublish,
   onSaveDraft,
   onCancel,
+  onEditCrop,
 }: PhoneCreateProps) {
   const pieces = pieceLine(look);
   const who = look.creator?.trim() ?? "";
@@ -372,6 +390,7 @@ function ReadyStep({
           imageSrc={look.imageSrc}
           title={look.title}
           tags={look.tags}
+          crop={look.crop}
           fit="fill"
           className="create-plate-canvas"
         />
@@ -382,6 +401,9 @@ function ReadyStep({
         </div>
       </div>
       <div className="create-paper-dock">
+        <button type="button" className="create-btn-ghost" onClick={onEditCrop}>
+          Edit crop
+        </button>
         <button type="button" className="create-btn-primary" onClick={onPublish} disabled={saving}>
           {saving ? "Saving…" : editing ? saveLabel : "Publish"}
         </button>
@@ -392,5 +414,92 @@ function ReadyStep({
         )}
       </div>
     </div>
+  );
+}
+
+function CropStep({
+  look,
+  cropReady,
+  cropEditing,
+  outsideCropPins,
+  onStep,
+  onCropReady,
+  onCropBase,
+  onCropChange,
+  onUsePhoto,
+  onSkipCrop,
+  onLibrary,
+  onCancelCrop,
+  onSaveCrop,
+  onAdjustCrop,
+  onKeepCrop,
+}: PhoneCreateProps) {
+  const title = cropEditing ? "Edit crop" : "Crop";
+  return (
+    <section className="create-crop-step" aria-label={title}>
+      <header className="crop-header">
+        {cropEditing ? (
+          <span />
+        ) : (
+          <button type="button" className="create-paper-back" onClick={() => onStep("photo")}>
+            <ChevronLeft className="size-[18px]" strokeWidth={1.75} />
+            Back
+          </button>
+        )}
+        <h1 className="create-paper-title">{title}</h1>
+        {!cropEditing ? (
+          <button type="button" className="crop-skip" onClick={onSkipCrop} disabled={!cropReady}>
+            Skip
+          </button>
+        ) : (
+          <span />
+        )}
+      </header>
+      <CropStage
+        imageSrc={look.imageSrc}
+        crop={look.crop}
+        onChange={onCropChange}
+        onReadyChange={onCropReady}
+        onBaseChange={onCropBase}
+        tags={look.tags}
+        showPins={cropEditing}
+      />
+      <div className="crop-actions">
+        {cropEditing ? (
+          <>
+            <button type="button" className="create-btn-ghost crop-cancel" onClick={onCancelCrop}>
+              Cancel
+            </button>
+            <button type="button" className="create-btn-primary crop-use" onClick={onSaveCrop} disabled={!cropReady}>
+              Save crop
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" className="create-btn-ghost crop-change" onClick={onLibrary}>
+              Change photo
+            </button>
+            <button type="button" className="create-btn-primary crop-use" onClick={onUsePhoto} disabled={!cropReady}>
+              Use photo
+            </button>
+          </>
+        )}
+      </div>
+      {outsideCropPins?.length ? (
+        <div className="crop-outside-scrim">
+          <section className="crop-outside-dialog" role="dialog" aria-modal="true" aria-labelledby="crop-outside-title">
+            <h2 id="crop-outside-title">{outsideCropPins.length} pieces are outside the crop</h2>
+            <p>These pieces will not appear in the crop. You can adjust the crop or keep it as it is.</p>
+            <ol>
+              {outsideCropPins.map((number) => <li key={number}>Piece {number}</li>)}
+            </ol>
+            <div className="crop-outside-actions">
+              <button type="button" className="create-btn-ghost" onClick={onAdjustCrop}>Adjust</button>
+              <button type="button" className="create-btn-primary" onClick={onKeepCrop}>Keep crop</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </section>
   );
 }

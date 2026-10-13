@@ -22,14 +22,14 @@ export const listPublicLooks = createServerFn({ method: "GET" }).handler(async (
     const rows = settings.labelsEnabled
       ? await sql<LookRow>`
           select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-                 created_at, updated_at, collection_id
+                 created_at, updated_at, collection_id, crop_json
           from looks
           where published = true
           order by created_at desc
         `
       : await sql<LookRow>`
           select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-                 created_at, updated_at, collection_id
+                 created_at, updated_at, collection_id, crop_json
           from looks
           where published = true
             and user_id not in (select id from fashion_labels)
@@ -53,7 +53,7 @@ export const getLookById = createServerFn({ method: "GET" })
         });
         const rows = await sql<LookRow>`
           select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-                 created_at, updated_at, collection_id
+                 created_at, updated_at, collection_id, crop_json
           from looks
           where id = ${id} and published = true
           limit 1

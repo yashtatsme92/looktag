@@ -24,6 +24,7 @@ import { getMyHouse, listMyCollections } from "@/lib/labels/api";
 import type { FashionCollection } from "@/lib/labels/model";
 import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
 import { initialPhoneStep, type PhoneCreateStepId } from "@/lib/looks/create-steps";
+import type { CropRect } from "@/lib/looks/crop";
 import { useCatalogStore } from "@/lib/looks/catalog";
 import { imageSrcToDataUrl, readLookImage } from "@/lib/looks/image";
 import { MOODS } from "@/lib/looks/moods";
@@ -86,6 +87,12 @@ export function LookEditor({
       mode,
     ),
   );
+  const [cropBase, setCropBase] = useState<CropRect | null>(look.crop ?? null);
+  const [cropReady, setCropReady] = useState(false);
+  const [cropEditing, setCropEditing] = useState(false);
+  const [outsideCropPins, setOutsideCropPins] = useState<number[] | null>(null);
+  const cropOriginalRef = useRef<CropRect | undefined>(undefined);
+  const cropReturnStepRef = useRef<PhoneCreateStepId>("publish");
   const [suggestNote, setSuggestNote] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountIntent, setAccountIntent] = useState<"publish" | "draft">("publish");
@@ -169,8 +176,12 @@ export function LookEditor({
     try {
       const imageSrc = await readLookImage(file);
       if (uploadTokenRef.current !== token) return;
-      patch({ imageSrc });
-      if (phone) setPhoneStep("pins");
+      patch({ imageSrc, crop: undefined });
+      setCropBase(null);
+      setCropReady(false);
+      setCropEditing(false);
+      setOutsideCropPins(null);
+      if (phone) setPhoneStep("crop");
     } catch (error) {
       if (uploadTokenRef.current !== token) return;
       const message = error instanceof Error ? error.message : "Could not read that photo.";
@@ -389,6 +400,70 @@ export function LookEditor({
     setPhoneStep(mode === "edit" ? "publish" : "details");
   }
 
+  function editCrop() {
+    cropOriginalRef.current = lookRef.current.crop;
+    cropReturnStepRef.current = phoneStep;
+    setCropBase(lookRef.current.crop ?? null);
+    setCropEditing(true);
+    setCropReady(false);
+    setPhoneStep("crop");
+  }
+
+  function cancelCrop() {
+    const original = cropOriginalRef.current;
+    const changed = JSON.stringify(lookRef.current.crop) !== JSON.stringify(original);
+    if (changed && !window.confirm("Discard crop changes?")) return;
+    if (changed) patch({ crop: original });
+    setOutsideCropPins(null);
+    setCropBase(original ?? null);
+    setCropEditing(false);
+    setPhoneStep(cropReturnStepRef.current);
+  }
+
+  function saveCrop() {
+    const crop = lookRef.current.crop ?? cropBase;
+    if (crop) {
+      const outside = lookRef.current.tags.flatMap((tag, index) => {
+        const x = tag.x / 100;
+        const y = tag.y / 100;
+        return x < crop.x || x > crop.x + crop.w || y < crop.y || y > crop.y + crop.h
+          ? [index + 1]
+          : [];
+      });
+      if (outside.length) {
+        setOutsideCropPins(outside);
+        return;
+      }
+      patch({ crop });
+    }
+    finishCropEdit();
+  }
+
+  function finishCropEdit() {
+    setOutsideCropPins(null);
+    setCropEditing(false);
+    setPhoneStep(cropReturnStepRef.current);
+  }
+
+  function adjustCrop() {
+    setOutsideCropPins(null);
+  }
+
+  function usePhoto() {
+    if (lookRef.current.crop ?? cropBase) patch({ crop: lookRef.current.crop ?? cropBase ?? undefined });
+    setCropEditing(false);
+    setSuggestNote(null);
+    setPhoneStep("pins");
+  }
+
+  function skipCrop() {
+    if (!cropBase) return;
+    patch({ crop: cropBase });
+    setCropEditing(false);
+    setSuggestNote(null);
+    setPhoneStep("pins");
+  }
+
   function continueDetails() {
     if (!look.title.trim()) {
       toast.error("Give the look a name.");
@@ -456,6 +531,20 @@ export function LookEditor({
           dragOver={dragOver}
           saveLabel={saveLabel}
           onStep={setPhoneStep}
+          cropBase={cropBase}
+          cropReady={cropReady}
+          cropEditing={cropEditing}
+          outsideCropPins={outsideCropPins}
+          onCropReady={setCropReady}
+          onCropBase={(crop) => setCropBase(crop)}
+          onCropChange={(crop) => patch({ crop })}
+          onUsePhoto={usePhoto}
+          onSkipCrop={skipCrop}
+          onEditCrop={editCrop}
+          onCancelCrop={cancelCrop}
+          onSaveCrop={saveCrop}
+          onAdjustCrop={adjustCrop}
+          onKeepCrop={finishCropEdit}
           onPatch={patch}
           onSelect={(id) => {
             if (!id) return;
@@ -485,6 +574,7 @@ export function LookEditor({
               imageSrc={look.imageSrc}
               title={look.title}
               tags={look.tags}
+              crop={look.crop}
               selectedId={selectedId}
               editable
               fit="fill"

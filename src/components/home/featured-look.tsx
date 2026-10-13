@@ -63,6 +63,7 @@ export function FeaturedLook({ look, showCoach = false }: FeaturedLookProps) {
         imageSrc={look.imageSrc}
         title={look.title}
         tags={look.tags}
+        crop={look.crop}
         selectedId={selected?.id ?? null}
         fit="cover"
         onSelect={selectPin}

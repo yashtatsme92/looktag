@@ -226,6 +226,7 @@ export function LookPlate({
         imageSrc={look.imageSrc}
         title={look.title}
         tags={look.tags}
+        crop={look.crop}
         selectedId={selectedId}
         onSelect={(id) => setSelectedId(id)}
         fit="fill"

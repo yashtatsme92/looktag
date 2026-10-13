@@ -457,6 +457,7 @@ export function LookFeed({ looks, showCoach = false, onHowTo }: LookFeedProps) {
                   imageSrc={look.imageSrc}
                   title={look.title}
                   tags={look.tags}
+                  crop={look.crop}
                   selectedId={selected}
                   showTags={tagsVisible}
                   fit="fill"

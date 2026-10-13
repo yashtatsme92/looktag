@@ -133,6 +133,7 @@ export function StyleGuide({ look, open, onOpenChange }: StyleGuideProps) {
             imageSrc={look.imageSrc}
             title={look.title}
             tags={showPins ? look.tags : []}
+            crop={look.crop}
             selectedId={showPins ? selectedId : null}
             fit="cover"
             className="h-full max-h-none rounded-none aspect-auto"

@@ -464,9 +464,54 @@ async function screenCreateEntry(page) {
 }
 
 async function flowCreateBranches(page) {
+  let releaseImage;
+  const imageGate = new Promise((resolve) => {
+    releaseImage = resolve;
+  });
+  await page.route("**/looks/sunday-coat.jpg", async (route) => {
+    await imageGate;
+    await route.continue();
+  });
   await goto(page, "/create");
   await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  await page.getByRole("heading", { name: "Crop" }).waitFor({ timeout: 5_000 });
+  await page.waitForFunction(
+    () => document.querySelector(".crop-stage")?.getAttribute("aria-busy") === "true",
+    null,
+    { timeout: 5_000 },
+  );
+  const loading = await page.evaluate(() => ({
+    busy: document.querySelector(".crop-stage")?.getAttribute("aria-busy"),
+    frameCount: document.querySelectorAll(".crop-frame").length,
+    useDisabled: document.querySelector(".crop-use")?.disabled,
+    skipDisabled: document.querySelector(".crop-skip")?.disabled,
+    changeDisabled: document.querySelector(".crop-change")?.disabled,
+    loadingText: document.querySelector('[role="status"]')?.textContent?.trim(),
+  }));
+  record(
+    "flow.create.crop-loading-gate",
+    loading.busy === "true" &&
+      loading.frameCount === 0 &&
+      loading.useDisabled &&
+      loading.skipDisabled &&
+      loading.changeDisabled === false &&
+      loading.loadingText === "Loading photo",
+    JSON.stringify(loading),
+  );
+  releaseImage();
+  await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+  record(
+    "flow.create.crop-controls",
+    (await page.locator('.crop-zoom-slider[aria-label="Zoom"]').getAttribute("aria-valuetext")) === "Zoom, 1×" &&
+      (await page.getByRole("button", { name: "Use photo" }).isEnabled()),
+  );
+  await page.getByRole("button", { name: "Skip" }).click();
+  await page.waitForFunction(() => document.querySelector(".look-studio")?.getAttribute("data-step") === "pins");
   record("flow.create.pins", (await page.locator(".look-studio").getAttribute("data-step")) === "pins");
+  await page.locator(".create-plate-back").click();
+  record("flow.create.pin-back-to-crop", (await page.locator(".look-studio").getAttribute("data-step")) === "crop");
+  await page.getByRole("button", { name: "Use photo" }).click();
+  await page.waitForFunction(() => document.querySelector(".look-studio")?.getAttribute("data-step") === "pins");
   record("flow.create.find", (await page.getByRole("button", { name: /Find pieces/i }).count()) > 0);
   record("flow.create.add-pin", (await page.getByRole("button", { name: "Add pin" }).count()) > 0);
   const doneGhost = await page.evaluate(() => {
@@ -536,6 +581,40 @@ async function flowCreateBranches(page) {
   const ready = await page.locator("body").innerText();
   record("flow.create.publish-cancel", /Ready/.test(ready) && !/Sign in to publish/i.test(ready), ready.slice(0, 160));
   record("flow.create.save-draft", /Save draft/.test(ready));
+}
+
+async function screenCropLayout(page, label) {
+  await goto(page, "/create");
+  await page.getByRole("heading", { name: "Crop" }).waitFor({ timeout: 8_000 });
+  await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+  const geometry = await page.evaluate(() => {
+    const rect = (selector) => {
+      const box = document.querySelector(selector)?.getBoundingClientRect();
+      return box ? { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom } : null;
+    };
+    const step = document.querySelector(".create-crop-step");
+    return {
+      frame: rect(".crop-frame"),
+      controls: rect(".crop-controls"),
+      actions: rect(".crop-actions"),
+      columns: getComputedStyle(step).gridTemplateColumns,
+      busy: document.querySelector(".crop-stage")?.getAttribute("aria-busy"),
+      overflow: document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  const desktop = page.viewportSize().width >= 1024;
+  const layoutOk = geometry.frame && geometry.controls && (
+    desktop
+      ? geometry.controls.x >= geometry.frame.right && geometry.columns.split(" ").length === 2
+      : geometry.controls.width <= 600 && geometry.controls.y >= geometry.frame.bottom - 1
+  );
+  record(`flow.crop.layout-${label}`, Boolean(layoutOk && geometry.busy === "false" && !geometry.overflow), JSON.stringify(geometry));
+  record(
+    `flow.crop.actions-${label}`,
+    (await page.getByRole("button", { name: "Change photo" }).isEnabled()) &&
+      (await page.getByRole("button", { name: "Use photo" }).isEnabled()) &&
+      (await page.getByRole("button", { name: "Skip" }).isEnabled()),
+  );
 }
 
 async function screenHouses(page) {
@@ -1175,6 +1254,18 @@ try {
     await prime(page, { draft: true });
     await flowCreateBranches(page);
   }, "ui-create", phone);
+
+  for (const [label, viewport] of [
+    ["tablet-834", { width: 834, height: 1112 }],
+    ["desktop-1194", { width: 1194, height: 834 }],
+    ["desktop-1280", { width: 1280, height: 800 }],
+    ["desktop-1440", { width: 1440, height: 900 }],
+  ]) {
+    await withPage(browser, origin, async (page) => {
+      await prime(page, { draft: true });
+      await screenCropLayout(page, label);
+    }, `ui-crop-${label}`, { viewport });
+  }
 
   await withPage(browser, origin, async (page) => {
     await prime(page);

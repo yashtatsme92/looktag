@@ -6,6 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { createServer } from "vite";
 import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import type { Sql } from "../db.ts";
+import type { LookRow } from "./looks-shared.ts";
 
 function toSql(pg: PGlite): Sql {
   const sql = (async <T = Record<string, unknown>>(
@@ -58,7 +59,7 @@ describe("editorial look seeding", () => {
       logLevel: "silent",
     });
     try {
-      const { insertLookRow, seedCatalog } = (await vite.ssrLoadModule(
+      const { insertLookRow, parseLook, seedCatalog } = (await vite.ssrLoadModule(
         "/src/lib/looks/looks-shared.ts",
       )) as typeof import("./looks-shared.ts");
       const { EDITORIAL_USER_ID } = (await vite.ssrLoadModule(
@@ -105,6 +106,16 @@ describe("editorial look seeding", () => {
       `;
       assert.equal(afterDeleteReseed.length, SEED_LOOKS.length - 1);
       assert.equal(afterDeleteReseed.some((row) => row.id === deleted.id), false);
+
+      const crop = { x: 0.2, y: 0.1, w: 0.5, h: 0.75 };
+      const cropLook = { ...existing, id: "crop-roundtrip", crop };
+      await insertLookRow(sql, cropLook, EDITORIAL_USER_ID);
+      const cropRows = await sql`
+        select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+               created_at, updated_at, collection_id, crop_json
+        from looks where id = ${cropLook.id}
+      `;
+      assert.deepEqual(parseLook(cropRows[0] as LookRow).crop, crop);
 
       databases.push(await openDb(), await openDb());
       await Promise.all(databases.slice(1).map(({ sql: otherSql }) => seedCatalog(otherSql)));

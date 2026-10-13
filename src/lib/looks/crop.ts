@@ -17,7 +17,10 @@ export function centeredCrop(imageWidth: number, imageHeight: number): CropRect 
 }
 
 export function zoomMax(imageWidth: number, imageHeight: number): number {
-  const crop = centeredCrop(imageWidth, imageHeight);
+  return zoomMaxForCrop(imageWidth, imageHeight, centeredCrop(imageWidth, imageHeight));
+}
+
+export function zoomMaxForCrop(imageWidth: number, imageHeight: number, crop: CropRect): number {
   return clamp((crop.w * imageWidth) / 1080, 1, 3);
 }
 
@@ -28,7 +31,10 @@ export function cropAtZoom(
   panX = 0,
   panY = 0,
 ): CropRect {
-  const base = centeredCrop(imageWidth, imageHeight);
+  return zoomCrop(centeredCrop(imageWidth, imageHeight), zoom, panX, panY);
+}
+
+export function zoomCrop(base: CropRect, zoom: number, panX = 0, panY = 0): CropRect {
   const factor = Math.max(1, zoom);
   const w = base.w / factor;
   const h = base.h / factor;
@@ -52,9 +58,17 @@ export function clampCrop(crop: CropRect): CropRect {
   };
 }
 
-export function visibleCrop(crop: CropRect, frameWidth: number, frameHeight: number): CropRect {
-  if (frameWidth <= 0 || frameHeight <= 0 || crop.h <= 0) return crop;
-  const width = crop.h * (frameWidth / frameHeight);
+export function visibleCrop(
+  crop: CropRect,
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): CropRect {
+  if (imageWidth <= 0 || imageHeight <= 0 || frameWidth <= 0 || frameHeight <= 0 || crop.h <= 0) {
+    return crop;
+  }
+  const width = crop.h * (frameWidth / frameHeight) * (imageHeight / imageWidth);
   const w = Math.min(1, Math.max(Number.EPSILON, width));
   const h = Math.min(1, Math.max(Number.EPSILON, crop.h));
   const x = clamp(crop.x + crop.w / 2 - w / 2, 0, 1 - w);
