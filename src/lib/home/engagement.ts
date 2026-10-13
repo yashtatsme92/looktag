@@ -179,14 +179,21 @@ export function berlinWeekKey(now: number): string {
   return `${y}-${m}-${d}`;
 }
 
-/** One Line from a Scouted live House. Stable for the Berlin week. */
+export function splitScoutedHouses(labels: readonly FashionLabel[], columns: number) {
+  const splitAt = Math.max(1, Math.floor(columns));
+  return { firstRow: labels.slice(0, splitAt), remaining: labels.slice(splitAt) };
+}
+
+/** One Line from a Scouted live House, or any live House when none are Scouted. */
 export function pickWeeklyDrop(
   labels: readonly Pick<FashionLabel, "id" | "name" | "scouted" | "status">[],
   collections: readonly FashionCollection[],
   styles: readonly FashionStyle[],
   now = Date.now(),
 ): WeeklyDrop | null {
-  const live = labels.filter((label) => label.scouted && label.status === "approved");
+  const approved = labels.filter((label) => label.status === "approved");
+  const scouted = approved.filter((label) => label.scouted);
+  const live = scouted.length > 0 ? scouted : approved;
   const rows = live.flatMap((label) =>
     publicLines(
       collections.filter((collection) => collection.labelId === label.id),

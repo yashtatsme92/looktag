@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { HouseCard } from "@/components/labels/house-card";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
-import { pickWeeklyDrop, type WeeklyDrop } from "@/lib/home/engagement";
+import { pickWeeklyDrop, splitScoutedHouses, type WeeklyDrop } from "@/lib/home/engagement";
 import { getHousesAvailability, listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { consumerHouseIndex, houseCoverSrc, publicLines, type FashionLabel } from "@/lib/labels/model";
 import { useSettingsStore } from "@/lib/settings/store";
@@ -81,7 +81,39 @@ function HousesPage() {
     );
   }
 
+  const weeklyDrop = drop ? (
+    <section className="house-drop" aria-label="This week's drop">
+      <Link
+        to="/houses/$labelId/$collectionId"
+        params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
+      >
+        <img src={drop.imageSrc} alt="" />
+      </Link>
+      <div>
+        <p className="house-drop-kicker">This week's drop</p>
+        <h2 className="house-drop-title">{drop.lineName}</h2>
+        <p className="house-drop-house">{drop.houseName}</p>
+        <Link
+          to="/houses/$labelId/$collectionId"
+          params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
+          className="house-ghost"
+        >
+          View Line
+        </Link>
+      </div>
+    </section>
+  ) : null;
   const empty = index.scouted.length === 0 && index.more.length === 0;
+  const scoutedDropLayouts = [2, 3, 4].map((columns) => {
+    const { firstRow, remaining } = splitScoutedHouses(index.scouted, columns);
+    return (
+      <div key={columns} className={`houses-scouted-layout houses-scouted-layout--${columns}`}>
+        {grid(firstRow)}
+        {weeklyDrop}
+        {remaining.length > 0 ? grid(remaining) : null}
+      </div>
+    );
+  });
 
   return (
     <AppShell
@@ -99,28 +131,7 @@ function HousesPage() {
           For houses
         </Link>
       </div>
-      {drop ? (
-        <section className="house-drop" aria-label="This week's drop">
-          <Link
-            to="/houses/$labelId/$collectionId"
-            params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
-          >
-            <img src={drop.imageSrc} alt="" />
-          </Link>
-          <div>
-            <p className="house-drop-kicker">This week's drop</p>
-            <h2 className="house-drop-title">{drop.lineName}</h2>
-            <p className="house-drop-house">{drop.houseName}</p>
-            <Link
-              to="/houses/$labelId/$collectionId"
-              params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
-              className="house-ghost"
-            >
-              View Line
-            </Link>
-          </div>
-        </section>
-      ) : null}
+      {index.scouted.length === 0 ? weeklyDrop : null}
       {empty ? (
         <p className="text-sm text-muted-foreground">No houses yet.</p>
       ) : (
@@ -134,7 +145,8 @@ function HousesPage() {
                 <span className="houses-scouted-dot" aria-hidden />
               </div>
               <p className="houses-scouted-note">Picked by Looktag — clothes and covers first.</p>
-              {grid(index.scouted)}
+              {drop ? scoutedDropLayouts : null}
+              {!drop ? grid(index.scouted) : null}
             </section>
           ) : null}
           {index.more.length > 0 ? (
