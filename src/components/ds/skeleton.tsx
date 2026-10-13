@@ -27,7 +27,7 @@ export function SkeletonTile({
 
 export function SkeletonGrid({
   count = 8,
-  lead = false,
+  lead = true,
   captions = false,
   className,
 }: {

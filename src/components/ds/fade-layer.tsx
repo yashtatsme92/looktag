@@ -28,7 +28,9 @@ export function FadeLayer({
     }
     firstKey.current = stateKey;
     setLayers((current) => [
-      ...current.map((layer) => ({ ...layer, active: false })),
+      ...current
+        .filter((layer) => layer.id !== stateKey)
+        .map((layer) => ({ ...layer, active: false })),
       { id: stateKey, children: childrenRef.current, active: false },
     ]);
     const frame = requestAnimationFrame(() => {

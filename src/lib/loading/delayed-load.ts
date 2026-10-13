@@ -42,12 +42,10 @@ export function createDelayedLoad<T>(
   let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
   let skeletonStartedAt: number | undefined;
   let started = false;
-  let disposed = false;
   let request = 0;
   const listeners = new Set<() => void>();
 
   function publish(next: DelayedLoadSnapshot<T>) {
-    if (disposed) return;
     snapshot = next;
     for (const listener of listeners) listener();
   }
@@ -63,8 +61,9 @@ export function createDelayedLoad<T>(
   }
 
   function start() {
-    if (started || disposed) return;
+    if (started) return;
     started = true;
+    if (snapshot.phase === "ready") return;
     if (options.cacheKey) {
       const currentCache = cache?.get<T>(options.cacheKey);
       if (currentCache) {
@@ -75,13 +74,13 @@ export function createDelayedLoad<T>(
 
     const currentRequest = ++request;
     timeoutTimer = setTimeout(() => {
-      if (currentRequest !== request || disposed) return;
+      if (currentRequest !== request) return;
       clearTimers();
       request += 1;
       publish({ phase: "error", error: new Error("Loading timed out") });
     }, timeoutMs);
     delayTimer = setTimeout(() => {
-      if (currentRequest !== request || disposed) return;
+      if (currentRequest !== request) return;
       skeletonStartedAt = Date.now();
       publish({ phase: "skeleton" });
     }, delayMs);
@@ -89,7 +88,7 @@ export function createDelayedLoad<T>(
     Promise.resolve()
       .then(load)
       .then((data) => {
-        if (currentRequest !== request || disposed) return;
+        if (currentRequest !== request) return;
         clearTimeout(delayTimer);
         clearTimeout(timeoutTimer);
         cacheValue(data);
@@ -107,7 +106,7 @@ export function createDelayedLoad<T>(
         }, remaining);
       })
       .catch((error: unknown) => {
-        if (currentRequest !== request || disposed) return;
+        if (currentRequest !== request) return;
         clearTimers();
         publish({ phase: "error", error });
       });
@@ -121,13 +120,13 @@ export function createDelayedLoad<T>(
       return () => listeners.delete(listener);
     },
     dispose() {
-      if (disposed) return;
       if (snapshot.phase === "ready" && snapshot.data !== undefined && options.cacheKey) {
         const scrollY = typeof window === "undefined" ? snapshot.scrollY : window.scrollY;
         cache?.set(options.cacheKey, snapshot.data, scrollY);
       }
-      disposed = true;
       request += 1;
+      started = false;
+      if (snapshot.phase !== "ready") snapshot = { phase: "waiting" };
       clearTimers();
       listeners.clear();
     },

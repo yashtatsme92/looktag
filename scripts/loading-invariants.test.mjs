@@ -29,3 +29,14 @@ test("application source has no spinning or full-page spinner placeholders", asy
     );
   }
 });
+
+test("loading motion uses reduced-motion overrides and responsive skeleton columns", async () => {
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(styles, /--dur-crossfade:\s*150ms/);
+  assert.match(styles, /--skeleton-delay:\s*300ms/);
+  assert.match(styles, /--skeleton-min:\s*400ms/);
+  assert.match(styles, /--load-timeout:\s*10000ms/);
+  assert.match(styles, /@media \(min-width: 64rem\) and \(max-width: 79\.999rem\)/);
+  assert.match(styles, /@media \(min-width: 80rem\)/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.is-loading-old[\s\S]*?transition-duration: 0ms/);
+});

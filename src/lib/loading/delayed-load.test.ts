@@ -112,3 +112,22 @@ test("a cache hit is ready immediately and does not call the loader", () => {
   assert.equal(called, false);
   controller.dispose();
 });
+
+test("disposing and restarting cancels stale work and starts a fresh request", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+  const first = deferred<string>();
+  const second = deferred<string>();
+  let calls = 0;
+  const controller = createDelayedLoad(() => (calls++ === 0 ? first.promise : second.promise));
+  controller.start();
+  controller.dispose();
+  controller.start();
+  await flushPromises();
+  assert.equal(calls, 2);
+  second.resolve("current");
+  first.resolve("stale");
+  await flushPromises();
+  assert.deepEqual(controller.getSnapshot(), { phase: "ready", data: "current" });
+  controller.dispose();
+  t.mock.timers.reset();
+});

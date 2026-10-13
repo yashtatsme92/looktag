@@ -101,7 +101,7 @@
   --skeleton-delay: 300ms;
   --skeleton-min: 400ms;
   --load-timeout: 10000ms;
-  --dim-loading: 0.4;
+  --dim-loading: .4;
   --ease-std: cubic-bezier(0.2, 0, 0, 1);
   --skel: #e8e8e8;
   --skel-2: #dedede;
@@ -153,6 +153,7 @@
 
 .is-loading-old {
   opacity: var(--dim-loading);
+  transition: opacity var(--dur-crossfade) var(--ease-std);
 }
 
 .tab-indicator {
@@ -344,6 +345,7 @@
   }
 
   .fade-layer > *,
+  .is-loading-old,
   .tab-indicator,
   .img-slot > img,
   .echo-tile {
@@ -7517,4 +7519,3 @@ html:not([data-chrome="phone"]) .house-profile-info {
     display: none;
   }
 }
-
