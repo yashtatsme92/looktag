@@ -487,6 +487,7 @@ async function flowCreateBranches(page) {
     skipDisabled: document.querySelector(".crop-skip")?.disabled,
     changeDisabled: document.querySelector(".crop-change")?.disabled,
     loadingText: document.querySelector('[role="status"]')?.textContent?.trim(),
+    underlayHidden: getComputedStyle(document.querySelector(".crop-stage-underlay")).visibility === "hidden",
   }));
   record(
     "flow.create.crop-loading-gate",
@@ -495,7 +496,8 @@ async function flowCreateBranches(page) {
       loading.useDisabled &&
       loading.skipDisabled &&
       loading.changeDisabled === false &&
-      loading.loadingText === "Loading photo",
+      loading.loadingText === "Loading photo" &&
+      loading.underlayHidden,
     JSON.stringify(loading),
   );
   releaseImage();
@@ -557,6 +559,45 @@ async function flowCreateBranches(page) {
   record("flow.create.piece-back", (await page.locator(".look-studio").getAttribute("data-step")) === "pins");
 
   await page.getByRole("button", { name: "Done" }).first().click();
+  await page.getByRole("heading", { name: "Details" }).waitFor({ timeout: 5_000 });
+  await page.getByRole("button", { name: "Edit crop" }).click();
+  await page.getByRole("heading", { name: "Edit crop" }).waitFor({ timeout: 5_000 });
+  await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+  const editCropPins = await page.evaluate(() => {
+    const stage = document.querySelector(".crop-stage")?.getBoundingClientRect();
+    const markers = [...document.querySelectorAll(".crop-pin-marker")].map((marker) => {
+      const rect = marker.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        opacity: getComputedStyle(marker).opacity,
+      };
+    });
+    return {
+      stage: stage && { left: stage.left, top: stage.top, right: stage.right, bottom: stage.bottom },
+      markers,
+    };
+  });
+  record(
+    "flow.crop.edit-pins-visible",
+    Boolean(
+      editCropPins.stage &&
+        editCropPins.markers.length > 0 &&
+        editCropPins.markers.every(
+          (marker) =>
+            marker.right - marker.left >= 20 &&
+            marker.bottom - marker.top >= 20 &&
+            marker.left >= editCropPins.stage.left &&
+            marker.top >= editCropPins.stage.top &&
+            marker.right <= editCropPins.stage.right &&
+            marker.bottom <= editCropPins.stage.bottom,
+        ),
+    ),
+    JSON.stringify(editCropPins),
+  );
+  await page.getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("heading", { name: "Details" }).waitFor({ timeout: 5_000 });
   await page.locator("#create-title").fill("");
   await page.getByRole("button", { name: "Continue" }).click();

@@ -30,6 +30,7 @@ export function CropStage({
   tags = [],
   showPins = false,
 }: CropStageProps) {
+  const stageRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const pointers = useRef(new Map<number, Point>());
   const gesture = useRef<
@@ -46,6 +47,7 @@ export function CropStage({
   const [visible, setVisible] = useState<CropRect | null>(initialCrop ?? null);
   const [zoom, setZoom] = useState(1);
   const [frameSize, setFrameSize] = useState({ w: 1, h: 1 });
+  const [stageSize, setStageSize] = useState({ w: 1, h: 1 });
   const maxZoom = size && baseRef.current ? zoomMaxForCrop(size.w, size.h, baseRef.current) : 1;
   const ready = Boolean(size && visible);
 
@@ -58,15 +60,20 @@ export function CropStage({
   }, [imageSrc]);
 
   useEffect(() => {
-    const frame = frameRef.current;
-    if (!frame) return;
+    const stage = stageRef.current;
+    if (!stage) return;
     const readSize = () => {
-      const rect = frame.getBoundingClientRect();
-      setFrameSize({ w: rect.width || 1, h: rect.height || 1 });
+      const stageRect = stage.getBoundingClientRect();
+      setStageSize({ w: stageRect.width || 1, h: stageRect.height || 1 });
+      const frame = frameRef.current;
+      if (frame) {
+        setFrameSize({ w: frame.offsetWidth || 1, h: frame.offsetHeight || 1 });
+      }
     };
     readSize();
     const observer = new ResizeObserver(readSize);
-    observer.observe(frame);
+    observer.observe(stage);
+    if (frameRef.current) observer.observe(frameRef.current);
     return () => observer.disconnect();
   }, [ready]);
 
@@ -154,8 +161,8 @@ export function CropStage({
       const dx = event.key === "ArrowLeft" ? amount : event.key === "ArrowRight" ? -amount : 0;
       const dy = event.key === "ArrowUp" ? amount : event.key === "ArrowDown" ? -amount : 0;
       pan(
-        (dx / frameSize.w) * (visible?.w ?? 1),
-        (dy / frameSize.h) * (visible?.h ?? 1),
+        (dx / (frameSize.w * pinScale)) * (visible?.w ?? 1),
+        (dy / (frameSize.h * pinScale)) * (visible?.h ?? 1),
       );
     }
   }
@@ -169,14 +176,43 @@ export function CropStage({
           top: `${((-visible.y / visible.h) * 100).toFixed(5)}%`,
         }
       : undefined;
+  const pinPositions = showPins && visible
+    ? tags.map((tag) => ({
+        x: ((tag.x / 100 - visible.x) / visible.w) * 100,
+        y: ((tag.y / 100 - visible.y) / visible.h) * 100,
+      }))
+    : [];
+  const horizontalSpan = pinPositions.length
+    ? Math.max(1, ...pinPositions.map((point) => point.x)) -
+      Math.min(0, ...pinPositions.map((point) => point.x))
+    : 1;
+  const verticalSpan = pinPositions.length
+    ? Math.max(1, ...pinPositions.map((point) => point.y)) -
+      Math.min(0, ...pinPositions.map((point) => point.y))
+    : 1;
+  const pinScale = pinPositions.length
+    ? Math.min(
+        1,
+        Math.max(0.01, (stageSize.w - 60) / (frameSize.w * horizontalSpan)),
+        Math.max(0.01, (stageSize.h - 188) / (frameSize.h * verticalSpan)),
+      )
+    : 1;
+  const pinMarkerScale = 1 / pinScale;
 
   return (
-    <div className="crop-stage" aria-busy={!ready}>
-      <img className="crop-stage-underlay" src={imageSrc} alt="" aria-hidden />
+    <div ref={stageRef} className="crop-stage" aria-busy={!ready}>
+      <img
+        className="crop-stage-underlay"
+        src={imageSrc}
+        alt=""
+        aria-hidden
+        style={{ visibility: ready ? "visible" : "hidden" }}
+      />
       {ready ? (
         <div
           ref={frameRef}
           className="crop-frame"
+          style={showPins ? { transform: `scale(${pinScale})` } : undefined}
           role="group"
           aria-label="Crop area, use arrow keys to move"
           tabIndex={0}
@@ -211,7 +247,15 @@ export function CropStage({
                   <span
                     key={tag.id}
                     className="crop-pin-marker"
-                    style={{ left: `${x}%`, top: `${y}%`, opacity: outside ? 0.55 : 1 }}
+                    style={{
+                      left: `${x}%`,
+                      top: `${y}%`,
+                      opacity: outside ? 0.55 : 1,
+                      width: `${1.75 * pinMarkerScale}rem`,
+                      height: `${1.75 * pinMarkerScale}rem`,
+                      borderWidth: `${pinMarkerScale}px`,
+                      fontSize: `${0.75 * pinMarkerScale}rem`,
+                    }}
                     aria-hidden
                   >
                     {index + 1}
