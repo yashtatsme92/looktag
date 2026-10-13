@@ -183,7 +183,7 @@ async function main() {
 
     await withPage(browser, async (page) => {
       const started = Date.now();
-      await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+      await page.goto(`${origin}/login?next=%2F`, { waitUntil: "domcontentloaded", timeout: 20_000 });
       const form = page.locator("#creator-email");
       const disabled = page.getByText("Sign-in is disabled");
       await form.or(disabled).waitFor({ timeout: 8_000 });
