@@ -106,6 +106,82 @@ async function main() {
     });
 
     await withPage(browser, async (page) => {
+      await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
+      await getSession(page);
+      await page.waitForTimeout(1_500);
+      const save = page.locator('button[aria-label="Save look"]').first();
+      await save.waitFor({ timeout: 8_000 });
+      await save.click();
+      const drawer = page.locator("[data-vaul-drawer]");
+      await drawer.waitFor({ state: "visible", timeout: 8_000 });
+      const content = (await drawer.textContent()) ?? "";
+      const sheetReady =
+        (await drawer.getByRole("heading", { name: "Sign in to save" }).count()) > 0 &&
+        (await drawer.getByLabel("Email").count()) > 0 &&
+        /Continue with email/.test(content) &&
+        /Cancel/.test(content) &&
+        !/via /.test(content);
+      record("guest_save_account_sheet", sheetReady, snippet(content));
+      const originalPath = new URL(page.url()).pathname;
+      await drawer.getByRole("button", { name: "Cancel" }).click();
+      await drawer.waitFor({ state: "hidden", timeout: 8_000 });
+      record("guest_save_cancel_stays", new URL(page.url()).pathname === originalPath, new URL(page.url()).pathname);
+      await save.click();
+      const email = "saved-look@example.com";
+      await page.getByLabel("Email").fill(email);
+      await page.getByRole("link", { name: "Continue with email" }).click();
+      await page.waitForURL(/\/login\?/);
+      await page.waitForFunction((value) => document.querySelector("#creator-email")?.value === value, email);
+      const search = new URL(page.url()).searchParams;
+      record(
+        "guest_save_email_handoff",
+        search.get("next") === "/" && search.get("email") === email,
+        search.toString(),
+      );
+    });
+
+    await withPage(browser, async (page) => {
+      await page.goto(`${origin}/admin`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+      await page.getByLabel("Email").waitFor({ timeout: 8_000 });
+      const text = (await page.locator("body").textContent()) ?? "";
+      const noGuestControls =
+        (await page.getByRole("switch").count()) === 0 &&
+        !/AdminGate|Houses for shoppers|Feed & discovery|Approve · Scouted/.test(text);
+      record(
+        "guest_admin_gate",
+        noGuestControls && (await page.getByLabel("Email").count()) > 0 && /Continue with email/.test(text),
+        snippet(text),
+      );
+    });
+
+    await withPage(browser, async (page) => {
+      await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+      await page.getByRole("tab", { name: "Profile" }).click();
+      const profileText = (await page.locator(".you-empty, .you-profile").textContent()) ?? "";
+      record("profile_has_no_feed_tuning_row", !/Reset feed tuning/.test(profileText), snippet(profileText));
+      for (const [width, height] of [[390, 844], [834, 1112], [1280, 900], [1440, 900], [1194, 834]]) {
+        await page.setViewportSize({ width, height });
+        await page.getByRole("button", { name: "Sign in" }).click();
+        const drawer = page.locator("[data-vaul-drawer]");
+        await drawer.waitFor({ state: "visible", timeout: 8_000 });
+        await page.waitForTimeout(300);
+        const content = (await drawer.textContent()) ?? "";
+        const box = await drawer.boundingBox();
+        const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth === window.innerWidth);
+        const sheetReady =
+          (await drawer.getByRole("heading", { name: "Sign in to sync You" }).count()) > 0 &&
+          (await drawer.getByLabel("Email").count()) > 0 &&
+          /Continue with email/.test(content) &&
+          /Cancel/.test(content) &&
+          !/Sign in to sync You\. Cancel returns here\.|Password/.test(content) &&
+          Boolean(box && box.x >= 0 && box.x + box.width <= width) &&
+          noOverflow;
+        record(`you_account_sheet_${width}`, sheetReady, snippet(content));
+        await drawer.getByRole("button", { name: "Cancel" }).click();
+      }
+    });
+
+    await withPage(browser, async (page) => {
       const started = Date.now();
       await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
       const form = page.locator("#creator-email");
@@ -345,6 +421,12 @@ async function main() {
         !pulse && !notFound && /QA Creator/.test(text),
         pulse ? "stuck on skeleton" : notFound ? "creator not found after signup" : snippet(text),
       );
+
+      await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+      await page.getByRole("tab", { name: "Profile" }).waitFor({ timeout: 8_000 });
+      await page.getByRole("tab", { name: "Profile" }).click();
+      const profileText = await page.locator(".you-profile").innerText();
+      record("signed_in_profile_no_feed_tuning", !/Reset feed tuning/.test(profileText), snippet(profileText));
 
       await page.goto(`${origin}/create`, { waitUntil: "domcontentloaded", timeout: 20_000 });
       try {

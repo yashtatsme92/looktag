@@ -23,6 +23,8 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
   const [busy, setBusy] = useState(false);
   const copy = pending === null ? null : housesSwitchCopy(!pending);
 
+  if (!linked) return <AdminPlaceholder />;
+
   async function apply() {
     if (pending === null) return;
     setBusy(true);
@@ -44,15 +46,9 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
     <div className="ops-stage">
       <h1 className="ops-title">Admin</h1>
       <p className="ops-lead">System tools.</p>
-      {linked ? (
-        <Link to="/admin/houses" className="ops-row">
-          {row}
-        </Link>
-      ) : (
-        <div className="ops-row" aria-hidden>
-          {row}
-        </div>
-      )}
+      <Link to="/admin/houses" className="ops-row">
+        {row}
+      </Link>
       <div className="ops-row ops-switch-row">
         <div>
           <span className="ops-row-title">Houses for shoppers</span>
@@ -60,22 +56,15 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
         </div>
         <Switch
           checked={enabled}
-          disabled={!linked || busy}
+          disabled={busy}
           aria-label="Houses for shoppers"
           onCheckedChange={(next) => setPending(next)}
         />
       </div>
-      {linked ? (
-        <Link to="/admin/feed" className="ops-row">
-          <span className="ops-row-title">Feed & discovery</span>
-          <span className="ops-row-note">{feedModulesNote(feedOn)}</span>
-        </Link>
-      ) : (
-        <div className="ops-row" aria-hidden>
-          <span className="ops-row-title">Feed & discovery</span>
-          <span className="ops-row-note">{feedModulesNote(feedOn)}</span>
-        </div>
-      )}
+      <Link to="/admin/feed" className="ops-row">
+        <span className="ops-row-title">Feed & discovery</span>
+        <span className="ops-row-note">{feedModulesNote(feedOn)}</span>
+      </Link>
       <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
         <DialogContent className="max-w-[480px]">
           <DialogTitle>{copy?.title}</DialogTitle>
@@ -90,6 +79,18 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function AdminPlaceholder() {
+  return (
+    <div className="ops-stage flex flex-col gap-4" aria-hidden="true">
+      <span className="h-8 w-32 rounded bg-muted" />
+      <span className="h-4 w-48 rounded bg-muted" />
+      <span className="h-16 w-full rounded-xl bg-muted" />
+      <span className="h-16 w-full rounded-xl bg-muted" />
+      <span className="h-16 w-3/4 rounded-xl bg-muted" />
     </div>
   );
 }
@@ -115,7 +116,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
   if (isPending) {
     return (
       <AppShell title="Admin" backTo="/">
-        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+        <AdminPlaceholder />
       </AppShell>
     );
   }
@@ -126,16 +127,15 @@ export function AdminGate({ children }: { children: ReactNode }) {
         <AppShell title="Admin" backTo="/" header="hidden">
           <AdminHubBody linked={false} />
           <AccountSheet
-              open
-              onOpenChange={(open) => {
-                if (!open) void navigate({ to: "/" });
-              }}
-              title="Sign in for admin"
-              description="Cancel returns. Operator tools stay behind AdminGate."
-              primary="Continue with email"
-              secondary="Cancel"
-              next={pathname}
-            />
+            open
+            onOpenChange={(open) => {
+              if (!open) void navigate({ to: "/" });
+            }}
+            title="Sign in for admin"
+            primary="Continue with email"
+            secondary="Cancel"
+            next={pathname}
+          />
         </AppShell>
       </SessionSplit>
     );

@@ -1,16 +1,17 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function AccountSheet({
   open,
   onOpenChange,
-  title = "Save this look",
-  description = "Sign in to keep it in your wardrobe. Browsing stays open.",
-  primary = "Sign in",
-  secondary = "Keep browsing",
+  title = "Sign in to save",
+  description,
+  primary = "Continue with email",
+  secondary = "Cancel",
   next = "/",
-  intent,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -19,36 +20,30 @@ export function AccountSheet({
   primary?: string;
   secondary?: string;
   next?: string;
-  /** One sheet. The chip names why it opened. Cancel returns without leaving. */
   intent?: "publish" | "draft" | "follow" | "save";
 }) {
-  const via =
-    intent === "publish"
-      ? "Publish"
-      : intent === "draft"
-        ? "Save draft"
-        : intent === "follow"
-          ? "Follow"
-          : intent === "save"
-            ? "Save"
-            : null;
+  const [email, setEmail] = useState("");
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>{title}</DrawerTitle>
-          <DrawerDescription>{description}</DrawerDescription>
+          {description ? <DrawerDescription>{description}</DrawerDescription> : null}
         </DrawerHeader>
         <div className="flex flex-col gap-2 px-5 pt-2 pb-6">
-          {via ? (
-            <p className="mb-2">
-              <span className="inline-flex min-h-8 items-center rounded-full bg-secondary px-3 text-xs font-medium text-muted-foreground">
-                via {via}
-              </span>
-            </p>
-          ) : null}
+          <label className="text-sm font-medium" htmlFor="account-sheet-email">
+            Email
+          </label>
+          <Input
+            id="account-sheet-email"
+            type="email"
+            autoComplete="email"
+            maxLength={254}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
           <Button asChild className="h-11">
-            <Link to="/login" search={{ next }}>
+            <Link to="/login" search={{ next, email }}>
               {primary}
             </Link>
           </Button>
