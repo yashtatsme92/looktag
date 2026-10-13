@@ -1109,6 +1109,67 @@ async function screenDesktopLook(page) {
       m.pinsInside,
     JSON.stringify(m),
   );
+  await page.setViewportSize({ width: 1194, height: 834 });
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.waitForFunction(
+    () => {
+      const image = document.querySelector(".wide-plate img");
+      return image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
+    },
+    null,
+    { timeout: 10_000 },
+  );
+  const portraitCrop = await page.evaluate(() => {
+    const plate = document.querySelector(".wide-plate");
+    const image = plate.querySelector("img");
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
+    const imageRatio = width / height;
+    const base = imageRatio > 3 / 4
+      ? { x: (1 - (height * 3 / 4) / width) / 2, y: 0, w: (height * 3 / 4) / width, h: 1 }
+      : { x: 0, y: (1 - (width * 4 / 3) / height) / 2, w: 1, h: (width * 4 / 3) / height };
+    const plateRect = plate.getBoundingClientRect();
+    const visibleWidth = Math.min(
+      1,
+      base.h * (plateRect.width / plateRect.height) * (height / width),
+    );
+    const expected = {
+      x: Math.max(0, Math.min(1 - visibleWidth, base.x + base.w / 2 - visibleWidth / 2)),
+      y: base.y,
+      w: visibleWidth,
+      h: base.h,
+    };
+    const actual = {
+      x: -parseFloat(image.style.left) / parseFloat(image.style.width),
+      y: -parseFloat(image.style.top) / parseFloat(image.style.height),
+      w: 100 / parseFloat(image.style.width),
+      h: 100 / parseFloat(image.style.height),
+    };
+    const seedPins = [[48, 38], [50, 26], [74, 52], [48, 88]];
+    const expectedPinCount = seedPins.filter(([x, y]) =>
+      x / 100 >= expected.x &&
+      x / 100 <= expected.x + expected.w &&
+      y / 100 >= expected.y &&
+      y / 100 <= expected.y + expected.h,
+    ).length;
+    return {
+      natural: { width, height },
+      actual,
+      expected,
+      expectedPinCount,
+      actualPinCount: plate.querySelectorAll(".tag-pin").length,
+      headBandVisible: expected.y <= 0.1 && expected.y + expected.h > 0.1,
+    };
+  });
+  record(
+    "screen.desktop.crop-v-rect-1194",
+    portraitCrop.natural.height > portraitCrop.natural.width &&
+      portraitCrop.headBandVisible &&
+      portraitCrop.expectedPinCount === portraitCrop.actualPinCount &&
+      ["x", "y", "w", "h"].every((key) => Math.abs(portraitCrop.actual[key] - portraitCrop.expected[key]) < 0.002),
+    JSON.stringify(portraitCrop),
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
   record(
     "screen.desktop.look-back",
     Boolean(m.back) && m.backH === 44 && m.back.left < m.plate.left + 8 && m.back.bottom <= m.plate.top,
