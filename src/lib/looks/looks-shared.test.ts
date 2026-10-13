@@ -89,7 +89,9 @@ describe("editorial look seeding", () => {
         afterFirstSeed.map((row) => row.id),
         SEED_LOOKS.map((look) => look.id).sort(),
       );
-      assert.deepEqual(afterFirstSeed.find((row) => row.id === existing.id), before[0]);
+      const migratedExisting = afterFirstSeed.find((row) => row.id === existing.id);
+      assert.ok(migratedExisting?.crop_json);
+      assert.deepEqual(migratedExisting, { ...before[0], crop_json: migratedExisting.crop_json });
 
       await seedCatalog(toSql(pg));
       const afterSecondSeed = await sql`
@@ -187,7 +189,9 @@ describe("editorial look seeding", () => {
         28,
       );
       for (const row of existingRows) {
-        assert.deepEqual(afterUpgrade.find((candidate) => candidate.id === row.id), row);
+        const migrated = afterUpgrade.find((candidate) => candidate.id === row.id);
+        assert.ok(migrated?.crop_json);
+        assert.deepEqual({ ...migrated, crop_json: row.crop_json }, row);
       }
 
       await seedCatalog(toSql(pg));

@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
 import { pendingMigrations } from "./migration-plan.mjs";
+import { backfillLookCrops } from "./backfill-look-crops.mjs";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -73,6 +74,10 @@ async function main() {
       console.log(`[migrate] applied ${name}`);
       count += 1;
     }
+    const cropCount = await backfillLookCrops({
+      query: async (text, params = []) => (await client.query(text, params)).rows,
+    });
+    if (cropCount) console.log(`[migrate] backfilled ${cropCount} centred look crop(s).`);
     console.log(count ? `[migrate] done — ${count} migration(s) applied.` : "[migrate] up to date.");
   } finally {
     client.release();

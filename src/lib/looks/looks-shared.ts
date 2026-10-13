@@ -5,6 +5,7 @@ import { EDITORIAL_USER_ID, type Look, type ProductTag } from "./types";
 import { lookStats, rankScore, type RankWeights } from "./rank";
 import { normalizeLookTags } from "./offers";
 import type { CropRect } from "./crop";
+import { backfillLookCrops } from "../../../scripts/backfill-look-crops.mjs";
 import { SEED_LOOKS } from "./seed";
 import { ensureFashionLabels } from "@/lib/labels/api";
 
@@ -131,6 +132,7 @@ export async function insertLookRow(sql: Sql, look: Look, userId: string) {
 
 const editorialLooksSeeded = new WeakSet<Sql>();
 const editorialSeedPromises = new WeakMap<Sql, Promise<void>>();
+const lookCropBackfilled = new WeakSet<Sql>();
 
 async function insertEditorialSeed(sql: Sql, look: Look) {
   const stats = lookStats(look);
@@ -192,6 +194,10 @@ export async function ensureEditorialLooks(sql: Sql) {
 export async function seedCatalog(sql: Sql) {
   await ensureEditorialLooks(sql);
   await ensureFashionLabels(sql);
+  if (!lookCropBackfilled.has(sql)) {
+    await backfillLookCrops(sql);
+    lookCropBackfilled.add(sql);
+  }
 }
 
 export type ProfileExtras = {
