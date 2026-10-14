@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { markStyleGuideDone } from "@/components/home/style-guide";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 type LoginSearch = {
   next?: string;
   intent?: "save";
+  email?: string;
 };
 
 function rejectAfter(ms: number, message: string): Promise<never> {
@@ -34,12 +35,13 @@ export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
     next: safeNext(search.next),
     intent: search.intent === "save" ? "save" : undefined,
+    email: typeof search.email === "string" ? search.email.slice(0, 254) : undefined,
   }),
   component: Login,
 });
 
 function Login() {
-  const { next, intent } = Route.useSearch();
+  const { next, intent, email: initialEmail } = Route.useSearch();
   const dest = postAuthPath(next, "/login");
   const navigate = useNavigate();
   const { user, isPending } = useCurrentUserState();
@@ -53,7 +55,7 @@ function Login() {
   const [handle, setHandle] = useState("");
   const [handleTouched, setHandleTouched] = useState(false);
   const [city, setCity] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -63,6 +65,10 @@ function Login() {
     setHydrated(true);
     settings.hydrate();
   }, [settings.hydrate]);
+
+  useEffect(() => {
+    if (initialEmail !== undefined) setEmail(initialEmail);
+  }, [initialEmail]);
 
   async function goAfterAuth(displayName: string, userId?: string) {
     markStyleGuideDone({ coach: true });

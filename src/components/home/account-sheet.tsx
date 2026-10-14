@@ -1,15 +1,17 @@
-import { useLayoutEffect, useRef } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import "./account-sheet.css";
 
 export function AccountSheet({
   open,
   onOpenChange,
-  title = "Save this look",
-  description = "Sign in to keep it in your wardrobe. Browsing stays open.",
-  primary = "Sign in",
-  secondary = "Keep browsing",
+  title = "Sign in to save",
+  description,
+  primary = "Continue with email",
+  secondary = "Cancel",
   next,
   intent,
 }: {
@@ -20,13 +22,15 @@ export function AccountSheet({
   primary?: string;
   secondary?: string;
   next?: string;
-  /** One sheet. Save returns to this page after sign-in. Cancel returns without leaving. */
+  /** Save returns to this page after sign-in. Cancel returns without leaving. */
   intent?: "publish" | "draft" | "follow" | "save";
 }) {
   const here = useRouterState({ select: (s) => s.location.href });
   const target = next ?? (intent === "save" ? here : "/");
+  const [email, setEmail] = useState("");
+  const emailId = useId();
   const opener = useRef<HTMLElement | null>(null);
-  const primaryRef = useRef<HTMLAnchorElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
 
   useLayoutEffect(() => {
     if (open && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
@@ -37,10 +41,11 @@ export function AccountSheet({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent
+        className="account-sheet-modal"
         {...(description ? {} : { "aria-describedby": undefined })}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          primaryRef.current?.focus();
+          emailRef.current?.focus();
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
@@ -52,8 +57,23 @@ export function AccountSheet({
           {description ? <DrawerDescription>{description}</DrawerDescription> : null}
         </DrawerHeader>
         <div className="flex flex-col gap-2 px-5 pt-2 pb-6">
+          <label className="text-sm font-medium" htmlFor={emailId}>
+            Email
+          </label>
+          <Input
+            ref={emailRef}
+            id={emailId}
+            type="email"
+            autoComplete="email"
+            maxLength={254}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
           <Button asChild className="h-11">
-            <Link ref={primaryRef} to="/login" search={{ next: target, intent: intent === "save" ? "save" : undefined }}>
+            <Link
+              to="/login"
+              search={{ next: target, email, intent: intent === "save" ? "save" : undefined }}
+            >
               {primary}
             </Link>
           </Button>

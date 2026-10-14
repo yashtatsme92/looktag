@@ -1,0 +1,22 @@
+@media (min-width: 1024px) {
+  html[data-chrome="desktop"] [data-vaul-drawer].account-sheet-modal {
+    inset: auto !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: 50% !important;
+    margin-top: 0 !important;
+    width: min(30rem, calc(100% - 3rem)) !important;
+    max-height: min(80dvh, 40rem) !important;
+    border-radius: 24px !important;
+    transform: translate(-50%, -50%) !important;
+  }
+
+  html[data-chrome="desktop"] [data-vaul-drawer].account-sheet-modal::after {
+    display: none !important;
+  }
+
+  html[data-chrome="desktop"] [data-vaul-drawer].account-sheet-modal [data-vaul-handle] {
+    display: none;
+  }
+}
