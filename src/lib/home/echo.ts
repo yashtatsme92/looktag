@@ -1,4 +1,5 @@
 import type { Look } from "../looks/types.ts";
+import { freshFirst, savesTune, showLessOrder, type FreshWindow } from "./engagement.ts";
 
 export const ECHO_FROM_KEY = "looktag-echo-from";
 
@@ -25,16 +26,109 @@ function withImage(looks: Look[]): Look[] {
   return looks.filter((look) => Boolean(look.imageSrc));
 }
 
-/** Looks that continue the one you peeled — shared mood, else the same creator, else the rest. */
-export function echoLane(anchor: Look, looks: Look[]): Look[] {
-  const rest = withImage(looks).filter((look) => look.id !== anchor.id);
+export const ECHO_SESSION_KEY = "looktag-echo-session";
+export const ECHO_IDLE_MS = 30 * 60 * 1000;
+
+/** Session memory: one tab or app session, reset after 30 minutes idle. Never leaves the device. */
+export type EchoSession = { counts: Record<string, number>; activations: number; lastActiveAt: number };
+
+type EchoStorage = Pick<Storage, "getItem" | "setItem">;
+
+const emptySession = (now: number): EchoSession => ({ counts: {}, activations: 0, lastActiveAt: now });
+
+export function readEchoSession(storage: EchoStorage | null | undefined, now: number): EchoSession {
+  try {
+    const raw = storage?.getItem(ECHO_SESSION_KEY);
+    if (!raw) return emptySession(now);
+    const data = JSON.parse(raw) as Partial<EchoSession>;
+    const last = Number(data.lastActiveAt);
+    if (!Number.isFinite(last) || now - last > ECHO_IDLE_MS) return emptySession(now);
+    const counts: Record<string, number> = {};
+    for (const [mood, n] of Object.entries(data.counts ?? {})) {
+      if (Number.isFinite(n) && n > 0) counts[mood] = n;
+    }
+    const activations = Number.isFinite(data.activations) ? Math.max(0, Number(data.activations)) : 0;
+    return { counts, activations, lastActiveAt: last };
+  } catch {
+    return emptySession(now);
+  }
+}
+
+/** Count one Echo activation and the anchor's moods. */
+export function recordEcho(storage: EchoStorage | null | undefined, anchor: Pick<Look, "moods">, now: number): EchoSession {
+  const session = readEchoSession(storage, now);
+  const counts = { ...session.counts };
+  for (const mood of new Set(anchor.moods ?? [])) counts[mood] = (counts[mood] ?? 0) + 1;
+  const next = { counts, activations: session.activations + 1, lastActiveAt: now };
+  try {
+    storage?.setItem(ECHO_SESSION_KEY, JSON.stringify(next));
+  } catch {
+    // private mode
+  }
+  return next;
+}
+
+function browserSession(): Storage | null {
+  try {
+    return typeof sessionStorage === "undefined" ? null : sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function recordEchoActivation(anchor: Pick<Look, "moods">, now = Date.now()): void {
+  recordEcho(browserSession(), anchor, now);
+}
+
+export function currentEchoSession(now = Date.now()): EchoSession {
+  return readEchoSession(browserSession(), now);
+}
+
+/** The shopper's For you order: show-less, saves tune, then Fresh first (FF1). One definition for every surface. */
+export function forYouOrder(
+  looks: readonly Look[],
+  input: { lessIds: readonly string[]; savedIds: readonly string[]; savesOn: boolean; freshOn: boolean; now: number; freshWindow: FreshWindow },
+): Look[] {
+  const muted = showLessOrder(looks, input.lessIds);
+  const tunedSaves = input.savesOn ? savesTune(muted, input.savedIds) : muted;
+  return input.freshOn ? freshFirst(tunedSaves, input.now, input.freshWindow) : tunedSaves;
+}
+
+/**
+ * One Echo engine. Shared moods (most first), then the same creator, then session bias as a tie-break
+ * (only after 2+ activations), then the shopper's For you order. Never adds or drops a look; the anchor
+ * is excluded and a seed with no overlap returns the For you order. `onScreen` ids keep their place first.
+ */
+export function rankEcho(
+  anchor: Look,
+  looks: readonly Look[],
+  options: { forYouOrder?: readonly Look[]; session?: EchoSession | null; onScreen?: readonly string[] } = {},
+): Look[] {
+  const order = new Map<string, number>();
+  (options.forYouOrder ?? looks).forEach((look, index) => {
+    if (!order.has(look.id)) order.set(look.id, index);
+  });
+  const rank = (look: Look) => order.get(look.id) ?? Number.MAX_SAFE_INTEGER;
+  const seen = new Set<string>();
+  const rest = withImage([...looks])
+    .filter((look) => look.id !== anchor.id && !seen.has(look.id) && Boolean(seen.add(look.id)))
+    .sort((x, y) => rank(x) - rank(y));
   const moods = new Set(anchor.moods ?? []);
-  const similar = rest.filter(
-    (look) =>
-      (look.moods ?? []).some((mood) => moods.has(mood)) ||
-      Boolean(anchor.userId && look.userId === anchor.userId),
-  );
-  return similar.length > 0 ? similar : rest;
+  const shared = (look: Look) => new Set((look.moods ?? []).filter((mood) => moods.has(mood))).size;
+  const sameCreator = (look: Look) => (anchor.userId && look.userId === anchor.userId ? 1 : 0);
+  const session = options.session && options.session.activations >= 2 ? options.session : null;
+  const bias = (look: Look) =>
+    session ? [...new Set(look.moods ?? [])].reduce((sum, mood) => sum + (session.counts[mood] ?? 0), 0) : 0;
+  const ranked = rest
+    .map((look, index) => ({ look, index, shared: shared(look), creator: sameCreator(look), bias: bias(look) }))
+    .sort((x, y) => y.shared - x.shared || y.creator - x.creator || y.bias - x.bias || x.index - y.index)
+    .map((item) => item.look);
+  const pinned = (options.onScreen ?? [])
+    .map((id) => ranked.find((look) => look.id === id))
+    .filter((look): look is Look => Boolean(look));
+  if (pinned.length === 0) return ranked;
+  const keep = new Set(pinned.map((look) => look.id));
+  return [...pinned, ...ranked.filter((look) => !keep.has(look.id))];
 }
 
 /** Short run of one creator, starting at the look that opened it. */

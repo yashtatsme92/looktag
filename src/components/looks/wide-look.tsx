@@ -7,7 +7,9 @@ import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
+import { ECHO_FROM_KEY, echoKicker, forYouOrder, pieceLine, recordEchoActivation } from "@/lib/home/echo";
+import { FEED_LESS_KEY, readStoredIds } from "@/lib/home/follows";
+import { useEchoLane } from "@/lib/home/use-echo-lane";
 import { markEditOpenedFromLook, shouldUseHistoryBack } from "@/lib/nav/back";
 import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { FollowButton } from "@/components/home/follow-button";
@@ -20,6 +22,7 @@ import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { firstShopTag } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import { useLooksStore } from "@/lib/looks/store";
+import { useSettingsStore } from "@/lib/settings/store";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { cn } from "@/lib/utils";
@@ -49,7 +52,18 @@ export function WideLook({
     hydrateSaved();
   }, [hydrateSaved]);
 
-  const echo = useMemo(() => echoLane(look, looks.length > 0 ? looks : [look]).slice(0, 4), [look, looks]);
+  const savedIds = useSavedLooks((s) => s.ids);
+  const feedSavesOn = useSettingsStore((s) => s.feedSaves);
+  const feedFreshOn = useSettingsStore((s) => s.feedFresh);
+  const freshWindow = useSettingsStore((s) => s.feedFreshWindow);
+  const [now] = useState(() => Date.now());
+  const deck = useMemo(() => looks.filter((item) => item.imageSrc), [looks]);
+  const forYou = useMemo(
+    () => forYouOrder(deck, { lessIds: readStoredIds(FEED_LESS_KEY), savedIds, savesOn: feedSavesOn, freshOn: feedFreshOn, now, freshWindow }),
+    [deck, feedFreshOn, feedSavesOn, freshWindow, now, savedIds],
+  );
+  const lane = useEchoLane(look, deck, forYou, { limit: 4 });
+  const echo = useMemo(() => lane.slice(0, 4), [lane]);
 
   function openShop(tag: ProductTag, source: "piece_shop" | "shop_look") {
     const target = visualShopTarget(tag);
@@ -169,6 +183,7 @@ export function WideLook({
                   type="button"
                   className="wide-btn wide-btn-ghost"
                   onClick={() => {
+                    recordEchoActivation(look);
                     try {
                       sessionStorage.setItem(ECHO_FROM_KEY, look.id);
                     } catch {

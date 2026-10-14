@@ -8,13 +8,13 @@ import { FollowButton } from "@/components/home/follow-button";
 import { FollowingHouseTile } from "@/components/home/following-card";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { StyleFrame } from "@/components/labels/style-frame";
-import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, echoLane, pieceLine } from "@/lib/home/echo";
+import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, forYouOrder, recordEchoActivation, pieceLine } from "@/lib/home/echo";
+import { useEchoLane } from "@/lib/home/use-echo-lane";
 import {
   ECHO_TRAIL_CHIPS,
   becauseYouSaved,
   freshDivider,
   freshDividerAt,
-  freshFirst,
   followingHouseCards,
   followingLooks,
   mixFollowing,
@@ -22,8 +22,6 @@ import {
   pickWeeklyDrop,
   pushTrail,
   refineLane,
-  savesTune,
-  showLessOrder,
   styleCardAfterDrop,
 } from "@/lib/home/engagement";
 import {
@@ -149,22 +147,21 @@ export function WideHome({ looks }: { looks: Look[] }) {
     setMode("lane");
   }, [deck]);
 
-  const tuned = useMemo(() => {
-    const muted = showLessOrder(deck, lessIds);
-    const tunedSaves = feedSavesOn ? savesTune(muted, savedIds) : muted;
-    return feedFreshOn ? freshFirst(tunedSaves, now, freshWindow) : tunedSaves;
-  }, [deck, feedFreshOn, feedSavesOn, freshWindow, lessIds, now, savedIds]);
+  const tuned = useMemo(
+    () => forYouOrder(deck, { lessIds, savedIds, savesOn: feedSavesOn, freshOn: feedFreshOn, now, freshWindow }),
+    [deck, feedFreshOn, feedSavesOn, freshWindow, lessIds, now, savedIds],
+  );
   const anchor = (mode === "feed" ? tuned : deck).find((look) => look.id === anchorId) ?? (mode === "feed" ? tuned[0] : deck[0]);
+  const echoLane = useEchoLane(anchor, deck, tuned, { enabled: mode === "lane", limit: 4 });
   const plates = useMemo(() => {
     if (!anchor) return [];
     if (mode === "following") return followingLooks(deck, followed);
     if (mode === "lane") {
-      const lane = echoLane(anchor, deck);
-      return trail.reduce((list, chip) => refineLane(list, chip), lane);
+      return trail.reduce((list, chip) => refineLane(list, chip), echoLane);
     }
     if (mode === "creator") return creatorRun(anchor, deck).filter((look) => look.id !== anchor.id);
     return tuned.slice(1);
-  }, [anchor, deck, followed, mode, trail, tuned]);
+  }, [anchor, deck, echoLane, followed, mode, trail, tuned]);
 
   const houseCards = useMemo(
     () => (mode === "following" ? followingHouseCards(labels, collections, styles, houseFollows) : []),
@@ -204,6 +201,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
   }
 
   function echo(look: Look) {
+    recordEchoActivation(look);
     setTrail([]);
     setAnchorId(look.id);
     setMode("lane");
