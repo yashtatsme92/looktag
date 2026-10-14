@@ -242,4 +242,9 @@ try {
 } catch {
   /* ignore */
 }
-process.exit(result.status ?? 1);
+if (result.status !== 0) process.exit(result.status ?? 1);
+const guestResult = spawnSync(process.execPath, [join(dir, "guest-shared-links.mjs"), ...process.argv.slice(2)], {
+  stdio: "inherit",
+  env: process.env,
+});
+process.exit(guestResult.status ?? 1);
