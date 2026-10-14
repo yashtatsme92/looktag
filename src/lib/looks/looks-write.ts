@@ -38,6 +38,7 @@ export const saveLook = createServerFn({ method: "POST" })
       const stats = lookStats(look);
       const moodsJson = JSON.stringify(look.moods ?? []);
       const tagsJson = JSON.stringify(look.tags);
+      const cropJson = look.crop ? JSON.stringify(look.crop) : null;
       const collectionId = look.collectionId ?? null;
       span.setAttribute("looktag.look.pins", stats.pinCount);
       span.setAttribute("looktag.look.compared", stats.comparedCount);
@@ -52,6 +53,7 @@ export const saveLook = createServerFn({ method: "POST" })
             image_src = ${look.imageSrc},
             moods_json = ${moodsJson},
             tags_json = ${tagsJson},
+            crop_json = ${cropJson},
             pin_count = ${stats.pinCount},
             compared_count = ${stats.comparedCount},
             retailer_count = ${stats.retailerCount},
@@ -63,12 +65,12 @@ export const saveLook = createServerFn({ method: "POST" })
         await sql`
           insert into looks (
             id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-            pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id
+            pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id, crop_json
           ) values (
             ${look.id}, ${userId}, ${look.title}, ${look.caption}, ${look.creator},
             ${look.imageSrc}, ${moodsJson}, ${tagsJson},
             ${stats.pinCount}, ${stats.comparedCount}, ${stats.retailerCount}, true,
-            ${look.createdAt}, ${look.updatedAt}, ${collectionId}
+            ${look.createdAt}, ${look.updatedAt}, ${collectionId}, ${cropJson}
           )
         `;
       }

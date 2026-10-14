@@ -5,6 +5,7 @@ import { EDITORIAL_USER_ID } from "./types";
 import { lookStats, rankScore, type CreatorRank } from "./rank";
 import { isLabelUserId } from "@/lib/labels/model";
 import { readSettings } from "@/lib/settings/store.server";
+import { backfillLookCrops } from "../../../scripts/backfill-look-crops.mjs";
 import {
   type LookRow,
   parseLook,
@@ -12,24 +13,33 @@ import {
   creatorPayload,
 } from "./looks-shared";
 
+const cropsBackfilled = new WeakSet<object>();
+
+async function seedAndBackfillLooks(sql: Awaited<ReturnType<typeof getSql>>) {
+  await seedCatalog(sql);
+  if (cropsBackfilled.has(sql)) return;
+  await backfillLookCrops(sql);
+  cropsBackfilled.add(sql);
+}
+
 export const listPublicLooks = createServerFn({ method: "GET" }).handler(async () => {
   return withSpan("looktag.looks.list", async (span) => {
     const sql = await getSql();
     await withSpan("looktag.looks.seed", async () => {
-      await seedCatalog(sql);
+      await seedAndBackfillLooks(sql);
     });
     const settings = await withSpan("looktag.settings.read", async () => readSettings());
     const rows = settings.labelsEnabled
       ? await sql<LookRow>`
           select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-                 created_at, updated_at, collection_id
+                 created_at, updated_at, collection_id, crop_json
           from looks
           where published = true
           order by created_at desc
         `
       : await sql<LookRow>`
           select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-                 created_at, updated_at, collection_id
+                 created_at, updated_at, collection_id, crop_json
           from looks
           where published = true
             and user_id not in (select id from fashion_labels)
@@ -49,11 +59,11 @@ export const getLookById = createServerFn({ method: "GET" })
         span.setAttribute("looktag.look.id", id);
         const sql = await getSql();
         await withSpan("looktag.looks.seed", async () => {
-          await seedCatalog(sql);
+          await seedAndBackfillLooks(sql);
         });
         const rows = await sql<LookRow>`
           select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-                 created_at, updated_at, collection_id
+                 created_at, updated_at, collection_id, crop_json
           from looks
           where id = ${id} and published = true
           limit 1
@@ -74,7 +84,7 @@ export const getLookById = createServerFn({ method: "GET" })
 export const listRankedCreators = createServerFn({ method: "GET" }).handler(async () => {
   return withSpan("looktag.rank.list", async (span) => {
     const sql = await getSql();
-    await seedCatalog(sql);
+    await seedAndBackfillLooks(sql);
     const settings = await readSettings();
     const rows = await sql<{
       user_id: string;
@@ -128,7 +138,7 @@ export const getCreator = createServerFn({ method: "GET" })
   .validator((userId: string) => userId)
   .handler(async ({ data: userId }) => {
     const sql = await getSql();
-    await seedCatalog(sql);
+    await seedAndBackfillLooks(sql);
     const settings = await readSettings();
     if (isLabelUserId(userId) && !settings.labelsEnabled) return null;
     return creatorPayload(sql, userId, {

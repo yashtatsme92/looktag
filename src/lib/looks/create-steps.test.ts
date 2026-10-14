@@ -9,10 +9,17 @@ describe("initialPhoneStep", () => {
     assert.equal(initialPhoneStep(empty), "photo");
   });
 
-  it("opens the pin plate after a photo, even when the look is already named or pinned", () => {
-    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "  ", tagCount: 0 }), "pins");
+  it("opens crop after a photo that has not been named, pinned, or cropped", () => {
+    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "  ", tagCount: 0 }), "crop");
+  });
+
+  it("resumes a named, pinned, or cropped draft on the pin plate", () => {
     assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 0 }), "pins");
-    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "Sunday coat", tagCount: 1 }), "pins");
+    assert.equal(initialPhoneStep({ imageSrc: "/look.jpg", title: "", tagCount: 1 }), "pins");
+    assert.equal(
+      initialPhoneStep({ imageSrc: "/look.jpg", title: "  ", tagCount: 0, cropDone: true }),
+      "pins",
+    );
   });
 
   it("opens edit on the ready screen when a photo exists", () => {
@@ -40,9 +47,15 @@ describe("phoneStepBlock", () => {
 });
 
 describe("completedPhoneSteps", () => {
-  it("marks photo, name, and pins as they are filled", () => {
+  it("marks photo, then crop once the draft has moved on, then name and pins", () => {
+    assert.deepEqual(completedPhoneSteps({ imageSrc: "/a.jpg", title: "", tagCount: 0 }), ["photo"]);
+    assert.deepEqual(
+      completedPhoneSteps({ imageSrc: "/a.jpg", title: "", tagCount: 0, cropDone: true }),
+      ["photo", "crop"],
+    );
     assert.deepEqual(completedPhoneSteps({ imageSrc: "/a.jpg", title: "Coat", tagCount: 2 }), [
       "photo",
+      "crop",
       "name",
       "pins",
     ]);

@@ -2,12 +2,9 @@ import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 
 import { ImagePlus } from "lucide-react";
 import { TagPin } from "@/components/looks/tag-pin";
 import {
-  clampPoint,
-  focusPosY,
-  framePercentToImage,
-  imagePercentToFrame,
   inFrame,
 } from "@/lib/looks/pin-map";
+import { centeredCrop, visibleCrop, type CropRect } from "@/lib/looks/crop";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
 
@@ -27,8 +24,7 @@ type LookCanvasProps = {
   onImageTap?: () => void;
   /** Phone create opens the piece card on a tap, not on the drag that starts a move. */
   selectOnTap?: boolean;
-  /** Cover crop that slides vertically so every pin stays inside the visible window (desktop look card). */
-  focusPins?: boolean;
+  crop?: CropRect;
 };
 
 export function LookCanvas({
@@ -46,7 +42,7 @@ export function LookCanvas({
   fit = "natural",
   onImageTap,
   selectOnTap,
-  focusPins,
+  crop,
 }: LookCanvasProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
@@ -71,15 +67,29 @@ export function LookCanvas({
     return () => ro.disconnect();
   }, [imageSrc]);
 
-  const posY =
-    focusPins && fit === "cover" && natural && frame && frame.w > 0 && frame.h > 0 && tags.length > 0
-      ? focusPosY(tags, frame.w / frame.h, natural.w / natural.h)
-      : undefined;
-
-  const box =
-    cropped && natural && frame && frame.w > 0 && natural.w > 0
-      ? { frameW: frame.w, frameH: frame.h, imgW: natural.w, imgH: natural.h, posY }
+  const cropWindow =
+    cropped && natural && frame && frame.w > 0 && frame.h > 0
+      ? visibleCrop(
+          crop ?? centeredCrop(natural.w, natural.h),
+          natural.w,
+          natural.h,
+          frame.w,
+          frame.h,
+        )
       : null;
+
+  const imageStyle =
+    cropWindow && frame
+      ? {
+          width: `${(100 / cropWindow.w).toFixed(5)}%`,
+          height: `${(100 / cropWindow.h).toFixed(5)}%`,
+          left: `${((-cropWindow.x / cropWindow.w) * 100).toFixed(5)}%`,
+          top: `${((-cropWindow.y / cropWindow.h) * 100).toFixed(5)}%`,
+          right: "auto",
+          bottom: "auto",
+          objectFit: "fill" as const,
+        }
+      : undefined;
 
   function pointToFramePercent(clientX: number, clientY: number) {
     const node = frameRef.current;
@@ -94,8 +104,11 @@ export function LookCanvas({
   function pointToImagePercent(clientX: number, clientY: number) {
     const framePoint = pointToFramePercent(clientX, clientY);
     if (!framePoint) return null;
-    if (!box) return framePoint;
-    return clampPoint(framePercentToImage(framePoint.x, framePoint.y, box));
+    if (!cropWindow) return framePoint;
+    return {
+      x: cropWindow.x * 100 + (framePoint.x / 100) * cropWindow.w * 100,
+      y: cropWindow.y * 100 + (framePoint.y / 100) * cropWindow.h * 100,
+    };
   }
 
   function handleFrameClick(event: MouseEvent<HTMLDivElement>) {
@@ -164,7 +177,7 @@ export function LookCanvas({
               setNatural({ w: img.naturalWidth, h: img.naturalHeight });
             }
           }}
-          style={posY !== undefined ? { objectPosition: `50% ${posY * 100}%` } : undefined}
+          style={imageStyle}
           className={cn(
             "look-photo-img block w-full select-none",
             fit !== "natural" && "absolute inset-0 h-full w-full object-cover",
@@ -196,7 +209,12 @@ export function LookCanvas({
 
       {showTags && (!cropped || natural)
         ? tags.map((tag, index) => {
-            const point = box ? imagePercentToFrame(tag.x, tag.y, box) : { x: tag.x, y: tag.y };
+            const point = cropWindow
+              ? {
+                  x: ((tag.x / 100 - cropWindow.x) / cropWindow.w) * 100,
+                  y: ((tag.y / 100 - cropWindow.y) / cropWindow.h) * 100,
+                }
+              : { x: tag.x, y: tag.y };
             if (!inFrame(point)) return null;
             return (
               <TagPin

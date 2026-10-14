@@ -6,6 +6,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { createServer } from "vite";
 import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import type { Sql } from "../db.ts";
+import type { LookRow } from "./looks-shared.ts";
+import { backfillLookCrops } from "../../../scripts/backfill-look-crops.mjs";
 
 const SEED_LEDGER_MIGRATIONS = new Set([
   "0011_seeded_items.sql",
@@ -63,7 +65,7 @@ describe("editorial look seeding", () => {
       logLevel: "silent",
     });
     try {
-      const { insertLookRow, seedCatalog } = (await vite.ssrLoadModule(
+      const { insertLookRow, parseLook, seedCatalog } = (await vite.ssrLoadModule(
         "/src/lib/looks/looks-shared.ts",
       )) as typeof import("./looks-shared.ts");
       const { EDITORIAL_USER_ID } = (await vite.ssrLoadModule(
@@ -85,6 +87,7 @@ describe("editorial look seeding", () => {
       const before = await sql`select * from looks where id = ${existing.id}`;
 
       await seedCatalog(sql);
+      await backfillLookCrops(sql);
       const afterFirstSeed = await sql`
         select * from looks where user_id = ${EDITORIAL_USER_ID} order by id
       `;
@@ -93,9 +96,12 @@ describe("editorial look seeding", () => {
         afterFirstSeed.map((row) => row.id),
         SEED_LOOKS.map((look) => look.id).sort(),
       );
-      assert.deepEqual(afterFirstSeed.find((row) => row.id === existing.id), before[0]);
+      const migratedExisting = afterFirstSeed.find((row) => row.id === existing.id);
+      assert.ok(migratedExisting?.crop_json);
+      assert.deepEqual(migratedExisting, { ...before[0], crop_json: migratedExisting.crop_json });
 
       await seedCatalog(toSql(pg));
+      await backfillLookCrops(toSql(pg));
       const afterSecondSeed = await sql`
         select * from looks where user_id = ${EDITORIAL_USER_ID} order by id
       `;
@@ -105,14 +111,30 @@ describe("editorial look seeding", () => {
       assert.ok(deleted);
       await sql`delete from looks where id = ${deleted.id}`;
       await seedCatalog(toSql(pg));
+      await backfillLookCrops(toSql(pg));
       const afterDeleteReseed = await sql`
         select id from looks where user_id = ${EDITORIAL_USER_ID} order by id
       `;
       assert.equal(afterDeleteReseed.length, SEED_LOOKS.length - 1);
       assert.equal(afterDeleteReseed.some((row) => row.id === deleted.id), false);
 
+      const crop = { x: 0.2, y: 0.1, w: 0.5, h: 0.75 };
+      const cropLook = { ...existing, id: "crop-roundtrip", crop };
+      await insertLookRow(sql, cropLook, EDITORIAL_USER_ID);
+      const cropRows = await sql`
+        select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+               created_at, updated_at, collection_id, crop_json
+        from looks where id = ${cropLook.id}
+      `;
+      assert.deepEqual(parseLook(cropRows[0] as LookRow).crop, crop);
+
       databases.push(await openDb(), await openDb());
-      await Promise.all(databases.slice(1).map(({ sql: otherSql }) => seedCatalog(otherSql)));
+      await Promise.all(
+        databases.slice(1).map(async ({ sql: otherSql }) => {
+          await seedCatalog(otherSql);
+          await backfillLookCrops(otherSql);
+        }),
+      );
       for (const { sql: otherSql } of databases.slice(1)) {
         const rows = await otherSql`
           select id from looks where user_id = ${EDITORIAL_USER_ID} order by id
@@ -171,6 +193,7 @@ describe("editorial look seeding", () => {
       );
 
       await seedCatalog(sql);
+      await backfillLookCrops(sql);
       const afterUpgrade = await sql`
         select * from looks where user_id = ${EDITORIAL_USER_ID} order by id
       `;
@@ -181,10 +204,13 @@ describe("editorial look seeding", () => {
         28,
       );
       for (const row of existingRows) {
-        assert.deepEqual(afterUpgrade.find((candidate) => candidate.id === row.id), row);
+        const migrated = afterUpgrade.find((candidate) => candidate.id === row.id);
+        assert.ok(migrated?.crop_json);
+        assert.deepEqual({ ...migrated, crop_json: row.crop_json }, row);
       }
 
       await seedCatalog(toSql(pg));
+      await backfillLookCrops(toSql(pg));
       assert.deepEqual(
         await sql`select * from looks where user_id = ${EDITORIAL_USER_ID} order by id`,
         afterUpgrade,

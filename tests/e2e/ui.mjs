@@ -548,9 +548,56 @@ async function screenCreateEntry(page) {
 }
 
 async function flowCreateBranches(page) {
+  let releaseImage;
+  const imageGate = new Promise((resolve) => {
+    releaseImage = resolve;
+  });
+  await page.route("**/looks/sunday-coat.jpg", async (route) => {
+    await imageGate;
+    await route.continue();
+  });
   await goto(page, "/create");
   await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  await page.getByRole("heading", { name: "Crop" }).waitFor({ timeout: 5_000 });
+  await page.waitForFunction(
+    () => document.querySelector(".crop-stage")?.getAttribute("aria-busy") === "true",
+    null,
+    { timeout: 5_000 },
+  );
+  const loading = await page.evaluate(() => ({
+    busy: document.querySelector(".crop-stage")?.getAttribute("aria-busy"),
+    frameCount: document.querySelectorAll(".crop-frame").length,
+    useDisabled: document.querySelector(".crop-use")?.disabled,
+    skipDisabled: document.querySelector(".crop-skip")?.disabled,
+    changeDisabled: document.querySelector(".crop-change")?.disabled,
+    loadingText: document.querySelector('[role="status"]')?.textContent?.trim(),
+    underlayHidden: getComputedStyle(document.querySelector(".crop-stage-underlay")).visibility === "hidden",
+  }));
+  record(
+    "flow.create.crop-loading-gate",
+    loading.busy === "true" &&
+      loading.frameCount === 0 &&
+      loading.useDisabled &&
+      loading.skipDisabled &&
+      loading.changeDisabled === false &&
+      loading.loadingText === "Loading photo" &&
+      loading.underlayHidden,
+    JSON.stringify(loading),
+  );
+  releaseImage();
+  await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+  record(
+    "flow.create.crop-controls",
+    (await page.locator('.crop-zoom-slider[aria-label="Zoom"]').getAttribute("aria-valuetext")) === "Zoom, 1×" &&
+      (await page.getByRole("button", { name: "Use photo" }).isEnabled()),
+  );
+  await page.getByRole("button", { name: "Skip" }).click();
+  await page.waitForFunction(() => document.querySelector(".look-studio")?.getAttribute("data-step") === "pins");
   record("flow.create.pins", (await page.locator(".look-studio").getAttribute("data-step")) === "pins");
+  await page.locator(".create-plate-back").click();
+  record("flow.create.pin-back-to-crop", (await page.locator(".look-studio").getAttribute("data-step")) === "crop");
+  await page.getByRole("button", { name: "Use photo" }).click();
+  await page.waitForFunction(() => document.querySelector(".look-studio")?.getAttribute("data-step") === "pins");
   record("flow.create.find", (await page.getByRole("button", { name: /Find pieces/i }).count()) > 0);
   record("flow.create.add-pin", (await page.getByRole("button", { name: "Add pin" }).count()) > 0);
   const doneGhost = await page.evaluate(() => {
@@ -597,6 +644,45 @@ async function flowCreateBranches(page) {
 
   await page.getByRole("button", { name: "Done" }).first().click();
   await page.getByRole("heading", { name: "Details" }).waitFor({ timeout: 5_000 });
+  await page.getByRole("button", { name: "Edit crop" }).click();
+  await page.getByRole("heading", { name: "Edit crop" }).waitFor({ timeout: 5_000 });
+  await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+  const editCropPins = await page.evaluate(() => {
+    const stage = document.querySelector(".crop-stage")?.getBoundingClientRect();
+    const markers = [...document.querySelectorAll(".crop-pin-marker")].map((marker) => {
+      const rect = marker.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        opacity: getComputedStyle(marker).opacity,
+      };
+    });
+    return {
+      stage: stage && { left: stage.left, top: stage.top, right: stage.right, bottom: stage.bottom },
+      markers,
+    };
+  });
+  record(
+    "flow.crop.edit-pins-visible",
+    Boolean(
+      editCropPins.stage &&
+        editCropPins.markers.length > 0 &&
+        editCropPins.markers.every(
+          (marker) =>
+            marker.right - marker.left >= 20 &&
+            marker.bottom - marker.top >= 20 &&
+            marker.left >= editCropPins.stage.left &&
+            marker.top >= editCropPins.stage.top &&
+            marker.right <= editCropPins.stage.right &&
+            marker.bottom <= editCropPins.stage.bottom,
+        ),
+    ),
+    JSON.stringify(editCropPins),
+  );
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("heading", { name: "Details" }).waitFor({ timeout: 5_000 });
   await page.locator("#create-title").fill("");
   await page.getByRole("button", { name: "Continue" }).click();
   record("flow.create.title-required", (await page.getByRole("heading", { name: "Details" }).count()) > 0);
@@ -620,6 +706,40 @@ async function flowCreateBranches(page) {
   const ready = await page.locator("body").innerText();
   record("flow.create.publish-cancel", /Ready/.test(ready) && !/Sign in to publish/i.test(ready), ready.slice(0, 160));
   record("flow.create.save-draft", /Save draft/.test(ready));
+}
+
+async function screenCropLayout(page, label) {
+  await goto(page, "/create");
+  await page.getByRole("heading", { name: "Crop" }).waitFor({ timeout: 8_000 });
+  await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+  const geometry = await page.evaluate(() => {
+    const rect = (selector) => {
+      const box = document.querySelector(selector)?.getBoundingClientRect();
+      return box ? { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom } : null;
+    };
+    const step = document.querySelector(".create-crop-step");
+    return {
+      frame: rect(".crop-frame"),
+      controls: rect(".crop-controls"),
+      actions: rect(".crop-actions"),
+      columns: getComputedStyle(step).gridTemplateColumns,
+      busy: document.querySelector(".crop-stage")?.getAttribute("aria-busy"),
+      overflow: document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  const desktop = page.viewportSize().width >= 1024;
+  const layoutOk = geometry.frame && geometry.controls && (
+    desktop
+      ? geometry.controls.x >= geometry.frame.right && geometry.columns.split(" ").length === 2
+      : geometry.controls.width <= 600 && geometry.controls.y >= geometry.frame.bottom - 1
+  );
+  record(`flow.crop.layout-${label}`, Boolean(layoutOk && geometry.busy === "false" && !geometry.overflow), JSON.stringify(geometry));
+  record(
+    `flow.crop.actions-${label}`,
+    (await page.getByRole("button", { name: "Change photo" }).isEnabled()) &&
+      (await page.getByRole("button", { name: "Use photo" }).isEnabled()) &&
+      (await page.getByRole("button", { name: "Skip" }).isEnabled()),
+  );
 }
 
 async function screenHouses(page) {
@@ -841,6 +961,10 @@ async function flowSignedInEdit(page) {
   );
   await goto(page, "/create");
   await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  if ((await page.locator(".look-studio").getAttribute("data-step")) === "crop") {
+    await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+    await page.getByRole("button", { name: "Skip" }).click();
+  }
   if ((await page.locator(".look-studio").getAttribute("data-step")) === "pins") {
     await page.getByRole("button", { name: "Done" }).first().click();
     await page.locator("#create-title").fill("Footer cut");
@@ -917,6 +1041,10 @@ async function flowPinCardClear(page) {
   );
   await goto(page, "/create");
   await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  if ((await page.locator(".look-studio").getAttribute("data-step")) === "crop") {
+    await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+    await page.getByRole("button", { name: "Skip" }).click();
+  }
   if ((await page.locator(".look-studio").getAttribute("data-step")) === "pins") {
     await page.getByRole("button", { name: "Done" }).first().click();
     await page.locator("#create-title").fill("Four pins");
@@ -1053,10 +1181,12 @@ async function screenDesktopLook(page) {
   const shopText = await page.locator(".wide-panel").innerText();
   record("flow.desktop.look-no-price-copy", hasNoPriceCopy(shopText), shopText.replace(/\s+/g, " "));
   record(
-    "screen.desktop.look-cover",
-    m.fit === "cover" &&
-      Math.abs(m.img.width - m.plate.width) <= 1 &&
-      Math.abs(m.img.height - m.plate.height) <= 1 &&
+    "screen.desktop.look-stored-crop",
+    m.fit === "fill" &&
+      m.img.width >= m.plate.width - 1 &&
+      m.img.height >= m.plate.height - 1 &&
+      m.img.left <= m.plate.left + 1 &&
+      m.img.top <= m.plate.top + 1 &&
       m.plate.width > 480 &&
       m.plate.bottom <= m.vh &&
       m.plate.height <= m.vh - m.barBottom &&
@@ -1065,6 +1195,67 @@ async function screenDesktopLook(page) {
       m.pinsInside,
     JSON.stringify(m),
   );
+  await page.setViewportSize({ width: 1194, height: 834 });
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.waitForFunction(
+    () => {
+      const image = document.querySelector(".wide-plate img");
+      return image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
+    },
+    null,
+    { timeout: 10_000 },
+  );
+  const portraitCrop = await page.evaluate(() => {
+    const plate = document.querySelector(".wide-plate");
+    const image = plate.querySelector("img");
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
+    const imageRatio = width / height;
+    const base = imageRatio > 3 / 4
+      ? { x: (1 - (height * 3 / 4) / width) / 2, y: 0, w: (height * 3 / 4) / width, h: 1 }
+      : { x: 0, y: (1 - (width * 4 / 3) / height) / 2, w: 1, h: (width * 4 / 3) / height };
+    const plateRect = plate.getBoundingClientRect();
+    const visibleWidth = Math.min(
+      1,
+      base.h * (plateRect.width / plateRect.height) * (height / width),
+    );
+    const expected = {
+      x: Math.max(0, Math.min(1 - visibleWidth, base.x + base.w / 2 - visibleWidth / 2)),
+      y: base.y,
+      w: visibleWidth,
+      h: base.h,
+    };
+    const actual = {
+      x: -parseFloat(image.style.left) / parseFloat(image.style.width),
+      y: -parseFloat(image.style.top) / parseFloat(image.style.height),
+      w: 100 / parseFloat(image.style.width),
+      h: 100 / parseFloat(image.style.height),
+    };
+    const seedPins = [[48, 38], [50, 26], [74, 52], [48, 88]];
+    const expectedPinCount = seedPins.filter(([x, y]) =>
+      x / 100 >= expected.x &&
+      x / 100 <= expected.x + expected.w &&
+      y / 100 >= expected.y &&
+      y / 100 <= expected.y + expected.h,
+    ).length;
+    return {
+      natural: { width, height },
+      actual,
+      expected,
+      expectedPinCount,
+      actualPinCount: plate.querySelectorAll(".tag-pin").length,
+      headBandVisible: expected.y <= 0.1 && expected.y + expected.h > 0.1,
+    };
+  });
+  record(
+    "screen.desktop.crop-v-rect-1194",
+    portraitCrop.natural.height > portraitCrop.natural.width &&
+      portraitCrop.headBandVisible &&
+      portraitCrop.expectedPinCount === portraitCrop.actualPinCount &&
+      ["x", "y", "w", "h"].every((key) => Math.abs(portraitCrop.actual[key] - portraitCrop.expected[key]) < 0.002),
+    JSON.stringify(portraitCrop),
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
   record(
     "screen.desktop.look-back",
     Boolean(m.back) && m.backH === 44 && m.back.left < m.plate.left + 8 && m.back.bottom <= m.plate.top,
@@ -1406,6 +1597,18 @@ try {
     await flowCreateBranches(page);
   }, "ui-create", phone);
 
+  for (const [label, viewport] of [
+    ["tablet-834", { width: 834, height: 1112 }],
+    ["desktop-1194", { width: 1194, height: 834 }],
+    ["desktop-1280", { width: 1280, height: 800 }],
+    ["desktop-1440", { width: 1440, height: 900 }],
+  ]) {
+    await withPage(browser, origin, async (page) => {
+      await prime(page, { draft: true });
+      await screenCropLayout(page, label);
+    }, `ui-crop-${label}`, { viewport });
+  }
+
   await withPage(browser, origin, async (page) => {
     await prime(page);
     await screenDesktop(page);
@@ -1491,6 +1694,10 @@ try {
     await prime(page, { draft: true });
     await goto(page, "/create");
     await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+    if ((await page.locator(".look-studio").getAttribute("data-step")) === "crop") {
+      await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+      await page.getByRole("button", { name: "Skip" }).click();
+    }
     const deskDone = await page.evaluate(() => {
       const done = document.querySelector(".create-pin-actions .create-btn-done");
       const add = document.querySelector(".create-pin-actions .create-btn-pin");
