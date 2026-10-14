@@ -41,7 +41,9 @@ import {
 } from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { rememberPendingSave } from "@/lib/looks/pending-save";
 import { useSavedLooks } from "@/lib/looks/saved";
+import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import type { Look } from "@/lib/looks/types";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
@@ -57,6 +59,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const indexRef = useRef(0);
   const { user, isPending } = useCurrentUserState();
+  useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const savedIds = useSavedLooks((s) => s.ids);
   const toggleSaved = useSavedLooks((s) => s.toggle);
@@ -243,6 +246,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
 
   function save(look: Look) {
     if (authEnabled && !isPending && !user) {
+      rememberPendingSave(look.id);
       setSheetOpen(true);
       return;
     }
@@ -537,7 +541,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         onOpenChange={setSheetOpen}
         intent="save"
         title="Sign in to save"
-        description="Save stays on this look. Cancel returns here."
+        description=""
         primary="Continue with email"
         secondary="Cancel"
       />

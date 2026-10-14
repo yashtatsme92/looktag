@@ -17,7 +17,9 @@ import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/li
 import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
 import { placePinCard } from "@/lib/looks/pin-card";
 import { retailerLabel } from "@/lib/looks/retailers";
+import { rememberPendingSave } from "@/lib/looks/pending-save";
 import { useSavedLooks } from "@/lib/looks/saved";
+import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { firstShopTag } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
@@ -36,6 +38,7 @@ export function LookPlate({
   const router = useRouter();
   const navigate = useNavigate();
   const { user, isPending } = useCurrentUserState();
+  useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const saved = useSavedLooks((s) => s.ids.includes(look.id));
   const toggleSaved = useSavedLooks((s) => s.toggle);
@@ -153,6 +156,7 @@ export function LookPlate({
 
   function save() {
     if (authEnabled && !isPending && !user) {
+      rememberPendingSave(look.id);
       setSheetOpen(true);
       return;
     }
@@ -398,7 +402,7 @@ export function LookPlate({
         onOpenChange={setSheetOpen}
         intent="save"
         title="Sign in to save"
-        description="Save stays on this look. Cancel returns here."
+        description=""
         primary="Continue with email"
         secondary="Cancel"
       />

@@ -1,4 +1,5 @@
-import { Link } from "@tanstack/react-router";
+import { useLayoutEffect, useRef } from "react";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 
@@ -9,7 +10,7 @@ export function AccountSheet({
   description = "Sign in to keep it in your wardrobe. Browsing stays open.",
   primary = "Sign in",
   secondary = "Keep browsing",
-  next = "/",
+  next,
   intent,
 }: {
   open: boolean;
@@ -19,36 +20,40 @@ export function AccountSheet({
   primary?: string;
   secondary?: string;
   next?: string;
-  /** One sheet. The chip names why it opened. Cancel returns without leaving. */
+  /** One sheet. Save returns to this page after sign-in. Cancel returns without leaving. */
   intent?: "publish" | "draft" | "follow" | "save";
 }) {
-  const via =
-    intent === "publish"
-      ? "Publish"
-      : intent === "draft"
-        ? "Save draft"
-        : intent === "follow"
-          ? "Follow"
-          : intent === "save"
-            ? "Save"
-            : null;
+  const here = useRouterState({ select: (s) => s.location.href });
+  const target = next ?? (intent === "save" ? here : "/");
+  const opener = useRef<HTMLElement | null>(null);
+  const primaryRef = useRef<HTMLAnchorElement>(null);
+
+  useLayoutEffect(() => {
+    if (open && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+      opener.current = document.activeElement;
+    }
+  }, [open]);
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
+      <DrawerContent
+        {...(description ? {} : { "aria-describedby": undefined })}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          primaryRef.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          opener.current?.focus();
+        }}
+      >
         <DrawerHeader>
           <DrawerTitle>{title}</DrawerTitle>
-          <DrawerDescription>{description}</DrawerDescription>
+          {description ? <DrawerDescription>{description}</DrawerDescription> : null}
         </DrawerHeader>
         <div className="flex flex-col gap-2 px-5 pt-2 pb-6">
-          {via ? (
-            <p className="mb-2">
-              <span className="inline-flex min-h-8 items-center rounded-full bg-secondary px-3 text-xs font-medium text-muted-foreground">
-                via {via}
-              </span>
-            </p>
-          ) : null}
           <Button asChild className="h-11">
-            <Link to="/login" search={{ next }}>
+            <Link ref={primaryRef} to="/login" search={{ next: target, intent: intent === "save" ? "save" : undefined }}>
               {primary}
             </Link>
           </Button>

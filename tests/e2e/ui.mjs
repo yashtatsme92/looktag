@@ -1191,6 +1191,136 @@ async function screenHouses1024(page) {
   record("screen.1024.house-hero-row", ...(await heroRow(page, { coverW: 215, linesCols: 3, followMax: 640 })));
 }
 
+const SAVE_BUTTON = /^Save( look)?$/;
+const SAVED_KEY = "looktag-saved-v1";
+const PENDING_SAVE_KEY = "looktag-pending-save-v1";
+
+async function openSaveSheet(page) {
+  const save = page.getByRole("button", { name: SAVE_BUTTON }).first();
+  await save.waitFor({ timeout: 10_000 });
+  const name = await save.getAttribute("aria-label");
+  await save.click();
+  await page.locator("[data-vaul-drawer]").waitFor({ timeout: 5_000 });
+  return name;
+}
+
+const insideSheet = (page) =>
+  page.evaluate(() => Boolean(document.activeElement?.closest("[data-vaul-drawer]")));
+
+/** The Save sheet traps focus, then returns it to Save on close. */
+async function flowSaveSheetFocus(page, label, path) {
+  await goto(page, path);
+  const label0 = await openSaveSheet(page);
+  const entered = await page
+    .waitForFunction(() => Boolean(document.activeElement?.closest("[data-vaul-drawer]")), null, { timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+  const tabbed = [];
+  for (let i = 0; i < 8; i += 1) {
+    await page.keyboard.press("Tab");
+    tabbed.push(await insideSheet(page));
+  }
+  await page.keyboard.press("Shift+Tab");
+  const shiftInside = await insideSheet(page);
+  record(
+    `flow.save-sheet.focus-trap-${label}`,
+    entered && tabbed.every(Boolean) && shiftInside,
+    JSON.stringify({ entered, outside: tabbed.filter((x) => !x).length, shiftInside }),
+  );
+  await page.keyboard.press("Escape");
+  const closed = await page
+    .waitForFunction(() => document.querySelectorAll("[data-vaul-drawer]").length === 0, null, { timeout: 4_000 })
+    .then(() => true)
+    .catch(() => false);
+  const returned = await page
+    .waitForFunction((name) => document.activeElement?.getAttribute("aria-label") === name, label0, { timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+  record(`flow.save-sheet.focus-return-${label}`, closed && returned, `closed=${closed} returned=${returned}`);
+}
+
+/** The sheet stays inside the viewport with Cancel fully visible, and nothing paints below it. */
+async function flowSaveSheetPlacement(page, label, path) {
+  await goto(page, path);
+  await openSaveSheet(page);
+  await page.waitForTimeout(700);
+  const rect = await page.evaluate(() => {
+    const sheet = document.querySelector("[data-vaul-drawer]");
+    const overlay = document.querySelector("[data-vaul-overlay]");
+    const cancel = [...sheet.querySelectorAll("button")].find((b) => /Cancel/.test(b.textContent ?? ""));
+    const r = sheet.getBoundingClientRect();
+    const c = cancel.getBoundingClientRect();
+    const o = overlay.getBoundingClientRect();
+    return {
+      vh: window.innerHeight,
+      sheetTop: Math.round(r.top),
+      sheetBottom: Math.round(r.bottom),
+      cancelTop: Math.round(c.top),
+      cancelBottom: Math.round(c.bottom),
+      overlayTop: Math.round(o.top),
+      overlayBottom: Math.round(o.bottom),
+      scrollable: document.documentElement.scrollHeight > window.innerHeight,
+    };
+  });
+  record(
+    `flow.save-sheet.placement-${label}`,
+    rect.sheetTop >= 0 &&
+      rect.sheetBottom <= rect.vh &&
+      rect.cancelTop >= 0 &&
+      rect.cancelBottom <= rect.vh &&
+      rect.overlayTop === 0 &&
+      rect.overlayBottom === rect.vh,
+    JSON.stringify(rect),
+  );
+}
+
+/** A guest taps Save, signs up, comes back to the same place, and the look is saved exactly once. */
+async function flowSaveResume(page, label, path) {
+  await goto(page, path);
+  await openSaveSheet(page);
+  await page.getByRole("link", { name: "Continue with email" }).click();
+  await page.waitForURL(/\/login\?/, { timeout: 8_000 });
+  const loginUrl = new URL(page.url());
+  await page.getByText("Sign in to save", { exact: true }).waitFor({ timeout: 8_000 });
+  record(
+    `flow.save-resume.login-context-${label}`,
+    loginUrl.searchParams.get("intent") === "save" && loginUrl.searchParams.get("next") === path,
+    page.url(),
+  );
+  await page.getByRole("button", { name: "Create account", exact: true }).first().click();
+  const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  await page.locator("#creator-name").fill(`Saver ${stamp}`);
+  await page.locator("#creator-email").fill(`saver-${stamp}@example.com`);
+  await page.locator("#creator-password").fill("save-me-1234");
+  await page.locator("form").getByRole("button", { name: "Create account" }).click();
+  await page.waitForURL((url) => url.pathname + url.search === path, { timeout: 20_000 });
+  const read = () =>
+    page.evaluate(
+      ([saved, pending]) => ({
+        ids: JSON.parse(localStorage.getItem(saved) ?? "[]"),
+        pending: sessionStorage.getItem(pending),
+      }),
+      [SAVED_KEY, PENDING_SAVE_KEY],
+    );
+  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? "[]").length > 0, SAVED_KEY, { timeout: 10_000 }).catch(() => {});
+  const after = await read();
+  await page.waitForTimeout(800);
+  const later = await read();
+  await goto(page, path);
+  await page.waitForTimeout(800);
+  const reloaded = await read();
+  record(
+    `flow.save-resume.saved-once-${label}`,
+    after.ids.length === 1 &&
+      later.ids.length === 1 &&
+      reloaded.ids.length === 1 &&
+      after.ids[0] === reloaded.ids[0] &&
+      after.pending === null &&
+      reloaded.pending === null,
+    JSON.stringify({ after, later, reloaded }),
+  );
+}
+
 const phone = { viewport: { width: 390, height: 844 } };
 const desk = { viewport: { width: 1280, height: 800 } };
 
@@ -1243,6 +1373,31 @@ try {
     await prime(page);
     await screenHouses1024(page);
   }, "ui-1024", { viewport: { width: 1024, height: 768 } });
+
+  for (const [label, path, viewport] of [
+    ["look-phone", "/looks/seed-sunday-coat", { width: 390, height: 844 }],
+    ["home-phone", "/", { width: 390, height: 844 }],
+    ["look-wide", "/looks/seed-sunday-coat", { width: 1280, height: 800 }],
+    ["home-wide", "/", { width: 1280, height: 800 }],
+  ]) {
+    await withPage(browser, origin, async (page) => {
+      await prime(page);
+      await flowSaveResume(page, label, path);
+    }, `ui-save-resume-${label}`, { viewport });
+  }
+
+  for (const [label, path, viewport] of [
+    ["look-phone", "/looks/seed-sunday-coat", { width: 390, height: 844 }],
+    ["home-tablet", "/", { width: 834, height: 1194 }],
+    ["home-1024", "/", { width: 1024, height: 768 }],
+    ["home-1280", "/", { width: 1280, height: 800 }],
+  ]) {
+    await withPage(browser, origin, async (page) => {
+      await prime(page);
+      await flowSaveSheetFocus(page, label, path);
+      if (label !== "look-phone") await flowSaveSheetPlacement(page, label, path);
+    }, `ui-save-sheet-${label}`, { viewport });
+  }
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
