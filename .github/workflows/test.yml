@@ -18,3 +18,32 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: node --experimental-strip-types --test src/lib/**/*.test.ts
+
+  e2e-guest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run guest shared-link E2E
+        run: |
+          VITE_AUTH_ENABLED=true npm run dev > /tmp/looktag-e2e-dev.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8080/ >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8080/ >/dev/null || {
+            cat /tmp/looktag-e2e-dev.log
+            exit 1
+          }
+          npm run test:e2e:guest
+
