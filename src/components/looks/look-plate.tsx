@@ -9,7 +9,7 @@ import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
 import { PieceThumb } from "@/components/looks/piece-thumb";
-import { ECHO_FROM_KEY, echoKicker, pieceLine } from "@/lib/home/echo";
+import { ECHO_FROM_KEY, echoKicker, pieceLine, recordEchoActivation } from "@/lib/home/echo";
 import { shouldUseHistoryBack, markEditOpenedFromLook } from "@/lib/nav/back";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -360,6 +360,7 @@ export function LookPlate({
               type="button"
               className="look-plate-echo"
               onClick={() => {
+                recordEchoActivation(look);
                 try {
                   sessionStorage.setItem(ECHO_FROM_KEY, look.id);
                 } catch {
