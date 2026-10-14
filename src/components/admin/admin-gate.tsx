@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { AppShell } from "@/components/layout/app-shell";
+import { Skeleton } from "@/components/ds";
 import {
   Dialog,
   DialogContent,
@@ -115,7 +116,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
   if (isPending) {
     return (
       <AppShell title="Admin" backTo="/">
-        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+        <Skeleton className="h-48 rounded-xl" />
       </AppShell>
     );
   }
