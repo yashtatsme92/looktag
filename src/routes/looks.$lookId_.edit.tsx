@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
+import { Skeleton } from "@/components/ds";
 import { LookEditor } from "@/components/looks/look-editor";
 import { Button } from "@/components/ui/button";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -41,7 +42,7 @@ function EditLook() {
   if (isPending || !hydrated || (stored && !look)) {
     return (
       <AppShell title="Edit" backTo={lookPath} onBack={leaveLook}>
-        <div className="h-80 animate-pulse rounded-xl bg-muted" />
+        <Skeleton className="h-80 rounded-xl" />
       </AppShell>
     );
   }

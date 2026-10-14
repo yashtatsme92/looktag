@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight, Download } from "lucide-react";
 import { ScoutedMark } from "@/components/labels/scouted-mark";
+import { Skeleton } from "@/components/ds";
 import { FollowButton } from "@/components/home/follow-button";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
@@ -141,7 +142,7 @@ function CreatorPage() {
   if (data === undefined) {
     return (
       <AppShell title="You" largeTitle={mine} backTo={mine ? undefined : "/rank"}>
-        <div className="h-80 animate-pulse rounded-xl bg-muted" />
+        <Skeleton className="h-80 rounded-xl" />
       </AppShell>
     );
   }
