@@ -10,7 +10,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { formatMoney, lookCurrency, lookTotal } from "@/lib/looks/format";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { shopTarget, tagOffers } from "@/lib/looks/offers";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
@@ -34,7 +33,7 @@ type ShopDockProps = {
    * - `look` — board-02 phone shop sheet (piece Shop + look strip + Compare)
    */
   sheet?: "pieces" | "look";
-  /** Look-level cheapest opener from LookShopPanel. */
+  /** Look-level shop opener from LookShopPanel. */
   onShopLook?: () => void;
   userState?: FunnelUserState;
 };
@@ -60,8 +59,6 @@ export function ShopDock({
     onOpenChange?.(next);
   };
 
-  const total = lookTotal(tags);
-  const currency = lookCurrency(tags);
   const selected = tags.find((tag) => tag.id === selectedId) ?? null;
   const resolved = selected ?? tags[0] ?? null;
   const selectedIndex = resolved ? tags.findIndex((tag) => tag.id === resolved.id) : 0;
@@ -160,12 +157,8 @@ export function ShopDock({
             <DrawerTitle>Shop the look</DrawerTitle>
             <DrawerDescription>
               {lookSheet
-                ? total > 0
-                  ? `Guest Shop OK — one Shop per piece in the bar. From ${formatMoney(String(total), currency)} · ${shopableCount} ${shopableCount === 1 ? "shop" : "shops"}.`
-                  : "Guest Shop OK — tap Shop for the live item page. No account needed."
-                : total > 0
-                  ? `Tap a pin or a row — then Shop in the bar for the cheapest live page. ${formatMoney(String(total), currency)} if you buy every piece.`
-                  : "Tap a pin or a row, then Shop in the bar for the live item page."}
+                ? "Guest Shop OK — tap Shop to open the product page. No account needed."
+                : "Tap a pin or a row, then Shop in the bar to open the product page."}
             </DrawerDescription>
           </DrawerHeader>
 
@@ -220,7 +213,7 @@ export function ShopDock({
                   data-guest-shop="ok"
                 >
                   <span className="min-w-0 flex-1 text-left leading-snug [overflow-wrap:anywhere]">
-                    Shop look · cheapest per piece
+                    Shop the look
                   </span>
                   <ExternalLink className="size-3.5 shrink-0 opacity-70" />
                 </button>
@@ -232,12 +225,9 @@ export function ShopDock({
                 >
                   Compare outfit (later)
                 </button>
-                {total > 0 ? (
-                  <p className="look-shop-strip-meta">
-                    From {formatMoney(String(total), currency)} · {shopableCount}{" "}
-                    {shopableCount === 1 ? "shop" : "shops"}
-                  </p>
-                ) : null}
+                <p className="look-shop-strip-meta">
+                  {shopableCount} {shopableCount === 1 ? "shop" : "shops"}
+                </p>
               </div>
 
               <h2 className="ds-section-title mb-3">Pieces</h2>

@@ -16,6 +16,10 @@ function record(name, ok, detail = "") {
   console.log(`${ok ? "ok" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
+function hasNoPriceCopy(text) {
+  return !/[€$£]|\bcheapest\b|\bfrom\b/i.test(text);
+}
+
 const DRAFT = {
   id: "ui-draft",
   userId: "",
@@ -98,6 +102,8 @@ async function screenHome(page) {
   const nav = await page.getByRole("navigation", { name: "App" }).innerText();
   record("screen.home.tabs", /looks/i.test(nav) && /houses/i.test(nav) && /create/i.test(nav) && /you/i.test(nav) && !/rank/i.test(nav), nav);
   const text = await page.locator("body").innerText();
+  const description = await page.locator('meta[name="description"]').getAttribute("content");
+  record("screen.home.meta-no-cheapest", !/\bcheapest\b/i.test(description ?? ""), description ?? "");
   record("screen.home.look", /Sunday Coat|Coastal|Gallery|Quiet|Studio|City/i.test(text), text.slice(0, 120));
   record("screen.home.following", /Following/.test(text) && /For you/.test(text));
 }
@@ -208,6 +214,8 @@ async function flowLookShopSheet(page) {
   await sheet.waitFor({ timeout: 4_000 });
   await page.getByRole("link", { name: "View Style" }).first().waitFor({ timeout: 6_000 });
   await page.waitForTimeout(450);
+  const sheetText = await sheet.innerText();
+  record("flow.look.shop-sheet-no-price-copy", hasNoPriceCopy(sheetText), sheetText.replace(/\s+/g, " "));
   const m = await page.evaluate(() => {
     const box = (selector) => {
       const el = document.querySelector(selector);
@@ -238,7 +246,7 @@ async function flowLookShopSheet(page) {
       m.tabVisible &&
       m.rows === 4 &&
       m.shops === 4 &&
-      !/[$€£]/.test(m.text),
+      hasNoPriceCopy(m.text),
     JSON.stringify({ ...m, text: undefined }),
   );
   const styleRow = (await page.locator(".look-sheet-row").first().innerText()).replace(/\s+/g, " ");
@@ -307,6 +315,8 @@ async function flowLookShopSheetTablet(page) {
     m.width >= 560 && m.width <= 604 && Math.abs(m.left - (m.vw - m.right)) <= 1,
     JSON.stringify(m),
   );
+  const sheetText = await sheet.innerText();
+  record("flow.look.shop-sheet-tablet-no-price-copy", hasNoPriceCopy(sheetText), sheetText.replace(/\s+/g, " "));
   await page.keyboard.press("Escape");
   await sheet.waitFor({ state: "detached", timeout: 3_000 }).catch(() => undefined);
   record("flow.look.shop-sheet-tablet-esc", (await sheet.count()) === 0);
@@ -324,7 +334,10 @@ async function screenLook(page) {
   const cardText = await card.innerText();
   record(
     "flow.look.spotlight-card",
-    /Cashmere Turtleneck/.test(cardText) && /Uniqlo/.test(cardText) && /Shop/.test(cardText) && !/[$€]/.test(cardText),
+    /Cashmere Turtleneck/.test(cardText) &&
+      /Uniqlo/.test(cardText) &&
+      /Shop/.test(cardText) &&
+      hasNoPriceCopy(cardText),
     cardText.replace(/\s+/g, " "),
   );
   record(
@@ -383,6 +396,25 @@ async function screenLook(page) {
   await page.locator(".look-plate-echo").click();
   await page.waitForFunction(() => location.pathname === "/", null, { timeout: 8_000 });
   record("flow.look.echo", new URL(page.url()).pathname === "/");
+  const laneLabel = page.locator(".echo-lane-label");
+  await laneLabel.waitFor({ timeout: 4_000 });
+  const laneLabelStyle = await laneLabel.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      background: style.backgroundColor,
+      borderRadius: style.borderRadius,
+      padding: style.padding,
+      shadow: style.boxShadow,
+    };
+  });
+  record(
+    "flow.look.echo-lane-label-not-chip",
+    laneLabelStyle.background === "rgba(0, 0, 0, 0)" &&
+      laneLabelStyle.borderRadius === "0px" &&
+      laneLabelStyle.padding === "0px" &&
+      laneLabelStyle.shadow === "none",
+    JSON.stringify(laneLabelStyle),
+  );
 }
 
 /** Esc closes the account sheet and leaves the pin card (and its place on the plate) alone. */
@@ -966,6 +998,8 @@ async function screenDesktopLook(page) {
       pinsInside: pins.length > 0 && pins.every((r) => r.left >= p.left && r.right <= p.right && r.top >= p.top && r.bottom <= p.bottom),
     };
   });
+  const shopText = await page.locator(".wide-panel").innerText();
+  record("flow.desktop.look-no-price-copy", hasNoPriceCopy(shopText), shopText.replace(/\s+/g, " "));
   record(
     "screen.desktop.look-cover",
     m.fit === "cover" &&
@@ -997,6 +1031,19 @@ async function screenDesktopLook(page) {
   }));
   big.pins = await page.locator(".wide-plate .tag-pin").count();
   record("screen.desktop.look-cover-1440", big.bottom <= big.vh && big.pins === 4, JSON.stringify(big));
+  const largePanelText = await page.locator(".wide-panel").innerText();
+  record(
+    "flow.desktop.look-no-price-copy-1440",
+    hasNoPriceCopy(largePanelText),
+    largePanelText.replace(/\s+/g, " "),
+  );
+  await page.setViewportSize({ width: 1194, height: 834 });
+  const tabletPanelText = await page.locator(".wide-panel").innerText();
+  record(
+    "flow.desktop.look-no-price-copy-1194",
+    hasNoPriceCopy(tabletPanelText),
+    tabletPanelText.replace(/\s+/g, " "),
+  );
   await page.setViewportSize({ width: 1280, height: 800 });
 }
 

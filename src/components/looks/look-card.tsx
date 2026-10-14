@@ -1,13 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
-import { formatMoney, lookCurrency, lookTotal } from "@/lib/looks/format";
 import { tagOffers } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { Look } from "@/lib/looks/types";
 
 export function LookCard({ look }: { look: Look }) {
-  const total = lookTotal(look.tags);
-  const currency = lookCurrency(look.tags);
   const retailers = [
     ...new Set(
       look.tags.flatMap((tag) => {
@@ -50,11 +47,6 @@ export function LookCard({ look }: { look: Look }) {
               {name}
             </Badge>
           ))}
-          {total > 0 ? (
-            <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-              {formatMoney(String(total), currency)}
-            </span>
-          ) : null}
         </div>
       </div>
     </Link>

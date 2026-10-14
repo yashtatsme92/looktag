@@ -1,5 +1,5 @@
 import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
-import { ShopOffers, priceLabel } from "@/components/looks/shop-offers";
+import { ShopOffers } from "@/components/looks/shop-offers";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import type { FunnelUserState } from "@/lib/looks/funnel";
 import { shopTarget, cheapestOffer, tagOffers } from "@/lib/looks/offers";
@@ -79,7 +79,6 @@ function ProductRow({
     ),
   ];
   const cheap = cheapestOffer(tag);
-  const price = priceLabel(tag);
   return (
     <li key={tag.id}>
       <div
@@ -113,15 +112,9 @@ function ProductRow({
             >
               {stylePin ? stylePin.styleName : tag.name || "Untitled piece"}
             </span>
-            {selected ? (
-              <span className="mt-0.5 block text-sm leading-snug text-muted-foreground [overflow-wrap:anywhere]">
-                {stylePin ? stylePin.houseName : labels.join(" · ")}
-              </span>
-            ) : null}
-          </span>
-          <span className="shrink-0 text-sm tabular-nums">
-            {price.from ? <span className="text-muted-foreground">from </span> : null}
-            {price.text}
+            <span className="mt-0.5 block text-sm leading-snug text-muted-foreground [overflow-wrap:anywhere]">
+              {stylePin ? stylePin.houseName : labels.join(" · ")}
+            </span>
           </span>
         </button>
         {shoppable && selected && target?.url ? (

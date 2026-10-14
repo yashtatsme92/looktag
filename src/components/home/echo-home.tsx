@@ -376,7 +376,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         ) : null}
       </header>
 
-      {mode === "lane" ? <p className="echo-pill">More like this</p> : null}
+      {mode === "lane" ? <p className="echo-lane-label">More like this</p> : null}
       {mode === "lane" && feedTrailOn ? (
         <div className="echo-chips">
           {trail.length > 0 ? (
