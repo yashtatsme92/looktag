@@ -2683,10 +2683,14 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   justify-content: center;
   border: 1px solid rgb(255 255 255 / 60%);
   border-radius: 12px;
-  background: rgb(0 0 0 / 45%);
+  background: transparent;
   color: white;
   backdrop-filter: blur(8px);
   transition: transform 120ms ease;
+}
+
+.echo-action svg {
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 60%));
 }
 
 .echo-action:active {
@@ -2705,7 +2709,6 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 
 .echo-save-on {
   border-color: white;
-  background: rgb(0 0 0 / 45%);
 }
 
 .look-plate {

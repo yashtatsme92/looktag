@@ -158,6 +158,58 @@ async function flowHomeSnap(page) {
   record("flow.home.snap-chrome", after.navTop === before.navTop, `${before.navTop} -> ${after.navTop}`);
 }
 
+/** Phone Home: the lead slide carries the Save, Echo and Share ghost row above the tab bar. */
+async function flowHomeActionRow(page) {
+  await goto(page, "/");
+  await page.locator(".echo-snap").waitFor({ timeout: 10_000 });
+  const row = page.locator(".echo-plate").first().locator(".echo-actions");
+  await row.waitFor({ timeout: 10_000 });
+  const names = ["Save", "Echo", "Share"];
+  const boxes = [];
+  for (const name of names) {
+    const button = row.getByRole("button", { name, exact: true });
+    boxes.push(await button.boundingBox());
+  }
+  const navTop = await page.evaluate(() => document.querySelector('nav[aria-label="App"]').getBoundingClientRect().top);
+  record(
+    "flow.home.actions.boxes",
+    boxes.every((b) => b && Math.round(b.width) === 44 && Math.round(b.height) === 44 && b.y + b.height <= navTop),
+    JSON.stringify(boxes),
+  );
+  record(
+    "flow.home.actions.gap",
+    boxes.every((b, i) => i === 0 || Math.round(b.x - (boxes[i - 1].x + boxes[i - 1].width)) === 8),
+  );
+  const bg = await row.getByRole("button", { name: "Echo", exact: true }).evaluate((el) => getComputedStyle(el).backgroundColor);
+  record("flow.home.actions.ghost", bg === "rgba(0, 0, 0, 0)", bg);
+  await row.getByRole("button", { name: "Echo", exact: true }).click();
+  const kicker = await page.getByText("More like this", { exact: false }).first().waitFor({ timeout: 5_000 }).then(() => true, () => false);
+  record("flow.home.actions.echo", kicker);
+}
+
+/** Wider layouts keep WideHome: the phone action row is not visible. */
+async function flowHomeActionRowHidden(page, label) {
+  await goto(page, "/");
+  await page.waitForTimeout(1500);
+  const visible = await page.evaluate(() =>
+    [...document.querySelectorAll(".echo-actions")].some((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+    }),
+  );
+  record(`flow.home.actions.hidden.${label}`, !visible);
+}
+
+/** Reduced motion: the action buttons have no transform transition. */
+async function flowHomeActionRowReducedMotion(page) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await goto(page, "/");
+  const button = page.locator(".echo-plate").first().locator(".echo-actions").getByRole("button", { name: "Echo", exact: true });
+  await button.waitFor({ timeout: 10_000 });
+  const duration = await button.evaluate((el) => getComputedStyle(el).transitionDuration);
+  record("flow.home.actions.reduced-motion", /^0s(, 0s)*$/.test(duration), duration);
+}
+
 /** Phone look detail keeps the 4-tab bar: the photo is full-bleed and ends where the bar starts. */
 async function screenLookTabbar(page) {
   await goto(page, "/looks/seed-sunday-coat");
@@ -1200,6 +1252,7 @@ try {
     await prime(page);
     await screenHome(page);
     await flowHomeSnap(page);
+    await flowHomeActionRow(page);
     await screenLook(page);
     await flowEscAccountSheet(page, "phone");
     await flowSelectedPinClear(page, "phone");
@@ -1243,6 +1296,31 @@ try {
     await prime(page);
     await screenHouses1024(page);
   }, "ui-1024", { viewport: { width: 1024, height: 768 } });
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await flowHomeActionRowReducedMotion(page);
+  }, "ui-home-reduced", phone);
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await flowHomeActionRowHidden(page, "834");
+  }, "ui-home-actions-834", { viewport: { width: 834, height: 1112 } });
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await flowHomeActionRowHidden(page, "1280");
+  }, "ui-home-actions-1280", { viewport: { width: 1280, height: 800 } });
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await flowHomeActionRowHidden(page, "1440");
+  }, "ui-home-actions-1440", { viewport: { width: 1440, height: 900 } });
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await flowHomeActionRowHidden(page, "1194");
+  }, "ui-home-actions-1194", { viewport: { width: 1194, height: 834 } });
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
