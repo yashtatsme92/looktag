@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type UIEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Layers, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { BecausePlate, RunPlate, ShowLess } from "@/components/home/feed-modules";
@@ -42,6 +42,7 @@ import {
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { rememberPendingSave } from "@/lib/looks/pending-save";
+import { shareOrCopy } from "@/lib/looks/share";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import type { Look } from "@/lib/looks/types";
@@ -252,6 +253,12 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     }
     const saved = toggleSaved(look.id);
     toast.success(saved ? "Saved" : "Removed from wardrobe");
+  }
+
+  async function share(look: Look) {
+    const url = `${window.location.origin}/looks/${look.id}`;
+    const result = await shareOrCopy({ title: look.title || "Look", url, kind: "look" });
+    if (result === "copied") toast.success("Link copied");
   }
 
   function openLane(look: Look) {
@@ -489,15 +496,25 @@ export function EchoHome({ looks }: { looks: Look[] }) {
                 {pieceLine(look) ? <p className="echo-pieces">{pieceLine(look)}</p> : null}
                 {feedSavesOn && mode === "feed" && plateIndex > 0 ? <ShowLess lookId={look.id} onChange={setLessIds} /> : null}
               </div>
-              <button
-                type="button"
-                className={cn("echo-save", savedIds.includes(look.id) && "echo-save-on")}
-                aria-label={savedIds.includes(look.id) ? "Remove saved look" : "Save look"}
-                aria-pressed={savedIds.includes(look.id)}
-                onClick={() => save(look)}
-              >
-                <HangtagIcon className="size-5" filled={savedIds.includes(look.id)} />
-              </button>
+              <div className="echo-actions">
+                <button
+                  type="button"
+                  className={cn("echo-action echo-save", savedIds.includes(look.id) && "echo-save-on")}
+                  aria-label={savedIds.includes(look.id) ? "Saved" : "Save"}
+                  aria-pressed={savedIds.includes(look.id)}
+                  onClick={() => save(look)}
+                >
+                  <HangtagIcon className="size-5" filled={savedIds.includes(look.id)} />
+                </button>
+                {mode === "feed" ? (
+                  <button type="button" className="echo-action echo-act-echo" aria-label="Echo" onClick={() => openLane(look)}>
+                    <Layers className="size-5" aria-hidden />
+                  </button>
+                ) : null}
+                <button type="button" className="echo-action echo-act-share" aria-label="Share" onClick={() => void share(look)}>
+                  <Share2 className="size-5" aria-hidden />
+                </button>
+              </div>
             </article>,
           );
           return nodes;
