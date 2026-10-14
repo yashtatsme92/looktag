@@ -61,7 +61,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Shoppable looks on the web and on your phone. Pin product pages from Zalando, Zara, COS and more — open a look, shop the cheapest live item.",
+          "Shoppable looks on the web and on your phone. Pin product pages from Zalando, Zara, COS and more — tap a piece to shop its product page.",
       },
       { name: "theme-color", content: "#F4F4F4" },
       { name: "mobile-web-app-capable", content: "yes" },

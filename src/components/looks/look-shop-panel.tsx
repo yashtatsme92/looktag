@@ -2,7 +2,6 @@ import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { ProductList } from "@/components/looks/product-list";
 import { ShopDock } from "@/components/looks/shop-dock";
-import { formatMoney, lookCurrency, lookTotal } from "@/lib/looks/format";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { shopTarget } from "@/lib/looks/offers";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
@@ -22,7 +21,7 @@ type LookShopPanelProps = {
   userState?: FunnelUserState;
 };
 
-function shopLookCheapest(tags: ProductTag[], context?: { lookId?: string; userState?: FunnelUserState }) {
+function shopLook(tags: ProductTag[], context?: { lookId?: string; userState?: FunnelUserState }) {
   const urls = tags
     .map((tag) => {
       const target = shopTarget(tag);
@@ -58,18 +57,16 @@ function shopLookCheapest(tags: ProductTag[], context?: { lookId?: string; userS
     }
   }
   if (opened === 0) {
-    toast.message("Allow pop-ups to open each cheapest page");
+    toast.message("Allow pop-ups to open each shop");
     return;
   }
   if (opened < urls.length) {
-    toast.message(`Opened ${opened} of ${urls.length} cheapest pages`, {
+    toast.message(`Opened ${opened} of ${urls.length} shops`, {
       description: "Allow pop-ups to open the rest.",
     });
     return;
   }
-  toast.success(
-    urls.length === 1 ? "Opened cheapest page" : `Opened ${urls.length} cheapest pages`,
-  );
+  toast.success(urls.length === 1 ? "Opened 1 shop" : `Opened ${urls.length} shops`);
 }
 
 /** Look detail shop column: sticky ShopDock + look-level strip + one expanded piece. */
@@ -84,10 +81,8 @@ export function LookShopPanel({
   userState,
 }: LookShopPanelProps) {
   const wide = useWideLayout();
-  const outfitTotal = lookTotal(tags);
-  const outfitCurrency = lookCurrency(tags);
   const shopableCount = tags.filter((tag) => shopTarget(tag)?.url).length;
-  const shopLook = () => shopLookCheapest(tags, { lookId, userState });
+  const openLookShops = () => shopLook(tags, { lookId, userState });
 
   return (
     <>
@@ -100,7 +95,7 @@ export function LookShopPanel({
         open={sheetOpen}
         onOpenChange={onSheetOpenChange}
         sheet={wide ? "pieces" : "look"}
-        onShopLook={shopLook}
+        onShopLook={openLookShops}
         userState={userState}
       />
 
@@ -110,13 +105,13 @@ export function LookShopPanel({
           <div className="look-shop-strip mb-3">
             <button
               type="button"
-              onClick={shopLook}
+              onClick={openLookShops}
               className="look-shop-strip-primary"
               disabled={shopableCount === 0}
               data-guest-shop="ok"
             >
               <span className="min-w-0 flex-1 text-left leading-snug [overflow-wrap:anywhere]">
-                Shop look · cheapest per piece
+                Shop the look
               </span>
               <ExternalLink className="size-3.5 shrink-0 opacity-70" />
             </button>
@@ -128,12 +123,9 @@ export function LookShopPanel({
             >
               Compare outfit (later)
             </button>
-            {outfitTotal > 0 ? (
-              <p className="look-shop-strip-meta">
-                From {formatMoney(String(outfitTotal), outfitCurrency)} · {shopableCount}{" "}
-                {shopableCount === 1 ? "shop" : "shops"}
-              </p>
-            ) : null}
+            <p className="look-shop-strip-meta">
+              {shopableCount} {shopableCount === 1 ? "shop" : "shops"}
+            </p>
           </div>
           <h2 className="ds-section-title mb-3">Pieces</h2>
           <ProductList

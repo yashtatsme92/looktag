@@ -4,7 +4,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { Button } from "@/components/ui/button";
-import { formatMoney } from "@/lib/looks/format";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { Look } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
@@ -170,9 +169,6 @@ export function StyleGuide({ look, open, onOpenChange }: StyleGuideProps) {
                       )}
                     </p>
                   </div>
-                  <p className="shrink-0 text-sm tabular-nums">
-                    {formatMoney(selected.price, selected.currency)}
-                  </p>
                 </div>
                 {showShop && selected.url ? (
                   <a
