@@ -1,16 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { toast } from "sonner";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { AccountSheet } from "@/components/home/account-sheet";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { authClient, authEnabled, signOut } from "@/lib/auth/client";
+import { signOut } from "@/lib/auth/client";
 import type { AppUser } from "@/lib/auth/use-current-user";
+import { isAdminEmail } from "@/lib/admin/access";
 import { resetFeedTuning } from "@/lib/home/follows";
-import { captureSessionToken } from "@/lib/login-next";
-import { isAdminEmail, normalizeLoginEmail } from "@/lib/admin/access";
 import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useLooksStore } from "@/lib/looks/store";
@@ -67,7 +64,13 @@ export function YouHome({ user }: { user: AppUser | null }) {
       {pane === "drafts" ? <DraftsPane draft={draft} /> : null}
       {pane === "profile" ? <ProfilePane user={user} onSignIn={() => setSheetOpen(true)} /> : null}
 
-      <YouAccountSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+      <AccountSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        title="Sign in to sync You"
+        primary="Continue with email"
+        secondary="Cancel"
+      />
     </div>
   );
 }
@@ -226,83 +229,6 @@ function ResetFeedTuning() {
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-function YouAccountSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!authEnabled) {
-      setError("Sign-in is turned off.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      const result = await authClient.signIn.email({
-        email: normalizeLoginEmail(email),
-        password,
-      });
-      if (result.error) throw new Error(result.error.message ?? "Could not sign in.");
-      captureSessionToken(result.data?.token);
-      onOpenChange(false);
-      toast.success("Signed in");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not sign in.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Sign in to sync You</DrawerTitle>
-          <DrawerDescription>Sign in to sync You. Cancel returns here.</DrawerDescription>
-        </DrawerHeader>
-        <form className="flex flex-col gap-3 px-5 pt-1 pb-6" onSubmit={(event) => void onSubmit(event)}>
-          <label className="you-kicker" htmlFor="you-email">
-            Email
-          </label>
-          <Input
-            id="you-email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
-          <label className="you-kicker" htmlFor="you-password">
-            Password
-          </label>
-          <Input
-            id="you-password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <Button type="submit" className="h-11" disabled={busy}>
-            {busy ? "Continuing…" : "Continue with email"}
-          </Button>
-          <Button type="button" variant="ghost" className="h-11" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-        </form>
-      </DrawerContent>
-    </Drawer>
   );
 }
 
