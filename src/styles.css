@@ -4269,23 +4269,9 @@ input[type="search"]::-webkit-search-decoration {
     border-radius: 24px !important;
     transform: translate(-50%, -50%) !important;
   }
-
-  /* vaul paints a 200%-tall extension below a bottom drawer; centred, it shows as a slab. */
-  html[data-chrome="desktop"] [data-vaul-drawer]::after {
-    display: none !important;
-  }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-  html:not(.native-app)[data-chrome="tablet"] [data-vaul-overlay] {
-    position: fixed !important;
-  }
-
-  html:not(.native-app)[data-chrome="tablet"] [data-vaul-drawer] {
-    position: fixed !important;
-    bottom: 0 !important;
-  }
-
   html[data-chrome="tablet"] [data-vaul-drawer] {
     left: 50% !important;
     right: auto !important;

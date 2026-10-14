@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 import { useNativePortal } from "@/components/layout/native-portal";
+import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { cn } from "@/lib/utils";
 
 function Drawer({
@@ -16,7 +17,9 @@ function DrawerTrigger({ ...props }: React.ComponentProps<typeof DrawerPrimitive
 
 function DrawerPortal({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Portal>) {
   const container = useNativePortal();
-  return <DrawerPrimitive.Portal container={container ?? undefined} {...props} />;
+  const wide = useChromeLayout() !== "phone";
+  // On tablet and desktop the native screen is a page section under the 60px web header, not the viewport; a sheet portalled into it overflows the viewport by that height.
+  return <DrawerPrimitive.Portal container={wide ? undefined : (container ?? undefined)} {...props} />;
 }
 
 function DrawerClose({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Close>) {
@@ -27,9 +30,10 @@ function DrawerOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Overlay>) {
+  const wide = useChromeLayout() !== "phone";
   return (
     <DrawerPrimitive.Overlay
-      className={cn("absolute inset-0 z-50 bg-foreground/40", className)}
+      className={cn(wide ? "fixed" : "absolute", "inset-0 z-50 bg-foreground/40", className)}
       {...props}
     />
   );
@@ -40,12 +44,14 @@ function DrawerContent({
   children,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+  const wide = useChromeLayout() !== "phone";
   return (
     <DrawerPortal>
       <DrawerOverlay />
       <DrawerPrimitive.Content
         className={cn(
-          "absolute inset-x-0 bottom-0 z-50 mt-24 flex max-h-[86%] flex-col rounded-t-xl bg-card text-card-foreground shadow-[var(--shadow-border-hover)] outline-none",
+          wide ? "fixed" : "absolute",
+          "inset-x-0 bottom-0 z-50 mt-24 flex max-h-[86%] flex-col rounded-t-xl bg-card text-card-foreground shadow-[var(--shadow-border-hover)] outline-none",
           className,
         )}
         {...props}
