@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ExternalLink } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { formatMoney } from "@/lib/looks/format";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
-import { cheapestOffer, shopTarget, sortedOffers, tagOffers, wornLink } from "@/lib/looks/offers";
+import { cheapestOffer, shopTarget, sortedOffers, wornLink } from "@/lib/looks/offers";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { ProductTag } from "@/lib/looks/types";
@@ -16,16 +14,6 @@ type ShopOffersProps = {
   mode?: "shop" | "compare";
   userState?: FunnelUserState;
 };
-
-export function priceLabel(tag: ProductTag): { text: string; from: boolean } {
-  const cheap = cheapestOffer(tag);
-  const count = tagOffers(tag).filter((offer) => offer.url).length;
-  if (!cheap?.price) return { text: "—", from: false };
-  return {
-    text: formatMoney(cheap.price, cheap.currency ?? tag.currency),
-    from: count > 1,
-  };
-}
 
 export function ShopOffers({ tag, lookId, mode = "shop", userState }: ShopOffersProps) {
   const offers = sortedOffers(tag).filter((offer) => offer.url);
@@ -62,7 +50,6 @@ export function ShopOffers({ tag, lookId, mode = "shop", userState }: ShopOffers
           }
         >
           Shop {retailerLabel({ retailerId: target.retailerId, url: target.url })}
-          {target.cheapest ? <span className="font-normal opacity-80"> · cheapest</span> : null}
           <ExternalLink className="size-3.5" />
         </a>
       ) : null}
@@ -91,10 +78,7 @@ export function ShopOffers({ tag, lookId, mode = "shop", userState }: ShopOffers
                       href={offer.url}
                       target="_blank"
                       rel="noreferrer"
-                      className={cn(
-                        "flex h-11 items-center gap-3 rounded-md border px-3 text-sm transition-colors hover:bg-muted/60",
-                        cheapest ? "border-foreground/80" : "border-border",
-                      )}
+                      className="flex h-11 items-center gap-3 rounded-md border border-border px-3 text-sm transition-colors hover:bg-muted/60"
                       onClick={() =>
                         recordOutboundShopClick({
                           cheapest,
@@ -110,12 +94,6 @@ export function ShopOffers({ tag, lookId, mode = "shop", userState }: ShopOffers
                       }
                     >
                       <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{retailerLabel(offer)}</span>
-                      {cheapest ? (
-                        <Badge variant="muted" className="uppercase">
-                          Cheapest
-                        </Badge>
-                      ) : null}
-                      <span className="tabular-nums">{formatMoney(offer.price, offer.currency)}</span>
                     </a>
                   </li>
                 );
