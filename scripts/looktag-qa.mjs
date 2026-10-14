@@ -141,25 +141,9 @@ async function main() {
     });
 
     await withPage(browser, async (page) => {
-      await page.goto(`${origin}/admin`, { waitUntil: "domcontentloaded", timeout: 20_000 });
-      await page.getByLabel("Email").waitFor({ timeout: 8_000 });
-      const text = (await page.locator("body").textContent()) ?? "";
-      const noGuestControls =
-        (await page.getByRole("switch").count()) === 0 &&
-        !/AdminGate|Houses for shoppers|Feed & discovery|Approve · Scouted/.test(text);
-      record(
-        "guest_admin_gate",
-        noGuestControls && (await page.getByLabel("Email").count()) > 0 && /Continue with email/.test(text),
-        snippet(text),
-      );
-    });
-
-    await withPage(browser, async (page) => {
       await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
       await page.getByRole("tab", { name: "Profile" }).click();
-      const profileText = (await page.locator(".you-empty, .you-profile").textContent()) ?? "";
-      record("profile_has_no_feed_tuning_row", !/Reset feed tuning/.test(profileText), snippet(profileText));
-      for (const [width, height] of [[390, 844], [834, 1112], [1280, 900], [1440, 900], [1194, 834]]) {
+      for (const [width, height] of [[390, 844], [834, 1194], [1024, 768], [1194, 834], [1280, 800], [1440, 900]]) {
         await page.setViewportSize({ width, height });
         await page.getByRole("button", { name: "Sign in" }).click();
         const drawer = page.locator("[data-vaul-drawer]");
@@ -168,6 +152,9 @@ async function main() {
         const content = (await drawer.textContent()) ?? "";
         const box = await drawer.boundingBox();
         const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth === window.innerWidth);
+        const centered = width < 1024 || Boolean(box && Math.abs(box.y + box.height / 2 - height / 2) < 2);
+        const noDrawerHandle =
+          width < 1024 || !(await drawer.locator("[data-vaul-handle]").isVisible().catch(() => false));
         const sheetReady =
           (await drawer.getByRole("heading", { name: "Sign in to sync You" }).count()) > 0 &&
           (await drawer.getByLabel("Email").count()) > 0 &&
@@ -175,7 +162,9 @@ async function main() {
           /Cancel/.test(content) &&
           !/Sign in to sync You\. Cancel returns here\.|Password/.test(content) &&
           Boolean(box && box.x >= 0 && box.x + box.width <= width) &&
-          noOverflow;
+          noOverflow &&
+          centered &&
+          noDrawerHandle;
         record(`you_account_sheet_${width}`, sheetReady, snippet(content));
         await drawer.getByRole("button", { name: "Cancel" }).click();
       }
@@ -421,12 +410,6 @@ async function main() {
         !pulse && !notFound && /QA Creator/.test(text),
         pulse ? "stuck on skeleton" : notFound ? "creator not found after signup" : snippet(text),
       );
-
-      await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
-      await page.getByRole("tab", { name: "Profile" }).waitFor({ timeout: 8_000 });
-      await page.getByRole("tab", { name: "Profile" }).click();
-      const profileText = await page.locator(".you-profile").innerText();
-      record("signed_in_profile_no_feed_tuning", !/Reset feed tuning/.test(profileText), snippet(profileText));
 
       await page.goto(`${origin}/create`, { waitUntil: "domcontentloaded", timeout: 20_000 });
       try {

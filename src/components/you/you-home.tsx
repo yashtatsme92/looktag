@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { signOut } from "@/lib/auth/client";
 import type { AppUser } from "@/lib/auth/use-current-user";
 import { isAdminEmail } from "@/lib/admin/access";
+import { resetFeedTuning } from "@/lib/home/follows";
 import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useLooksStore } from "@/lib/looks/store";
@@ -162,6 +165,7 @@ function ProfilePane({ user, onSignIn }: { user: AppUser | null; onSignIn: () =>
         <button type="button" className="create-btn-primary you-sign-in" onClick={onSignIn}>
           Sign in
         </button>
+        <ResetFeedTuning />
       </div>
     );
   }
@@ -190,7 +194,41 @@ function ProfilePane({ user, onSignIn }: { user: AppUser | null; onSignIn: () =>
       >
         Sign out
       </button>
+      <ResetFeedTuning />
     </div>
+  );
+}
+
+function ResetFeedTuning() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="house-ghost you-reset" onClick={() => setOpen(true)}>
+        Reset feed tuning
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-[480px]">
+          <DialogTitle>Reset your feed?</DialogTitle>
+          <DialogDescription>Saves stay. The feed forgets what you asked to see less of.</DialogDescription>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              className="house-primary"
+              onClick={() => {
+                resetFeedTuning();
+                setOpen(false);
+                toast.success("Feed tuning reset");
+              }}
+            >
+              Reset
+            </button>
+            <button type="button" className="house-ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
