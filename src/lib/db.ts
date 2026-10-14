@@ -1,4 +1,5 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
+import { backfillLookCrops } from "../../scripts/backfill-look-crops.mjs";
 
 /** Which database backend is active. Fashion collections live in migrations/0006. Profile details live in 0008. */
 export type DbSource = "neon" | "pglite";
@@ -154,6 +155,12 @@ async function createPgliteSql(): Promise<Sql> {
         await tx.query("insert into _migrations (name) values ($1)", [name]);
       });
     }
+    await backfillLookCrops(
+      toSql(async <T>(text: string, params: unknown[]) => {
+        const result = await pg.query<T>(text, params);
+        return result.rows;
+      }),
+    );
   };
   const pass = (globalRef.__pgliteMigrateChain__ ?? Promise.resolve())
     .catch(() => undefined) // an earlier failed pass must not wedge the chain

@@ -4,6 +4,7 @@ import { makeHandle, parseHandle } from "./handle";
 import { EDITORIAL_USER_ID, type Look, type ProductTag } from "./types";
 import { lookStats, rankScore, type RankWeights } from "./rank";
 import { normalizeLookTags } from "./offers";
+import type { CropRect } from "./crop";
 import { SEED_LOOKS } from "./seed";
 import { ensureFashionLabels } from "@/lib/labels/api";
 
@@ -43,11 +44,12 @@ export type LookRow = {
   created_at: number;
   updated_at: number;
   collection_id?: string | null;
+  crop_json?: string | null;
 };
 
 const LOOK_INSERT_COLUMNS =
   "id, user_id, title, caption, creator_name, image_src, moods_json, tags_json, " +
-  "pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id";
+  "pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id, crop_json";
 
 export function parseLook(row: LookRow): Look {
   let tags: ProductTag[] = [];
@@ -64,6 +66,27 @@ export function parseLook(row: LookRow): Look {
   } catch {
     moods = [];
   }
+  let crop: CropRect | undefined;
+  try {
+    const parsed = JSON.parse(row.crop_json ?? "null") as Partial<CropRect> | null;
+    if (
+      parsed &&
+      Number.isFinite(parsed.x) &&
+      Number.isFinite(parsed.y) &&
+      Number.isFinite(parsed.w) &&
+      Number.isFinite(parsed.h) &&
+      parsed.x! >= 0 &&
+      parsed.y! >= 0 &&
+      parsed.w! > 0 &&
+      parsed.h! > 0 &&
+      parsed.x! + parsed.w! <= 1 &&
+      parsed.y! + parsed.h! <= 1
+    ) {
+      crop = { x: parsed.x!, y: parsed.y!, w: parsed.w!, h: parsed.h! };
+    }
+  } catch {
+    crop = undefined;
+  }
   return normalizeLookTags({
     id: row.id,
     userId: row.user_id,
@@ -71,6 +94,7 @@ export function parseLook(row: LookRow): Look {
     caption: row.caption,
     creator: row.creator_name,
     imageSrc: row.image_src,
+    crop,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
     tags,
@@ -83,7 +107,7 @@ export async function insertLookRow(sql: Sql, look: Look, userId: string) {
   const stats = lookStats(look);
   await sql.query(
     `insert into looks (${LOOK_INSERT_COLUMNS})
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12, $13, $14)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12, $13, $14, $15)
      on conflict (id) do nothing`,
     [
       look.id,
@@ -100,6 +124,7 @@ export async function insertLookRow(sql: Sql, look: Look, userId: string) {
       look.createdAt,
       look.updatedAt,
       look.collectionId ?? null,
+      look.crop ? JSON.stringify(look.crop) : null,
     ],
   );
 }
@@ -119,7 +144,7 @@ async function insertEditorialSeed(sql: Sql, look: Look) {
     inserted_look as (
       insert into looks (${LOOK_INSERT_COLUMNS})
       select
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12, $13, $14
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12, $13, $14, $15
       from new_seed
       on conflict (id) do nothing
       returning id
@@ -140,6 +165,7 @@ async function insertEditorialSeed(sql: Sql, look: Look) {
       look.createdAt,
       look.updatedAt,
       look.collectionId ?? null,
+      look.crop ? JSON.stringify(look.crop) : null,
     ],
   );
 }
@@ -244,7 +270,7 @@ export async function creatorPayload(sql: Sql, userId: string, weights: RankWeig
   if (!profile) return null;
   const lookRows = await sql<LookRow>`
     select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
-           created_at, updated_at, collection_id
+           created_at, updated_at, collection_id, crop_json
     from looks
     where published = true and user_id = ${userId}
     order by created_at desc

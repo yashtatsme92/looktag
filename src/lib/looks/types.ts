@@ -1,3 +1,5 @@
+import type { CropRect } from "./crop";
+
 export const EDITORIAL_USER_ID = "editorial";
 
 export type ProductOffer = {
@@ -33,6 +35,7 @@ export type Look = {
   caption: string;
   creator: string;
   imageSrc: string;
+  crop?: CropRect;
   createdAt: number;
   updatedAt: number;
   tags: ProductTag[];

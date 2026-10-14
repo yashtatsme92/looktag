@@ -1,5 +1,3 @@
-const MAX_EDGE = 1400;
-const JPEG_QUALITY = 0.84;
 const AI_EDGE = 960;
 const AI_QUALITY = 0.72;
 
@@ -10,7 +8,12 @@ export async function readLookImage(file: File): Promise<string> {
   if (file.size > 12 * 1024 * 1024) {
     throw new Error("That file is too large. Try one under 12 MB.");
   }
-  return bitmapToJpeg(await loadImage(file), MAX_EDGE, JPEG_QUALITY);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return `data:${file.type};base64,${btoa(binary)}`;
 }
 
 export async function imageSrcToDataUrl(src: string): Promise<string> {
