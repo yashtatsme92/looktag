@@ -87,7 +87,8 @@ export function LookCanvas({
           top: `${((-cropWindow.y / cropWindow.h) * 100).toFixed(5)}%`,
           right: "auto",
           bottom: "auto",
-          objectFit: "fill" as const,
+          maxWidth: "none",
+          objectFit: "cover" as const,
         }
       : undefined;
 
@@ -179,8 +180,10 @@ export function LookCanvas({
           }}
           style={imageStyle}
           className={cn(
-            "look-photo-img block w-full select-none",
-            fit !== "natural" && "absolute inset-0 h-full w-full object-cover",
+            "look-photo-img block select-none",
+            fit === "natural" && "w-full",
+            fit !== "natural" && !imageStyle && "absolute inset-0 h-full w-full object-cover",
+            fit !== "natural" && imageStyle && "absolute",
           )}
         />
       ) : (

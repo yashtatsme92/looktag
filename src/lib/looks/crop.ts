@@ -63,11 +63,22 @@ export function visibleCrop(
   if (imageWidth <= 0 || imageHeight <= 0 || frameWidth <= 0 || frameHeight <= 0 || crop.h <= 0) {
     return crop;
   }
-  const width = crop.h * (frameWidth / frameHeight) * (imageHeight / imageWidth);
-  const w = Math.min(1, Math.max(Number.EPSILON, width));
-  const h = Math.min(1, Math.max(Number.EPSILON, crop.h));
+  const ratio = (frameWidth / frameHeight) * (imageHeight / imageWidth);
+  let w = crop.h * ratio;
+  let h = crop.h;
+  if (w > 1) {
+    w = 1;
+    h = w / ratio;
+  }
+  if (h > 1) {
+    h = 1;
+    w = h * ratio;
+  }
+  w = Math.min(1, Math.max(Number.EPSILON, w));
+  h = Math.min(1, Math.max(Number.EPSILON, h));
   const x = clamp(crop.x + crop.w / 2 - w / 2, 0, 1 - w);
-  return { x, y: clamp(crop.y, 0, 1 - h), w, h };
+  const y = clamp(crop.y + crop.h / 2 - h / 2, 0, 1 - h);
+  return { x, y, w, h };
 }
 
 function clamp(value: number, min: number, max: number) {
