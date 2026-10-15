@@ -70,6 +70,7 @@ export function YouHome({ user }: { user: AppUser | null }) {
         title="Sign in to sync You"
         primary="Continue with email"
         secondary="Cancel"
+        next="/you"
       />
     </div>
   );
