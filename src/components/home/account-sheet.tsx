@@ -97,7 +97,7 @@ export function AccountSheet({
               {primary}
             </Link>
           </Button>
-          <Button type="button" variant="ghost" className="h-11" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="ghost" className="h-11" onClick={() => onSheetOpenChange(false)}>
             {secondary}
           </Button>
         </div>

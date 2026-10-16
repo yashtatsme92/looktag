@@ -1490,6 +1490,8 @@ async function flowSaveSheetFocus(page, label, path) {
 async function flowSaveSheetDismissals(page, label) {
   for (const method of ["cancel", "escape", "backdrop"]) {
     await goto(page, "/looks/seed-sunday-coat");
+    const staleRecord = JSON.stringify({ id: "stale-save", intent: "save" });
+    await page.evaluate(([key, value]) => sessionStorage.setItem(key, value), [PENDING_SAVE_KEY, staleRecord]);
     const openerName = await openSaveSheet(page);
     const pendingBefore = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
     if (method === "cancel") {
@@ -1511,10 +1513,22 @@ async function flowSaveSheetDismissals(page, label) {
     const savedToast = await page.locator("[data-sonner-toast]").filter({ hasText: /^Saved$/ }).count();
     record(
       `flow.save-sheet.dismiss-${method}-${label}`,
-      pendingBefore === null && closed && focusReturned && pendingAfter === null && savedToast === 0,
+      pendingBefore === staleRecord && closed && focusReturned && pendingAfter === null && savedToast === 0,
       JSON.stringify({ pendingBefore, closed, focusReturned, pendingAfter, savedToast }),
     );
   }
+}
+
+async function flowSaveSheetBackFromLogin(page, label) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await openSaveSheet(page);
+  await page.getByRole("link", { name: "Continue with email" }).click();
+  await page.waitForURL(/\/login\?/, { timeout: 8_000 });
+  await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  await page.goBack();
+  await page.waitForURL(/\/looks\/seed-sunday-coat$/, { timeout: 8_000 });
+  const pending = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
+  record(`flow.save-sheet.back-clears-pending-${label}`, pending === null, String(pending));
 }
 
 /** The sheet stays inside the viewport with Cancel fully visible, and nothing paints below it. */
@@ -1605,7 +1619,7 @@ async function flowSaveResume(page, label, path) {
 }
 
 async function flowYouSignInReturn(page, label, pane = "Saved") {
-  await goto(page, "/you");
+  await goto(page, "/login");
   if (pane === "Profile") await page.getByRole("tab", { name: pane }).click();
   else {
     const selected = await page.locator('[role="tab"][aria-selected="true"]').innerText();
@@ -1617,7 +1631,7 @@ async function flowYouSignInReturn(page, label, pane = "Saved") {
   const loginHref = new URL(await continueLink.getAttribute("href"), origin);
   record(
     `flow.you.auth-destination-${pane.toLowerCase()}-${label}`,
-    loginHref.pathname === "/login" && loginHref.searchParams.get("next") === "/you",
+    loginHref.pathname === "/login" && loginHref.searchParams.get("next") === "/login",
     loginHref.href,
   );
   await continueLink.click();
@@ -1626,9 +1640,23 @@ async function flowYouSignInReturn(page, label, pane = "Saved") {
   await page.locator("#creator-email").fill(email.toLowerCase() === "admin@looktag.studio" ? "admin" : email);
   await page.locator("#creator-password").fill(password);
   await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
-  await page.waitForURL((url) => url.pathname === "/you", { timeout: 20_000 });
+  await page.waitForURL((url) => url.pathname === "/login" && !url.searchParams.has("next"), { timeout: 20_000 });
+  await page.waitForFunction(
+    () =>
+      document.querySelector(".you-grid > li") ||
+      document.body.innerText.includes("Hangtag looks you love while you browse. They land here."),
+    null,
+    { timeout: 8_000 },
+  );
   const activePane = await page.locator('[role="tab"][aria-selected="true"]').innerText();
-  record(`flow.you.auth-returns-saved-${pane.toLowerCase()}-${label}`, activePane === "Saved", activePane);
+  const signedInEmpty = await page.getByText("Hangtag looks you love while you browse. They land here.", { exact: true }).count();
+  const signedInLooks = await page.locator(".you-grid > li").count();
+  const guestPrompt = await page.getByText("Save looks while you browse", { exact: true }).count();
+  record(
+    `flow.you.auth-returns-saved-${pane.toLowerCase()}-${label}`,
+    activePane === "Saved" && guestPrompt === 0 && (signedInEmpty === 1 || signedInLooks > 0),
+    JSON.stringify({ activePane, signedInEmpty, signedInLooks, guestPrompt, url: page.url() }),
+  );
 }
 
 const phone = { viewport: { width: 390, height: 844 } };
@@ -1727,6 +1755,9 @@ try {
       if (label !== "look-phone") await flowSaveSheetPlacement(page, label, path);
       if (label === "look-phone" || label === "home-tablet" || label === "home-1280") {
         await flowSaveSheetDismissals(page, label);
+      }
+      if (label === "look-phone" || label === "home-tablet" || label === "home-1280") {
+        await flowSaveSheetBackFromLogin(page, label);
       }
     }, `ui-save-sheet-${label}`, { viewport });
   }
