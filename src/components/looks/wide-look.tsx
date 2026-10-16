@@ -19,7 +19,7 @@ import { retailerLabel } from "@/lib/looks/retailers";
 import { rememberPendingSave } from "@/lib/looks/pending-save";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
-import { firstShopTag } from "@/lib/looks/shop-whole";
+import { LookShopSheet } from "@/components/looks/look-shop-sheet";
 import { shareOrCopy } from "@/lib/looks/share";
 import { useLooksStore } from "@/lib/looks/store";
 import { useSettingsStore } from "@/lib/settings/store";
@@ -65,6 +65,8 @@ export function WideLook({
   const lane = useEchoLane(look, deck, forYou, { limit: 4 });
   const echo = useMemo(() => lane.slice(0, 4), [lane]);
 
+  const [shopSheetOpen, setShopSheetOpen] = useState(false);
+
   function openShop(tag: ProductTag, source: "piece_shop" | "shop_look") {
     const target = visualShopTarget(tag);
     if (!target?.url) return false;
@@ -91,16 +93,6 @@ export function WideLook({
       return;
     }
     if (!openShop(tag, "piece_shop")) toast.message("Allow pop-ups to open the shop");
-  }
-
-  /** One destination, never one window per piece: the first pin that has a visual shop target. */
-  function shopWhole() {
-    const first = firstShopTag(look.tags);
-    if (!first) {
-      toast.message("No close match yet");
-      return;
-    }
-    if (!openShop(first.tag, "shop_look")) toast.message("Allow pop-ups to open the shop");
   }
 
   function save() {
@@ -242,11 +234,20 @@ export function WideLook({
               ))}
             </div>
             <div className="wide-panel-ft">
-              <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={shopWhole}>
+              <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={() => (look.tags.length ? setShopSheetOpen(true) : toast.message("No pieces on this look yet"))}>
                 Shop whole look
               </button>
             </div>
           </aside>
+        </div>
+
+        <div className="wide-shop-sheet-host" hidden={!shopSheetOpen}>
+          <LookShopSheet
+            tags={look.tags}
+            open={shopSheetOpen}
+            onClose={() => setShopSheetOpen(false)}
+            onShopPiece={shopPiece}
+          />
         </div>
 
         {echo.length > 0 ? (

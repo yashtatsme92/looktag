@@ -11,7 +11,8 @@ type LookShopSheetProps = {
   open: boolean;
   onClose: () => void;
   onShopPiece: (tag: ProductTag) => void;
-  onShopWhole: () => void;
+  /** The sheet is the whole-look shop; a footer action is only offered where a surface asks for one. */
+  onShopWhole?: () => void;
 };
 
 /**
@@ -91,10 +92,12 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole }:
             <SheetRow key={tag.id} tag={tag} index={index} onShop={() => onShopPiece(tag)} />
           ))}
         </ul>
-        <button type="button" className="look-sheet-whole" onClick={onShopWhole}>
-          Shop whole look
-          <ExternalLink className="size-4" />
-        </button>
+        {onShopWhole ? (
+          <button type="button" className="look-sheet-whole" onClick={onShopWhole}>
+            Shop whole look
+            <ExternalLink className="size-4" />
+          </button>
+        ) : null}
         <p className="look-sheet-count">
           {tags.length} {tags.length === 1 ? "piece" : "pieces"} total
         </p>
@@ -111,10 +114,20 @@ function SheetRow({ tag, index, onShop }: { tag: ProductTag; index: number; onSh
   const title = stylePin ? stylePin.styleName : pieceName;
   const sub = stylePin ? stylePin.houseName : target ? retailer : "No close match yet";
   const shop = target ? (
-    <button type="button" className="look-sheet-shop" aria-label={`Shop ${pieceName}`} onClick={onShop}>
+    <a
+      href={target.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="look-sheet-shop"
+      aria-label={`Shop ${pieceName}`}
+      onClick={(event) => {
+        event.preventDefault();
+        onShop();
+      }}
+    >
       Shop
       <ExternalLink className="size-3.5" />
-    </button>
+    </a>
   ) : null;
   return (
     <li className="look-sheet-row" data-style={stylePin ? "true" : undefined}>

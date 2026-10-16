@@ -8036,3 +8036,10 @@ html:not([data-chrome="phone"]) .house-profile-info {
     display: none;
   }
 }
+
+/* Tablet and desktop: the Shop sheet floats over the whole look page instead of inside a plate. */
+.wide-shop-sheet-host:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
