@@ -20,6 +20,7 @@ import { retailerLabel } from "@/lib/looks/retailers";
 import { rememberPendingSave } from "@/lib/looks/pending-save";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
+import { firstShopTag } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
@@ -201,6 +202,16 @@ export function LookPlate({
     });
   }
 
+  /** One destination per tap: the first pin that has a visual shop target. */
+  function shopWholeLook() {
+    const first = firstShopTag(look.tags);
+    if (!first) {
+      toast.message("No close match yet");
+      return;
+    }
+    shop(first.tag);
+  }
+
   /** `Shop this look`: the sheet lists every piece, so the pin card gives way to it. */
   function openShopSheet() {
     setSelectedId(null);
@@ -363,10 +374,20 @@ export function LookPlate({
               Echo
             </button>
           </div>
-          <button type="button" className="look-plate-shop" onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}>
-            Shop
-            <ExternalLink className="size-4" />
-          </button>
+          {spotlight ? (
+            <button
+              type="button"
+              className="look-plate-shop-whole"
+              onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}
+            >
+              Shop whole look
+            </button>
+          ) : (
+            <button type="button" className="look-plate-shop" onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}>
+              Shop
+              <ExternalLink className="size-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -375,6 +396,7 @@ export function LookPlate({
         open={shopSheetOpen}
         onClose={() => setShopSheetOpen(false)}
         onShopPiece={shop}
+        onShopWhole={shopWholeLook}
       />
 
       <AccountSheet

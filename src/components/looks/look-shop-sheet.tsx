@@ -114,20 +114,10 @@ function SheetRow({ tag, index, onShop }: { tag: ProductTag; index: number; onSh
   const title = stylePin ? stylePin.styleName : pieceName;
   const sub = stylePin ? stylePin.houseName : target ? retailer : "No close match yet";
   const shop = target ? (
-    <a
-      href={target.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="look-sheet-shop"
-      aria-label={`Shop ${pieceName}`}
-      onClick={(event) => {
-        event.preventDefault();
-        onShop();
-      }}
-    >
+    <button type="button" className="look-sheet-shop" aria-label={`Shop ${pieceName}`} onClick={onShop}>
       Shop
       <ExternalLink className="size-3.5" />
-    </a>
+    </button>
   ) : null;
   return (
     <li className="look-sheet-row" data-style={stylePin ? "true" : undefined}>
