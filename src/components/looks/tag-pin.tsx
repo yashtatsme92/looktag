@@ -5,6 +5,8 @@ type TagPinProps = {
   index: number;
   x: number;
   y: number;
+  imageX?: number;
+  imageY?: number;
   selected?: boolean;
   pulse?: boolean;
   label?: string;
@@ -16,6 +18,8 @@ export function TagPin({
   index,
   x,
   y,
+  imageX,
+  imageY,
   selected,
   pulse,
   label,
@@ -26,6 +30,8 @@ export function TagPin({
     <button
       type="button"
       data-tag-pin
+      data-image-x={imageX}
+      data-image-y={imageY}
       aria-label={label ?? `Item ${index + 1}`}
       aria-pressed={selected ? true : undefined}
       onClick={(event) => {

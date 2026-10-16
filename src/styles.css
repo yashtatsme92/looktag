@@ -1555,7 +1555,7 @@ html[data-theme="moss"] {
   .crop-frame-image {
     position: absolute;
     max-width: none;
-    object-fit: fill;
+    object-fit: cover;
     user-select: none;
     pointer-events: none;
   }

@@ -8,6 +8,8 @@ import { centeredCrop, visibleCrop, type CropRect } from "@/lib/looks/crop";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
 
+const PIN_RADIUS_PX = 16;
+
 type LookCanvasProps = {
   imageSrc: string;
   title: string;
@@ -48,7 +50,31 @@ export function LookCanvas({
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [frame, setFrame] = useState<{ w: number; h: number } | null>(null);
+  const [maxPinY, setMaxPinY] = useState(100);
   const cropped = fit !== "natural";
+
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    const update = () => {
+      const nav = document.querySelector<HTMLElement>("nav.tab-bar");
+      const rect = el.getBoundingClientRect();
+      const navRect = nav?.getBoundingClientRect();
+      if (!navRect || navRect.height <= 0 || rect.height <= 0) {
+        setMaxPinY(100);
+        return;
+      }
+      const limit = ((navRect.top - rect.top - PIN_RADIUS_PX) / rect.height) * 100;
+      setMaxPinY(Math.round(Math.min(100, limit) * 2) / 2);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [imageSrc, frame?.h]);
 
   useEffect(() => {
     const el = frameRef.current;
@@ -218,13 +244,15 @@ export function LookCanvas({
                   y: ((tag.y / 100 - cropWindow.y) / cropWindow.h) * 100,
                 }
               : { x: tag.x, y: tag.y };
-            if (!inFrame(point)) return null;
+            if (!inFrame(point) || point.y > maxPinY) return null;
             return (
               <TagPin
                 key={tag.id}
                 index={index}
                 x={point.x}
                 y={point.y}
+                imageX={tag.x}
+                imageY={tag.y}
                 selected={selectedId === tag.id}
                 pulse={!editable}
                 label={tag.name || `Item ${index + 1}`}
