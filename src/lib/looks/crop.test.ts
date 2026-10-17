@@ -62,4 +62,19 @@ describe("crop geometry", () => {
       assert.ok(Math.abs((rect.w * 1600) / (rect.h * 1200) - frameWidth / frameHeight) < 1e-10);
     }
   });
+
+  it("keeps the native aspect when the frame is wider than the crop", () => {
+    const rect = visibleCrop({ x: 0.2, y: 0.1, w: 0.6, h: 0.8 }, 900, 1600, 1000, 400);
+    assert.ok(rect.w <= 1 && rect.h <= 1);
+    assert.ok(rect.x >= 0 && rect.x + rect.w <= 1);
+    assert.ok(rect.y >= 0 && rect.y + rect.h <= 1);
+    assert.ok(Math.abs((rect.w * 900) / (rect.h * 1600) - 1000 / 400) < 1e-10);
+  });
+
+  it("centres the window on an off-centre stored crop", () => {
+    const rect = visibleCrop({ x: 0.2, y: 0.3, w: 0.4, h: 0.4 }, 1000, 1000, 500, 400);
+    assert.ok(Math.abs(rect.y + rect.h / 2 - 0.5) < 1e-10);
+    assert.ok(Math.abs(rect.x + rect.w / 2 - 0.4) < 1e-10);
+    assert.ok(Math.abs(rect.w / rect.h - 1.25) < 1e-10);
+  });
 });

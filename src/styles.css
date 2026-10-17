@@ -1555,7 +1555,7 @@ html[data-theme="moss"] {
   .crop-frame-image {
     position: absolute;
     max-width: none;
-    object-fit: fill;
+    object-fit: cover;
     user-select: none;
     pointer-events: none;
   }
@@ -5375,6 +5375,18 @@ html:not(.native-app) .wide-plate .look-photo-cover {
   max-height: none;
   margin: 0;
   aspect-ratio: auto;
+}
+
+/* The desktop plate letterboxes a 3:4 canvas, so the stored crop is shown at its native aspect with every pin in view. */
+html:not(.native-app) .wide-plate .wide-plate-canvas.look-photo-cover {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: min(100%, calc(var(--wide-look-h) * 0.75));
+  height: auto;
+  aspect-ratio: 3 / 4;
+  transform: translate(-50%, -50%);
+  border-radius: 0;
 }
 
 .wide-panel {
