@@ -92,6 +92,7 @@ function Login() {
       2500,
       null,
     );
+    setBusy(false);
     toast.success(mode === "signup" ? `Welcome, ${displayName}` : `Signed in as ${displayName}`);
     if (next === "/login") {
       await navigate({ to: "/login", search: {} });
