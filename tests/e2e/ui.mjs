@@ -1160,6 +1160,7 @@ async function screenDesktopLook(page) {
     };
     const plate = document.querySelector(".wide-plate");
     const img = plate.querySelector("img");
+    const canvas = plate.querySelector(".wide-plate-canvas");
     const bar = document.querySelector(".web-header, .web-nav")?.getBoundingClientRect();
     const back = [...document.querySelectorAll(".wide-lookbar button")].find((b) => /Back/.test(b.textContent || ""));
     const panel = document.querySelector(".wide-panel");
@@ -1167,6 +1168,7 @@ async function screenDesktopLook(page) {
     const p = rect(plate);
     return {
       plate: p,
+      canvas: rect(canvas),
       img: rect(img),
       fit: getComputedStyle(img).objectFit,
       vh: window.innerHeight,
@@ -1182,11 +1184,12 @@ async function screenDesktopLook(page) {
   record("flow.desktop.look-no-price-copy", hasNoPriceCopy(shopText), shopText.replace(/\s+/g, " "));
   record(
     "screen.desktop.look-stored-crop",
-    m.fit === "fill" &&
-      m.img.width >= m.plate.width - 1 &&
-      m.img.height >= m.plate.height - 1 &&
-      m.img.left <= m.plate.left + 1 &&
-      m.img.top <= m.plate.top + 1 &&
+    m.fit !== "fill" &&
+      m.img.width >= m.canvas.width - 1 &&
+      m.img.height >= m.canvas.height - 1 &&
+      m.img.left <= m.canvas.left + 1 &&
+      m.img.top <= m.canvas.top + 1 &&
+      Math.abs(m.canvas.width / m.canvas.height - 3 / 4) < 0.01 &&
       m.plate.width > 480 &&
       m.plate.bottom <= m.vh &&
       m.plate.height <= m.vh - m.barBottom &&
@@ -1214,16 +1217,19 @@ async function screenDesktopLook(page) {
     const base = imageRatio > 3 / 4
       ? { x: (1 - (height * 3 / 4) / width) / 2, y: 0, w: (height * 3 / 4) / width, h: 1 }
       : { x: 0, y: (1 - (width * 4 / 3) / height) / 2, w: 1, h: (width * 4 / 3) / height };
-    const plateRect = plate.getBoundingClientRect();
-    const visibleWidth = Math.min(
-      1,
-      base.h * (plateRect.width / plateRect.height) * (height / width),
-    );
+    const plateRect = plate.querySelector(".wide-plate-canvas").getBoundingClientRect();
+    const ratio = (plateRect.width / plateRect.height) * (height / width);
+    let visibleWidth = base.h * ratio;
+    let visibleHeight = base.h;
+    if (visibleWidth > 1) {
+      visibleWidth = 1;
+      visibleHeight = 1 / ratio;
+    }
     const expected = {
       x: Math.max(0, Math.min(1 - visibleWidth, base.x + base.w / 2 - visibleWidth / 2)),
-      y: base.y,
+      y: Math.max(0, Math.min(1 - visibleHeight, base.y + base.h / 2 - visibleHeight / 2)),
       w: visibleWidth,
-      h: base.h,
+      h: visibleHeight,
     };
     const actual = {
       x: -parseFloat(image.style.left) / parseFloat(image.style.width),

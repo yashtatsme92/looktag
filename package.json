@@ -24,7 +24,7 @@
     "test:app": "node scripts/looktag-qa.mjs",
     "test:e2e": "node tests/e2e/run.mjs",
     "test:e2e:guest": "node tests/e2e/guest-shared-links.mjs",
-    "test:e2e:aspect": "node tests/e2e/aspect-ratio.mjs",
+    "test:e2e:aspect": "node --experimental-strip-types tests/e2e/aspect-ratio.mjs",
     "test:ui": "node --experimental-strip-types tests/e2e/ui.mjs",
     "native:sync": "npx cap sync",
     "native:ios": "npx cap open ios",
