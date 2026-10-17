@@ -39,7 +39,6 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { pickFeedStyle, type FashionCollection, type FashionLabel, type FashionStyle } from "@/lib/labels/model";
 import { SEED_STYLES } from "@/lib/labels/seed";
-import { rememberPendingSave } from "@/lib/looks/pending-save";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import type { Look } from "@/lib/looks/types";
@@ -53,6 +52,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const [mode, setMode] = useState<WideMode>("feed");
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
   const [styles, setStyles] = useState<FashionStyle[]>(SEED_STYLES);
   const [collections, setCollections] = useState<FashionCollection[]>([]);
@@ -192,7 +192,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
 
   function save(look: Look) {
     if (authEnabled && !isPending && !user) {
-      rememberPendingSave(look.id);
+      setPendingSaveId(look.id);
       setSheetOpen(true);
       return;
     }
@@ -403,8 +403,12 @@ export function WideHome({ looks }: { looks: Look[] }) {
       </div>
       <AccountSheet
         open={sheetOpen}
-        onOpenChange={setSheetOpen}
+        onOpenChange={(open) => {
+          setSheetOpen(open);
+          if (!open) setPendingSaveId(null);
+        }}
         intent="save"
+        pendingSave={pendingSaveId ?? undefined}
         title="Sign in to save"
         description=""
         primary="Continue with email"

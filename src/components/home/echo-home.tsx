@@ -39,7 +39,6 @@ import {
 } from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { rememberPendingSave } from "@/lib/looks/pending-save";
 import { shareOrCopy } from "@/lib/looks/share";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
@@ -54,6 +53,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const [mode, setMode] = useState<EchoMode>("feed");
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
   const dragRef = useRef({ x: 0, y: 0, active: false, moved: false });
   const scrollerRef = useRef<HTMLDivElement>(null);
   const indexRef = useRef(0);
@@ -244,7 +244,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
 
   function save(look: Look) {
     if (authEnabled && !isPending && !user) {
-      rememberPendingSave(look.id);
+      setPendingSaveId(look.id);
       setSheetOpen(true);
       return;
     }
@@ -552,8 +552,12 @@ export function EchoHome({ looks }: { looks: Look[] }) {
 
       <AccountSheet
         open={sheetOpen}
-        onOpenChange={setSheetOpen}
+        onOpenChange={(open) => {
+          setSheetOpen(open);
+          if (!open) setPendingSaveId(null);
+        }}
         intent="save"
+        pendingSave={pendingSaveId ?? undefined}
         title="Sign in to save"
         description=""
         primary="Continue with email"
