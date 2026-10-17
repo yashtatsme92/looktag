@@ -1129,23 +1129,31 @@ async function flowPinCardClear(page) {
     row.title === "Column Dress" && row.sub === "Atelier Noir" && row.viewH === 44 && !row.shop && !row.underlined,
     JSON.stringify(row),
   );
-  // Count window.open calls: a stalled external popup may never raise a context "page" event.
-  await page.evaluate(() => {
-    window.__opens = [];
-    const real = window.open.bind(window);
-    window.open = (...args) => {
-      window.__opens.push(String(args[0]));
-      return real(...args);
-    };
-  });
-  await page.getByRole("button", { name: "Shop whole look" }).click();
-  await page.waitForTimeout(1500);
-  const opens = await page.evaluate(() => window.__opens);
-  record(
-    "flow.desktop.shop-whole-one-window",
-    opens.length === 1 && /zalando\.de\/weekday-wide-trouser/.test(opens[0]),
-    JSON.stringify(opens),
-  );
+  // Shop whole look on the wide layouts (>=1024) opens the Shop sheet in place. Phone and the 834 tablet keep the LookPlate behaviour.
+  for (const [name, width, height] of [["1024", 1024, 768], ["desktop", 1280, 800]]) {
+    await page.setViewportSize({ width, height });
+    await goto(page, path);
+    await page.getByRole("button", { name: "Shop whole look" }).click();
+    await page.locator(".look-sheet").waitFor({ timeout: 5000 });
+    const sheet = await page.evaluate(() => {
+      const dialog = document.querySelector(".look-sheet");
+      const rows = [...dialog.querySelectorAll(".look-sheet-row")];
+      return {
+        path: location.pathname,
+        nums: rows.map((r) => r.querySelector(".look-sheet-num")?.textContent),
+        empty: rows.filter((r) => /No close match yet/.test(r.textContent) && !r.querySelector(".look-sheet-shop")).length,
+        noShop: rows.filter((r) => !r.querySelector(".look-sheet-shop")).length,
+        prices: /[€$£]|\d\s?EUR/.test(dialog.textContent),
+        whole: Boolean(dialog.querySelector(".look-sheet-whole")),
+      };
+    });
+    record(
+      `flow.${name}.shop-whole-sheet`,
+      sheet.path === path && sheet.nums.length > 0 && sheet.nums.every((n, i) => n === String(i + 1)) && !sheet.prices && !sheet.whole && sheet.empty === sheet.noShop,
+      JSON.stringify(sheet),
+    );
+    await page.keyboard.press("Escape");
+  }
   for (const popup of page.context().pages().slice(1)) await popup.close().catch(() => undefined);
 }
 

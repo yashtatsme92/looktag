@@ -11,7 +11,8 @@ type LookShopSheetProps = {
   open: boolean;
   onClose: () => void;
   onShopPiece: (tag: ProductTag) => void;
-  onShopWhole: () => void;
+  /** The sheet is the whole-look shop; a footer action is only offered where a surface asks for one. */
+  onShopWhole?: () => void;
 };
 
 /**
@@ -91,10 +92,12 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole }:
             <SheetRow key={tag.id} tag={tag} index={index} onShop={() => onShopPiece(tag)} />
           ))}
         </ul>
-        <button type="button" className="look-sheet-whole" onClick={onShopWhole}>
-          Shop whole look
-          <ExternalLink className="size-4" />
-        </button>
+        {onShopWhole ? (
+          <button type="button" className="look-sheet-whole" onClick={onShopWhole}>
+            Shop whole look
+            <ExternalLink className="size-4" />
+          </button>
+        ) : null}
         <p className="look-sheet-count">
           {tags.length} {tags.length === 1 ? "piece" : "pieces"} total
         </p>
