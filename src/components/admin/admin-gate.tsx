@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { isAdminEmail } from "@/lib/admin/access";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { FEED_FEATURES, feedModulesNote } from "@/lib/home/engagement";
+import { FEATURE_FLAGS, flagStatus } from "@/lib/settings/flags";
 import { housesSwitchCopy } from "@/lib/labels/model";
 import { useSettingsStore } from "@/lib/settings/store";
 
@@ -20,6 +21,8 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
   const enabled = useSettingsStore((s) => s.labelsEnabled);
   const save = useSettingsStore((s) => s.save);
   const feedOn = useSettingsStore((s) => FEED_FEATURES.filter((feature) => s[feature.key]).length);
+  const settings = useSettingsStore((s) => s);
+  const [flagState, setFlagState] = useState<Record<string, "saving" | "saved">>({});
   const [pending, setPending] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const copy = pending === null ? null : housesSwitchCopy(!pending);
@@ -32,6 +35,19 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
       setPending(null);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function toggleFlag(key: (typeof FEATURE_FLAGS)[number]["key"], next: boolean) {
+    setFlagState((state) => ({ ...state, [key]: "saving" }));
+    try {
+      await save({ [key]: next });
+      setFlagState((state) => ({ ...state, [key]: "saved" }));
+    } catch {
+      setFlagState((state) => {
+        const { [key]: _drop, ...rest } = state;
+        return rest;
+      });
     }
   }
 
@@ -77,6 +93,28 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
           <span className="ops-row-note">{feedModulesNote(feedOn)}</span>
         </div>
       )}
+      <h2 className="ops-row-title" data-testid="feature-flags-title">Feature flags</h2>
+      {FEATURE_FLAGS.map((flag) => {
+        const on = Boolean(settings[flag.key]);
+        const state = flagState[flag.key];
+        return (
+          <div className="ops-row ops-switch-row" key={flag.key} data-testid={`flag-${flag.key}`}>
+            <div>
+              <span className="ops-row-title">{flag.label}</span>
+              <span className="ops-row-note">{flag.helper}</span>
+              <span className="ops-row-note">
+                {flag.scope} · {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : flagStatus(on, flag)}
+              </span>
+            </div>
+            <Switch
+              checked={on}
+              disabled={!linked}
+              aria-label={flag.label}
+              onCheckedChange={(next) => void toggleFlag(flag.key, next)}
+            />
+          </div>
+        );
+      })}
       <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
         <DialogContent className="max-w-[480px]">
           <DialogTitle>{copy?.title}</DialogTitle>
