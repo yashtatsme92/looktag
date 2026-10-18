@@ -1598,7 +1598,14 @@ async function flowSaveResume(page, label, path) {
       }),
       [SAVED_KEY, PENDING_SAVE_KEY],
     );
-  await page.getByText("Saved", { exact: true }).last().waitFor({ timeout: 10_000 }).catch(() => {});
+  await page.waitForFunction(
+    ({ savedKey, pendingKey, lookId }) =>
+      JSON.parse(localStorage.getItem(savedKey) ?? "[]").includes(lookId) &&
+      sessionStorage.getItem(pendingKey) === null,
+    { savedKey: SAVED_KEY, pendingKey: PENDING_SAVE_KEY, lookId: pendingAtLogin.id },
+    { timeout: 10_000 },
+  );
+  await page.locator("[data-sonner-toast]").filter({ hasText: /^Saved$/ }).waitFor({ timeout: 5_000 });
   const after = await read();
   await page.waitForTimeout(800);
   const later = await read();
