@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { normalizeLoginEmail, resolveYouSessionState, youSessionSignedIn } from "@/lib/admin/access";
 import { authClient, authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { clearPendingSave } from "@/lib/looks/pending-save";
 import { captureSessionToken, postAuthPath, safeNext, withTimeout } from "@/lib/login-next";
 import { ensureMyProfile } from "@/lib/looks/api";
 import { parseHandle, suggestHandle } from "@/lib/looks/handle";
@@ -33,7 +34,7 @@ function rejectAfter(ms: number, message: string): Promise<never> {
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
-    next: safeNext(search.next),
+    next: search.next === "/login" ? "/login" : safeNext(search.next),
     intent: search.intent === "save" ? "save" : undefined,
     email: typeof search.email === "string" ? search.email.slice(0, 254) : undefined,
   }),
@@ -70,6 +71,13 @@ function Login() {
     if (initialEmail !== undefined) setEmail(initialEmail);
   }, [initialEmail]);
 
+  useEffect(() => {
+    if (!next || user) return;
+    const clearOnBack = () => clearPendingSave();
+    window.addEventListener("popstate", clearOnBack);
+    return () => window.removeEventListener("popstate", clearOnBack);
+  }, [next, user]);
+
   async function goAfterAuth(displayName: string, userId?: string) {
     markStyleGuideDone({ coach: true });
     await withTimeout(authClient.getSession(), 2500, null);
@@ -85,6 +93,11 @@ function Login() {
       null,
     );
     toast.success(mode === "signup" ? `Welcome, ${displayName}` : `Signed in as ${displayName}`);
+    if (next === "/login") {
+      setBusy(false);
+      await navigate({ to: "/login", search: {} });
+      return;
+    }
     if (next) {
       await navigate({ to: dest as "/" });
       return;
@@ -151,7 +164,7 @@ function Login() {
       setBusy(false);
       setError("That sign-in did not complete. Use another method.");
     }, 7_000);
-    void signIn(providerId, { callbackURL: dest === "/login" ? "/" : dest })
+    void signIn(providerId, { callbackURL: dest === "/login" && next !== "/login" ? "/" : dest })
       .then(() => {
         window.clearTimeout(unlock);
         if (window.location.pathname.startsWith("/login")) {
@@ -167,6 +180,7 @@ function Login() {
   }
 
   if (youSessionSignedIn(sessionState) && user && !busy) {
+    if (next === "/login") return <Navigate to="/login" search={{}} />;
     if (next) return <Navigate to={dest as "/"} />;
     return (
       <AppShell title="You" header="hidden" flush>

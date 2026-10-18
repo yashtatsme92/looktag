@@ -6,7 +6,7 @@
 import { chromium } from "playwright";
 import { pieceEditorIsFooter, saveDockStaysDown } from "../../src/lib/looks/edit-footer.ts";
 import { CREATE_DRAFT_KEY } from "../../src/lib/looks/create-draft.ts";
-import { SCREENSHOT_DIR, resolveOrigin, withPage } from "./helpers.mjs";
+import { SCREENSHOT_DIR, resolveAdminCredentials, resolveOrigin, withPage } from "./helpers.mjs";
 
 const origin = resolveOrigin();
 const results = [];
@@ -1487,7 +1487,56 @@ async function flowSaveSheetFocus(page, label, path) {
     .waitForFunction((name) => document.activeElement?.getAttribute("aria-label") === name, label0, { timeout: 2_000 })
     .then(() => true)
     .catch(() => false);
-  record(`flow.save-sheet.focus-return-${label}`, closed && returned, `closed=${closed} returned=${returned}`);
+  const pending = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
+  record(
+    `flow.save-sheet.focus-return-${label}`,
+    closed && returned && pending === null,
+    `closed=${closed} returned=${returned} pending=${pending}`,
+  );
+}
+
+async function flowSaveSheetDismissals(page, label) {
+  for (const method of ["cancel", "escape", "backdrop"]) {
+    await goto(page, "/looks/seed-sunday-coat");
+    const staleRecord = JSON.stringify({ id: "stale-save", intent: "save" });
+    await page.evaluate(([key, value]) => sessionStorage.setItem(key, value), [PENDING_SAVE_KEY, staleRecord]);
+    const openerName = await openSaveSheet(page);
+    const pendingBefore = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
+    if (method === "cancel") {
+      await page.locator("[data-vaul-drawer]").getByRole("button", { name: "Cancel" }).click();
+    } else if (method === "escape") {
+      await page.keyboard.press("Escape");
+    } else {
+      await page.locator("[data-vaul-overlay]").click({ position: { x: 2, y: 2 } });
+    }
+    const closed = await page
+      .waitForFunction(() => document.querySelectorAll("[data-vaul-drawer]").length === 0, null, { timeout: 4_000 })
+      .then(() => true)
+      .catch(() => false);
+    const focusReturned = await page
+      .waitForFunction((name) => document.activeElement?.getAttribute("aria-label") === name, openerName, { timeout: 2_000 })
+      .then(() => true)
+      .catch(() => false);
+    const pendingAfter = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
+    const savedToast = await page.locator("[data-sonner-toast]").filter({ hasText: /^Saved$/ }).count();
+    record(
+      `flow.save-sheet.dismiss-${method}-${label}`,
+      pendingBefore === staleRecord && closed && focusReturned && pendingAfter === null && savedToast === 0,
+      JSON.stringify({ pendingBefore, closed, focusReturned, pendingAfter, savedToast }),
+    );
+  }
+}
+
+async function flowSaveSheetBackFromLogin(page, label) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await openSaveSheet(page);
+  await page.getByRole("link", { name: "Continue with email" }).click();
+  await page.waitForURL(/\/login\?/, { timeout: 8_000 });
+  await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  await page.goBack();
+  await page.waitForURL(/\/looks\/seed-sunday-coat$/, { timeout: 8_000 });
+  const pending = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
+  record(`flow.save-sheet.back-clears-pending-${label}`, pending === null, String(pending));
 }
 
 /** The sheet stays inside the viewport with Cancel fully visible, and nothing paints below it. */
@@ -1529,21 +1578,25 @@ async function flowSaveSheetPlacement(page, label, path) {
 async function flowSaveResume(page, label, path) {
   await goto(page, path);
   await openSaveSheet(page);
+  const beforeContinue = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
   await page.getByRole("link", { name: "Continue with email" }).click();
   await page.waitForURL(/\/login\?/, { timeout: 8_000 });
   const loginUrl = new URL(page.url());
+  const pendingAtLogin = await page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) ?? "null"), PENDING_SAVE_KEY);
   await page.getByText("Sign in to save", { exact: true }).waitFor({ timeout: 8_000 });
   record(
     `flow.save-resume.login-context-${label}`,
-    loginUrl.searchParams.get("intent") === "save" && loginUrl.searchParams.get("next") === path,
-    page.url(),
+    beforeContinue === null &&
+      loginUrl.searchParams.get("intent") === "save" &&
+      loginUrl.searchParams.get("next") === path &&
+      pendingAtLogin?.intent === "save" &&
+      typeof pendingAtLogin?.id === "string",
+    JSON.stringify({ url: page.url(), beforeContinue, pendingAtLogin }),
   );
-  await page.getByRole("button", { name: "Create account", exact: true }).first().click();
-  const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  await page.locator("#creator-name").fill(`Saver ${stamp}`);
-  await page.locator("#creator-email").fill(`saver-${stamp}@example.com`);
-  await page.locator("#creator-password").fill("save-me-1234");
-  await page.locator("form").getByRole("button", { name: "Create account" }).click();
+  const { email, password } = resolveAdminCredentials();
+  await page.locator("#creator-email").fill(email.toLowerCase() === "admin@looktag.studio" ? "admin" : email);
+  await page.locator("#creator-password").fill(password);
+  await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
   await page.waitForURL((url) => url.pathname + url.search === path, { timeout: 20_000 });
   const read = () =>
     page.evaluate(
@@ -1553,22 +1606,71 @@ async function flowSaveResume(page, label, path) {
       }),
       [SAVED_KEY, PENDING_SAVE_KEY],
     );
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? "[]").length > 0, SAVED_KEY, { timeout: 10_000 }).catch(() => {});
+  await page.waitForFunction(
+    ({ savedKey, pendingKey, lookId }) =>
+      JSON.parse(localStorage.getItem(savedKey) ?? "[]").includes(lookId) &&
+      sessionStorage.getItem(pendingKey) === null,
+    { savedKey: SAVED_KEY, pendingKey: PENDING_SAVE_KEY, lookId: pendingAtLogin.id },
+    { timeout: 10_000 },
+  );
+  await page.locator("[data-sonner-toast]").filter({ hasText: /^Saved$/ }).waitFor({ timeout: 5_000 });
   const after = await read();
   await page.waitForTimeout(800);
   const later = await read();
+  const savedToasts = await page.locator("[data-sonner-toast]").filter({ hasText: /^Saved$/ }).count();
   await goto(page, path);
   await page.waitForTimeout(800);
   const reloaded = await read();
   record(
-    `flow.save-resume.saved-once-${label}`,
-    after.ids.length === 1 &&
-      later.ids.length === 1 &&
-      reloaded.ids.length === 1 &&
-      after.ids[0] === reloaded.ids[0] &&
+    `flow.save-resume.saved-and-toasted-once-${label}`,
+    after.ids.filter((id) => id === pendingAtLogin.id).length === 1 &&
+      later.ids.filter((id) => id === pendingAtLogin.id).length === 1 &&
+      reloaded.ids.filter((id) => id === pendingAtLogin.id).length === 1 &&
       after.pending === null &&
-      reloaded.pending === null,
-    JSON.stringify({ after, later, reloaded }),
+      reloaded.pending === null &&
+      savedToasts === 1,
+    JSON.stringify({ after, later, reloaded, savedToasts }),
+  );
+}
+
+async function flowYouSignInReturn(page, label, pane = "Saved") {
+  await goto(page, "/login");
+  if (pane === "Profile") await page.getByRole("tab", { name: pane }).click();
+  else {
+    const selected = await page.locator('[role="tab"][aria-selected="true"]').innerText();
+    if (selected !== "Saved") throw new Error(`Expected Saved pane to be active, got ${selected}`);
+  }
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("heading", { name: "Sign in to sync You" }).waitFor({ timeout: 5_000 });
+  const continueLink = page.getByRole("link", { name: "Continue with email" });
+  const loginHref = new URL(await continueLink.getAttribute("href"), origin);
+  record(
+    `flow.you.auth-destination-${pane.toLowerCase()}-${label}`,
+    loginHref.pathname === "/login" && loginHref.searchParams.get("next") === "/login",
+    loginHref.href,
+  );
+  await continueLink.click();
+  await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  const { email, password } = resolveAdminCredentials();
+  await page.locator("#creator-email").fill(email.toLowerCase() === "admin@looktag.studio" ? "admin" : email);
+  await page.locator("#creator-password").fill(password);
+  await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
+  await page.waitForURL((url) => url.pathname === "/login" && !url.searchParams.has("next"), { timeout: 20_000 });
+  await page.waitForFunction(
+    () =>
+      document.querySelector(".you-grid > li") ||
+      document.body.innerText.includes("Hangtag looks you love while you browse. They land here."),
+    null,
+    { timeout: 8_000 },
+  );
+  const activePane = await page.locator('[role="tab"][aria-selected="true"]').innerText();
+  const signedInEmpty = await page.getByText("Hangtag looks you love while you browse. They land here.", { exact: true }).count();
+  const signedInLooks = await page.locator(".you-grid > li").count();
+  const guestPrompt = await page.getByText("Save looks while you browse", { exact: true }).count();
+  record(
+    `flow.you.auth-returns-saved-${pane.toLowerCase()}-${label}`,
+    activePane === "Saved" && guestPrompt === 0 && (signedInEmpty === 1 || signedInLooks > 0),
+    JSON.stringify({ activePane, signedInEmpty, signedInLooks, guestPrompt, url: page.url() }),
   );
 }
 
@@ -1638,16 +1740,22 @@ try {
     await screenHouses1024(page);
   }, "ui-1024", { viewport: { width: 1024, height: 768 } });
 
-  for (const [label, path, viewport] of [
-    ["look-phone", "/looks/seed-sunday-coat", { width: 390, height: 844 }],
-    ["home-phone", "/", { width: 390, height: 844 }],
-    ["look-wide", "/looks/seed-sunday-coat", { width: 1280, height: 800 }],
-    ["home-wide", "/", { width: 1280, height: 800 }],
+  for (const [label, viewport] of [
+    ["phone", { width: 390, height: 844 }],
+    ["tablet", { width: 834, height: 1194 }],
+    ["desktop", { width: 1280, height: 800 }],
   ]) {
     await withPage(browser, origin, async (page) => {
       await prime(page);
-      await flowSaveResume(page, label, path);
+      await flowSaveResume(page, label, "/looks/seed-sunday-coat");
     }, `ui-save-resume-${label}`, { viewport });
+
+    for (const pane of ["Saved", "Profile"]) {
+      await withPage(browser, origin, async (page) => {
+        await prime(page);
+        await flowYouSignInReturn(page, label, pane);
+      }, `ui-you-signin-${pane.toLowerCase()}-${label}`, { viewport });
+    }
   }
 
   for (const [label, path, viewport] of [
@@ -1660,6 +1768,12 @@ try {
       await prime(page);
       await flowSaveSheetFocus(page, label, path);
       if (label !== "look-phone") await flowSaveSheetPlacement(page, label, path);
+      if (label === "look-phone" || label === "home-tablet" || label === "home-1280") {
+        await flowSaveSheetDismissals(page, label);
+      }
+      if (label === "look-phone" || label === "home-tablet" || label === "home-1280") {
+        await flowSaveSheetBackFromLogin(page, label);
+      }
     }, `ui-save-sheet-${label}`, { viewport });
   }
 

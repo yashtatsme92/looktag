@@ -16,7 +16,6 @@ import { FollowButton } from "@/components/home/follow-button";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
-import { rememberPendingSave } from "@/lib/looks/pending-save";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
@@ -97,7 +96,6 @@ export function WideLook({
 
   function save() {
     if (authEnabled && !isPending && !user) {
-      rememberPendingSave(look.id);
       setSheetOpen(true);
       return;
     }
@@ -279,6 +277,7 @@ export function WideLook({
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         intent="save"
+        pendingSave={look.id}
         title="Sign in to save"
         description=""
         primary="Continue with email"

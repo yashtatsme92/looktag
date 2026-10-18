@@ -3,6 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { clearPendingSave, rememberPendingSave } from "@/lib/looks/pending-save";
 import "./account-sheet.css";
 
 export function AccountSheet({
@@ -14,6 +15,7 @@ export function AccountSheet({
   secondary = "Cancel",
   next,
   intent,
+  pendingSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,6 +26,7 @@ export function AccountSheet({
   next?: string;
   /** Save returns to this page after sign-in. Cancel returns without leaving. */
   intent?: "publish" | "draft" | "follow" | "save";
+  pendingSave?: string;
 }) {
   const here = useRouterState({ select: (s) => s.location.href });
   const target = next ?? (intent === "save" ? here : "/");
@@ -31,6 +34,22 @@ export function AccountSheet({
   const emailId = useId();
   const opener = useRef<HTMLElement | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+  const continuing = useRef(false);
+
+  function onSheetOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      continuing.current = false;
+    } else if (!continuing.current) {
+      clearPendingSave();
+    }
+    onOpenChange(nextOpen);
+  }
+
+  function continueWithEmail() {
+    clearPendingSave();
+    if (intent === "save" && pendingSave) rememberPendingSave(pendingSave);
+    continuing.current = true;
+  }
 
   useLayoutEffect(() => {
     if (open && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
@@ -39,7 +58,7 @@ export function AccountSheet({
   }, [open]);
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <Drawer open={open} onOpenChange={onSheetOpenChange}>
       <DrawerContent
         className="account-sheet-modal"
         {...(description ? {} : { "aria-describedby": undefined })}
@@ -73,11 +92,12 @@ export function AccountSheet({
             <Link
               to="/login"
               search={{ next: target, email, intent: intent === "save" ? "save" : undefined }}
+              onClick={continueWithEmail}
             >
               {primary}
             </Link>
           </Button>
-          <Button type="button" variant="ghost" className="h-11" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="ghost" className="h-11" onClick={() => onSheetOpenChange(false)}>
             {secondary}
           </Button>
         </div>
