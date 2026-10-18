@@ -34,6 +34,11 @@ function isTabRoot(pathname: string) {
   return pathname.startsWith("/creators/");
 }
 
+/** Create and Edit run full-screen: no tab bar, with or without the keyboard. */
+function isFocusedRoute(pathname: string) {
+  return pathname === "/create" || (pathname.startsWith("/looks/") && pathname.endsWith("/edit"));
+}
+
 function inferTitle(pathname: string) {
   if (pathname === "/") return "Looks";
   if (pathname === "/create") return "Create";
@@ -117,7 +122,7 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
     <div className="app-frame" data-chrome={chrome}>
       <WebHeader />
       <NativePortalProvider element={portalEl}>
-        <div ref={screenRef} className="native-screen" id="native-screen" data-header={header}>
+        <div ref={screenRef} className="native-screen" id="native-screen" data-header={header} data-focused={isFocusedRoute(pathname) ? "true" : undefined}>
           <StatusBar />
           {header === "hidden" ? null : (
             <NativeHeader
@@ -129,7 +134,7 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
             />
           )}
           <main className={flush ? "native-main native-main-flush" : "native-main"}>{children}</main>
-          <TabBar />
+          {isFocusedRoute(pathname) ? null : <TabBar />}
           <InstallSheet />
         </div>
       </NativePortalProvider>

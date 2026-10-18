@@ -600,13 +600,8 @@ async function flowCreateBranches(page) {
   await page.waitForFunction(() => document.querySelector(".look-studio")?.getAttribute("data-step") === "pins");
   record("flow.create.find", (await page.getByRole("button", { name: /Find pieces/i }).count()) > 0);
   record("flow.create.add-pin", (await page.getByRole("button", { name: "Add pin" }).count()) > 0);
-  const doneGhost = await page.evaluate(() => {
-    const el = document.querySelector(".create-pin-actions .create-btn-done");
-    if (!el) return null;
-    const style = getComputedStyle(el);
-    return { height: Math.round(el.getBoundingClientRect().height), border: style.borderTopWidth };
-  });
-  record("flow.create.done-ghost", doneGhost?.height === 44 && doneGhost.border === "1px", JSON.stringify(doneGhost));
+  record("flow.create.one-done-pin", (await page.getByRole("button", { name: "Done" }).count()) === 1);
+  record("flow.create.no-tab-bar", (await page.locator(".tab-bar").count()) === 0);
   const phoneAdd = await page.evaluate(() => {
     const el = document.querySelector(".create-pin-actions .create-btn-pin");
     if (!el) return null;
@@ -621,6 +616,7 @@ async function flowCreateBranches(page) {
 
   await page.locator("[data-tag-pin]").first().click();
   await page.locator(".create-piece").waitFor({ timeout: 5_000 });
+  record("flow.create.one-done-piece", (await page.getByRole("button", { name: "Done" }).count()) === 1);
   const piece = await page.evaluate(() => {
     const card = document.querySelector(".create-piece");
     const plate = document.querySelector(".create-plate");
@@ -644,6 +640,7 @@ async function flowCreateBranches(page) {
 
   await page.getByRole("button", { name: "Done" }).first().click();
   await page.getByRole("heading", { name: "Details" }).waitFor({ timeout: 5_000 });
+  await keyboardDockCheck(page);
   await page.getByRole("button", { name: "Edit crop" }).click();
   await page.getByRole("heading", { name: "Edit crop" }).waitFor({ timeout: 5_000 });
   await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
@@ -740,6 +737,49 @@ async function screenCropLayout(page, label) {
       (await page.getByRole("button", { name: "Use photo" }).isEnabled()) &&
       (await page.getByRole("button", { name: "Skip" }).isEnabled()),
   );
+}
+
+/** Stub visualViewport (keyboard up) and check the field clears the docked primary. */
+async function keyboardDockCheck(page) {
+  for (const offsetTop of [0, 120]) {
+    for (const id of ["create-title", "create-caption"]) {
+      await page.evaluate((top) => {
+        const vv = window.visualViewport;
+        Object.defineProperty(window, "visualViewport", {
+          configurable: true,
+          value: Object.assign(new EventTarget(), {
+            height: 508,
+            width: vv.width,
+            offsetTop: top,
+            offsetLeft: 0,
+            scale: 1,
+          }),
+        });
+      }, offsetTop);
+      await page.locator(`#${id}`).focus();
+      await page.evaluate(() => window.visualViewport.dispatchEvent(new Event("resize")));
+      await page.waitForTimeout(150);
+      const m = await page.evaluate((fieldId) => {
+        const vv = window.visualViewport;
+        const field = document.getElementById(fieldId).getBoundingClientRect();
+        const dock = document.querySelector("[data-kb-dock]").getBoundingClientRect();
+        const hit = document.elementsFromPoint(field.left + 4, field.bottom - 4)[0];
+        return {
+          fieldBottom: field.bottom,
+          dockTop: dock.top,
+          dockBottom: dock.bottom,
+          vvBottom: vv.offsetTop + vv.height,
+          hit: hit?.id ?? hit?.tagName,
+        };
+      }, id);
+      record(
+        `flow.create.keyboard-${id}-${offsetTop}`,
+        Math.abs(m.dockBottom - m.vvBottom) <= 1 && m.fieldBottom <= m.dockTop - 16 + 1 && m.hit === id,
+        JSON.stringify(m),
+      );
+    }
+  }
+  await page.evaluate(() => document.activeElement?.blur());
 }
 
 async function screenHouses(page) {
@@ -997,6 +1037,15 @@ async function flowSignedInEdit(page) {
     "flow.edit.piece-footer",
     pieceEditorIsFooter(piece.cardTop, piece.cardBottom, piece.plateTop, piece.plateBottom),
     JSON.stringify(piece),
+  );
+  record("flow.edit.no-tab-bar", (await page.locator(".tab-bar").count()) === 0);
+  await page.locator(".create-plate-back").click();
+  await page.locator(".create-plate-back").click();
+  await page.getByRole("heading", { name: "Edit look" }).waitFor({ timeout: 5_000 });
+  record(
+    "flow.edit.pins-back-to-save",
+    (await page.getByRole("button", { name: "Change photo" }).count()) === 0 &&
+      (await page.getByRole("button", { name: "Skip" }).count()) === 0,
   );
 }
 
