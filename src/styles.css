@@ -1555,7 +1555,7 @@ html[data-theme="moss"] {
   .crop-frame-image {
     position: absolute;
     max-width: none;
-    object-fit: fill;
+    object-fit: cover;
     user-select: none;
     pointer-events: none;
   }
@@ -5346,9 +5346,9 @@ input[type="search"]::-webkit-search-decoration {
 
 .wide-split {
   display: grid;
-  /* Photo card is 7/12 of the row but never wider than ~frame ratio (0.98) of its height, so the cover crop keeps every pin visible; the panel takes the slack. */
+  /* Photo card is 7/12 of the row but never wider than the 3:4 crop ratio (0.75) of its height, so the plate shows the stored crop at its native aspect with every pin visible and no bars; the panel takes the slack. */
   grid-template-columns:
-    minmax(0, min(calc((100% - 1.5rem) * 7 / 12), calc(var(--wide-look-h, 47rem) * 0.98)))
+    minmax(0, min(calc((100% - 1.5rem) * 7 / 12), calc(var(--wide-look-h, 47rem) * 0.75)))
     minmax(18rem, 1fr);
   gap: 1.5rem;
   align-items: stretch;
