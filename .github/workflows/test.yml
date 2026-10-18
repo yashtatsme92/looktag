@@ -47,4 +47,5 @@ jobs:
           }
           npm run test:e2e:guest
           npm run test:e2e:aspect
+          npm run test:e2e:create-phone
 

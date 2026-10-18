@@ -1462,14 +1462,9 @@ html[data-theme="moss"] {
     padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
   }
 
-  /* Phone: one Done per step. Pin step keeps the top bar Done; piece card keeps its own primary. */
-  html[data-chrome="phone"] .create-pin-actions .create-btn-done,
-  html[data-chrome="phone"] .create-plate[data-step="piece"] .create-plate-done {
+  /* Phone: one Done per step. The pin step keeps the bottom Done beside Add pin; the piece card keeps its own primary. */
+  html[data-chrome="phone"] .create-plate .create-plate-done {
     visibility: hidden;
-  }
-
-  html[data-chrome="phone"] .create-pin-actions .create-btn-done {
-    display: none;
   }
 
   [data-kb="open"] [data-kb-dock] {
@@ -1494,6 +1489,7 @@ html[data-theme="moss"] {
   }
 
   [data-kb="open"] .create-piece [data-kb-dock] {
+    padding: 0.5rem 1rem;
     background: #fff;
   }
 
