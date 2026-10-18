@@ -1185,11 +1185,11 @@ async function screenDesktopLook(page) {
   record(
     "screen.desktop.look-stored-crop",
     m.fit !== "fill" &&
-      m.img.width >= m.canvas.width - 1 &&
-      m.img.height >= m.canvas.height - 1 &&
-      m.img.left <= m.canvas.left + 1 &&
-      m.img.top <= m.canvas.top + 1 &&
-      Math.abs(m.canvas.width / m.canvas.height - 3 / 4) < 0.01 &&
+      m.img.width >= m.plate.width - 1 &&
+      m.img.height >= m.plate.height - 1 &&
+      m.img.left <= m.plate.left + 1 &&
+      m.img.top <= m.plate.top + 1 &&
+      Math.abs(m.plate.width / m.plate.height - 3 / 4) < 0.01 &&
       m.plate.width > 480 &&
       m.plate.bottom <= m.vh &&
       m.plate.height <= m.vh - m.barBottom &&
@@ -1203,7 +1203,7 @@ async function screenDesktopLook(page) {
   await page.waitForFunction(
     () => {
       const image = document.querySelector(".wide-plate img");
-      return image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
+      return Boolean(image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0 && image.style.width);
     },
     null,
     { timeout: 10_000 },
@@ -1217,7 +1217,7 @@ async function screenDesktopLook(page) {
     const base = imageRatio > 3 / 4
       ? { x: (1 - (height * 3 / 4) / width) / 2, y: 0, w: (height * 3 / 4) / width, h: 1 }
       : { x: 0, y: (1 - (width * 4 / 3) / height) / 2, w: 1, h: (width * 4 / 3) / height };
-    const plateRect = plate.querySelector(".wide-plate-canvas").getBoundingClientRect();
+    const plateRect = plate.getBoundingClientRect();
     const ratio = (plateRect.width / plateRect.height) * (height / width);
     let visibleWidth = base.h * ratio;
     let visibleHeight = base.h;

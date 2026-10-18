@@ -5346,9 +5346,9 @@ input[type="search"]::-webkit-search-decoration {
 
 .wide-split {
   display: grid;
-  /* Photo card is 7/12 of the row but never wider than ~frame ratio (0.98) of its height, so the cover crop keeps every pin visible; the panel takes the slack. */
+  /* Photo card is 7/12 of the row but never wider than the 3:4 crop ratio (0.75) of its height, so the plate shows the stored crop at its native aspect with every pin visible and no bars; the panel takes the slack. */
   grid-template-columns:
-    minmax(0, min(calc((100% - 1.5rem) * 7 / 12), calc(var(--wide-look-h, 47rem) * 0.98)))
+    minmax(0, min(calc((100% - 1.5rem) * 7 / 12), calc(var(--wide-look-h, 47rem) * 0.75)))
     minmax(18rem, 1fr);
   gap: 1.5rem;
   align-items: stretch;
@@ -5375,18 +5375,6 @@ html:not(.native-app) .wide-plate .look-photo-cover {
   max-height: none;
   margin: 0;
   aspect-ratio: auto;
-}
-
-/* The desktop plate letterboxes a 3:4 canvas, so the stored crop is shown at its native aspect with every pin in view. */
-html:not(.native-app) .wide-plate .wide-plate-canvas.look-photo-cover {
-  inset: auto;
-  top: 50%;
-  left: 50%;
-  width: min(100%, calc(var(--wide-look-h) * 0.75));
-  height: auto;
-  aspect-ratio: 3 / 4;
-  transform: translate(-50%, -50%);
-  border-radius: 0;
 }
 
 .wide-panel {
