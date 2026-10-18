@@ -93,28 +93,35 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
           <span className="ops-row-note">{feedModulesNote(feedOn)}</span>
         </div>
       )}
-      <h2 className="ops-row-title" data-testid="feature-flags-title">Feature flags</h2>
-      {FEATURE_FLAGS.map((flag) => {
-        const on = Boolean(settings[flag.key]);
-        const state = flagState[flag.key];
-        return (
-          <div className="ops-row ops-switch-row" key={flag.key} data-testid={`flag-${flag.key}`}>
-            <div>
-              <span className="ops-row-title">{flag.label}</span>
-              <span className="ops-row-note">{flag.helper}</span>
-              <span className="ops-row-note">
-                {flag.scope} · {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : flagStatus(on, flag)}
-              </span>
-            </div>
-            <Switch
-              checked={on}
-              disabled={!linked}
-              aria-label={flag.label}
-              onCheckedChange={(next) => void toggleFlag(flag.key, next)}
-            />
-          </div>
-        );
-      })}
+      {linked ? (
+        <section className="flag-section" aria-labelledby="feature-flags-title" data-testid="feature-flags">
+          <h2 className="flag-section-title" id="feature-flags-title">Feature flags</h2>
+          <p className="flag-section-intro">Turn experimental or optional features on or off. Changes apply to all shoppers.</p>
+          {FEATURE_FLAGS.map((flag) => {
+            const on = Boolean(settings[flag.key]);
+            const state = flagState[flag.key];
+            return (
+              <article className="flag-row" key={flag.key} data-testid={`flag-${flag.key}`}>
+                <div className="flag-row-copy">
+                  <span className="flag-row-name">{flag.label}</span>
+                  <span className="flag-row-helper">{flag.helper}</span>
+                  <span className="flag-row-meta">
+                    <span className="flag-pill">{flag.scope}</span>
+                    <span className="flag-row-state" aria-live="polite">
+                      {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : flagStatus(on, flag)}
+                    </span>
+                  </span>
+                </div>
+                <Switch
+                  checked={on}
+                  aria-label={flag.label}
+                  onCheckedChange={(next) => void toggleFlag(flag.key, next)}
+                />
+              </article>
+            );
+          })}
+        </section>
+      ) : null}
       <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
         <DialogContent className="max-w-[480px]">
           <DialogTitle>{copy?.title}</DialogTitle>

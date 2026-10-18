@@ -308,20 +308,10 @@ async function flowLookShopSheet(page) {
     styleRow,
   );
   record(
-    "flow.look.shop-sheet-whole-ghost",
-    m.wholeH === 44 && m.wholeBorder === "1px" && m.wholeBg === "rgba(0, 0, 0, 0)",
-    JSON.stringify({ h: m.wholeH, bg: m.wholeBg, border: m.wholeBorder }),
+    "flow.look.shop-sheet-whole-off",
+    m.wholeH === null && !/Shop whole look/.test(m.text) && !/Shop whole look/.test(await page.locator("body").innerText()),
+    JSON.stringify({ h: m.wholeH }),
   );
-  await page.evaluate(() => {
-    window.__opens = [];
-    window.open = (...args) => {
-      window.__opens.push(String(args[0]));
-      return {};
-    };
-  });
-  await page.locator(".look-sheet-whole").click();
-  const opens = await page.evaluate(() => window.__opens);
-  record("flow.look.shop-sheet-whole-one", opens.length === 1, JSON.stringify(opens));
   // Dialog semantics: modal, focus inside, Tab cycles inside the sheet.
   const modal = await sheet.getAttribute("aria-modal");
   const focusedInside = await page.evaluate(() => document.activeElement?.closest(".look-sheet") !== null);
@@ -394,7 +384,9 @@ async function screenLook(page) {
   );
   record(
     "flow.look.spotlight-whole",
-    (await page.locator(".look-plate-shop-whole").count()) === 1 && (await page.locator(".look-plate-shop").count()) === 0,
+    (await page.locator(".look-plate-shop-whole").count()) === 0 &&
+      (await page.locator(".look-plate-shop").count()) === 0 &&
+      !/Shop whole look/.test(await page.locator("body").innerText()),
   );
   await card.getByRole("button", { name: "Dismiss" }).click();
   record("flow.look.spotlight-dismiss", (await card.count()) === 0);
@@ -1680,6 +1672,83 @@ async function flowYouSignInReturn(page, label, pane = "Saved") {
   );
 }
 
+/** Admin flag "Show Shop whole look on phone": persists, and only changes the phone look detail. */
+async function flowShopWholePhoneFlag(page) {
+  await goto(page, "/admin");
+  record("flow.flag.guest-hidden", (await page.getByRole("switch", { name: "Show Shop whole look on phone" }).count()) === 0);
+  await goto(page, `/login?next=${encodeURIComponent("/admin")}`);
+  await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  const { email, password } = resolveAdminCredentials();
+  await page.locator("#creator-email").fill(email.toLowerCase() === "admin@looktag.studio" ? "admin" : email);
+  await page.locator("#creator-password").fill(password);
+  await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
+  await page.waitForURL((url) => url.pathname === "/admin", { timeout: 20_000 });
+  const toggle = page.getByRole("switch", { name: "Show Shop whole look on phone" });
+  await toggle.waitFor({ timeout: 8_000 });
+  await page.waitForTimeout(800);
+  record("flow.flag.default-off", (await toggle.getAttribute("aria-checked")) === "false");
+  await toggle.click();
+  await page.getByText("Saved", { exact: true }).waitFor({ timeout: 8_000 });
+  await goto(page, "/admin");
+  const reloaded = page.getByRole("switch", { name: "Show Shop whole look on phone" });
+  await reloaded.waitFor({ timeout: 8_000 });
+  const persisted = await page
+    .waitForFunction(
+      () => document.querySelector('[role="switch"][aria-label="Show Shop whole look on phone"]')?.getAttribute("aria-checked") === "true",
+      null,
+      { timeout: 6_000 },
+    )
+    .then(() => true)
+    .catch(() => false);
+  record("flow.flag.persists-reload", persisted);
+
+  async function probe(path) {
+    await goto(page, path);
+    const pin = page.locator(".tag-pin").nth(1);
+    await pin.waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(800);
+    await pin.click();
+    const spotlightWhole = await page.locator(".look-plate-shop-whole").count();
+    await page.keyboard.press("Escape");
+    await page.locator(".look-plate-shop").click();
+    await page.locator(".look-sheet").waitFor({ timeout: 4_000 });
+    await page.waitForTimeout(450);
+    return page.evaluate((spot) => {
+      const whole = document.querySelector(".look-sheet-whole");
+      const cs = whole ? getComputedStyle(whole) : null;
+      return {
+        spotlightWhole: spot,
+        sheetWhole: Boolean(whole),
+        h: whole ? Math.round(whole.getBoundingClientRect().height) : null,
+        bg: cs?.backgroundColor,
+        band: [...document.querySelectorAll(".look-plate-meta *")].some((el) => /Shop whole look/.test(el.textContent || "")),
+      };
+    }, spotlightWhole);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const on = await probe("/looks/seed-sunday-coat");
+  record(
+    "flow.flag.phone-on",
+    on.sheetWhole && on.h >= 44 && on.bg === "rgba(0, 0, 0, 0)" && !on.band,
+    JSON.stringify(on),
+  );
+  await page.setViewportSize({ width: 834, height: 1194 });
+  const tabletOn = await probe("/looks/seed-sunday-coat");
+  record("flow.flag.tablet-on", tabletOn.sheetWhole, JSON.stringify(tabletOn));
+
+  await goto(page, "/admin");
+  await page.locator('[role="switch"][aria-label="Show Shop whole look on phone"][aria-checked="true"]').waitFor({ timeout: 8_000 });
+  await page.getByRole("switch", { name: "Show Shop whole look on phone" }).click();
+  await page.getByText("Saved", { exact: true }).waitFor({ timeout: 8_000 });
+  await page.setViewportSize({ width: 834, height: 1194 });
+  const tabletOff = await probe("/looks/seed-sunday-coat");
+  record("flow.flag.tablet-off-unchanged", tabletOff.sheetWhole === tabletOn.sheetWhole, JSON.stringify(tabletOff));
+  await page.setViewportSize({ width: 390, height: 844 });
+  const off = await probe("/looks/seed-sunday-coat");
+  record("flow.flag.phone-off", !off.sheetWhole && off.spotlightWhole === 0, JSON.stringify(off));
+}
+
 const phone = { viewport: { width: 390, height: 844 } };
 const desk = { viewport: { width: 1280, height: 800 } };
 
@@ -1812,6 +1881,11 @@ try {
     await prime(page);
     await flowPinCardClear(page);
   }, "ui-pins", phone);
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await flowShopWholePhoneFlag(page);
+  }, "ui-shop-whole-flag", phone);
 
   await withPage(browser, origin, async (page) => {
     await prime(page);

@@ -22,7 +22,7 @@ import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { firstShopTag } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
-import { chromeLayout } from "@/lib/pwa/use-wide-layout";
+import { chromeLayout, useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { useSettingsStore } from "@/lib/settings/store";
 
 export function LookPlate({
@@ -45,6 +45,10 @@ export function LookPlate({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
   const feedFollow = useSettingsStore((s) => s.feedFollow);
+  const shopWholeLookPhone = useSettingsStore((s) => s.shopWholeLookPhone);
+  const chrome = useChromeLayout();
+  /** Phone hides Shop whole look unless an operator turns the flag on; tablet keeps it. */
+  const showShopWhole = chrome !== "phone" || shopWholeLookPhone;
 
   useEffect(() => {
     hydrateSaved();
@@ -373,13 +377,15 @@ export function LookPlate({
             </button>
           </div>
           {spotlight ? (
-            <button
-              type="button"
-              className="look-plate-shop-whole"
-              onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}
-            >
-              Shop whole look
-            </button>
+            showShopWhole ? (
+              <button
+                type="button"
+                className="look-plate-shop-whole"
+                onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}
+              >
+                Shop whole look
+              </button>
+            ) : null
           ) : (
             <button type="button" className="look-plate-shop" onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}>
               Shop
@@ -394,7 +400,7 @@ export function LookPlate({
         open={shopSheetOpen}
         onClose={() => setShopSheetOpen(false)}
         onShopPiece={shop}
-        onShopWhole={shopWholeLook}
+        onShopWhole={showShopWhole ? shopWholeLook : undefined}
       />
 
       <AccountSheet
