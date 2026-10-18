@@ -15,7 +15,7 @@ export const FEATURE_FLAGS: readonly FeatureFlag[] = [
   {
     key: "shopWholeLookPhone",
     label: "Show Shop whole look on phone",
-    helper: "Adds a quiet Shop whole look link to the phone Shop sheet footer. Off by default.",
+    helper: "Adds a quiet Shop whole look action to the phone Shop sheet. Off by default.",
     scope: "Phone",
     default: false,
   },

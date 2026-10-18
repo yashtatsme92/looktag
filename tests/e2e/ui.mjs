@@ -1730,7 +1730,7 @@ async function flowShopWholePhoneFlag(page) {
   const on = await probe("/looks/seed-sunday-coat");
   record(
     "flow.flag.phone-on",
-    on.sheetWhole && on.h >= 44 && on.bg === "rgba(0, 0, 0, 0)" && !on.band,
+    on.sheetWhole && on.spotlightWhole === 0 && on.h >= 44 && on.bg === "rgba(0, 0, 0, 0)" && !on.band,
     JSON.stringify(on),
   );
   await page.setViewportSize({ width: 834, height: 1194 });

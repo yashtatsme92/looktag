@@ -25,6 +25,21 @@ import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout, useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { useSettingsStore } from "@/lib/settings/store";
 
+const FLAG_PHONE_QUERY = "(max-width: 599px)";
+
+/** The Shop whole look flag applies below 600px (native app always counts as phone). */
+function useFlagPhone() {
+  const [phone, setPhone] = useState(true);
+  useLayoutEffect(() => {
+    const query = window.matchMedia(FLAG_PHONE_QUERY);
+    const sync = () => setPhone(query.matches || document.documentElement.classList.contains("native-app"));
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+  return phone;
+}
+
 export function LookPlate({
   look,
   userState,
@@ -47,8 +62,10 @@ export function LookPlate({
   const feedFollow = useSettingsStore((s) => s.feedFollow);
   const shopWholeLookPhone = useSettingsStore((s) => s.shopWholeLookPhone);
   const chrome = useChromeLayout();
-  /** Phone hides Shop whole look unless an operator turns the flag on; tablet keeps it. */
-  const showShopWhole = chrome !== "phone" || shopWholeLookPhone;
+  const flagPhone = useFlagPhone();
+  /** Spotlight: phone chrome never shows Shop whole look. Sheet footer: hidden on phone (<600) unless the flag is on. */
+  const showSpotlightWhole = chrome !== "phone";
+  const showShopWhole = !flagPhone || shopWholeLookPhone;
 
   useEffect(() => {
     hydrateSaved();
@@ -377,7 +394,7 @@ export function LookPlate({
             </button>
           </div>
           {spotlight ? (
-            showShopWhole ? (
+            showSpotlightWhole ? (
               <button
                 type="button"
                 className="look-plate-shop-whole"
