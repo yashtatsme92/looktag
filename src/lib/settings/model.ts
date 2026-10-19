@@ -16,6 +16,7 @@ export type RankWeights = {
 export type AppSettings = {
   signupEmail: boolean;
   signupGoogle: boolean;
+  signupApple: boolean;
   signupX: boolean;
   labelsEnabled: boolean;
   searchEngine: SearchEngineId;
@@ -44,8 +45,9 @@ export type AppSettings = {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   signupEmail: true,
-  signupGoogle: true,
-  signupX: true,
+  signupGoogle: false,
+  signupApple: false,
+  signupX: false,
   labelsEnabled: true,
   searchEngine: "xai",
   searchCountry: "DE",
@@ -126,8 +128,8 @@ export function parseSettings(raw: unknown): AppSettings {
     typeof row.extras === "object" && row.extras ? (row.extras as Record<string, unknown>) : row;
   return {
     signupEmail: asBoolean(row.signupEmail, true),
-    signupGoogle: asBoolean(row.signupGoogle, true),
-    signupX: asBoolean(row.signupX, true),
+    signupGoogle: asBoolean(row.signupGoogle, false),
+    signupX: asBoolean(row.signupX, false),
     labelsEnabled: asBoolean(row.labelsEnabled, true),
     searchEngine: asEngine(extras.searchEngine ?? row.searchEngine),
     searchCountry: asCountry(extras.searchCountry ?? row.searchCountry),
@@ -158,6 +160,7 @@ export function parseSettings(raw: unknown): AppSettings {
     feedAuditJson: typeof (extras.feedAuditJson ?? row.feedAuditJson) === "string"
       ? String(extras.feedAuditJson ?? row.feedAuditJson).slice(0, 4000)
       : "",
+    signupApple: asBoolean(extras.signupApple ?? row.signupApple, false),
   };
 }
 
@@ -185,6 +188,7 @@ export function extrasFromSettings(settings: AppSettings): Record<string, unknow
     feedRunTitle: settings.feedRunTitle,
     feedRunIds: settings.feedRunIds,
     feedAuditJson: settings.feedAuditJson,
+    signupApple: settings.signupApple,
   };
 }
 
@@ -212,6 +216,7 @@ export const EXTRAS_KEYS = [
   "feedRunTitle",
   "feedRunIds",
   "feedAuditJson",
+  "signupApple",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 export function parseExtrasRecord(raw: unknown): Record<string, unknown> {
@@ -266,26 +271,28 @@ export function pickSettingsPatch(input: Partial<AppSettings>): Partial<AppSetti
 }
 
 export function hasSignupMethod(
-  settings: Pick<AppSettings, "signupEmail" | "signupGoogle" | "signupX">,
+  settings: Pick<AppSettings, "signupEmail" | "signupGoogle" | "signupApple" | "signupX">,
 ): boolean {
-  return settings.signupEmail || settings.signupGoogle || settings.signupX;
+  return settings.signupEmail || settings.signupGoogle || settings.signupApple || settings.signupX;
 }
 
 export function visibleOauthProviders(
-  settings: Pick<AppSettings, "signupGoogle" | "signupX">,
+  settings: Pick<AppSettings, "signupGoogle" | "signupApple" | "signupX">,
   providers: readonly OauthProvider[],
 ): OauthProvider[] {
   return providers.filter((provider) => {
     if (provider.idp === "google") return settings.signupGoogle;
+    if (provider.idp === "apple") return settings.signupApple;
     if (provider.idp === "twitter") return settings.signupX;
     return false;
   });
 }
 
 export function signupMethodCount(
-  settings: Pick<AppSettings, "signupEmail" | "signupGoogle" | "signupX">,
+  settings: Pick<AppSettings, "signupEmail" | "signupGoogle" | "signupApple" | "signupX">,
 ): number {
-  return Number(settings.signupEmail) + Number(settings.signupGoogle) + Number(settings.signupX);
+  return Number(settings.signupEmail) + Number(settings.signupGoogle) +
+    Number(settings.signupApple) + Number(settings.signupX);
 }
 
 export function rankWeights(

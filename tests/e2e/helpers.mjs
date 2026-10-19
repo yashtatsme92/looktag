@@ -323,9 +323,11 @@ export async function restoreStudioDefaults(page, origin) {
   await page.locator('[data-hydrated="true"]').waitFor({ timeout: 10_000 });
   await page.locator("#score-look").waitFor({ timeout: 10_000 });
   const google = page.getByRole("switch", { name: /Google sign-up/i });
+  const apple = page.getByRole("switch", { name: /Apple sign-up/i });
   const email = page.getByRole("switch", { name: /Email sign-up/i });
   const x = page.getByRole("switch", { name: /X sign-up/i });
   const houses = page.getByRole("switch", { name: "Show Houses" });
+  if (await apple.count()) await setSwitch(apple, true);
   if (await google.count()) await setSwitch(google, true);
   if (await email.count()) await setSwitch(email, true);
   if (await x.count()) await setSwitch(x, true);

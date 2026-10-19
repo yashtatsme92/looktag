@@ -45,7 +45,7 @@ export async function readSettings(): Promise<AppSettings> {
       insert into looktag_settings (
         id, signup_email, signup_google, signup_x, labels_enabled, extras_json, updated_at
       ) values (
-        ${SETTINGS_ID}, true, true, true, true, ${JSON.stringify(extrasFromSettings(DEFAULT_SETTINGS))}, ${Date.now()}
+        ${SETTINGS_ID}, true, false, false, true, ${JSON.stringify(extrasFromSettings(DEFAULT_SETTINGS))}, ${Date.now()}
       )
       on conflict (id) do nothing
     `;

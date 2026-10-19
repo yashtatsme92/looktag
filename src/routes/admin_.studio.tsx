@@ -87,16 +87,23 @@ function StudioAdmin() {
   }, [settings.labelsEnabled]);
 
   async function patch(next: Partial<AppSettings>) {
-    const merged = { ...settings, ...next };
+    if (next.signupGoogle === true && !settings.signupApple && next.signupApple !== true) {
+      toast.error("Enable Apple sign-in before Google.");
+      return;
+    }
+    const changes = next.signupApple === false && settings.signupGoogle
+      ? { ...next, signupGoogle: false }
+      : next;
+    const merged = { ...settings, ...changes };
     if (!hasSignupMethod(merged)) {
       toast.error("Leave at least one sign-up method on.");
       return;
     }
     try {
-      const saved = await settings.save(next);
-      if (typeof next.labelsEnabled === "boolean") {
+      const saved = await settings.save(changes);
+      if (typeof changes.labelsEnabled === "boolean") {
         refreshLooks();
-        if (next.labelsEnabled) {
+        if (changes.labelsEnabled) {
           const [rows, nextCollections] = await Promise.all([
             listRankedLabels(),
             listFashionCollections(),
@@ -137,8 +144,9 @@ function StudioAdmin() {
       <section className="mb-6 rounded-xl bg-card p-5 shadow-[var(--shadow-border)]">
         <h2 className="ds-card-title">Sign up</h2>
         <p className="mt-2 mb-4 text-sm text-muted-foreground">
-          Choose which ways people can create an account. Google and X still
-          work if someone finishes a window that was already open.
+          Choose which ways people can create an account. Apple must be on
+          before Google can be enabled. Disabled methods are also blocked on
+          the server.
         </p>
         <ul className="flex flex-col">
           <MethodRow
@@ -151,7 +159,14 @@ function StudioAdmin() {
             label="Google"
             hint="Opens a sign-in window."
             checked={settings.signupGoogle}
+            disabled={!settings.signupApple && !settings.signupGoogle}
             onChange={(checked) => void patch({ signupGoogle: checked })}
+          />
+          <MethodRow
+            label="Apple"
+            hint="Opens a sign-in window. Required to enable Google."
+            checked={settings.signupApple}
+            onChange={(checked) => void patch({ signupApple: checked })}
           />
           <MethodRow
             label="X"
@@ -479,11 +494,13 @@ function MethodRow({
   label,
   hint,
   checked,
+  disabled = false,
   onChange,
 }: {
   label: string;
   hint: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
@@ -492,7 +509,7 @@ function MethodRow({
         <p className="font-medium">{label}</p>
         <p className="text-xs leading-snug text-muted-foreground">{hint}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} aria-label={`${checked ? "Hide" : "Show"} ${label} sign-up`} />
+      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} aria-label={`${checked ? "Hide" : "Show"} ${label} sign-up`} />
     </li>
   );
 }
