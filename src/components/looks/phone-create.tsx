@@ -1,4 +1,7 @@
-import { Camera, ChevronLeft, ImagePlus, Plus, ScanSearch } from "lucide-react";
+import { useState } from "react";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { Camera, ChevronLeft, ImagePlus, Plus, ScanSearch, X } from "lucide-react";
+import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { CropStage } from "@/components/looks/crop-stage";
 import { StyleLinkField } from "@/components/labels/style-pin-note";
@@ -76,6 +79,7 @@ export function PhoneCreate(props: PhoneCreateProps) {
 }
 
 function PhotoEntry({
+  look,
   readingPhoto,
   photoError,
   dragOver,
@@ -86,10 +90,40 @@ function PhotoEntry({
 }: PhoneCreateProps) {
   const copy = getCreateUploadPresentation({ phone: true, reading: readingPhoto });
   const errorMessage = formatCreateUploadError(photoError);
+  const router = useRouter();
+  const navigate = useNavigate();
+  const [discardAsk, setDiscardAsk] = useState(false);
+  const unsaved = Boolean(look.imageSrc || look.tags.length > 0 || look.title.trim());
+
+  function leave() {
+    const index = (window.history.state as { __TSR_index?: number } | null)?.__TSR_index;
+    if (typeof index === "number" && index > 0) {
+      router.history.back();
+      return;
+    }
+    void navigate({ to: "/", replace: true });
+  }
+
+  function discard() {
+    try {
+      sessionStorage.removeItem(CREATE_DRAFT_KEY);
+    } catch {
+      // private mode
+    }
+    leave();
+  }
+
   return (
     <div className="create-paper">
       <header className="create-paper-bar">
-        <span className="w-11" />
+        <button
+          type="button"
+          className="create-paper-back w-11 justify-center"
+          aria-label="Close"
+          onClick={() => (unsaved ? setDiscardAsk(true) : leave())}
+        >
+          <X className="size-[18px]" strokeWidth={1.75} />
+        </button>
         <h1 className="create-paper-title">Create</h1>
         <span className="w-11" />
       </header>
@@ -133,6 +167,30 @@ function PhotoEntry({
           </div>
         </div>
       </div>
+      {discardAsk ? (
+        <div className="crop-outside-scrim">
+          <section
+            className="crop-outside-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-discard-title"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setDiscardAsk(false);
+            }}
+          >
+            <h2 id="create-discard-title">Discard this look?</h2>
+            <p>Your photo and pins will be lost.</p>
+            <div className="crop-outside-actions">
+              <button type="button" className="create-btn-ghost" autoFocus onClick={() => setDiscardAsk(false)}>
+                Keep
+              </button>
+              <button type="button" className="create-btn-primary" onClick={discard}>
+                Discard
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
