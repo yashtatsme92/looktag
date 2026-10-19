@@ -22,7 +22,7 @@ import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { firstShopTag } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
-import { chromeLayout, useChromeLayout } from "@/lib/pwa/use-wide-layout";
+import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { useSettingsStore } from "@/lib/settings/store";
 
 const FLAG_PHONE_QUERY = "(max-width: 599px)";
@@ -61,10 +61,9 @@ export function LookPlate({
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
   const feedFollow = useSettingsStore((s) => s.feedFollow);
   const shopWholeLookPhone = useSettingsStore((s) => s.shopWholeLookPhone);
-  const chrome = useChromeLayout();
   const flagPhone = useFlagPhone();
-  /** Spotlight: phone chrome never shows Shop whole look. Sheet footer: hidden on phone (<600) unless the flag is on. */
-  const showSpotlightWhole = chrome !== "phone";
+  /** Below 600px the spotlight never shows Shop whole look; the sheet footer shows it only when the flag is on. */
+  const showSpotlightWhole = !flagPhone;
   const showShopWhole = !flagPhone || shopWholeLookPhone;
 
   useEffect(() => {

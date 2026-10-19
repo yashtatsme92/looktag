@@ -1747,6 +1747,11 @@ async function flowShopWholePhoneFlag(page) {
   await page.setViewportSize({ width: 390, height: 844 });
   const off = await probe("/looks/seed-sunday-coat");
   record("flow.flag.phone-off", !off.sheetWhole && off.spotlightWhole === 0, JSON.stringify(off));
+  for (const width of [600, 700, 767]) {
+    await page.setViewportSize({ width, height: 900 });
+    const mid = await probe("/looks/seed-sunday-coat");
+    record(`flow.flag.off-${width}-matches-main`, mid.spotlightWhole === 1 && mid.sheetWhole, JSON.stringify(mid));
+  }
 }
 
 const phone = { viewport: { width: 390, height: 844 } };
