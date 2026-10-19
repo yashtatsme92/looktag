@@ -30,6 +30,7 @@ import { Route as HousesLabelIdRouteImport } from './routes/houses_.$labelId'
 import { Route as HousesApplyRouteImport } from './routes/houses_.apply'
 import { Route as LooksLookIdRouteImport } from './routes/looks.$lookId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
 import { Route as HousesLabelIdCollectionIdRouteImport } from './routes/houses_.$labelId_.$collectionId'
 import { Route as LooksLookIdEditRouteImport } from './routes/looks.$lookId_.edit'
 import { Route as HousesLabelIdCollectionIdStyleIdRouteImport } from './routes/houses_.$labelId_.$collectionId_.$styleId'
@@ -139,6 +140,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1MeRoute = ApiV1MeRouteImport.update({
+  id: '/api/v1/me',
+  path: '/api/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HousesLabelIdCollectionIdRoute =
   HousesLabelIdCollectionIdRouteImport.update({
     id: '/houses_/$labelId_/$collectionId',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/houses/apply': typeof HousesApplyRoute
   '/looks/$lookId': typeof LooksLookIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/me': typeof ApiV1MeRoute
   '/houses/$labelId/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId/edit': typeof LooksLookIdEditRoute
   '/houses/$labelId/$collectionId/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/houses/apply': typeof HousesApplyRoute
   '/looks/$lookId': typeof LooksLookIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/me': typeof ApiV1MeRoute
   '/houses/$labelId/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId/edit': typeof LooksLookIdEditRoute
   '/houses/$labelId/$collectionId/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   '/houses_/apply': typeof HousesApplyRoute
   '/looks/$lookId': typeof LooksLookIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/me': typeof ApiV1MeRoute
   '/houses_/$labelId_/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId_/edit': typeof LooksLookIdEditRoute
   '/houses_/$labelId_/$collectionId_/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
@@ -260,6 +269,7 @@ export interface FileRouteTypes {
     | '/houses/apply'
     | '/looks/$lookId'
     | '/api/auth/$'
+    | '/api/v1/me'
     | '/houses/$labelId/$collectionId'
     | '/looks/$lookId/edit'
     | '/houses/$labelId/$collectionId/$styleId'
@@ -286,6 +296,7 @@ export interface FileRouteTypes {
     | '/houses/apply'
     | '/looks/$lookId'
     | '/api/auth/$'
+    | '/api/v1/me'
     | '/houses/$labelId/$collectionId'
     | '/looks/$lookId/edit'
     | '/houses/$labelId/$collectionId/$styleId'
@@ -312,6 +323,7 @@ export interface FileRouteTypes {
     | '/houses_/apply'
     | '/looks/$lookId'
     | '/api/auth/$'
+    | '/api/v1/me'
     | '/houses_/$labelId_/$collectionId'
     | '/looks/$lookId_/edit'
     | '/houses_/$labelId_/$collectionId_/$styleId'
@@ -339,6 +351,7 @@ export interface RootRouteChildren {
   HousesApplyRoute: typeof HousesApplyRoute
   LooksLookIdRoute: typeof LooksLookIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiV1MeRoute: typeof ApiV1MeRoute
   HousesLabelIdCollectionIdRoute: typeof HousesLabelIdCollectionIdRoute
   LooksLookIdEditRoute: typeof LooksLookIdEditRoute
   HousesLabelIdCollectionIdStyleIdRoute: typeof HousesLabelIdCollectionIdStyleIdRoute
@@ -493,6 +506,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/me': {
+      id: '/api/v1/me'
+      path: '/api/v1/me'
+      fullPath: '/api/v1/me'
+      preLoaderRoute: typeof ApiV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/houses_/$labelId_/$collectionId': {
       id: '/houses_/$labelId_/$collectionId'
       path: '/houses/$labelId/$collectionId'
@@ -539,6 +559,7 @@ const rootRouteChildren: RootRouteChildren = {
   HousesApplyRoute: HousesApplyRoute,
   LooksLookIdRoute: LooksLookIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiV1MeRoute: ApiV1MeRoute,
   HousesLabelIdCollectionIdRoute: HousesLabelIdCollectionIdRoute,
   LooksLookIdEditRoute: LooksLookIdEditRoute,
   HousesLabelIdCollectionIdStyleIdRoute: HousesLabelIdCollectionIdStyleIdRoute,

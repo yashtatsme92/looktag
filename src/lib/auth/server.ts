@@ -29,6 +29,7 @@
  * components read the user via `@/lib/auth/use-current-user`; server functions get
  * a verified id via `@/lib/auth/middleware`.
  */
+import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { bearer, genericOAuth } from "better-auth/plugins";
@@ -40,6 +41,7 @@ import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { enforceSignInMethod, methodForAuthRequest } from "./method-gate";
+import { nativeTrustedOrigins } from "./native";
 import { GROK_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
 import { readSettings } from "../settings/store.server";
@@ -128,6 +130,39 @@ const trustedOrigins: string[] = explicitBaseURL
       ...LOCAL_DEV_ORIGINS,
     ];
 
+// Native app (Expo) deep-link origins for OAuth callbacks.
+trustedOrigins.push(...nativeTrustedOrigins);
+
+// Direct Google / Apple sign-in for the native app, enabled only when their
+// credentials are configured (the web app keeps using the broker providers).
+const googleClientId = env("GOOGLE_CLIENT_ID");
+const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
+const appleClientId = env("APPLE_CLIENT_ID");
+const appleClientSecret = env("APPLE_CLIENT_SECRET");
+const appleBundleId = env("APPLE_APP_BUNDLE_IDENTIFIER");
+if (appleClientId && appleClientSecret) {
+  trustedOrigins.push("https://appleid.apple.com");
+}
+const socialProviders = {
+  ...(googleClientId && googleClientSecret
+    ? {
+        google: {
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+        },
+      }
+    : {}),
+  ...(appleClientId && appleClientSecret
+    ? {
+        apple: {
+          clientId: appleClientId,
+          clientSecret: appleClientSecret,
+          ...(appleBundleId ? { appBundleIdentifier: appleBundleId } : {}),
+        },
+      }
+    : {}),
+};
+
 const databaseUrl = env("DATABASE_URL");
 
 // Static broker OAuth endpoints (skip OIDC discovery on every sign-in / callback).
@@ -186,6 +221,8 @@ export const auth = betterAuth({
   // See `trustedOrigins` construction above — must cover live preview hosts AND
   // local loopback variants, or clients get "Invalid origin".
   trustedOrigins,
+
+  socialProviders,
 
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
@@ -263,6 +300,10 @@ export const auth = betterAuth({
     // fires when an Authorization header is present, so the cookie path
     // (deployed apps) is unaffected.
     bearer(),
+
+    // Native app (Expo) support: Origin override + deep-link cookie hand-off.
+    // After `bearer()`; `tanstackStartCookies()` stays last.
+    expo(),
 
     // Bridges Better Auth's Set-Cookie into TanStack Start responses. MUST be
     // last so it runs after every other plugin's hooks.
