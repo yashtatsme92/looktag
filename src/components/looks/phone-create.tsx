@@ -9,6 +9,7 @@ import type { PhoneCreateStepId } from "@/lib/looks/create-steps";
 import { detectRetailer, getRetailer, RETAILERS } from "@/lib/looks/retailers";
 import type { CropRect } from "@/lib/looks/crop";
 import type { Look, ProductTag } from "@/lib/looks/types";
+import { useKeyboardDock } from "@/components/looks/use-keyboard-dock";
 import { cn } from "@/lib/utils";
 
 type PhoneCreateProps = {
@@ -62,6 +63,7 @@ type PhoneCreateProps = {
 
 export function PhoneCreate(props: PhoneCreateProps) {
   const { step } = props;
+  useKeyboardDock();
   return (
     <>
       {step === "photo" ? <PhotoEntry {...props} /> : null}
@@ -151,6 +153,7 @@ function PinPlate({
   onDonePins,
   onLibrary,
   onStep,
+  mode,
 }: PhoneCreateProps) {
   const selected = look.tags.find((tag) => tag.id === selectedId) ?? null;
   const hint = finding
@@ -160,7 +163,7 @@ function PinPlate({
       : "Tap the look to place a pin";
 
   return (
-    <div className="create-plate">
+    <div className="create-plate" data-step={step} data-kb-root>
       <header className="create-plate-bar">
         <button
           type="button"
@@ -171,7 +174,7 @@ function PinPlate({
               onStep("pins");
               return;
             }
-            onStep("crop");
+            onStep(mode === "edit" ? "publish" : "crop");
           }}
         >
           <ChevronLeft className="size-[18px]" strokeWidth={1.75} />
@@ -288,9 +291,11 @@ function PieceChip({
         }}
       />
       <StyleLinkField styleId={tag.styleId} onChange={(styleId) => onChange({ ...tag, styleId })} />
-      <button type="button" className="create-btn-primary" onClick={onDone}>
-        Done
-      </button>
+      <div className="create-piece-dock" data-kb-dock>
+        <button type="button" className="create-btn-primary" onClick={onDone}>
+          Done
+        </button>
+      </div>
       <button type="button" className="create-piece-remove" onClick={onRemove}>
         Remove
       </button>
@@ -306,7 +311,7 @@ function applyRetailer(tag: ProductTag, text: string): ProductTag {
 
 function DetailsStep({ look, onPatch, onStep, onContinueDetails, onEditCrop }: PhoneCreateProps) {
   return (
-    <div className="create-paper">
+    <div className="create-paper" data-kb-root>
       <header className="create-paper-bar">
         <button type="button" className="create-paper-back" onClick={() => onStep("pins")}>
           <ChevronLeft className="size-[18px]" strokeWidth={1.75} />
@@ -353,7 +358,7 @@ function DetailsStep({ look, onPatch, onStep, onContinueDetails, onEditCrop }: P
           onChange={(event) => onPatch({ caption: event.target.value })}
         />
       </div>
-      <div className="create-paper-dock">
+      <div className="create-paper-dock" data-kb-dock>
         <button type="button" className="create-btn-primary" onClick={onContinueDetails}>
           Continue
         </button>
@@ -420,9 +425,10 @@ function ReadyStep({
 }
 
 function CropStep({
+  mode,
   look,
   cropReady,
-  cropEditing,
+  cropEditing: cropEditingProp,
   outsideCropPins,
   onStep,
   onCropReady,
@@ -439,6 +445,7 @@ function CropStep({
   onDiscardCrop,
   onKeepEditingCrop,
 }: PhoneCreateProps) {
+  const cropEditing = cropEditingProp || mode === "edit";
   const title = cropEditing ? "Edit crop" : "Crop";
   return (
     <section className="create-crop-step" aria-label={title}>

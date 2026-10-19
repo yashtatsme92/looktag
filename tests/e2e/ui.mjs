@@ -998,6 +998,15 @@ async function flowSignedInEdit(page) {
     pieceEditorIsFooter(piece.cardTop, piece.cardBottom, piece.plateTop, piece.plateBottom),
     JSON.stringify(piece),
   );
+  record("flow.edit.no-tab-bar", (await page.locator(".tab-bar").count()) === 0);
+  await page.locator(".create-plate-back").click();
+  await page.locator(".create-plate-back").click();
+  await page.getByRole("heading", { name: "Edit look" }).waitFor({ timeout: 5_000 });
+  record(
+    "flow.edit.pins-back-to-save",
+    (await page.getByRole("button", { name: "Change photo" }).count()) === 0 &&
+      (await page.getByRole("button", { name: "Skip" }).count()) === 0,
+  );
 }
 
 /** The decorative hangtag chip is a phone-only element: hidden (display none) on tablet and desktop. */

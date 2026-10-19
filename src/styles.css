@@ -1459,7 +1459,38 @@ html[data-theme="moss"] {
     flex-direction: column;
     gap: 0.5rem;
     margin-top: auto;
-    padding: 0.5rem 1rem 1rem;
+    padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
+  }
+
+  /* Phone: one Done per step. The pin step keeps the bottom Done beside Add pin; the piece card keeps its own primary. */
+  html[data-chrome="phone"] .create-plate .create-plate-done {
+    visibility: hidden;
+  }
+
+  [data-kb="open"] [data-kb-dock] {
+    position: fixed;
+    right: 0;
+    left: 0;
+    z-index: 60;
+    transform: translateY(-100%);
+    margin: 0;
+    padding-bottom: 0.5rem;
+    background: #f4f4f4;
+    box-shadow: 0 -1px 0 rgb(224 224 224 / 0.8);
+  }
+
+  [data-kb="open"] .create-details,
+  [data-kb="open"] .create-piece {
+    padding-bottom: var(--kb-pad, 1rem);
+  }
+
+  [data-kb="open"] .create-piece {
+    max-height: 100%;
+  }
+
+  [data-kb="open"] .create-piece [data-kb-dock] {
+    padding: 0.5rem 1rem;
+    background: #fff;
   }
 
   .create-crop-step {
