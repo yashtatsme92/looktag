@@ -65,11 +65,68 @@ async function assertLoginMethods(browser, viewport, expected) {
           );
           assert.equal(providerPrecedesAdmin, true, "enabled provider is primary");
         }
-        await adminSignIn.click();
+        if (expected.length > 0) {
+          const providerButton = page.getByRole("button", { name: `Continue with ${expected[0]}` });
+          const alert = page.getByRole("alert").filter({ hasText: /sign-in|wrong|fail/i });
+          await page.route("**/api/auth/**sign-in/**", (route) =>
+            route.fulfill({ status: 500, contentType: "application/json", body: "{}" }),
+          );
+          await providerButton.click();
+          await alert.waitFor({ timeout: 10_000 });
+          assert.equal(await providerButton.isEnabled(), true, "button re-enabled after failure");
+          await page.unroute("**/api/auth/**sign-in/**");
+          let hung;
+          await page.route("**/api/auth/**sign-in/**", (route) => {
+            hung = route;
+          });
+          await providerButton.click();
+          await alert.waitFor({ state: "hidden", timeout: 2_000 });
+          await alert.waitFor({ timeout: 12_000 });
+          assert.equal(await providerButton.isEnabled(), true, "button re-enabled after timeout");
+          if (hung) await hung.abort("failed");
+          await page.unroute("**/api/auth/**sign-in/**", { behavior: "ignoreErrors" });
+        }
+        await page.goto(`${origin}/login?next=%2Fcreate`, {
+          waitUntil: "domcontentloaded",
+          timeout: 20_000,
+        });
+        await page.locator('[data-settings-hydrated="true"]').waitFor({ timeout: 10_000 });
+        await page.getByRole("button", { name: "Admin sign in" }).click();
         await page.locator("#creator-email").waitFor({ timeout: 10_000 });
       }
     },
     `auth-methods-login-${viewport.width}`,
+    { viewport },
+  );
+}
+
+async function assertProviderCopy(browser, viewport, label) {
+  await withPage(
+    browser,
+    origin,
+    async (page) => {
+      await page.goto(`${origin}/login?next=%2Fcreate`, {
+        waitUntil: "domcontentloaded",
+        timeout: 20_000,
+      });
+      await page.locator('[data-settings-hydrated="true"]').waitFor({ timeout: 10_000 });
+      const button = page.getByRole("button", { name: `Continue with ${label}` });
+      await button.waitFor({ timeout: 10_000 });
+      await page.route("**/api/auth/**sign-in/**", (route) =>
+        route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
+      );
+      try {
+        await button.click();
+        const alert = page.getByRole("alert").last();
+        await alert.waitFor({ timeout: 10_000 });
+        const text = ((await alert.textContent()) ?? "").trim();
+        assert.equal(text, "That sign-in did not complete. Try again or use another method.");
+        assert.equal(/email/i.test(text), false, `${label} error must not mention email`);
+      } finally {
+        await page.unroute("**/api/auth/**sign-in/**", { behavior: "ignoreErrors" });
+      }
+    },
+    `auth-methods-copy-${label}-${viewport.width}`,
     { viewport },
   );
 }
@@ -188,6 +245,19 @@ try {
         );
         assert.equal(adminEmailStatus, 200, "admin email sign-in remains available");
         await assertLoginMethods(browser, viewport, ["Apple", "X"]);
+        // Google cannot be stored without Apple. Apple-only and X-only are real
+        // switches; the Google case leaves Apple on and still must not say "email".
+        await setSwitch(x, false);
+        await assertProviderCopy(browser, viewport, "Apple");
+        await setSwitch(x, true);
+        await setSwitch(apple, false);
+        await assertProviderCopy(browser, viewport, "X");
+        await setSwitch(apple, true);
+        await setSwitch(google, true);
+        await setSwitch(x, false);
+        await assertProviderCopy(browser, viewport, "Google");
+        await setSwitch(google, false);
+        await setSwitch(x, true);
         await assertForbiddenRoutes(
           page,
           [

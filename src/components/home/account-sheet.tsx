@@ -4,6 +4,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { clearPendingSave, rememberPendingSave } from "@/lib/looks/pending-save";
+import { useSettingsStore } from "@/lib/settings/store";
 import "./account-sheet.css";
 
 export function AccountSheet({
@@ -29,6 +30,7 @@ export function AccountSheet({
   pendingSave?: string;
 }) {
   const here = useRouterState({ select: (s) => s.location.href });
+  const emailOn = useSettingsStore((s) => s.signupEmail);
   const target = next ?? (intent === "save" ? here : "/");
   const [email, setEmail] = useState("");
   const emailId = useId();
@@ -76,27 +78,31 @@ export function AccountSheet({
           {description ? <DrawerDescription>{description}</DrawerDescription> : null}
         </DrawerHeader>
         <div className="flex flex-col gap-2 px-5 pt-2 pb-6">
-          <label className="text-sm font-medium" htmlFor={emailId}>
-            Email
-          </label>
-          <Input
-            ref={emailRef}
-            id={emailId}
-            type="email"
-            autoComplete="email"
-            maxLength={254}
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-          <Button asChild className="h-11">
-            <Link
-              to="/login"
-              search={{ next: target, email, intent: intent === "save" ? "save" : undefined }}
-              onClick={continueWithEmail}
-            >
-              {primary}
-            </Link>
-          </Button>
+          {emailOn ? (
+            <>
+              <label className="text-sm font-medium" htmlFor={emailId}>
+                Email
+              </label>
+              <Input
+                ref={emailRef}
+                id={emailId}
+                type="email"
+                autoComplete="email"
+                maxLength={254}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+              <Button asChild className="h-11">
+                <Link
+                  to="/login"
+                  search={{ next: target, email, intent: intent === "save" ? "save" : undefined }}
+                  onClick={continueWithEmail}
+                >
+                  {primary}
+                </Link>
+              </Button>
+            </>
+          ) : null}
           <Button type="button" variant="ghost" className="h-11" onClick={() => onSheetOpenChange(false)}>
             {secondary}
           </Button>
