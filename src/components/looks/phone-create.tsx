@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useNavigate, useRouter } from "@tanstack/react-router";
 import { Camera, ChevronLeft, ImagePlus, Plus, ScanSearch, X } from "lucide-react";
-import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
+import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { CropStage } from "@/components/looks/crop-stage";
 import { StyleLinkField } from "@/components/labels/style-pin-note";
@@ -58,6 +57,7 @@ type PhoneCreateProps = {
   onPublish: () => void;
   onSaveDraft: () => void;
   onCancel: () => void;
+  onReset?: () => void;
   onDragOver: (over: boolean) => void;
   onFiles: (files: FileList | null) => void | Promise<void>;
   onCamera: () => void;
@@ -87,43 +87,30 @@ function PhotoEntry({
   onFiles,
   onCamera,
   onLibrary,
+  onCancel,
+  onReset,
 }: PhoneCreateProps) {
   const copy = getCreateUploadPresentation({ phone: true, reading: readingPhoto });
   const errorMessage = formatCreateUploadError(photoError);
-  const router = useRouter();
-  const navigate = useNavigate();
+  const chrome = useChromeLayout();
   const [discardAsk, setDiscardAsk] = useState(false);
-  const unsaved = Boolean(look.imageSrc || look.tags.length > 0 || look.title.trim());
-
-  function leave() {
-    const index = (window.history.state as { __TSR_index?: number } | null)?.__TSR_index;
-    if (typeof index === "number" && index > 0) {
-      router.history.back();
-      return;
-    }
-    void navigate({ to: "/", replace: true });
-  }
-
-  function discard() {
-    try {
-      sessionStorage.removeItem(CREATE_DRAFT_KEY);
-    } catch {
-      // private mode
-    }
-    leave();
-  }
+  const unsaved = look.tags.length > 0 || Boolean(look.title.trim());
 
   return (
     <div className="create-paper">
       <header className="create-paper-bar">
-        <button
-          type="button"
-          className="create-paper-back w-11 justify-center"
-          aria-label="Close"
-          onClick={() => (unsaved ? setDiscardAsk(true) : leave())}
-        >
-          <X className="size-[18px]" strokeWidth={1.75} />
-        </button>
+        {chrome === "phone" ? (
+          <button
+            type="button"
+            className="create-paper-back w-11 justify-center"
+            aria-label="Close"
+            onClick={() => (unsaved ? setDiscardAsk(true) : onCancel())}
+          >
+            <X className="size-[18px]" strokeWidth={1.75} />
+          </button>
+        ) : (
+          <span className="w-11" />
+        )}
         <h1 className="create-paper-title">Create</h1>
         <span className="w-11" />
       </header>
@@ -176,15 +163,30 @@ function PhotoEntry({
             aria-labelledby="create-discard-title"
             onKeyDown={(event) => {
               if (event.key === "Escape") setDiscardAsk(false);
+              if (event.key === "Tab") {
+                const items = event.currentTarget.querySelectorAll("button");
+                const first = items[0];
+                const last = items[items.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                  event.preventDefault();
+                  last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                  event.preventDefault();
+                  first.focus();
+                }
+              }
             }}
           >
             <h2 id="create-discard-title">Discard this look?</h2>
-            <p>Your photo and pins will be lost.</p>
+            <p>Your pins and details will be lost.</p>
             <div className="crop-outside-actions">
               <button type="button" className="create-btn-ghost" autoFocus onClick={() => setDiscardAsk(false)}>
                 Keep
               </button>
-              <button type="button" className="create-btn-primary" onClick={discard}>
+              <button type="button" className="create-btn-primary" onClick={() => {
+                onReset?.();
+                onCancel();
+              }}>
                 Discard
               </button>
             </div>

@@ -122,7 +122,7 @@ function Login() {
       return;
     }
     if (next) {
-      await navigate({ to: dest as "/" });
+      await navigate({ to: dest as "/", replace: true });
       return;
     }
     if (userId) {
@@ -204,7 +204,7 @@ function Login() {
 
   if (youSessionSignedIn(sessionState) && user && !busy) {
     if (next === "/login") return <Navigate to="/login" search={{}} />;
-    if (next) return <Navigate to={dest as "/"} />;
+    if (next) return <Navigate to={dest as "/"} replace />;
     return (
       <AppShell title="You" header="hidden" flush>
         <YouHome user={user} />

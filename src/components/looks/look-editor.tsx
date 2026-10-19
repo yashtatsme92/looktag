@@ -576,6 +576,7 @@ export function LookEditor({
           onPublish={requestPublish}
           onSaveDraft={requestDraft}
           onCancel={onCancel}
+          onReset={onReset}
           onDragOver={setDragOver}
           onFiles={handleFiles}
           onCamera={() => cameraRef.current?.click()}

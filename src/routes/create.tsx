@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { LookEditor } from "@/components/looks/look-editor";
@@ -66,6 +66,7 @@ const PLACEHOLDER_LOOK: Look = {
 
 function CreateLook() {
   const navigate = useNavigate();
+  const router = useRouter();
   const addLook = useLooksStore((s) => s.addLook);
   const { user, isPending } = useCurrentUserState();
   const [look, setLook] = useState<Look>(PLACEHOLDER_LOOK);
@@ -108,7 +109,10 @@ function CreateLook() {
           clearDraft();
           setLook(emptyLook({ creator: user?.displayName?.trim() || "You", userId: user?.id ?? "" }));
         }}
-        onCancel={() => navigate({ to: "/" })}
+        onCancel={() => {
+          if (router.history.canGoBack()) router.history.back();
+          else void navigate({ to: "/", replace: true });
+        }}
         onSave={async () => {
           if (isPending && !user) {
             toast.message("Still checking your account. Try again in a moment.");
