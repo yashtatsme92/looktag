@@ -417,6 +417,7 @@ export function LookPlate({
         onClose={() => setShopSheetOpen(false)}
         onShopPiece={shop}
         onShopWhole={showShopWhole ? shopWholeLook : undefined}
+        phoneWholeLook={flagPhone}
       />
 
       <AccountSheet

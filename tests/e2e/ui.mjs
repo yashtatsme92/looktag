@@ -1739,6 +1739,7 @@ async function flowShopWholePhoneFlag(page) {
       const wideWhole = document.querySelector(".wide-panel-ft button");
       const action = whole || wideWhole;
       const cs = whole ? getComputedStyle(whole) : null;
+      const wideCs = wideWhole ? getComputedStyle(wideWhole) : null;
       const rect = action?.getBoundingClientRect();
       const text = document.body.innerText;
       return {
@@ -1747,6 +1748,9 @@ async function flowShopWholePhoneFlag(page) {
         footerText: whole?.innerText.trim().replace(/\s+/g, " ") || "",
         footerExternalIcon: Boolean(whole?.querySelector("svg.lucide-external-link")),
         footerCount: document.querySelectorAll(".look-sheet-whole").length,
+        wideActionText: wideWhole?.innerText.trim().replace(/\s+/g, " ") || "",
+        wideActionExternalIcon: Boolean(wideWhole?.querySelector("svg.lucide-external-link")),
+        wideActionBorder: wideCs?.borderColor,
         actionBox: rect ? [rect.x, rect.y, rect.width, rect.height].map(Math.round) : null,
         h: whole ? Math.round(whole.getBoundingClientRect().height) : null,
         bg: cs?.backgroundColor,
@@ -1853,6 +1857,7 @@ async function flowShopWholePhoneFlag(page) {
   const wideWidths = [
     { width: 768, height: 1024 },
     { width: 834, height: 1194 },
+    { width: 1024, height: 768 },
     { width: 1280, height: 800 },
   ];
   const wideOn = [];
@@ -1860,11 +1865,18 @@ async function flowShopWholePhoneFlag(page) {
     await page.setViewportSize({ width, height });
     const result = await probe("/looks/seed-sunday-coat");
     wideOn.push(result);
+    const expected = width < 1024
+      ? result.sheetWhole &&
+        result.footerText === "Shop whole look" &&
+        result.footerExternalIcon &&
+        result.border === "rgb(17, 17, 17)"
+      : !result.sheetWhole &&
+        result.wideActionText === "Shop whole look" &&
+        result.wideActionBorder === "rgba(17, 17, 17, 0.16)" &&
+        !result.wideActionExternalIcon;
     record(
       `flow.flag.wide-on-${width}`,
-      result.spotlightWhole === (width < 1024 ? 1 : 0) &&
-        result.sheetWhole === (width < 1024) &&
-        result.bodyWholeCount === 1,
+      result.spotlightWhole === (width < 1024 ? 1 : 0) && expected && result.bodyWholeCount === 1,
       JSON.stringify(result),
     );
   }
@@ -1877,12 +1889,23 @@ async function flowShopWholePhoneFlag(page) {
     await page.setViewportSize({ width, height });
     const result = await probe("/looks/seed-sunday-coat");
     const main = wideOn[wideWidths.findIndex((size) => size.width === width)];
+    const unchanged = width < 1024
+      ? result.footerText === "Shop whole look" &&
+      result.footerExternalIcon &&
+      result.border === "rgb(17, 17, 17)"
+      : result.wideActionText === "Shop whole look" &&
+      result.wideActionBorder === "rgba(17, 17, 17, 0.16)" &&
+      !result.wideActionExternalIcon;
     record(
       `flow.flag.wide-off-unchanged-${width}`,
       result.spotlightWhole === main.spotlightWhole &&
-        result.sheetWhole === main.sheetWhole &&
-        JSON.stringify(result.spotlightBox) === JSON.stringify(main.spotlightBox) &&
-        JSON.stringify(result.actionBox) === JSON.stringify(main.actionBox),
+      result.sheetWhole === main.sheetWhole &&
+      unchanged &&
+      result.footerText === main.footerText &&
+      result.footerExternalIcon === main.footerExternalIcon &&
+      result.wideActionText === main.wideActionText &&
+      JSON.stringify(result.spotlightBox) === JSON.stringify(main.spotlightBox) &&
+      JSON.stringify(result.actionBox) === JSON.stringify(main.actionBox),
       JSON.stringify({ on: main, off: result }),
     );
   }
