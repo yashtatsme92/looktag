@@ -1,5 +1,6 @@
 import { getRequest } from "@tanstack/react-start/server";
 import { gateIdentityEnabled } from "./gate-identity.server";
+import { bearerFromHeaders, bearerOnlyHeaders } from "./native";
 import { auth, authConfigured } from "./server";
 
 /**
@@ -60,11 +61,11 @@ export async function getSessionUser(
   if (!authConfigured && !gateIdentityEnabled()) return null;
   const request = getRequest();
   if (!request) return null;
-  let headers = request.headers;
-  if (bearerToken) {
-    headers = new Headers(request.headers);
-    headers.set("Authorization", `Bearer ${bearerToken}`);
-  }
+  const token = bearerToken ?? bearerFromHeaders(request.headers);
+  // Token present -> authenticate by token ONLY (no cookie fallback).
+  const headers = token
+    ? bearerOnlyHeaders(request.headers, token)
+    : request.headers;
   const session = await auth.api.getSession({ headers });
   if (!session?.user) return null;
   return { id: session.user.id, email: session.user.email ?? null };
