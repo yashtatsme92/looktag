@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { pgliteDestinations, resolvePgliteCopyTargets } from "./copy-pglite-assets.mjs";
+import { findPgliteAssetDirs, pgliteDestinations, resolvePgliteCopyTargets } from "./copy-pglite-assets.mjs";
 
 test("lists Node server and Vercel destinations without preferring either", () => {
   const dests = pgliteDestinations("/app");
@@ -29,4 +29,23 @@ test("discovers a traced pglite module in the Nitro server output", () => {
   writeFileSync(join(chunkDir, "pglite.mjs"), "export {}\n");
   const targets = resolvePgliteCopyTargets(root);
   assert.ok(targets.includes(chunkDir));
+});
+
+test("copies beside a chunk that loads pglite.wasm even when the filename does not say pglite", () => {
+  const root = mkdtempSync(join(tmpdir(), "pglite-ref-"));
+  const chunkDir = join(root, ".output/server/chunks");
+  mkdirSync(chunkDir, { recursive: true });
+  writeFileSync(join(chunkDir, "index.mjs"), 'const wasm = new URL("pglite.wasm", import.meta.url);\n');
+  const dirs = findPgliteAssetDirs(root);
+  assert.ok(dirs.includes(chunkDir));
+  assert.ok(resolvePgliteCopyTargets(root).includes(chunkDir));
+});
+
+test("copies into a traced @electric-sql/pglite package directory", () => {
+  const root = mkdtempSync(join(tmpdir(), "pglite-pkg-"));
+  const dist = join(root, ".output/server/node_modules/@electric-sql/pglite/dist");
+  mkdirSync(dist, { recursive: true });
+  writeFileSync(join(dist, "index.js"), "export {}\n");
+  const dirs = findPgliteAssetDirs(root);
+  assert.ok(dirs.includes(dist));
 });
