@@ -91,6 +91,7 @@ export function AccountSheet({
           <Button asChild className="h-11">
             <Link
               to="/login"
+              replace
               search={{ next: target, email, intent: intent === "save" ? "save" : undefined }}
               onClick={continueWithEmail}
             >

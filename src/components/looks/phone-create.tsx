@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Camera, ChevronLeft, ImagePlus, Plus, ScanSearch, X } from "lucide-react";
-import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { CropStage } from "@/components/looks/crop-stage";
 import { StyleLinkField } from "@/components/labels/style-pin-note";
@@ -92,25 +91,21 @@ function PhotoEntry({
 }: PhoneCreateProps) {
   const copy = getCreateUploadPresentation({ phone: true, reading: readingPhoto });
   const errorMessage = formatCreateUploadError(photoError);
-  const chrome = useChromeLayout();
   const [discardAsk, setDiscardAsk] = useState(false);
   const unsaved = look.tags.length > 0 || Boolean(look.title.trim());
 
   return (
     <div className="create-paper">
       <header className="create-paper-bar">
-        {chrome === "phone" ? (
-          <button
-            type="button"
-            className="create-paper-back w-11 justify-center"
-            aria-label="Close"
-            onClick={() => (unsaved ? setDiscardAsk(true) : onCancel())}
-          >
-            <X className="size-[18px]" strokeWidth={1.75} />
-          </button>
-        ) : (
-          <span className="w-11" />
-        )}
+        <button
+          type="button"
+          className="create-paper-back create-paper-close w-11 justify-center"
+          aria-label="Close"
+          onClick={() => (unsaved ? setDiscardAsk(true) : onCancel())}
+        >
+          <X className="size-[18px]" strokeWidth={1.75} />
+        </button>
+        <span className="create-paper-close-spacer w-11" />
         <h1 className="create-paper-title">Create</h1>
         <span className="w-11" />
       </header>
