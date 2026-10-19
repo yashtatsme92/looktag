@@ -234,7 +234,7 @@ export function CropStage({
               src={imageSrc}
               alt=""
               draggable={false}
-              className="crop-frame-image"
+              className={`crop-frame-image${ready ? " is-loaded" : ""}`}
               style={imageStyle}
             />
             <span className="crop-frame-grid" aria-hidden />

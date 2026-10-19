@@ -7,6 +7,10 @@ import { BecausePlate, RunPlate, ShowLess } from "@/components/home/feed-modules
 import { FollowButton } from "@/components/home/follow-button";
 import { FollowingHousePlate } from "@/components/home/following-card";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
+import { FeedLoadError } from "@/components/ds/feed-error";
+import { FeedTabs } from "@/components/ds/feed-tabs";
+import { ImgSlot } from "@/components/ds/img-slot";
+import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
 import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { pickFeedStyle, type FashionCollection, type FashionLabel, type FashionStyle } from "@/lib/labels/model";
@@ -39,6 +43,9 @@ import {
 } from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { loadingCache } from "@/lib/loading/cache";
+import { useDelayedLoad } from "@/lib/loading/delayed-load";
+import { settleLoad } from "@/lib/loading/test-delay";
 import { shareOrCopy } from "@/lib/looks/share";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
@@ -51,6 +58,7 @@ type EchoMode = "feed" | "lane" | "creator" | "following";
 export function EchoHome({ looks }: { looks: Look[] }) {
   const deck = useMemo(() => looks.filter((look) => look.imageSrc), [looks]);
   const [mode, setMode] = useState<EchoMode>("feed");
+  const [followRetry, setFollowRetry] = useState(0);
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
@@ -85,6 +93,30 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const runEvery = useSettingsStore((s) => s.feedRunEvery);
   const runTitle = useSettingsStore((s) => s.feedRunTitle);
   const runIds = useSettingsStore((s) => s.feedRunIds);
+  const followingLoad = useDelayedLoad(
+    () =>
+      mode === "following"
+        ? settleLoad(
+            Promise.all([listFashionLabels(), listFashionCollections(), listFashionStyles()]).then(
+              ([nextLabels, nextCollections, nextStyles]) => ({ nextLabels, nextCollections, nextStyles }),
+            ),
+          )
+        : Promise.resolve(null),
+    {
+      cacheKey: mode === "following" ? `feed:following:${followRetry}` : "feed:following:idle",
+      getScroll: () => scrollerRef.current?.scrollTop ?? 0,
+      setScroll: (y) => {
+        if (scrollerRef.current) scrollerRef.current.scrollTop = y;
+      },
+    },
+  );
+  useDelayedLoad(() => Promise.resolve(deck.length), {
+    cacheKey: "feed:phone",
+    getScroll: () => scrollerRef.current?.scrollTop ?? 0,
+    setScroll: (y) => {
+      if (scrollerRef.current) scrollerRef.current.scrollTop = y;
+    },
+  });
 
   useEffect(() => {
     hydrateSaved();
@@ -152,6 +184,10 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     [deck, feedFreshOn, feedSavesOn, freshWindow, lessIds, now, savedIds],
   );
   const echoLane = useEchoLane(anchor, deck, tuned, { enabled: mode === "lane", limit: 1 });
+  const laneLoad = useDelayedLoad(
+    () => (mode === "lane" ? settleLoad(echoLane) : Promise.resolve(echoLane)),
+    { cacheKey: mode === "lane" && anchor ? `echo:${anchor.id}:${trail.join("|")}` : "echo:idle" },
+  );
   const plates = useMemo(() => {
     if (!anchor) return [];
     if (mode === "following") return followingLooks(deck, followed);
@@ -173,6 +209,12 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
+    const saved = loadingCache.get<number>("feed:phone");
+    if (saved?.scrollY != null && saved.scrollY > 1 && mode === "feed") {
+      indexRef.current = el.clientHeight > 0 ? Math.round(saved.scrollY / el.clientHeight) : 0;
+      el.scrollTop = saved.scrollY;
+      return;
+    }
     indexRef.current = 0;
     el.scrollTop = 0;
     // Chrome re-snaps this mandatory feed to the last plate once, before any
@@ -348,6 +390,11 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const runLooks = run ? run.lookIds.map((id) => deck.find((look) => look.id === id)).filter((look): look is Look => Boolean(look)) : [];
   const becauseAt = becauseEvery - 1;
   const runAt = runEvery - 1;
+  const followSkeleton = mode === "following" && followingLoad.phase === "skeleton";
+  const followError = mode === "following" && followingLoad.phase === "error";
+  const followWaiting = mode === "following" && followingLoad.phase === "waiting";
+  const showFollowing = mode === "following" && (followingLoad.phase === "ready" || followWaiting);
+  const laneSkeleton = mode === "lane" && laneLoad.phase === "skeleton";
 
   return (
     <div className={cn("echo-stage", paperBar && "echo-stage-paper")} data-mode={mode}>
@@ -363,26 +410,19 @@ export function EchoHome({ looks }: { looks: Look[] }) {
           <span className="echo-wordmark">Looktag</span>
         )}
         {feedFollowOn && (mode === "feed" || mode === "following") ? (
-          <nav className="echo-tabs" aria-label="Looks">
-            <button type="button" aria-current={mode === "feed" ? "page" : undefined} onClick={() => setMode("feed")}>
-              For you
-            </button>
-            <button
-              type="button"
-              aria-current={mode === "following" ? "page" : undefined}
-              aria-label={unseen > 0 ? `Following, ${unseen} new` : "Following"}
-              onClick={openFollowing}
-            >
-              Following
-              {unseen > 0 && mode !== "following" ? <span className="echo-dot" aria-hidden /> : null}
-            </button>
-          </nav>
+          <FeedTabs
+            variant="echo"
+            mode={mode === "following" ? "following" : "feed"}
+            unseen={unseen}
+            onFeed={() => setMode("feed")}
+            onFollowing={openFollowing}
+          />
         ) : null}
       </header>
 
       {mode === "lane" ? <p className="echo-lane-label">More like this</p> : null}
       {mode === "lane" && feedTrailOn ? (
-        <div className="echo-chips">
+        <div className="echo-chips echo-lane">
           {trail.length > 0 ? (
             <>
               <ol className="echo-crumbs">
@@ -406,16 +446,29 @@ export function EchoHome({ looks }: { looks: Look[] }) {
 
       <div
         ref={scrollerRef}
-        className="echo-snap"
+        className={cn("echo-snap", mode === "lane" && "echo-lane", followWaiting && "is-loading-old")}
         onScroll={onScroll}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
       >
-        {mode === "following"
-          ? null
-          : plates.flatMap((look, plateIndex) => {
+        {followSkeleton ? (
+          <div className="echo-skeleton-pad">
+            <SkeletonGrid count={8} captions />
+          </div>
+        ) : followError ? (
+          <FeedLoadError
+            onRetry={() => {
+              loadingCache.delete(`feed:following:${followRetry}`);
+              setFollowRetry((n) => n + 1);
+            }}
+          />
+        ) : mode === "following" ? null : mode === "lane" && laneSkeleton ? (
+          <div className="echo-skeleton-pad">
+            <SkeletonGrid count={8} captions />
+          </div>
+        ) : plates.flatMap((look, plateIndex) => {
           const nodes = [];
           if (drop && plateIndex === 2 && mode === "feed") {
             nodes.push(
@@ -426,7 +479,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
                   className="echo-photo"
                   aria-label={`${drop.lineName}, This week's drop`}
                 >
-                  <img src={drop.imageSrc} alt="" />
+                  <ImgSlot src={drop.imageSrc} alt="" still slotClassName="img-slot-fill" />
                 </Link>
                 <div className="echo-meta">
                   <p className="echo-kicker">This week's drop</p>
@@ -460,7 +513,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
           }
           const kicker = echoKicker(look);
           nodes.push(
-            <article className="echo-plate" key={look.id}>
+            <article className={cn("echo-plate", mode === "lane" && "echo-tile")} key={look.id}>
               {mode === "feed" && plateIndex === 0 ? <span className="echo-peel" aria-hidden /> : null}
               <Link
                 to="/looks/$lookId"
@@ -473,7 +526,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
                   dragRef.current.moved = false;
                 }}
               >
-                <img src={look.imageSrc} alt="" />
+                <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" still={mode === "feed" && plateIndex === 0} />
               </Link>
               {mode === "feed" && beatLabel(look) ? <p className="echo-beat">{beatLabel(look)}</p> : null}
               <div className="echo-meta">
@@ -516,14 +569,14 @@ export function EchoHome({ looks }: { looks: Look[] }) {
           );
           return nodes;
         })}
-        {mode === "following"
+        {showFollowing
           ? followMix.map((item) =>
               item.kind === "house" ? (
                 <FollowingHousePlate key={`${item.card.kind}-${item.card.id}`} card={item.card} />
               ) : (
-                <article className="echo-plate" key={item.look.id}>
+                <article className="echo-plate echo-tile" key={item.look.id}>
                   <Link to="/looks/$lookId" params={{ lookId: item.look.id }} className="echo-photo" aria-label={item.look.title || "Look"}>
-                    <img src={item.look.imageSrc} alt="" />
+                    <ImgSlot src={item.look.imageSrc} alt="" slotClassName="img-slot-fill" />
                   </Link>
                   <div className="echo-meta">
                     {echoKicker(item.look) ? <p className="echo-kicker">{echoKicker(item.look)}</p> : null}
@@ -535,7 +588,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
               ),
             )
           : null}
-        {mode === "following" ? (
+        {showFollowing && followingLoad.phase === "ready" ? (
           <div className="echo-end">
             <p>That's everything from who you follow.</p>
             <button type="button" className="house-ghost" onClick={() => setMode("feed")}>

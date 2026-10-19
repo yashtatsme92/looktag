@@ -5,9 +5,12 @@ import { toast } from "sonner";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
+import { ImgSlot } from "@/components/ds/img-slot";
+import { SkeletonGrid } from "@/components/ds/skeleton";
 import { Button } from "@/components/ui/button";
 import { getFashionCollection, getHousesAvailability, type FashionCollectionPage } from "@/lib/labels/api";
 import { publicLines } from "@/lib/labels/model";
+import { useCachedLoad } from "@/lib/loading/cached-load";
 import { shareOrCopy } from "@/lib/looks/share";
 import { recordShareView } from "@/lib/share/api";
 import {
@@ -53,10 +56,10 @@ function LinePage() {
   const { page, open } = Route.useLoaderData();
   const closed = useHousesClosed(open);
   const [sharing, setSharing] = useState(false);
+  const line = page ? publicLines([page.collection], page.styles)[0] : undefined;
+  const stylesLoad = useCachedLoad(line?.styles ?? [], `house:${labelId}:line:${collectionId}`);
 
   if (closed) return <HousesClosed />;
-
-  const line = page ? publicLines([page.collection], page.styles)[0] : undefined;
 
   if (!page || !line) {
     return (
@@ -115,6 +118,11 @@ function LinePage() {
         <ScreenTitle>{collection.name}</ScreenTitle>
         {collection.caption ? <p className="house-line">{collection.caption}</p> : null}
         <h2 className="ops-section house-looks-title">Styles</h2>
+        {stylesLoad.error ? (
+          <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
+        ) : stylesLoad.skeleton ? (
+          <SkeletonGrid count={4} captions />
+        ) : (
         <ul className="house-lines">
           {line.styles.map((style) => (
             <li key={style.id}>
@@ -124,7 +132,7 @@ function LinePage() {
                 className="house-card"
                 aria-label={style.name}
               >
-                <img src={style.imageSrc} alt="" />
+                <ImgSlot src={style.imageSrc} alt="" slotClassName="img-slot-fill" />
                 <div className="house-card-caption">
                   <p className="house-card-name">{style.name}</p>
                 </div>
@@ -132,6 +140,7 @@ function LinePage() {
             </li>
           ))}
         </ul>
+        )}
       </article>
     </AppShell>
   );

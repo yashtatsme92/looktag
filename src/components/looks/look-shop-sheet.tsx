@@ -2,6 +2,9 @@ import { useEffect, useRef, type KeyboardEvent } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useStylePin } from "@/components/labels/style-pin-note";
+import { SkeletonOfferRow } from "@/components/ds/skeleton";
+import { useDelayedLoad } from "@/lib/loading/delayed-load";
+import { settleLoad } from "@/lib/loading/test-delay";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { ProductTag } from "@/lib/looks/types";
@@ -22,6 +25,12 @@ type LookShopSheetProps = {
  */
 export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, phoneWholeLook = false }: LookShopSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
+  const tagsRef = useRef(tags);
+  tagsRef.current = tags;
+  const offers = useDelayedLoad(
+    () => (open ? settleLoad(tagsRef.current) : new Promise<ProductTag[]>(() => {})),
+    { cacheKey: open ? `shop-sheet:${tags.map((tag) => tag.id).join(",")}` : "shop-sheet:closed" },
+  );
 
   /** Focus moves into the sheet on open and returns to the control that opened it on close. */
   useEffect(() => {
@@ -89,9 +98,21 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
           No account needed. One Shop per piece, straight to the live page.
         </p>
         <ul className="look-sheet-list">
-          {tags.map((tag, index) => (
-            <SheetRow key={tag.id} tag={tag} index={index} onShop={() => onShopPiece(tag)} />
-          ))}
+          {offers.phase === "error" ? (
+            <li className="look-sheet-row">
+              <span className="look-sheet-meta">No close match yet</span>
+            </li>
+          ) : offers.phase === "skeleton" ? (
+            tags.map((tag) => (
+              <li key={tag.id}>
+                <SkeletonOfferRow />
+              </li>
+            ))
+          ) : (
+            tags.map((tag, index) => (
+              <SheetRow key={tag.id} tag={tag} index={index} onShop={() => onShopPiece(tag)} />
+            ))
+          )}
         </ul>
         {onShopWhole ? (
           <button

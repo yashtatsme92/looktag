@@ -5,12 +5,15 @@ type ImgSlotProps = ImgHTMLAttributes<HTMLImageElement> & {
   aspectRatio?: string;
   className?: string;
   slotClassName?: string;
+  /** Hero and lead photos stay put: no fade (L9). */
+  still?: boolean;
 };
 
 export function ImgSlot({
   aspectRatio = "3 / 4",
   className,
   slotClassName,
+  still = false,
   onLoad,
   src,
   ...imageProps
@@ -26,13 +29,19 @@ export function ImgSlot({
   return (
     <div
       className={cn("img-slot", slotClassName)}
+      data-still={still ? "true" : undefined}
       style={{ "--ar": aspectRatio } as CSSProperties}
+      ref={(node) => {
+        if (!node) return;
+        if (src) node.setAttribute("src", src);
+        else node.removeAttribute("src");
+      }}
     >
       <img
         ref={imageRef}
         {...imageProps}
         src={src}
-        className={cn(className, loaded && "is-loaded")}
+        className={cn(className, (loaded || still) && "is-loaded")}
         onLoad={(event) => {
           setLoaded(true);
           onLoad?.(event);

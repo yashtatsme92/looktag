@@ -6,6 +6,7 @@ import { StyleLinkField } from "@/components/labels/style-pin-note";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import { pieceLine } from "@/lib/home/echo";
 import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
+import { UploadProgress } from "@/components/ds/upload-progress";
 import type { PhoneCreateStepId } from "@/lib/looks/create-steps";
 import { detectRetailer, getRetailer, RETAILERS } from "@/lib/looks/retailers";
 import type { CropRect } from "@/lib/looks/crop";
@@ -22,6 +23,7 @@ type PhoneCreateProps = {
   suggestNote: string | null;
   saving: boolean;
   readingPhoto: boolean;
+  uploadProgress?: number | null;
   photoError: string | null;
   dragOver: boolean;
   saveLabel: string;
@@ -80,6 +82,7 @@ export function PhoneCreate(props: PhoneCreateProps) {
 function PhotoEntry({
   look,
   readingPhoto,
+  uploadProgress = null,
   photoError,
   dragOver,
   onDragOver,
@@ -137,6 +140,7 @@ function PhotoEntry({
               {errorMessage}
             </p>
           ) : null}
+          <UploadProgress value={uploadProgress} />
           <div className="create-entry-actions">
             <button type="button" className="create-btn-primary" onClick={onLibrary} disabled={readingPhoto}>
               <ImagePlus className="size-4" />
@@ -496,6 +500,7 @@ function CropStep({
   onSaveCrop,
   onAdjustCrop,
   onKeepCrop,
+  uploadProgress = null,
   discardCropAsk,
   onDiscardCrop,
   onKeepEditingCrop,
@@ -531,6 +536,7 @@ function CropStep({
         tags={look.tags}
         showPins={cropEditing}
       />
+      <UploadProgress value={uploadProgress} />
       <div className="crop-actions">
         {cropEditing ? (
           <>

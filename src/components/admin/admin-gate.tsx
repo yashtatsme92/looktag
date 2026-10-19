@@ -3,6 +3,8 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { AppShell } from "@/components/layout/app-shell";
 import { Skeleton } from "@/components/ds";
+import { FadeLayer } from "@/components/ds/fade-layer";
+import { SaveStatus } from "@/components/ds/save-status";
 import {
   Dialog,
   DialogContent,
@@ -22,32 +24,61 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
   const save = useSettingsStore((s) => s.save);
   const feedOn = useSettingsStore((s) => FEED_FEATURES.filter((feature) => s[feature.key]).length);
   const settings = useSettingsStore((s) => s);
-  const [flagState, setFlagState] = useState<Record<string, "saving" | "saved">>({});
+  const [flagState, setFlagState] = useState<Record<string, "saving" | "saved" | "error">>({});
+  const [flagOverride, setFlagOverride] = useState<Record<string, boolean>>({});
+  const [flagError, setFlagError] = useState<string | null>(null);
+  const [housesPhase, setHousesPhase] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [housesError, setHousesError] = useState<string | null>(null);
+  const [optimisticEnabled, setOptimisticEnabled] = useState<boolean | null>(null);
   const [pending, setPending] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const copy = pending === null ? null : housesSwitchCopy(!pending);
 
   async function apply() {
     if (pending === null) return;
+    const next = pending;
+    setOptimisticEnabled(next);
+    setHousesPhase("saving");
+    setHousesError(null);
     setBusy(true);
     try {
-      await save({ labelsEnabled: pending });
+      await save({ labelsEnabled: next });
       setPending(null);
+      setHousesPhase("saved");
+      window.setTimeout(() => setHousesPhase("idle"), 1650);
+    } catch (error) {
+      setOptimisticEnabled(null);
+      setHousesPhase("error");
+      setHousesError(error instanceof Error ? error.message : "Could not save.");
     } finally {
       setBusy(false);
+      setOptimisticEnabled(null);
     }
   }
 
   async function toggleFlag(key: (typeof FEATURE_FLAGS)[number]["key"], next: boolean) {
+    setFlagOverride((state) => ({ ...state, [key]: next }));
     setFlagState((state) => ({ ...state, [key]: "saving" }));
+    setFlagError(null);
     try {
       await save({ [key]: next });
       setFlagState((state) => ({ ...state, [key]: "saved" }));
-    } catch {
-      setFlagState((state) => {
-        const { [key]: _drop, ...rest } = state;
-        return rest;
+      window.setTimeout(() => {
+        setFlagState((state) => {
+          if (state[key] !== "saved") return state;
+          const next = { ...state };
+          delete next[key];
+          return next;
+        });
+      }, 1650);
+    } catch (error) {
+      setFlagOverride((state) => {
+        const nextState = { ...state };
+        delete nextState[key];
+        return nextState;
       });
+      setFlagState((state) => ({ ...state, [key]: "error" }));
+      setFlagError(error instanceof Error ? error.message : "Could not save.");
     }
   }
 
@@ -76,12 +107,14 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
           <span className="ops-row-note">{enabled ? "On · visible to shoppers" : "Off · hidden from shoppers"}</span>
         </div>
         <Switch
-          checked={enabled}
+          checked={optimisticEnabled ?? enabled}
           disabled={!linked || busy}
           aria-label="Houses for shoppers"
           onCheckedChange={(next) => setPending(next)}
         />
+        <SaveStatus phase={housesPhase === "idle" ? "idle" : housesPhase} error={housesError} />
       </div>
+      <FadeLayer stateKey={(optimisticEnabled ?? enabled) ? "houses-on" : "houses-off"}>
       {linked ? (
         <Link to="/admin/feed" className="ops-row">
           <span className="ops-row-title">Feed & discovery</span>
@@ -99,7 +132,7 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
           <p className="flag-section-intro">Turn experimental or optional features on or off. Changes apply to all shoppers.</p>
           <div className="flag-list">
             {FEATURE_FLAGS.map((flag) => {
-              const on = Boolean(settings[flag.key]);
+              const on = flag.key in flagOverride ? flagOverride[flag.key] : Boolean(settings[flag.key]);
               const state = flagState[flag.key];
               return (
                 <article className="flag-row" key={flag.key} data-testid={`flag-${flag.key}`}>
@@ -109,7 +142,7 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
                     <span className="flag-row-meta">
                       <span className="flag-pill">{flag.scope}</span>
                       <span className="flag-row-state" aria-live="polite">
-                        {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : flagStatus(on, flag)}
+                        {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : state === "error" ? flagError || "Could not save." : flagStatus(on, flag)}
                       </span>
                     </span>
                   </div>
@@ -124,6 +157,7 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
           </div>
         </section>
       ) : null}
+      </FadeLayer>
       <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
         <DialogContent className="max-w-[480px]">
           <DialogTitle>{copy?.title}</DialogTitle>

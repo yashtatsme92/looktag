@@ -7,10 +7,13 @@ import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { Button } from "@/components/ui/button";
+import { ImgSlot } from "@/components/ds/img-slot";
+import { SkeletonGrid } from "@/components/ds/skeleton";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getFashionLabel, getHousesAvailability, type FashionLabelPage } from "@/lib/labels/api";
 import { houseCoverSrc, publicLines, toggleHouseFollow } from "@/lib/labels/model";
+import { useCachedLoad } from "@/lib/loading/cached-load";
 import { shareOrCopy } from "@/lib/looks/share";
 import { recordShareView } from "@/lib/share/api";
 import {
@@ -60,6 +63,8 @@ export const Route = createFileRoute("/houses_/$labelId")({
 function HouseProfile() {
   const { labelId } = Route.useParams();
   const { house, open } = Route.useLoaderData();
+  const lineSource = house ? publicLines(house.lines, house.styles) : [];
+  const linesLoad = useCachedLoad(lineSource, `house:${labelId}:lines`);
   const closed = useHousesClosed(open);
   const { user, isPending } = useCurrentUserState();
   const [sharing, setSharing] = useState(false);
@@ -85,7 +90,7 @@ function HouseProfile() {
   }
 
   const { label } = house;
-  const lines = publicLines(house.lines, house.styles);
+  const lines = linesLoad.skeleton ? [] : linesLoad.value;
   const following = follows.includes(label.id);
 
   async function shareHouse() {
@@ -139,7 +144,7 @@ function HouseProfile() {
     >
       <article className="house-profile">
         <div className="house-profile-hero">
-          {cover ? <img className="house-hero" src={cover} alt="" /> : null}
+          {cover ? <ImgSlot src={cover} alt="" still slotClassName="house-hero" /> : null}
           <div className="house-profile-info">
             <p className="wide-kicker">House</p>
             <ScreenTitle>{label.name}</ScreenTitle>
@@ -157,7 +162,11 @@ function HouseProfile() {
         </div>
         <div className="house-profile-lines">
           <h2 className="ops-section house-looks-title">Lines</h2>
-          {lines.length === 0 ? (
+          {linesLoad.error ? (
+            <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
+          ) : linesLoad.skeleton ? (
+            <SkeletonGrid count={4} captions />
+          ) : lines.length === 0 ? (
             <p className="text-sm text-muted-foreground">No Lines yet.</p>
           ) : (
             <ul className="house-lines">
@@ -169,7 +178,7 @@ function HouseProfile() {
                     className="house-card"
                     aria-label={`${collection.name}, Line`}
                   >
-                    <img src={styles[0]?.imageSrc} alt="" />
+                    <ImgSlot src={styles[0]?.imageSrc} alt="" slotClassName="img-slot-fill" />
                     <div className="house-card-caption">
                       <span className="house-card-scout">Line</span>
                       <p className="house-card-name">{collection.name}</p>

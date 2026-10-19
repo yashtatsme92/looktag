@@ -1,19 +1,70 @@
 const AI_EDGE = 960;
 const AI_QUALITY = 0.72;
 
-export async function readLookImage(file: File): Promise<string> {
+export async function readLookImage(file: File, onProgress?: (percent: number) => void): Promise<string> {
+  let last = -1;
+  const report = (value: number) => {
+    const next = Math.max(last, Math.min(100, Math.round(value)));
+    if (next === last) return;
+    last = next;
+    onProgress?.(next);
+  };
+  report(0);
   if (!file.type.startsWith("image/")) {
     throw new Error("Choose a photo (JPG, PNG, or WebP).");
   }
   if (file.size > 12 * 1024 * 1024) {
     throw new Error("That file is too large. Try one under 12 MB.");
   }
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const bytes = await readFileBytes(file, (ratio) => report(ratio * 70));
+  report(80);
+  await decodeAndEncode(file, bytes);
+  report(95);
   let binary = "";
   for (let offset = 0; offset < bytes.length; offset += 0x8000) {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
   }
-  return `data:${file.type};base64,${btoa(binary)}`;
+  const result = `data:${file.type};base64,${btoa(binary)}`;
+  report(100);
+  return result;
+}
+
+function readFileBytes(file: File, onRatio: (ratio: number) => void): Promise<Uint8Array> {
+  if (typeof FileReader === "undefined") {
+    return file.arrayBuffer().then((buffer) => {
+      onRatio(1);
+      return new Uint8Array(buffer);
+    });
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onRatio(event.loaded / event.total);
+    };
+    reader.onload = () => {
+      onRatio(1);
+      resolve(new Uint8Array(reader.result as ArrayBuffer));
+    };
+    reader.onerror = () => reject(new Error("Could not read that photo."));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/** Decode then encode so progress cannot finish before the pixels are usable. Failures stay non-fatal for odd test bytes. */
+async function decodeAndEncode(file: File, bytes: Uint8Array) {
+  if (typeof createImageBitmap !== "function" || bytes.length < 8) return;
+  try {
+    const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: file.type }));
+    if (typeof document !== "undefined") {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, bitmap.width);
+      canvas.height = Math.max(1, bitmap.height);
+      canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+    }
+    bitmap.close?.();
+  } catch {
+    /* not a decodable image — the caller still gets the original bytes */
+  }
 }
 
 export async function imageSrcToDataUrl(src: string): Promise<string> {

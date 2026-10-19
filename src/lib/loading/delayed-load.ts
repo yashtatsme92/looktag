@@ -16,6 +16,9 @@ export type DelayedLoadOptions = {
   minSkeletonMs?: number;
   timeoutMs?: number;
   cache?: LoadCache;
+  /** Defaults to window.scrollY. Surfaces with an inner scroller pass their own. */
+  getScroll?: () => number | null;
+  setScroll?: (scrollY: number) => void;
 };
 
 export type DelayedLoadController<T> = {
@@ -121,7 +124,11 @@ export function createDelayedLoad<T>(
     },
     dispose() {
       if (snapshot.phase === "ready" && snapshot.data !== undefined && options.cacheKey) {
-        const scrollY = typeof window === "undefined" ? snapshot.scrollY : window.scrollY;
+        const scrollY = options.getScroll
+          ? options.getScroll()
+          : typeof window === "undefined"
+            ? (snapshot.scrollY ?? null)
+            : window.scrollY;
         cache?.set(options.cacheKey, snapshot.data, scrollY);
       }
       request += 1;
@@ -141,6 +148,10 @@ export function useDelayedLoad<T>(
   const { cacheKey, delayMs, minSkeletonMs, timeoutMs } = options;
   const loadRef = useRef(load);
   loadRef.current = load;
+  const getScrollRef = useRef(options.getScroll);
+  const setScrollRef = useRef(options.setScroll);
+  getScrollRef.current = options.getScroll;
+  setScrollRef.current = options.setScroll;
   const controller = useMemo(
     () =>
       createDelayedLoad(() => loadRef.current(), {
@@ -149,6 +160,10 @@ export function useDelayedLoad<T>(
         minSkeletonMs,
         timeoutMs,
         cache: typeof window === "undefined" ? undefined : options.cache ?? loadingCache,
+        getScroll: () => {
+          if (getScrollRef.current) return getScrollRef.current();
+          return typeof window === "undefined" ? null : window.scrollY;
+        },
       }),
     [cacheKey, delayMs, minSkeletonMs, timeoutMs, options.cache],
   );
@@ -164,9 +179,9 @@ export function useDelayedLoad<T>(
   }, [controller]);
 
   useEffect(() => {
-    if (snapshot.phase === "ready" && snapshot.scrollY != null && typeof window !== "undefined") {
-      window.scrollTo({ top: snapshot.scrollY, behavior: "instant" });
-    }
+    if (snapshot.phase !== "ready" || snapshot.scrollY == null || typeof window === "undefined") return;
+    if (setScrollRef.current) setScrollRef.current(snapshot.scrollY);
+    else window.scrollTo({ top: snapshot.scrollY, behavior: "instant" });
   }, [snapshot.phase, snapshot.scrollY]);
 
   return snapshot;

@@ -7,6 +7,10 @@ import { BecauseRow, RunRow, ShowLess } from "@/components/home/feed-modules";
 import { FollowButton } from "@/components/home/follow-button";
 import { FollowingHouseTile } from "@/components/home/following-card";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
+import { FeedLoadError } from "@/components/ds/feed-error";
+import { FeedTabs } from "@/components/ds/feed-tabs";
+import { ImgSlot } from "@/components/ds/img-slot";
+import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, forYouOrder, recordEchoActivation, pieceLine } from "@/lib/home/echo";
 import { useEchoLane } from "@/lib/home/use-echo-lane";
@@ -36,6 +40,9 @@ import {
 } from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { loadingCache } from "@/lib/loading/cache";
+import { useDelayedLoad } from "@/lib/loading/delayed-load";
+import { settleLoad } from "@/lib/loading/test-delay";
 import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { pickFeedStyle, type FashionCollection, type FashionLabel, type FashionStyle } from "@/lib/labels/model";
 import { SEED_STYLES } from "@/lib/labels/seed";
@@ -50,6 +57,7 @@ type WideMode = "feed" | "lane" | "creator" | "following";
 export function WideHome({ looks }: { looks: Look[] }) {
   const deck = useMemo(() => looks.filter((look) => look.imageSrc), [looks]);
   const [mode, setMode] = useState<WideMode>("feed");
+  const [followRetry, setFollowRetry] = useState(0);
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
@@ -153,6 +161,18 @@ export function WideHome({ looks }: { looks: Look[] }) {
   );
   const anchor = (mode === "feed" ? tuned : deck).find((look) => look.id === anchorId) ?? (mode === "feed" ? tuned[0] : deck[0]);
   const echoLane = useEchoLane(anchor, deck, tuned, { enabled: mode === "lane", limit: 4 });
+  const followingLoad = useDelayedLoad(
+    () =>
+      mode === "following"
+        ? settleLoad(Promise.all([listFashionLabels(), listFashionCollections(), listFashionStyles()]))
+        : Promise.resolve(null),
+    { cacheKey: mode === "following" ? `feed:wide:following:${followRetry}` : "feed:wide:following:idle" },
+  );
+  const laneLoad = useDelayedLoad(
+    () => (mode === "lane" ? settleLoad(echoLane) : Promise.resolve(echoLane)),
+    { cacheKey: mode === "lane" && anchor ? `echo:wide:${anchor.id}:${trail.join("|")}` : "echo:wide:idle" },
+  );
+  useDelayedLoad(() => Promise.resolve(deck.length), { cacheKey: "feed:wide" });
   const plates = useMemo(() => {
     if (!anchor) return [];
     if (mode === "following") return followingLooks(deck, followed);
@@ -171,6 +191,12 @@ export function WideHome({ looks }: { looks: Look[] }) {
     () => (mode === "following" ? mixFollowing(plates, houseCards) : []),
     [houseCards, mode, plates],
   );
+
+  const followSkeleton = mode === "following" && followingLoad.phase === "skeleton";
+  const followError = mode === "following" && followingLoad.phase === "error";
+  const followWaiting = mode === "following" && followingLoad.phase === "waiting";
+  const showFollowing = mode === "following" && followingLoad.phase === "ready";
+  const laneSkeleton = mode === "lane" && laneLoad.phase === "skeleton";
 
   if (!anchor) return null;
 
@@ -226,28 +252,17 @@ export function WideHome({ looks }: { looks: Look[] }) {
           <h1>{heading}</h1>
           <div className="wide-pagehd-side">
             {feedFollowOn && (mode === "feed" || mode === "following") ? (
-              <nav className="wide-tabs" aria-label="Looks">
-                <button
-                  type="button"
-                  aria-current={mode === "feed" ? "page" : undefined}
-                  onClick={() => {
-                    setTrail([]);
-                    setMode("feed");
-                    setAnchorId(null);
-                  }}
-                >
-                  For you
-                </button>
-                <button
-                  type="button"
-                  aria-current={mode === "following" ? "page" : undefined}
-                  aria-label={unseen > 0 ? `Following, ${unseen} new` : "Following"}
-                  onClick={openFollowing}
-                >
-                  Following
-                  {unseen > 0 && mode !== "following" ? <span className="echo-dot" aria-hidden /> : null}
-                </button>
-              </nav>
+              <FeedTabs
+                variant="wide"
+                mode={mode === "following" ? "following" : "feed"}
+                unseen={unseen}
+                onFeed={() => {
+                  setTrail([]);
+                  setMode("feed");
+                  setAnchorId(null);
+                }}
+                onFollowing={openFollowing}
+              />
             ) : null}
             {mode === "lane" || mode === "creator" ? (
               <button
@@ -266,7 +281,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
         </header>
 
         {mode === "lane" && feedTrailOn ? (
-          <div className="echo-chips echo-chips-ink">
+          <div className="echo-chips echo-chips-ink echo-lane">
             {trail.length > 0 ? (
               <>
                 <ol className="echo-crumbs">
@@ -316,24 +331,33 @@ export function WideHome({ looks }: { looks: Look[] }) {
           </>
         )}
 
-        <div className="wide-grid">
-          {mode === "following"
-            ? followMix.map((item) =>
-                item.kind === "house" ? (
-                  <FollowingHouseTile key={`${item.card.kind}-${item.card.id}`} card={item.card} />
-                ) : (
-                  <Tile
-                    key={item.look.id}
-                    look={item.look}
-                    kicker={echoKicker(item.look)}
-                    saved={savedIds.includes(item.look.id)}
-                    onSave={() => save(item.look)}
-                    beatAfter={false}
-                    beat=""
-                  />
-                ),
-              )
-            : tiles.flatMap((look, index) => {
+        <div className={cn("wide-grid", (mode === "lane" || showFollowing) && "echo-lane", followWaiting && "is-loading-old")}>
+          {followSkeleton || laneSkeleton ? (
+            <SkeletonGrid count={8} captions />
+          ) : followError ? (
+            <FeedLoadError
+              onRetry={() => {
+                loadingCache.delete(`feed:wide:following:${followRetry}`);
+                setFollowRetry((n) => n + 1);
+              }}
+            />
+          ) : showFollowing ? (
+            followMix.map((item) =>
+              item.kind === "house" ? (
+                <FollowingHouseTile key={`${item.card.kind}-${item.card.id}`} card={item.card} />
+              ) : (
+                <Tile
+                  key={item.look.id}
+                  look={item.look}
+                  kicker={echoKicker(item.look)}
+                  saved={savedIds.includes(item.look.id)}
+                  onSave={() => save(item.look)}
+                  beatAfter={false}
+                  beat=""
+                />
+              ),
+            )
+          ) : mode === "following" ? null : tiles.flatMap((look, index) => {
             const nodes = [];
             if (drop && index === 1 && mode === "feed") {
               nodes.push(
@@ -343,7 +367,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
                   params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
                   className="wide-tile wide-drop"
                 >
-                  <img src={drop.imageSrc} alt="" />
+                  <ImgSlot src={drop.imageSrc} alt="" still slotClassName="img-slot-fill" />
                   <div className="wide-tile-cap">
                     <p className="wide-kicker">This week's drop</p>
                     <h3>{drop.lineName}</h3>
@@ -381,6 +405,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
                 fresh={dividerAt === index + 1}
                 less={feedSavesOn && mode === "feed"}
                 onLess={setLessIds}
+                lane={mode === "lane"}
               />,
             );
             return nodes;
@@ -439,7 +464,7 @@ function DesktopLead({
     <div className="wide-leadrow">
       <div className="wide-lead-photo">
         <Link to="/looks/$lookId" params={{ lookId: look.id }} aria-label={look.title || "Look"}>
-          <img src={look.imageSrc} alt="" />
+          <ImgSlot src={look.imageSrc} alt="" still slotClassName="img-slot-fill" />
         </Link>
       </div>
       <div className="wide-lead-copy">
@@ -480,7 +505,7 @@ function TabletLead({
   return (
     <article className="wide-leadcard">
       <Link to="/looks/$lookId" params={{ lookId: look.id }} className="wide-tile-hit" aria-label={look.title || "Look"}>
-        <img src={look.imageSrc} alt="" />
+        <ImgSlot src={look.imageSrc} alt="" still slotClassName="img-slot-fill" />
       </Link>
       <span className="wide-peel" aria-hidden />
       <div className="wide-tile-cap wide-leadcard-cap">
@@ -512,6 +537,7 @@ function Tile({
   fresh = false,
   less = false,
   onLess,
+  lane = false,
 }: {
   look: Look;
   kicker: string;
@@ -522,12 +548,13 @@ function Tile({
   fresh?: boolean;
   less?: boolean;
   onLess?: (ids: string[]) => void;
+  lane?: boolean;
 }) {
   return (
     <>
-      <article className="wide-tile">
+      <article className={cn("wide-tile", lane && "echo-tile")}>
         <Link to="/looks/$lookId" params={{ lookId: look.id }} className="wide-tile-hit" aria-label={look.title || "Look"}>
-          <img src={look.imageSrc} alt="" />
+          <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" />
         </Link>
         <div className="wide-tile-cap">
           {fresh ? <p className="echo-fresh echo-fresh-ink">New since your last visit</p> : null}

@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
+import { ImgSlot } from "@/components/ds/img-slot";
+import { SkeletonGrid } from "@/components/ds/skeleton";
 import { Button } from "@/components/ui/button";
 import { getFashionCollection, getHousesAvailability } from "@/lib/labels/api";
+import { useCachedLoad } from "@/lib/loading/cached-load";
 
 export const Route = createFileRoute("/houses_/$labelId_/$collectionId_/$styleId")({
   ssr: true,
@@ -34,9 +37,11 @@ export const Route = createFileRoute("/houses_/$labelId_/$collectionId_/$styleId
 });
 
 function StylePage() {
-  const { labelId } = Route.useParams();
+  const { labelId, styleId } = Route.useParams();
   const { page, open } = Route.useLoaderData();
   const closed = useHousesClosed(open);
+  const photos = page?.style.images?.length ? page.style.images : page ? [page.style.imageSrc] : [];
+  const photosLoad = useCachedLoad(photos, `house:${labelId}:style:${styleId}`);
   if (closed) return <HousesClosed />;
   if (!page) {
     return (
@@ -51,16 +56,20 @@ function StylePage() {
     );
   }
 
-  const photos = page.style.images?.length ? page.style.images : [page.style.imageSrc];
-
   return (
     <AppShell title="Style" backTo={`/houses/${page.labelId}/${page.lineSlug}`}>
       <article className="style-detail">
-        <div className="style-photos">
-          {photos.map((src) => (
-            <img key={src} src={src} alt="" />
-          ))}
-        </div>
+        {photosLoad.error ? (
+          <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
+        ) : photosLoad.skeleton ? (
+          <SkeletonGrid count={Math.max(photos.length, 2)} lead={false} />
+        ) : (
+          <div className="style-photos">
+            {photos.map((src) => (
+              <ImgSlot key={src} src={src} alt="" />
+            ))}
+          </div>
+        )}
         <div>
           <p className="wide-kicker">Style</p>
           <h1 className="ds-screen-title">{page.style.name}</h1>

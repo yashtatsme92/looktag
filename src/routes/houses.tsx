@@ -3,9 +3,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { HouseCard } from "@/components/labels/house-card";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
+import { SkeletonGrid } from "@/components/ds/skeleton";
+import { ImgSlot } from "@/components/ds/img-slot";
 import { pickWeeklyDrop, splitScoutedHouses, type WeeklyDrop } from "@/lib/home/engagement";
 import { getHousesAvailability, listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { consumerHouseIndex, houseCoverSrc, publicLines, type FashionLabel } from "@/lib/labels/model";
+import { useCachedLoad } from "@/lib/loading/cached-load";
 import { useSettingsStore } from "@/lib/settings/store";
 
 export const Route = createFileRoute("/houses")({
@@ -50,6 +53,7 @@ function HousesPage() {
   const [labels, setLabels] = useState<FashionLabel[]>(seeded.labels);
   const covers = seeded.covers;
   const feedDropOn = useSettingsStore((s) => s.feedDrop);
+  const housesLoad = useCachedLoad(seeded.labels, closed ? "houses:index:closed" : "houses:index");
   const drop = !closed && feedDropOn ? seeded.drop : null;
 
   useEffect(() => {
@@ -87,7 +91,7 @@ function HousesPage() {
         to="/houses/$labelId/$collectionId"
         params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
       >
-        <img src={drop.imageSrc} alt="" />
+        <ImgSlot src={drop.imageSrc} alt="" still slotClassName="img-slot-fill" />
       </Link>
       <div>
         <p className="house-drop-kicker">This week's drop</p>
@@ -131,8 +135,12 @@ function HousesPage() {
           For houses
         </Link>
       </div>
-      {index.scouted.length === 0 ? weeklyDrop : null}
-      {empty ? (
+      {housesLoad.error ? (
+        <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
+      ) : housesLoad.skeleton ? (
+        <SkeletonGrid count={8} captions />
+      ) : index.scouted.length === 0 ? weeklyDrop : null}
+      {housesLoad.error || housesLoad.skeleton ? null : empty ? (
         <p className="text-sm text-muted-foreground">No houses yet.</p>
       ) : (
         <>
