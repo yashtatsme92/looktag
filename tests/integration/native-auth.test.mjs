@@ -89,10 +89,31 @@ async function signIn(email, password = PASSWORD) {
     status: res.status,
     token: res.headers.get("set-auth-token"),
     cookies: res.headers.getSetCookie().map((c) => c.split(";")[0]),
+    rawCookies: res.headers.getSetCookie(),
   };
 }
 
 const uniqueEmail = (prefix) => `${prefix}-${randomBytes(4).toString("hex")}@example.com`;
+
+async function armNonce() {
+  const nonce = randomBytes(16).toString("hex");
+  const res = await call("/api/auth/native-challenge", { method: "POST", body: { nonce } });
+  assert.equal(res.status, 204, await res.clone().text());
+  const raw = res.headers.getSetCookie().find((c) => c.includes("native_nonce="));
+  assert.ok(raw, "challenge sets the nonce cookie");
+  assert.match(raw, /HttpOnly/);
+  assert.match(raw, /Secure/);
+  assert.match(raw, /SameSite=Lax/);
+  assert.doesNotMatch(raw, /Domain=/);
+  assert.doesNotMatch(raw, /session_token/);
+  return { nonce, cookie: raw.split(";")[0] };
+}
+
+function proxyPath(authorizationURL, nonce) {
+  const params = new URLSearchParams({ authorizationURL });
+  if (nonce) params.set("nonce", nonce);
+  return `/api/auth/expo-authorization-proxy?${params.toString()}`;
+}
 
 describe("native-ready auth server", () => {
   before(async () => {
@@ -146,6 +167,17 @@ describe("native-ready auth server", () => {
     const me = await call("/api/v1/me", { headers: bearerHeader(signedIn.token) });
     assert.equal(me.status, 200);
     assert.equal((await me.json()).user.email, email);
+
+    const session = signedIn.rawCookies.find((c) => c.startsWith("__Host-grok-auth.session_token="));
+    assert.ok(session);
+    assert.match(session, /Max-Age=604800/);
+    assert.match(session, /Path=\//);
+    assert.match(session, /HttpOnly/);
+    assert.match(session, /Secure/);
+    assert.match(session, /SameSite=Lax/);
+    assert.doesNotMatch(session, /Domain=/);
+    const sessionData = signedIn.rawCookies.find((c) => c.startsWith("__Host-grok-auth.session_data="));
+    assert.match(sessionData ?? "", /Max-Age=300/);
 
     assert.equal((await call("/api/v1/me")).status, 401);
   });
@@ -227,9 +259,10 @@ describe("native-ready auth server", () => {
       body: { provider: "google", callbackURL: "looktag://", disableRedirect: true },
     });
     const { url } = await res.json();
-    const proxy = await call(
-      `/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(url)}`,
-    );
+    const { nonce, cookie } = await armNonce();
+    const planted = await call(proxyPath(url, nonce));
+    assert.equal(planted.status, 400, "a pasted link has no nonce cookie");
+    const proxy = await call(proxyPath(url, nonce), { headers: { cookie } });
     assert.equal(proxy.status, 302);
     assert.equal(proxy.headers.get("location"), url);
     assert.ok(proxy.headers.getSetCookie().some((c) => c.includes("state=")));
@@ -287,18 +320,72 @@ describe("native-ready auth server", () => {
     const callback = await call(
       `/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent("looktag://callback")}`,
     );
-    assert.equal(callback.status, 302);
-    assert.equal(callback.headers.get("location"), "looktag://callback");
+    assert.equal(callback.status, 400);
 
+    const registered = await armNonce();
+    const deepLink = await call(proxyPath("looktag://", registered.nonce), {
+      headers: { cookie: registered.cookie },
+    });
+    assert.equal(deepLink.status, 302);
+    const deepLocation = new URL(deepLink.headers.get("location"));
+    assert.equal(deepLocation.protocol, "looktag:");
+    assert.equal(deepLocation.hostname, "");
+    assert.equal(deepLocation.pathname, "");
+    assert.equal(deepLocation.searchParams.get("nonce"), registered.nonce);
+    const replay = await call(proxyPath("looktag://", registered.nonce), {
+      headers: { cookie: registered.cookie },
+    });
+    assert.equal(replay.status, 400, "the nonce is one-time");
+
+    const { nonce, cookie } = await armNonce();
     const web = await call("/api/auth/sign-in/social", {
       method: "POST",
       body: { provider: "google", callbackURL: "/", disableRedirect: true },
     });
     assert.equal(web.status, 200);
     const webUrl = (await web.json()).url;
-    const webProxy = await call(
-      `/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(webUrl)}`,
-    );
+    const webProxy = await call(proxyPath(webUrl, nonce), { headers: { cookie } });
     assert.equal(webProxy.status, 400, "a non-looktag callback is not proxied");
+  });
+
+  it("echoes the app nonce on the looktag callback and rejects a mismatched nonce", async () => {
+    const res = await call("/api/auth/sign-in/social", {
+      method: "POST",
+      body: {
+        provider: "google",
+        callbackURL: "looktag://",
+        errorCallbackURL: "looktag://",
+        disableRedirect: true,
+      },
+    });
+    assert.equal(res.status, 200);
+    const url = (await res.json()).url;
+    const state = new URL(url).searchParams.get("state");
+    const { nonce, cookie } = await armNonce();
+    const wrong = await call(proxyPath(url, randomBytes(16).toString("hex")), { headers: { cookie } });
+    assert.equal(wrong.status, 400);
+    const proxy = await call(proxyPath(url, nonce), { headers: { cookie } });
+    assert.equal(proxy.status, 302, await proxy.clone().text());
+    const stateCookie = proxy.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0])
+      .filter((c) => c.includes("state="))
+      .join("; ");
+    const callback = await call(`/api/auth/callback/google?code=stolen&state=${state}`, {
+      headers: { cookie: stateCookie },
+    });
+    assert.equal(callback.status, 302);
+    const location = new URL(callback.headers.get("location"));
+    assert.equal(location.protocol, "looktag:");
+    assert.equal(location.hostname, "");
+    assert.equal(location.searchParams.get("nonce"), nonce);
+
+    const cross = await call("/api/auth/native-challenge", {
+      method: "POST",
+      headers: { "sec-fetch-site": "cross-site" },
+      body: { nonce: randomBytes(16).toString("hex") },
+    });
+    assert.equal(cross.status, 403);
+    assert.equal((await call("/api/auth/native-challenge")).status, 405);
   });
 });

@@ -1,16 +1,26 @@
+import { isRegisteredLooktagCallback, isRegisteredRedirectUri } from "./native.ts";
+
 const PROVIDER_HOSTS = new Set(["accounts.google.com", "appleid.apple.com"]);
+
+export function crossSiteResponse(request: Request): Response | null {
+  const site = request.headers.get("sec-fetch-site")?.toLowerCase();
+  if (site === "cross-site" || site === "same-site") {
+    return new Response("Forbidden", { status: 403 });
+  }
+  return null;
+}
 
 /** Block the Expo proxy before Better Auth sees it.
  *  Returns a response when the request must not be proxied, otherwise null.
+ *  A 302 is only the registered looktag:// callback, and the route still
+ *  requires the one-time app nonce before it is sent.
  */
 export function rejectExpoProxy(request: Request): Response | null {
   const url = new URL(request.url);
   if (!url.pathname.endsWith("/expo-authorization-proxy")) return null;
 
-  const site = request.headers.get("sec-fetch-site")?.toLowerCase();
-  if (site === "cross-site" || site === "same-site") {
-    return new Response("Forbidden", { status: 403 });
-  }
+  const blocked = crossSiteResponse(request);
+  if (blocked) return blocked;
 
   if (url.searchParams.has("oauthState")) {
     return new Response("Invalid authorizationURL", { status: 400 });
@@ -25,6 +35,9 @@ export function rejectExpoProxy(request: Request): Response | null {
   }
 
   if (target.protocol === "looktag:") {
+    if (!isRegisteredLooktagCallback(authorizationURL)) {
+      return new Response("Invalid authorizationURL", { status: 400 });
+    }
     return new Response(null, { status: 302, headers: { location: authorizationURL } });
   }
 
@@ -33,18 +46,8 @@ export function rejectExpoProxy(request: Request): Response | null {
   }
 
   const redirectUri = target.searchParams.get("redirect_uri");
-  if (redirectUri) {
-    let redirect: URL;
-    try {
-      redirect = new URL(redirectUri);
-    } catch {
-      return new Response("Invalid authorizationURL", { status: 400 });
-    }
-    const appCallback =
-      redirect.origin === url.origin && redirect.pathname.startsWith("/api/auth/callback/");
-    if (redirect.protocol !== "looktag:" && !appCallback) {
-      return new Response("Invalid authorizationURL", { status: 400 });
-    }
+  if (!redirectUri || !isRegisteredRedirectUri(redirectUri, url.origin)) {
+    return new Response("Invalid authorizationURL", { status: 400 });
   }
 
   return null;
