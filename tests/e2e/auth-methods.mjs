@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import {
   fillAdminLogin,
   isSwitchOn,
+  resolveAdminCredentials,
   resolveOrigin,
   setSwitch,
   withPage,
@@ -29,6 +30,7 @@ async function assertLoginMethods(browser, viewport, expected) {
         waitUntil: "domcontentloaded",
         timeout: 20_000,
       });
+      await page.locator('[data-settings-hydrated="true"]').waitFor({ timeout: 10_000 });
       await page.locator("#creator-email").waitFor({ timeout: 10_000 });
       for (const [label, enabled] of [
         ["Google", expected.includes("Google")],
@@ -39,9 +41,9 @@ async function assertLoginMethods(browser, viewport, expected) {
         assert.equal(count > 0, enabled, `${label} visibility at ${viewport.width}px`);
       }
       assert.equal(
-        (await page.locator("#creator-email").count()) > 0,
+        (await page.getByRole("button", { name: "Create account" }).count()) > 0,
         expected.includes("Email"),
-        `Email visibility at ${viewport.width}px`,
+        `Email signup visibility at ${viewport.width}px`,
       );
     },
     `auth-methods-login-${viewport.width}`,
@@ -64,6 +66,25 @@ async function assertForbiddenRoutes(page, routes, viewport) {
   }, routes);
   for (const result of results) {
     assert.equal(result.status, 403, `${result.path} at ${viewport.width}px`);
+  }
+}
+
+async function assertRouteStatuses(page, routes, viewport) {
+  const results = await page.evaluate(async (requests) => {
+    const responses = [];
+    for (const request of requests) {
+      const response = await fetch(request.path, {
+        method: request.method,
+        headers: request.body ? { "content-type": "application/json" } : undefined,
+        body: request.body ? JSON.stringify(request.body) : undefined,
+        redirect: "manual",
+      });
+      responses.push({ path: request.path, status: response.status });
+    }
+    return responses;
+  }, routes);
+  for (const result of results) {
+    assert.notEqual(result.status, 403, `${result.path} should be enabled at ${viewport.width}px`);
   }
 }
 
@@ -96,7 +117,8 @@ try {
         await setSwitch(apple, true);
         assert.equal(await google.isDisabled(), false, "Google enabled after Apple is on");
         await setSwitch(google, true);
-        await assertLoginMethods(browser, viewport, ["Email", "Google", "Apple"]);
+        await setSwitch(x, true);
+        await assertLoginMethods(browser, viewport, ["Email", "Google", "Apple", "X"]);
 
         await setSwitch(google, false);
         await assertForbiddenRoutes(
@@ -114,16 +136,32 @@ try {
             },
             { path: "/api/auth/callback/grok-google", method: "GET" },
             { path: "/api/auth/oauth2/callback/grok-google", method: "GET" },
-            {
-              path: "/api/auth/link-social",
-              method: "POST",
-              body: { providerId: "grok-x", callbackURL: "/" },
-            },
+          ],
+          viewport,
+        );
+        await assertRouteStatuses(
+          page,
+          [
+            { path: "/api/auth/callback/grok-apple", method: "GET" },
+            { path: "/api/auth/oauth2/callback/grok-apple", method: "GET" },
+            { path: "/api/auth/callback/grok-x", method: "GET" },
+            { path: "/api/auth/oauth2/callback/grok-x", method: "GET" },
           ],
           viewport,
         );
 
         await setSwitch(email, false);
+        const { email: adminEmail, password: adminPassword } = resolveAdminCredentials();
+        const adminEmailStatus = await page.evaluate(async ({ email: accountEmail, password }) => {
+          const response = await fetch("/api/auth/sign-in/email", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ email: accountEmail, password }),
+          });
+          return response.status;
+        }, { email: adminEmail, password: adminPassword });
+        assert.equal(adminEmailStatus, 200, "admin email sign-in remains available");
+        await assertLoginMethods(browser, viewport, ["Apple", "X"]);
         await assertForbiddenRoutes(
           page,
           [
@@ -154,6 +192,34 @@ try {
             },
             { path: "/api/auth/callback/grok-apple", method: "GET" },
             { path: "/api/auth/oauth2/callback/grok-apple", method: "GET" },
+          ],
+          viewport,
+        );
+        await assertRouteStatuses(
+          page,
+          [
+            { path: "/api/auth/callback/grok-x", method: "GET" },
+            { path: "/api/auth/oauth2/callback/grok-x", method: "GET" },
+          ],
+          viewport,
+        );
+        await assertLoginMethods(browser, viewport, ["Email", "X"]);
+        await setSwitch(x, false);
+        await assertForbiddenRoutes(
+          page,
+          [
+            {
+              path: "/api/auth/sign-in/social",
+              method: "POST",
+              body: { provider: "twitter", callbackURL: "/" },
+            },
+            {
+              path: "/api/auth/oauth2/link",
+              method: "POST",
+              body: { providerId: "grok-x", callbackURL: "/" },
+            },
+            { path: "/api/auth/callback/grok-x", method: "GET" },
+            { path: "/api/auth/oauth2/callback/grok-x", method: "GET" },
           ],
           viewport,
         );

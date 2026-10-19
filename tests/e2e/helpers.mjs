@@ -250,7 +250,7 @@ export async function setSwitch(locator, on) {
 }
 
 export async function fillSignup(page, origin, { name, email, password, handle, city }) {
-  await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+  await page.goto(`${origin}/login?next=%2Fcreate`, { waitUntil: "domcontentloaded", timeout: 20_000 });
   await page.locator("#creator-email").waitFor({ timeout: 8_000 });
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 }).catch(() => {});
   const nameField = page.locator("#creator-name");
@@ -288,7 +288,7 @@ export async function fillAdminLogin(page, origin) {
   await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
   await waitForApp(page).catch(() => {});
   await page.waitForTimeout(800);
-  await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+  await page.goto(`${origin}/login?next=%2Fadmin`, { waitUntil: "domcontentloaded", timeout: 20_000 });
   const alreadyIn = await page.waitForFunction(
     () => !location.pathname.startsWith("/login"),
     null,

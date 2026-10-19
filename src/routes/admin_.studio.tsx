@@ -151,7 +151,7 @@ function StudioAdmin() {
         <ul className="flex flex-col">
           <MethodRow
             label="Email"
-            hint="Always works in this app. Name, email, password."
+            hint="Creates accounts with name, email, and password. Admin email sign-in stays available when off."
             checked={settings.signupEmail}
             onChange={(checked) => void patch({ signupEmail: checked })}
           />

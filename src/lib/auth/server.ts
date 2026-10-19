@@ -190,7 +190,14 @@ export const auth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (methodForAuthRequest(ctx.path, ctx.body)) {
-        enforceSignInMethod(ctx.path, ctx.body, await readSettings());
+        const requestContext = ctx as typeof ctx & {
+          params?: Record<string, unknown>;
+          request?: Request;
+        };
+        enforceSignInMethod(ctx.path, ctx.body, await readSettings(), {
+          params: requestContext.params,
+          requestUrl: requestContext.request?.url,
+        });
       }
     }),
   },

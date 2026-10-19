@@ -4,8 +4,8 @@
 create table if not exists looktag_settings (
   id             text primary key,
   signup_email   boolean not null default true,
-  signup_google  boolean not null default false,
-  signup_x       boolean not null default false,
+  signup_google  boolean not null default true,
+  signup_x       boolean not null default true,
   labels_enabled boolean not null default true,
   updated_at     bigint not null
 );
@@ -13,7 +13,7 @@ create table if not exists looktag_settings (
 insert into looktag_settings (
   id, signup_email, signup_google, signup_x, labels_enabled, updated_at
 ) values (
-  'default', true, false, false, true, 0
+  'default', true, true, true, true, 0
 ) on conflict (id) do nothing;
 
 create table if not exists fashion_labels (

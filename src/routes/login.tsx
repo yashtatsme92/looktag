@@ -72,6 +72,10 @@ function Login() {
   }, [initialEmail]);
 
   useEffect(() => {
+    if (!emailOn) setMode("signin");
+  }, [emailOn]);
+
+  useEffect(() => {
     if (!next || user) return;
     const clearOnBack = () => clearPendingSave();
     window.addEventListener("popstate", clearOnBack);
@@ -228,7 +232,10 @@ function Login() {
 
       <SavedLooks variant="rail" />
 
-      <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-border)]">
+      <div
+        className="rounded-xl bg-card p-5 shadow-[var(--shadow-border)]"
+        data-settings-hydrated={settings.hydrated ? "true" : "false"}
+      >
         {emailOn ? (
           <div className="mb-5 grid grid-cols-2 rounded-lg bg-muted p-1">
             <button
@@ -263,7 +270,7 @@ function Login() {
             </button>
           </div>
         ) : (
-          <p className="mb-5 font-display text-2xl leading-none">Sign in</p>
+          <p className="mb-5 font-display text-2xl leading-none">Admin sign in</p>
         )}
 
         <p className="mb-5 text-sm text-muted-foreground">
@@ -277,16 +284,15 @@ function Login() {
                     ? `Email always works. ${oauth.map((p) => p.label).join(" and ")} open a new window.`
                     : "Use email to create an account."
                   : "Use the same email you signed up with."
-                : "Continue with a saved account."}
+                : "Admin accounts can also sign in with email."}
         </p>
         {authEnabled && methodCount > 0 ? (
           <div className="flex flex-col gap-5">
-            {emailOn ? (
-              <form
-                className="flex flex-col gap-4"
-                data-hydrated={hydrated ? "true" : "false"}
-                onSubmit={(event) => void handleEmail(event)}
-              >
+            <form
+              className="flex flex-col gap-4"
+              data-hydrated={hydrated ? "true" : "false"}
+              onSubmit={(event) => void handleEmail(event)}
+            >
                 {mode === "signup" ? (
                   <>
                     <div className="flex flex-col gap-1.5">
@@ -369,10 +375,7 @@ function Login() {
                 <Button type="submit" disabled={busy} className="w-full">
                   {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in with email"}
                 </Button>
-              </form>
-            ) : error ? (
-              <p className="text-sm text-destructive">{error}</p>
-            ) : null}
+            </form>
 
             {emailOn && oauth.length > 0 ? (
               <div className="flex items-center gap-3">

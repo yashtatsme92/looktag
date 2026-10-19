@@ -4,7 +4,13 @@ import { DEFAULT_SETTINGS } from "../settings/model.ts";
 import { enforceSignInMethod, methodForAuthRequest } from "./method-gate.ts";
 
 describe("methodForAuthRequest", () => {
-  const cases: [string, unknown, string | null][] = [
+  const cases: [
+    string,
+    unknown,
+    string | null,
+    Record<string, unknown>?,
+    string?,
+  ][] = [
     ["/sign-up/email", undefined, "email"],
     ["/sign-in/email", undefined, "email"],
     ["/sign-in/social", { provider: "google" }, "google"],
@@ -19,13 +25,18 @@ describe("methodForAuthRequest", () => {
     ["/oauth2/callback/grok-google", undefined, "google"],
     ["/oauth2/callback/grok-apple", undefined, "apple"],
     ["/oauth2/callback/grok-x", undefined, "x"],
+    ["/oauth2/callback/:providerId", undefined, "google", { providerId: "grok-google" }],
+    ["/callback/:id", undefined, "apple", { id: "grok-apple" }],
+    ["/oauth2/callback/:providerId", undefined, "x", undefined, "https://looktag.test/api/auth/oauth2/callback/grok-x"],
+    ["/oauth2/link", { providerId: "grok-apple" }, "apple"],
+    ["/oauth2/link", { providerId: "provider-not-configured" }, "unknown"],
     ["/api/auth/sign-in/email", undefined, "email"],
     ["/sign-out", undefined, null],
   ];
 
-  for (const [path, body, method] of cases) {
+  for (const [path, body, method, params, requestUrl] of cases) {
     it(`maps ${path} to ${method ?? "no method"}`, () => {
-      assert.equal(methodForAuthRequest(path, body), method);
+      assert.equal(methodForAuthRequest(path, body, { params, requestUrl }), method);
     });
   }
 });
@@ -61,6 +72,40 @@ describe("enforceSignInMethod", () => {
     );
     assert.doesNotThrow(() =>
       enforceSignInMethod("/sign-out", undefined, DEFAULT_SETTINGS),
+    );
+  });
+
+  it("allows an admin to sign in by email when email sign-up is disabled", () => {
+    assert.doesNotThrow(() =>
+      enforceSignInMethod(
+        "/sign-in/email",
+        { email: "admin@looktag.studio" },
+        { ...DEFAULT_SETTINGS, signupEmail: false },
+      ),
+    );
+  });
+
+  it("does not allow other users to sign in by email when email is disabled", () => {
+    assert.throws(
+      () =>
+        enforceSignInMethod(
+          "/sign-in/email",
+          { email: "user@example.com" },
+          { ...DEFAULT_SETTINGS, signupEmail: false },
+        ),
+      /Sign-in method disabled: email/,
+    );
+  });
+
+  it("denies unknown provider ids instead of treating them as X", () => {
+    assert.throws(
+      () =>
+        enforceSignInMethod(
+          "/oauth2/link",
+          { providerId: "provider-not-configured" },
+          DEFAULT_SETTINGS,
+        ),
+      /Sign-in method disabled: unknown/,
     );
   });
 });

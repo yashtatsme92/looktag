@@ -30,9 +30,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Run guest shared-link E2E
+      - name: Run browser E2E suites
         run: |
-          VITE_AUTH_ENABLED=true npm run dev > /tmp/looktag-e2e-dev.log 2>&1 &
+          export VITE_AUTH_ENABLED=true
+          export ADMIN_EMAIL=admin@looktag.studio
+          export ADMIN_BOOTSTRAP_PASSWORD="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+          export BETTER_AUTH_URL=http://127.0.0.1:8080
+          npm run dev > /tmp/looktag-e2e-dev.log 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 60); do
@@ -48,4 +52,4 @@ jobs:
           npm run test:e2e:guest
           npm run test:e2e:aspect
           npm run test:e2e:create-phone
-
+          npm run test:e2e:auth-methods

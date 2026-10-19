@@ -246,6 +246,10 @@ export function mergeExtrasJson(raw: unknown, settings: AppSettings): string {
 
 export function mergeSettings(current: AppSettings, patch: Partial<AppSettings>): AppSettings {
   const next = parseSettings({ ...current, ...patch });
+  if (next.signupGoogle && !next.signupApple) {
+    if (patch.signupGoogle === true) return current;
+    next.signupGoogle = false;
+  }
   if (!hasSignupMethod(next)) return current;
   return next;
 }
