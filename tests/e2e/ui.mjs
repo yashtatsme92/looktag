@@ -45,7 +45,7 @@ const DRAFT = {
   ],
 };
 
-async function prime(page, { draft = false } = {}) {
+async function prime(page, { draft = false, fresh = false } = {}) {
   await page.addInitScript(
     ({ key, raw, withDraft }) => {
       try {
@@ -57,7 +57,11 @@ async function prime(page, { draft = false } = {}) {
         /* private mode */
       }
     },
-    { key: CREATE_DRAFT_KEY, raw: JSON.stringify(DRAFT), withDraft: draft },
+    {
+      key: CREATE_DRAFT_KEY,
+      raw: JSON.stringify(fresh ? { ...DRAFT, title: "", tags: [] } : DRAFT),
+      withDraft: draft || fresh,
+    },
   );
 }
 
@@ -550,6 +554,9 @@ async function flowCreateBranches(page) {
   });
   await goto(page, "/create");
   await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 8_000 });
+  if ((await page.locator(".look-studio").getAttribute("data-step")) === "pins") {
+    await page.locator(".create-plate-back").click();
+  }
   await page.getByRole("heading", { name: "Crop" }).waitFor({ timeout: 5_000 });
   await page.waitForFunction(
     () => document.querySelector(".crop-stage")?.getAttribute("aria-busy") === "true",
@@ -731,6 +738,26 @@ async function screenCropLayout(page, label) {
     (await page.getByRole("button", { name: "Change photo" }).isEnabled()) &&
       (await page.getByRole("button", { name: "Use photo" }).isEnabled()) &&
       (await page.getByRole("button", { name: "Skip" }).isEnabled()),
+  );
+}
+
+async function screenCropPhoneFit(page, width) {
+  await goto(page, "/create");
+  await page.getByRole("heading", { name: "Crop" }).waitFor({ timeout: 8_000 });
+  await page.locator(".crop-frame").waitFor({ timeout: 8_000 });
+  const fit = await page.evaluate(() => {
+    const right = (selector) => document.querySelector(selector)?.getBoundingClientRect().right ?? Infinity;
+    return {
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth,
+      frameRight: right(".crop-frame"),
+      resetRight: right(".crop-reset"),
+    };
+  });
+  record(
+    `flow.crop.phone-fit-${width}`,
+    fit.scrollWidth <= fit.innerWidth && fit.frameRight <= fit.innerWidth && fit.resetRight <= fit.innerWidth,
+    JSON.stringify(fit),
   );
 }
 
@@ -1964,6 +1991,13 @@ try {
     await flowCreateBranches(page);
   }, "ui-create", phone);
 
+  for (const width of [375, 390, 430]) {
+    await withPage(browser, origin, async (page) => {
+      await prime(page, { fresh: true });
+      await screenCropPhoneFit(page, width);
+    }, `ui-crop-phone-${width}`, { viewport: { width, height: 844 } });
+  }
+
   for (const [label, viewport] of [
     ["tablet-834", { width: 834, height: 1112 }],
     ["desktop-1194", { width: 1194, height: 834 }],
@@ -1971,7 +2005,7 @@ try {
     ["desktop-1440", { width: 1440, height: 900 }],
   ]) {
     await withPage(browser, origin, async (page) => {
-      await prime(page, { draft: true });
+      await prime(page, { fresh: true });
       await screenCropLayout(page, label);
     }, `ui-crop-${label}`, { viewport });
   }
