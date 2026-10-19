@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState, type FormEvent } from "react";
-import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate, useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { markStyleGuideDone } from "@/components/home/style-guide";
 import { AppShell } from "@/components/layout/app-shell";
@@ -13,7 +13,7 @@ import { normalizeLoginEmail, resolveYouSessionState, youSessionSignedIn } from 
 import { authClient, authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { clearPendingSave } from "@/lib/looks/pending-save";
-import { captureSessionToken, postAuthPath, safeNext, withTimeout } from "@/lib/login-next";
+import { captureSessionToken, postAuthPath, resumeCreateInsteadOfReplace, safeNext, withTimeout } from "@/lib/login-next";
 import { ensureMyProfile } from "@/lib/looks/api";
 import { parseHandle, suggestHandle } from "@/lib/looks/handle";
 import { signupMethodCount, visibleOauthProviders } from "@/lib/settings/model";
@@ -32,6 +32,17 @@ function rejectAfter(ms: number, message: string): Promise<never> {
   });
 }
 
+/** The Create page is already the history entry under /login. Pop back to it. */
+function ResumeCreate() {
+  const router = useRouter();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (router.history.canGoBack()) router.history.back();
+    else void navigate({ to: "/create", replace: true });
+  }, [navigate, router]);
+  return null;
+}
+
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
     next: search.next === "/login" ? "/login" : safeNext(search.next),
@@ -45,6 +56,7 @@ function Login() {
   const { next, intent, email: initialEmail } = Route.useSearch();
   const dest = postAuthPath(next, "/login");
   const navigate = useNavigate();
+  const router = useRouter();
   const { user, isPending } = useCurrentUserState();
   const sessionState = resolveYouSessionState({ user, isPending });
   const settings = useSettingsStore();
@@ -122,6 +134,10 @@ function Login() {
       return;
     }
     if (next) {
+      if (resumeCreateInsteadOfReplace(dest, router.history.canGoBack())) {
+        router.history.back();
+        return;
+      }
       await navigate({ to: dest as "/", replace: true });
       return;
     }
@@ -204,6 +220,7 @@ function Login() {
 
   if (youSessionSignedIn(sessionState) && user && !busy) {
     if (next === "/login") return <Navigate to="/login" search={{}} />;
+    if (next && resumeCreateInsteadOfReplace(dest, router.history.canGoBack())) return <ResumeCreate />;
     if (next) return <Navigate to={dest as "/"} replace />;
     return (
       <AppShell title="You" header="hidden" flush>

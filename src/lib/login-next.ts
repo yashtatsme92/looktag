@@ -9,6 +9,15 @@ export function postAuthPath(next: string | undefined, fallback = "/"): string {
   return safeNext(next) ?? fallback;
 }
 
+/** Pop back to the Create page already under /login instead of replacing /login with /create.
+ *  A replace would leave two Create entries, so one Discard would stay inside Create.
+ */
+export function resumeCreateInsteadOfReplace(dest: string, canGoBack: boolean): boolean {
+  if (!canGoBack) return false;
+  const path = dest.split(/[?#]/)[0] ?? dest;
+  return path === "/create";
+}
+
 /** True when the login screen is still waiting on the session instead of showing the form. */
 export function loginScreenStuck(opts: {
   path: string;
