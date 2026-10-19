@@ -94,8 +94,7 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole }:
         </ul>
         {onShopWhole ? (
           <button type="button" className="look-sheet-whole" onClick={onShopWhole}>
-            Shop whole look
-            <ExternalLink className="size-4" />
+            Shop whole look · {tags.length} {tags.length === 1 ? "piece" : "pieces"}
           </button>
         ) : null}
         <p className="look-sheet-count">

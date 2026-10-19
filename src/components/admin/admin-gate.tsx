@@ -97,29 +97,31 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
         <section className="flag-section" aria-labelledby="feature-flags-title" data-testid="feature-flags">
           <h2 className="flag-section-title" id="feature-flags-title">Feature flags</h2>
           <p className="flag-section-intro">Turn experimental or optional features on or off. Changes apply to all shoppers.</p>
-          {FEATURE_FLAGS.map((flag) => {
-            const on = Boolean(settings[flag.key]);
-            const state = flagState[flag.key];
-            return (
-              <article className="flag-row" key={flag.key} data-testid={`flag-${flag.key}`}>
-                <div className="flag-row-copy">
-                  <span className="flag-row-name">{flag.label}</span>
-                  <span className="flag-row-helper">{flag.helper}</span>
-                  <span className="flag-row-meta">
-                    <span className="flag-pill">{flag.scope}</span>
-                    <span className="flag-row-state" aria-live="polite">
-                      {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : flagStatus(on, flag)}
+          <div className="flag-list">
+            {FEATURE_FLAGS.map((flag) => {
+              const on = Boolean(settings[flag.key]);
+              const state = flagState[flag.key];
+              return (
+                <article className="flag-row" key={flag.key} data-testid={`flag-${flag.key}`}>
+                  <div className="flag-row-copy">
+                    <span className="flag-row-name">{flag.label}</span>
+                    <span className="flag-row-helper">{flag.helper}</span>
+                    <span className="flag-row-meta">
+                      <span className="flag-pill">{flag.scope}</span>
+                      <span className="flag-row-state" aria-live="polite">
+                        {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : flagStatus(on, flag)}
+                      </span>
                     </span>
-                  </span>
-                </div>
-                <Switch
-                  checked={on}
-                  aria-label={flag.label}
-                  onCheckedChange={(next) => void toggleFlag(flag.key, next)}
-                />
-              </article>
-            );
-          })}
+                  </div>
+                  <Switch
+                    checked={on}
+                    aria-label={flag.label}
+                    onCheckedChange={(next) => void toggleFlag(flag.key, next)}
+                  />
+                </article>
+              );
+            })}
+          </div>
         </section>
       ) : null}
       <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>

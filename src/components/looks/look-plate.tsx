@@ -25,9 +25,9 @@ import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { useSettingsStore } from "@/lib/settings/store";
 
-const FLAG_PHONE_QUERY = "(max-width: 599px)";
+const FLAG_PHONE_QUERY = "(max-width: 767px)";
 
-/** The Shop whole look flag applies below 600px (native app always counts as phone). */
+/** The Shop whole look flag applies below 768px (native app always counts as phone). */
 function useFlagPhone() {
   const [phone, setPhone] = useState(true);
   useLayoutEffect(() => {
@@ -62,7 +62,7 @@ export function LookPlate({
   const feedFollow = useSettingsStore((s) => s.feedFollow);
   const shopWholeLookPhone = useSettingsStore((s) => s.shopWholeLookPhone);
   const flagPhone = useFlagPhone();
-  /** Below 600px the spotlight never shows Shop whole look; the sheet footer shows it only when the flag is on. */
+  /** Below 768px the spotlight never shows Shop whole look; the sheet footer shows it only when the flag is on. */
   const showSpotlightWhole = !flagPhone;
   const showShopWhole = !flagPhone || shopWholeLookPhone;
 
