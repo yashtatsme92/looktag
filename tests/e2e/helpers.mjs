@@ -250,7 +250,7 @@ export async function setSwitch(locator, on) {
 }
 
 export async function fillSignup(page, origin, { name, email, password, handle, city }) {
-  await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+  await page.goto(`${origin}/login?next=%2Fcreate`, { waitUntil: "domcontentloaded", timeout: 20_000 });
   await page.locator("#creator-email").waitFor({ timeout: 8_000 });
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 }).catch(() => {});
   const nameField = page.locator("#creator-name");
@@ -288,7 +288,7 @@ export async function fillAdminLogin(page, origin) {
   await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 20_000 });
   await waitForApp(page).catch(() => {});
   await page.waitForTimeout(800);
-  await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+  await page.goto(`${origin}/login?next=%2Fadmin`, { waitUntil: "domcontentloaded", timeout: 20_000 });
   const alreadyIn = await page.waitForFunction(
     () => !location.pathname.startsWith("/login"),
     null,
@@ -323,9 +323,11 @@ export async function restoreStudioDefaults(page, origin) {
   await page.locator('[data-hydrated="true"]').waitFor({ timeout: 10_000 });
   await page.locator("#score-look").waitFor({ timeout: 10_000 });
   const google = page.getByRole("switch", { name: /Google sign-up/i });
+  const apple = page.getByRole("switch", { name: /Apple sign-up/i });
   const email = page.getByRole("switch", { name: /Email sign-up/i });
   const x = page.getByRole("switch", { name: /X sign-up/i });
   const houses = page.getByRole("switch", { name: "Show Houses" });
+  if (await apple.count()) await setSwitch(apple, true);
   if (await google.count()) await setSwitch(google, true);
   if (await email.count()) await setSwitch(email, true);
   if (await x.count()) await setSwitch(x, true);

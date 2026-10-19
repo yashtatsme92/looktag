@@ -10,6 +10,7 @@ export const getAppSettings = createServerFn({ method: "GET" }).handler(async ()
     span.setAttribute("looktag.houses.enabled", settings.labelsEnabled);
     span.setAttribute("looktag.signup.email", settings.signupEmail);
     span.setAttribute("looktag.signup.google", settings.signupGoogle);
+    span.setAttribute("looktag.signup.apple", settings.signupApple);
     span.setAttribute("looktag.signup.x", settings.signupX);
     span.setAttribute("looktag.theme", settings.themeId);
     return settings;

@@ -61,6 +61,25 @@ function Login() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [adminEmailOpen, setAdminEmailOpen] = useState(false);
+
+  const oauthButtons =
+    oauth.length > 0 ? (
+      <div className="flex flex-col gap-2">
+        {oauth.map((provider) => (
+          <Button
+            key={provider.providerId}
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={busy}
+            onClick={() => handleOauth(provider.providerId)}
+          >
+            Continue with {provider.label}
+          </Button>
+        ))}
+      </div>
+    ) : null;
 
   useLayoutEffect(() => {
     setHydrated(true);
@@ -70,6 +89,10 @@ function Login() {
   useEffect(() => {
     if (initialEmail !== undefined) setEmail(initialEmail);
   }, [initialEmail]);
+
+  useEffect(() => {
+    if (!emailOn) setMode("signin");
+  }, [emailOn]);
 
   useEffect(() => {
     if (!next || user) return;
@@ -228,7 +251,10 @@ function Login() {
 
       <SavedLooks variant="rail" />
 
-      <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-border)]">
+      <div
+        className="rounded-xl bg-card p-5 shadow-[var(--shadow-border)]"
+        data-settings-hydrated={settings.hydrated ? "true" : "false"}
+      >
         {emailOn ? (
           <div className="mb-5 grid grid-cols-2 rounded-lg bg-muted p-1">
             <button
@@ -263,7 +289,7 @@ function Login() {
             </button>
           </div>
         ) : (
-          <p className="mb-5 font-display text-2xl leading-none">Sign in</p>
+          <p className="mb-5 font-display text-2xl leading-none">Continue with an enabled provider</p>
         )}
 
         <p className="mb-5 text-sm text-muted-foreground">
@@ -277,16 +303,27 @@ function Login() {
                     ? `Email always works. ${oauth.map((p) => p.label).join(" and ")} open a new window.`
                     : "Use email to create an account."
                   : "Use the same email you signed up with."
-                : "Continue with a saved account."}
+                : "Choose an enabled provider, or use the admin sign-in option."}
         </p>
         {authEnabled && methodCount > 0 ? (
           <div className="flex flex-col gap-5">
-            {emailOn ? (
-              <form
-                className="flex flex-col gap-4"
-                data-hydrated={hydrated ? "true" : "false"}
-                onSubmit={(event) => void handleEmail(event)}
+            {!emailOn ? oauthButtons : null}
+            {!emailOn ? (
+              <button
+                type="button"
+                className="min-h-11 self-start text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                aria-expanded={adminEmailOpen}
+                onClick={() => setAdminEmailOpen((open) => !open)}
               >
+                {adminEmailOpen ? "Hide admin sign-in" : "Admin sign in"}
+              </button>
+            ) : null}
+            {emailOn || adminEmailOpen ? (
+              <form
+              className="flex flex-col gap-4"
+              data-hydrated={hydrated ? "true" : "false"}
+              onSubmit={(event) => void handleEmail(event)}
+            >
                 {mode === "signup" ? (
                   <>
                     <div className="flex flex-col gap-1.5">
@@ -370,8 +407,6 @@ function Login() {
                   {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in with email"}
                 </Button>
               </form>
-            ) : error ? (
-              <p className="text-sm text-destructive">{error}</p>
             ) : null}
 
             {emailOn && oauth.length > 0 ? (
@@ -382,22 +417,7 @@ function Login() {
               </div>
             ) : null}
 
-            {oauth.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {oauth.map((provider) => (
-                  <Button
-                    key={provider.providerId}
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    disabled={busy}
-                    onClick={() => handleOauth(provider.providerId)}
-                  >
-                    Continue with {provider.label}
-                  </Button>
-                ))}
-              </div>
-            ) : null}
+            {emailOn ? oauthButtons : null}
           </div>
         ) : null}
       </div>

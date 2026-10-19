@@ -16,6 +16,7 @@ import {
 
 const providers = [
   { providerId: "grok-google", idp: "google", label: "Google" },
+  { providerId: "grok-apple", idp: "apple", label: "Apple" },
   { providerId: "grok-x", idp: "twitter", label: "X" },
 ] as const;
 
@@ -23,17 +24,23 @@ describe("parseSettings", () => {
   it("defaults every method and Houses on", () => {
     assert.deepEqual(parseSettings(null), DEFAULT_SETTINGS);
     assert.deepEqual(parseSettings({}), DEFAULT_SETTINGS);
+    assert.deepEqual(
+      [DEFAULT_SETTINGS.signupEmail, DEFAULT_SETTINGS.signupGoogle, DEFAULT_SETTINGS.signupApple, DEFAULT_SETTINGS.signupX],
+      [true, false, false, false],
+    );
   });
 
   it("treats only explicit false as off", () => {
     const parsed = parseSettings({
       signupEmail: false,
       signupGoogle: true,
+      signupApple: true,
       signupX: false,
       labelsEnabled: false,
     });
     assert.equal(parsed.signupEmail, false);
     assert.equal(parsed.signupGoogle, true);
+    assert.equal(parsed.signupApple, true);
     assert.equal(parsed.signupX, false);
     assert.equal(parsed.labelsEnabled, false);
   });
@@ -89,11 +96,13 @@ describe("extras json", () => {
       searchEngine: "duckduckgo",
       searchCountry: "NL",
       scoreLook: 10,
+      signupApple: true,
     });
     const parsed = parseExtrasJson(JSON.stringify(extras));
     assert.equal(parsed.searchEngine, "duckduckgo");
     assert.equal(parsed.searchCountry, "NL");
     assert.equal(parsed.scoreLook, 10);
+    assert.equal(parsed.signupApple, true);
   });
 
   it("returns empty on bad json", () => {
@@ -127,6 +136,22 @@ describe("mergeSettings", () => {
     assert.equal(hasSignupMethod(blocked), true);
   });
 
+  it("requires Apple before enabling Google and disables Google with Apple", () => {
+    const rejected = mergeSettings(DEFAULT_SETTINGS, { signupGoogle: true });
+    assert.equal(rejected.signupGoogle, false);
+
+    const enabled = mergeSettings(DEFAULT_SETTINGS, {
+      signupApple: true,
+      signupGoogle: true,
+    });
+    assert.equal(enabled.signupApple, true);
+    assert.equal(enabled.signupGoogle, true);
+
+    const disabled = mergeSettings(enabled, { signupApple: false });
+    assert.equal(disabled.signupApple, false);
+    assert.equal(disabled.signupGoogle, false);
+  });
+
   it("allows turning Houses off independently", () => {
     const next = mergeSettings(DEFAULT_SETTINGS, { labelsEnabled: false });
     assert.equal(next.labelsEnabled, false);
@@ -136,7 +161,7 @@ describe("mergeSettings", () => {
   it("merges rank weights without touching sign-up", () => {
     const next = mergeSettings(DEFAULT_SETTINGS, { scoreLook: 7 });
     assert.equal(next.scoreLook, 7);
-    assert.equal(next.signupGoogle, true);
+    assert.equal(next.signupGoogle, false);
   });
 
   it("merges splash without resetting other knobs", () => {
@@ -162,15 +187,29 @@ describe("pickSettingsPatch", () => {
 
 describe("visibleOauthProviders", () => {
   it("hides Google and X independently", () => {
-    assert.equal(visibleOauthProviders({ signupGoogle: false, signupX: true }, providers).length, 1);
-    assert.equal(visibleOauthProviders({ signupGoogle: false, signupX: true }, providers)[0].label, "X");
-    assert.equal(visibleOauthProviders({ signupGoogle: false, signupX: false }, providers).length, 0);
+    const visible = visibleOauthProviders(
+      { signupGoogle: false, signupApple: true, signupX: true },
+      providers,
+    );
+    assert.deepEqual(visible.map((provider) => provider.label), ["Apple", "X"]);
+    assert.equal(
+      visibleOauthProviders(
+        { signupGoogle: false, signupApple: false, signupX: false },
+        providers,
+      ).length,
+      0,
+    );
   });
 });
 
 describe("signupMethodCount", () => {
   it("counts enabled methods", () => {
-    assert.equal(signupMethodCount(DEFAULT_SETTINGS), 3);
-    assert.equal(signupMethodCount({ signupEmail: true, signupGoogle: false, signupX: false }), 1);
+    assert.equal(signupMethodCount(DEFAULT_SETTINGS), 1);
+    assert.equal(signupMethodCount({
+      signupEmail: true,
+      signupGoogle: true,
+      signupApple: true,
+      signupX: false,
+    }), 3);
   });
 });
