@@ -1586,6 +1586,9 @@ async function flowSaveSheetEmailOff(page, label) {
   const actions = await drawer.getByRole("link", { name: /continue|sign in/i }).count();
   await signIn.click();
   await page.waitForURL(/\/login\?/, { timeout: 8_000 });
+  // Back only clears the pending save once the login page has attached its listener.
+  await page.locator('[data-settings-hydrated="true"]').waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Admin sign in", exact: true }).waitFor({ timeout: 8_000 });
   const pendingAtLogin = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
   await page.goBack();
   await page.waitForURL(/\/looks\/seed-sunday-coat$/, { timeout: 8_000 });
@@ -2096,6 +2099,8 @@ try {
     await fillAdminLogin(page, origin);
     await page.goto(`${origin}/admin/studio`, { waitUntil: "domcontentloaded", timeout: 20_000 });
     await page.locator('[data-hydrated="true"]').waitFor({ timeout: 10_000 });
+    // Email is the only method by default, so turning it off alone is ignored.
+    await setSwitch(page.getByRole("switch", { name: /Apple sign-up/i }), true);
     await setSwitch(page.getByRole("switch", { name: /Email sign-up/i }), false);
   }, "ui-email-off-setup", { viewport: { width: 1280, height: 800 } });
 
@@ -2111,10 +2116,17 @@ try {
   }
 
   await withPage(browser, origin, async (page) => {
+    // Email is still off, so reveal admin sign-in before looking for #creator-email.
+    await page.goto(`${origin}/login?next=%2Fadmin`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator('[data-settings-hydrated="true"]').waitFor({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Admin sign in", exact: true }).click();
+    await page.locator("#creator-email").waitFor({ timeout: 8_000 });
     await fillAdminLogin(page, origin);
     await page.goto(`${origin}/admin/studio`, { waitUntil: "domcontentloaded", timeout: 20_000 });
     await page.locator('[data-hydrated="true"]').waitFor({ timeout: 10_000 });
+    // Email back on first, then the extra provider off, so later steps see the defaults.
     await setSwitch(page.getByRole("switch", { name: /Email sign-up/i }), true);
+    await setSwitch(page.getByRole("switch", { name: /Apple sign-up/i }), false);
   }, "ui-email-off-restore", { viewport: { width: 1280, height: 800 } });
 
   await withPage(browser, origin, async (page) => {
