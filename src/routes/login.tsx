@@ -61,6 +61,25 @@ function Login() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [adminEmailOpen, setAdminEmailOpen] = useState(false);
+
+  const oauthButtons =
+    oauth.length > 0 ? (
+      <div className="flex flex-col gap-2">
+        {oauth.map((provider) => (
+          <Button
+            key={provider.providerId}
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={busy}
+            onClick={() => handleOauth(provider.providerId)}
+          >
+            Continue with {provider.label}
+          </Button>
+        ))}
+      </div>
+    ) : null;
 
   useLayoutEffect(() => {
     setHydrated(true);
@@ -270,7 +289,7 @@ function Login() {
             </button>
           </div>
         ) : (
-          <p className="mb-5 font-display text-2xl leading-none">Admin sign in</p>
+          <p className="mb-5 font-display text-2xl leading-none">Continue with an enabled provider</p>
         )}
 
         <p className="mb-5 text-sm text-muted-foreground">
@@ -284,11 +303,23 @@ function Login() {
                     ? `Email always works. ${oauth.map((p) => p.label).join(" and ")} open a new window.`
                     : "Use email to create an account."
                   : "Use the same email you signed up with."
-                : "Admin accounts can also sign in with email."}
+                : "Choose an enabled provider, or use the admin sign-in option."}
         </p>
         {authEnabled && methodCount > 0 ? (
           <div className="flex flex-col gap-5">
-            <form
+            {!emailOn ? oauthButtons : null}
+            {!emailOn ? (
+              <button
+                type="button"
+                className="min-h-11 self-start text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                aria-expanded={adminEmailOpen}
+                onClick={() => setAdminEmailOpen((open) => !open)}
+              >
+                {adminEmailOpen ? "Hide admin sign-in" : "Admin sign in"}
+              </button>
+            ) : null}
+            {emailOn || adminEmailOpen ? (
+              <form
               className="flex flex-col gap-4"
               data-hydrated={hydrated ? "true" : "false"}
               onSubmit={(event) => void handleEmail(event)}
@@ -375,7 +406,8 @@ function Login() {
                 <Button type="submit" disabled={busy} className="w-full">
                   {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in with email"}
                 </Button>
-            </form>
+              </form>
+            ) : null}
 
             {emailOn && oauth.length > 0 ? (
               <div className="flex items-center gap-3">
@@ -385,22 +417,7 @@ function Login() {
               </div>
             ) : null}
 
-            {oauth.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {oauth.map((provider) => (
-                  <Button
-                    key={provider.providerId}
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    disabled={busy}
-                    onClick={() => handleOauth(provider.providerId)}
-                  >
-                    Continue with {provider.label}
-                  </Button>
-                ))}
-              </div>
-            ) : null}
+            {emailOn ? oauthButtons : null}
           </div>
         ) : null}
       </div>

@@ -31,7 +31,6 @@ async function assertLoginMethods(browser, viewport, expected) {
         timeout: 20_000,
       });
       await page.locator('[data-settings-hydrated="true"]').waitFor({ timeout: 10_000 });
-      await page.locator("#creator-email").waitFor({ timeout: 10_000 });
       for (const [label, enabled] of [
         ["Google", expected.includes("Google")],
         ["Apple", expected.includes("Apple")],
@@ -45,6 +44,30 @@ async function assertLoginMethods(browser, viewport, expected) {
         expected.includes("Email"),
         `Email signup visibility at ${viewport.width}px`,
       );
+      if (expected.includes("Email")) {
+        await page.locator("#creator-email").waitFor({ timeout: 10_000 });
+      } else {
+        assert.equal(await page.locator("#creator-email").count(), 0, "admin email is secondary");
+        const adminSignIn = page.getByRole("button", { name: "Admin sign in" });
+        assert.equal(await adminSignIn.isVisible(), true);
+        if (expected.length > 0) {
+          const provider = await page
+            .getByRole("button", { name: `Continue with ${expected[0]}` })
+            .elementHandle();
+          const admin = await adminSignIn.elementHandle();
+          const providerPrecedesAdmin = await page.evaluate(
+            ({ providerButton, adminButton }) =>
+              Boolean(
+                providerButton.compareDocumentPosition(adminButton) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+              ),
+            { providerButton: provider, adminButton: admin },
+          );
+          assert.equal(providerPrecedesAdmin, true, "enabled provider is primary");
+        }
+        await adminSignIn.click();
+        await page.locator("#creator-email").waitFor({ timeout: 10_000 });
+      }
     },
     `auth-methods-login-${viewport.width}`,
     { viewport },
@@ -152,14 +175,17 @@ try {
 
         await setSwitch(email, false);
         const { email: adminEmail, password: adminPassword } = resolveAdminCredentials();
-        const adminEmailStatus = await page.evaluate(async ({ email: accountEmail, password }) => {
-          const response = await fetch("/api/auth/sign-in/email", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ email: accountEmail, password }),
-          });
-          return response.status;
-        }, { email: adminEmail, password: adminPassword });
+        const adminEmailStatus = await page.evaluate(
+          async ({ email: accountEmail, password }) => {
+            const response = await fetch("/api/auth/sign-in/email", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ email: accountEmail, password }),
+            });
+            return response.status;
+          },
+          { email: adminEmail, password: adminPassword },
+        );
         assert.equal(adminEmailStatus, 200, "admin email sign-in remains available");
         await assertLoginMethods(browser, viewport, ["Apple", "X"]);
         await assertForbiddenRoutes(
