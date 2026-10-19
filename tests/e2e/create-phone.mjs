@@ -105,6 +105,68 @@ try {
     browser,
     origin,
     async (page) => {
+      await page.goto(`${origin}/`, { waitUntil: "networkidle" });
+      await page.locator(".tab-bar").getByRole("link", { name: "Create" }).click();
+      await page.getByRole("heading", { name: "Create" }).waitFor({ timeout: 10_000 });
+      await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 10_000 });
+      record("create-phone.close.no-tab-bar", (await tabBars(page)) === 0);
+      await page.getByRole("button", { name: "Close" }).click();
+      await page.waitForFunction(() => location.pathname === "/", null, { timeout: 8_000 });
+      record("create-phone.close.from-looks", true);
+    },
+    "create-phone-close",
+    { viewport },
+  );
+  await withPage(
+    browser,
+    origin,
+    async (page) => {
+      await page.goto(`${origin}/create`, { waitUntil: "domcontentloaded" });
+      await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 10_000 });
+      await page.getByRole("button", { name: "Close" }).click();
+      await page.waitForFunction(() => location.pathname === "/", null, { timeout: 8_000 });
+      record("create-phone.close.deep-link", true);
+    },
+    "create-phone-close-deep",
+    { viewport },
+  );
+  for (const width of [834, 1280]) {
+    await withPage(
+      browser,
+      origin,
+      async (page) => {
+        await page.goto(`${origin}/create`, { waitUntil: "domcontentloaded" });
+        await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 10_000 });
+        record(
+          `create-phone.close.hidden@${width}`,
+          (await page.getByRole("button", { name: "Close" }).count()) === 0,
+        );
+      },
+      `create-phone-close-${width}`,
+      { viewport: { width, height: 900 } },
+    );
+  }
+  await withPage(
+    browser,
+    origin,
+    async (page) => {
+      await page.addInitScript(
+        ([key, raw]) => sessionStorage.setItem(key, raw),
+        [CREATE_DRAFT_KEY, JSON.stringify({ ...DRAFT, imageSrc: "" })],
+      );
+      await page.goto(`${origin}/create`, { waitUntil: "domcontentloaded" });
+      await page.locator(".look-studio[data-hydrated='true']").waitFor({ timeout: 10_000 });
+      await page.getByRole("button", { name: "Close" }).click();
+      await page.getByRole("dialog", { name: "Discard this look?" }).waitFor({ timeout: 5_000 });
+      record("create-phone.close.discard-confirm", new URL(page.url()).pathname === "/create");
+    },
+    "create-phone-close-pins",
+    { viewport },
+  );
+  await withPage(
+    browser,
+    origin,
+    async (page) => {
       await page.addInitScript(
         ([key, raw]) => {
           try {

@@ -4,6 +4,7 @@ import {
   captureSessionToken,
   loginScreenStuck,
   postAuthPath,
+  resumeCreateInsteadOfReplace,
   safeNext,
   withTimeout,
 } from "./login-next.ts";
@@ -34,6 +35,20 @@ describe("postAuthPath", () => {
   it("accepts a custom fallback for after-auth", () => {
     assert.equal(postAuthPath(undefined, "/login"), "/login");
     assert.equal(postAuthPath("/create", "/login"), "/create");
+  });
+});
+
+describe("resumeCreateInsteadOfReplace", () => {
+  it("returns to the Create entry under login instead of stacking another", () => {
+    assert.equal(resumeCreateInsteadOfReplace("/create", true), true);
+    assert.equal(resumeCreateInsteadOfReplace("/create?intent=save", true), true);
+  });
+
+  it("replaces when Create is not already in history, and for every other next", () => {
+    assert.equal(resumeCreateInsteadOfReplace("/create", false), false);
+    assert.equal(resumeCreateInsteadOfReplace("/looks/seed-sunday-coat", true), false);
+    assert.equal(resumeCreateInsteadOfReplace("/", true), false);
+    assert.equal(resumeCreateInsteadOfReplace("/you", true), false);
   });
 });
 

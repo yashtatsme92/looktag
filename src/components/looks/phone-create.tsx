@@ -1,4 +1,5 @@
-import { Camera, ChevronLeft, ImagePlus, Plus, ScanSearch } from "lucide-react";
+import { useState } from "react";
+import { Camera, ChevronLeft, ImagePlus, Plus, ScanSearch, X } from "lucide-react";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { CropStage } from "@/components/looks/crop-stage";
 import { StyleLinkField } from "@/components/labels/style-pin-note";
@@ -55,6 +56,7 @@ type PhoneCreateProps = {
   onPublish: () => void;
   onSaveDraft: () => void;
   onCancel: () => void;
+  onReset?: () => void;
   onDragOver: (over: boolean) => void;
   onFiles: (files: FileList | null) => void | Promise<void>;
   onCamera: () => void;
@@ -76,6 +78,7 @@ export function PhoneCreate(props: PhoneCreateProps) {
 }
 
 function PhotoEntry({
+  look,
   readingPhoto,
   photoError,
   dragOver,
@@ -83,13 +86,26 @@ function PhotoEntry({
   onFiles,
   onCamera,
   onLibrary,
+  onCancel,
+  onReset,
 }: PhoneCreateProps) {
   const copy = getCreateUploadPresentation({ phone: true, reading: readingPhoto });
   const errorMessage = formatCreateUploadError(photoError);
+  const [discardAsk, setDiscardAsk] = useState(false);
+  const unsaved = look.tags.length > 0 || Boolean(look.title.trim());
+
   return (
     <div className="create-paper">
       <header className="create-paper-bar">
-        <span className="w-11" />
+        <button
+          type="button"
+          className="create-paper-back create-paper-close w-11 justify-center"
+          aria-label="Close"
+          onClick={() => (unsaved ? setDiscardAsk(true) : onCancel())}
+        >
+          <X className="size-[18px]" strokeWidth={1.75} />
+        </button>
+        <span className="create-paper-close-spacer w-11" />
         <h1 className="create-paper-title">Create</h1>
         <span className="w-11" />
       </header>
@@ -133,6 +149,45 @@ function PhotoEntry({
           </div>
         </div>
       </div>
+      {discardAsk ? (
+        <div className="crop-outside-scrim">
+          <section
+            className="crop-outside-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-discard-title"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setDiscardAsk(false);
+              if (event.key === "Tab") {
+                const items = event.currentTarget.querySelectorAll("button");
+                const first = items[0];
+                const last = items[items.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                  event.preventDefault();
+                  last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                  event.preventDefault();
+                  first.focus();
+                }
+              }
+            }}
+          >
+            <h2 id="create-discard-title">Discard this look?</h2>
+            <p>Your pins and details will be lost.</p>
+            <div className="crop-outside-actions">
+              <button type="button" className="create-btn-ghost" autoFocus onClick={() => setDiscardAsk(false)}>
+                Keep
+              </button>
+              <button type="button" className="create-btn-primary" onClick={() => {
+                onReset?.();
+                onCancel();
+              }}>
+                Discard
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

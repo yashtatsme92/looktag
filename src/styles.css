@@ -1308,6 +1308,15 @@ html[data-theme="moss"] {
     line-height: 1;
   }
 
+  .create-paper-close-spacer,
+  html:not([data-chrome="phone"]) .create-paper-close {
+    display: none;
+  }
+
+  html:not([data-chrome="phone"]) .create-paper-close-spacer {
+    display: block;
+  }
+
   .create-paper-back svg,
   .native-back svg,
   .look-plate-glass svg,
