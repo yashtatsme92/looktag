@@ -13,13 +13,14 @@ type LookShopSheetProps = {
   onShopPiece: (tag: ProductTag) => void;
   /** The sheet is the whole-look shop; a footer action is only offered where a surface asks for one. */
   onShopWhole?: () => void;
+  phoneWholeLook?: boolean;
 };
 
 /**
  * `Shop this look` (Look/3): a sheet that slides up inside the look plate, so it always sits above the 4-tab bar.
  * One Shop per piece, never a price. A Style-linked piece shows its Style name and House with a ghost View Style.
  */
-export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole }: LookShopSheetProps) {
+export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, phoneWholeLook = false }: LookShopSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
 
   /** Focus moves into the sheet on open and returns to the control that opened it on close. */
@@ -93,9 +94,19 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole }:
           ))}
         </ul>
         {onShopWhole ? (
-          <button type="button" className="look-sheet-whole" onClick={onShopWhole}>
-            Shop whole look
-            <ExternalLink className="size-4" />
+          <button
+            type="button"
+            className={`look-sheet-whole${phoneWholeLook ? " look-sheet-whole-phone" : ""}`}
+            onClick={onShopWhole}
+          >
+            {phoneWholeLook ? (
+              <>Shop whole look · {tags.length} {tags.length === 1 ? "piece" : "pieces"}</>
+            ) : (
+              <>
+                Shop whole look
+                <ExternalLink className="size-4" />
+              </>
+            )}
           </button>
         ) : null}
         <p className="look-sheet-count">

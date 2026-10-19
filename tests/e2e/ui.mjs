@@ -1713,53 +1713,216 @@ async function flowShopWholePhoneFlag(page) {
 
   async function probe(path) {
     await goto(page, path);
-    const pin = page.locator(".tag-pin").nth(1);
-    await pin.waitFor({ timeout: 10_000 });
-    await page.waitForTimeout(800);
-    await pin.click();
-    const spotlightWhole = await page.locator(".look-plate-shop-whole").count();
-    await page.keyboard.press("Escape");
-    await page.locator(".look-plate-shop").click();
+    let spotlightWhole = 0;
+    let spotlightBox = null;
+    const wideShop = page.locator(".wide-panel-ft button");
+    if (!(await wideShop.isVisible())) {
+      const pin = page.locator(".tag-pin").nth(1);
+      await pin.waitFor({ timeout: 10_000 });
+      await page.waitForTimeout(800);
+      await pin.click();
+      const spotlight = page.locator(".look-plate-shop-whole");
+      spotlightWhole = await spotlight.count();
+      spotlightBox = spotlightWhole ? await spotlight.boundingBox() : null;
+      await page.keyboard.press("Escape");
+    }
+    const plateShop = page.locator(".look-plate-shop");
+    if (await plateShop.isVisible()) {
+      await plateShop.click();
+    } else {
+      await wideShop.click();
+    }
     await page.locator(".look-sheet").waitFor({ timeout: 4_000 });
     await page.waitForTimeout(450);
-    return page.evaluate((spot) => {
+    const result = await page.evaluate((spot) => {
       const whole = document.querySelector(".look-sheet-whole");
+      const wideWhole = document.querySelector(".wide-panel-ft button");
+      const action = whole || wideWhole;
       const cs = whole ? getComputedStyle(whole) : null;
+      const wideCs = wideWhole ? getComputedStyle(wideWhole) : null;
+      const rect = action?.getBoundingClientRect();
+      const text = document.body.innerText;
       return {
         spotlightWhole: spot,
         sheetWhole: Boolean(whole),
+        footerText: whole?.innerText.trim().replace(/\s+/g, " ") || "",
+        footerExternalIcon: Boolean(whole?.querySelector("svg.lucide-external-link")),
+        footerCount: document.querySelectorAll(".look-sheet-whole").length,
+        wideActionText: wideWhole?.innerText.trim().replace(/\s+/g, " ") || "",
+        wideActionExternalIcon: Boolean(wideWhole?.querySelector("svg.lucide-external-link")),
+        wideActionBorder: wideCs?.borderColor,
+        actionBox: rect ? [rect.x, rect.y, rect.width, rect.height].map(Math.round) : null,
         h: whole ? Math.round(whole.getBoundingClientRect().height) : null,
         bg: cs?.backgroundColor,
+        color: cs?.color,
+        border: cs?.borderColor,
+        radius: cs?.borderRadius,
         band: [...document.querySelectorAll(".look-plate-meta *")].some((el) => /Shop whole look/.test(el.textContent || "")),
+        bodyWholeCount: (text.match(/Shop whole look/g) || []).length,
       };
     }, spotlightWhole);
+    result.spotlightBox = spotlightBox ? [spotlightBox.x, spotlightBox.y, spotlightBox.width, spotlightBox.height].map(Math.round) : null;
+    return result;
   }
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  const on = await probe("/looks/seed-sunday-coat");
-  record(
-    "flow.flag.phone-on",
-    on.sheetWhole && on.spotlightWhole === 0 && on.h >= 44 && on.bg === "rgba(0, 0, 0, 0)" && !on.band,
-    JSON.stringify(on),
-  );
-  await page.setViewportSize({ width: 834, height: 1194 });
-  const tabletOn = await probe("/looks/seed-sunday-coat");
-  record("flow.flag.tablet-on", tabletOn.sheetWhole, JSON.stringify(tabletOn));
+  async function probeAdmin(width, height) {
+    await page.setViewportSize({ width, height });
+    await goto(page, "/admin");
+    return page.locator('[data-testid="feature-flags"]').evaluate((section) => {
+      const lists = section.querySelectorAll(".flag-list");
+      const list = lists[0];
+      const rows = [...(list?.querySelectorAll(":scope > .flag-row") ?? [])];
+      const title = section.querySelector(".flag-section-title");
+      const intro = section.querySelector(".flag-section-intro");
+      const switchControl = rows[0]?.querySelector('[role="switch"]');
+      const listStyle = list ? getComputedStyle(list) : null;
+      const rowStyles = rows.map((row) => getComputedStyle(row));
+      let hairline = false;
+      if (list && rows[0]) {
+        const separator = rows[0].cloneNode(false);
+        list.append(separator);
+        const style = getComputedStyle(separator);
+        hairline = style.borderTopWidth === "1px" && style.borderTopColor === "rgb(236, 236, 236)";
+        separator.remove();
+      }
+      const switchStyle = switchControl ? getComputedStyle(switchControl) : null;
+      return {
+        listCount: lists.length,
+        radius: listStyle?.borderRadius,
+        background: listStyle?.backgroundColor,
+        shadow: listStyle?.boxShadow,
+        titleFamily: title ? getComputedStyle(title).fontFamily : "",
+        titleSize: title ? getComputedStyle(title).fontSize : "",
+        intro: intro?.textContent.trim(),
+        rowCount: rows.length,
+        scope: section.querySelector(".flag-pill")?.textContent.trim(),
+        rowsUncarded: rowStyles.every((style) => style.borderRadius === "0px" && style.boxShadow === "none"),
+        rowsTallEnough: rows.every((row) => row.getBoundingClientRect().height >= 64),
+        hairline,
+        switchSize: switchStyle ? [switchStyle.width, switchStyle.height] : null,
+      };
+    });
+  }
+
+  for (const { width, height } of [
+    { width: 390, height: 844 },
+    { width: 600, height: 900 },
+    { width: 700, height: 900 },
+    { width: 767, height: 1000 },
+  ]) {
+    await page.setViewportSize({ width, height });
+    const on = await probe("/looks/seed-sunday-coat");
+    record(
+      `flow.flag.on-${width}-footer-only`,
+      on.sheetWhole &&
+        on.spotlightWhole === 0 &&
+        on.footerCount === 1 &&
+        /^Shop whole look · \d+ pieces?$/.test(on.footerText) &&
+        !on.footerExternalIcon &&
+        on.h === 44 &&
+        on.bg === "rgba(0, 0, 0, 0)" &&
+        on.color === "rgb(17, 17, 17)" &&
+        on.border === "rgb(224, 224, 224)" &&
+        on.radius === "12px" &&
+        !on.band &&
+        on.bodyWholeCount === 1,
+      JSON.stringify(on),
+    );
+  }
+
+  for (const { width, height } of [
+    { width: 390, height: 844 },
+    { width: 834, height: 1194 },
+    { width: 1280, height: 800 },
+  ]) {
+    const admin = await probeAdmin(width, height);
+    record(
+      `flow.flag.admin-list-${width}`,
+      admin.listCount === 1 &&
+        admin.radius === "16px" &&
+        admin.background === "rgb(255, 255, 255)" &&
+        admin.shadow !== "none" &&
+        /Playfair/.test(admin.titleFamily) &&
+        admin.titleSize === "20px" &&
+        admin.intro === "Turn experimental or optional features on or off. Changes apply to all shoppers." &&
+        admin.scope === "Phone" &&
+        admin.rowsUncarded &&
+        admin.rowsTallEnough &&
+        admin.hairline &&
+        JSON.stringify(admin.switchSize) === JSON.stringify(["44px", "26px"]),
+      JSON.stringify(admin),
+    );
+  }
+
+  const wideWidths = [
+    { width: 768, height: 1024 },
+    { width: 834, height: 1194 },
+    { width: 1024, height: 768 },
+    { width: 1280, height: 800 },
+  ];
+  const wideOn = [];
+  for (const { width, height } of wideWidths) {
+    await page.setViewportSize({ width, height });
+    const result = await probe("/looks/seed-sunday-coat");
+    wideOn.push(result);
+    const expected = width < 1024
+      ? result.sheetWhole &&
+        result.footerText === "Shop whole look" &&
+        result.footerExternalIcon &&
+        result.border === "rgb(17, 17, 17)"
+      : !result.sheetWhole &&
+        result.wideActionText === "Shop whole look" &&
+        result.wideActionBorder === "rgba(17, 17, 17, 0.16)" &&
+        !result.wideActionExternalIcon;
+    record(
+      `flow.flag.wide-on-${width}`,
+      result.spotlightWhole === (width < 1024 ? 1 : 0) && expected && result.bodyWholeCount === 1,
+      JSON.stringify(result),
+    );
+  }
 
   await goto(page, "/admin");
   await page.locator('[role="switch"][aria-label="Show Shop whole look on phone"][aria-checked="true"]').waitFor({ timeout: 8_000 });
   await page.getByRole("switch", { name: "Show Shop whole look on phone" }).click();
   await page.getByText("Saved", { exact: true }).waitFor({ timeout: 8_000 });
-  await page.setViewportSize({ width: 834, height: 1194 });
-  const tabletOff = await probe("/looks/seed-sunday-coat");
-  record("flow.flag.tablet-off-unchanged", tabletOff.sheetWhole === tabletOn.sheetWhole, JSON.stringify(tabletOff));
-  await page.setViewportSize({ width: 390, height: 844 });
-  const off = await probe("/looks/seed-sunday-coat");
-  record("flow.flag.phone-off", !off.sheetWhole && off.spotlightWhole === 0, JSON.stringify(off));
-  for (const width of [600, 700, 767]) {
-    await page.setViewportSize({ width, height: 900 });
-    const mid = await probe("/looks/seed-sunday-coat");
-    record(`flow.flag.off-${width}-matches-main`, mid.spotlightWhole === 1 && mid.sheetWhole, JSON.stringify(mid));
+  for (const { width, height } of wideWidths) {
+    await page.setViewportSize({ width, height });
+    const result = await probe("/looks/seed-sunday-coat");
+    const main = wideOn[wideWidths.findIndex((size) => size.width === width)];
+    const unchanged = width < 1024
+      ? result.footerText === "Shop whole look" &&
+      result.footerExternalIcon &&
+      result.border === "rgb(17, 17, 17)"
+      : result.wideActionText === "Shop whole look" &&
+      result.wideActionBorder === "rgba(17, 17, 17, 0.16)" &&
+      !result.wideActionExternalIcon;
+    record(
+      `flow.flag.wide-off-unchanged-${width}`,
+      result.spotlightWhole === main.spotlightWhole &&
+      result.sheetWhole === main.sheetWhole &&
+      unchanged &&
+      result.footerText === main.footerText &&
+      result.footerExternalIcon === main.footerExternalIcon &&
+      result.wideActionText === main.wideActionText &&
+      JSON.stringify(result.spotlightBox) === JSON.stringify(main.spotlightBox) &&
+      JSON.stringify(result.actionBox) === JSON.stringify(main.actionBox),
+      JSON.stringify({ on: main, off: result }),
+    );
+  }
+
+  for (const { width, height } of [
+    { width: 390, height: 844 },
+    { width: 600, height: 900 },
+    { width: 700, height: 900 },
+    { width: 767, height: 1000 },
+  ]) {
+    await page.setViewportSize({ width, height });
+    const off = await probe("/looks/seed-sunday-coat");
+    record(
+      `flow.flag.off-${width}-hidden`,
+      !off.sheetWhole && off.spotlightWhole === 0 && !off.band && off.bodyWholeCount === 0,
+      JSON.stringify(off),
+    );
   }
 }
 
@@ -1790,6 +1953,11 @@ try {
     await prime(page);
     await screenHousesWithoutScouted(page);
   }, "ui-houses-empty", phone);
+
+  await withPage(browser, origin, async (page) => {
+    await prime(page);
+    await flowShopWholePhoneFlag(page);
+  }, "ui-shop-whole-flag", phone);
 
   await withPage(browser, origin, async (page) => {
     await prime(page, { draft: true });
@@ -1895,11 +2063,6 @@ try {
     await prime(page);
     await flowPinCardClear(page);
   }, "ui-pins", phone);
-
-  await withPage(browser, origin, async (page) => {
-    await prime(page);
-    await flowShopWholePhoneFlag(page);
-  }, "ui-shop-whole-flag", phone);
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
