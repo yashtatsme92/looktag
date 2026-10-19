@@ -1544,6 +1544,10 @@ html[data-theme="moss"] {
     color: #fff;
   }
 
+  html[data-chrome="phone"] .crop-stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .crop-stage-underlay {
     position: absolute;
     inset: 0;
