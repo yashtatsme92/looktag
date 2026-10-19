@@ -102,7 +102,17 @@ export function AccountSheet({
                 </Link>
               </Button>
             </>
-          ) : null}
+          ) : (
+            <Button asChild className="h-11">
+              <Link
+                to="/login"
+                search={{ next: target, intent: intent === "save" ? "save" : undefined }}
+                onClick={continueWithEmail}
+              >
+                Continue to sign in
+              </Link>
+            </Button>
+          )}
           <Button type="button" variant="ghost" className="h-11" onClick={() => onSheetOpenChange(false)}>
             {secondary}
           </Button>

@@ -339,7 +339,12 @@ function Login() {
                 type="button"
                 className="min-h-11 self-start text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 aria-expanded={adminEmailOpen}
-                onClick={() => setAdminEmailOpen((open) => !open)}
+                onClick={() =>
+                  setAdminEmailOpen((open) => {
+                    if (!open) setError("");
+                    return !open;
+                  })
+                }
               >
                 {adminEmailOpen ? "Hide admin sign-in" : "Admin sign in"}
               </button>
