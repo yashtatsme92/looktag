@@ -32,6 +32,7 @@ export type AppSettings = {
   feedSaves: boolean;
   feedDrop: boolean;
   feedStyleCards: boolean;
+  shopWholeLookPhone: boolean;
   feedDropSlot: FeedCadence["dropSlot"];
   feedStyleEvery: FeedCadence["styleEvery"];
   feedBecauseEvery: FeedCadence["becauseEvery"];
@@ -61,6 +62,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   feedSaves: true,
   feedDrop: true,
   feedStyleCards: true,
+  shopWholeLookPhone: false,
   feedDropSlot: 3,
   feedStyleEvery: 12,
   feedBecauseEvery: 20,
@@ -143,6 +145,7 @@ export function parseSettings(raw: unknown): AppSettings {
     feedSaves: asBoolean(extras.feedSaves ?? row.feedSaves, true),
     feedDrop: asBoolean(extras.feedDrop ?? row.feedDrop, true),
     feedStyleCards: asBoolean(extras.feedStyleCards ?? row.feedStyleCards, true),
+    shopWholeLookPhone: asBoolean(extras.shopWholeLookPhone ?? row.shopWholeLookPhone, false),
     ...(() => {
       const cadence = asCadence({ ...row, ...extras });
       return {
@@ -177,6 +180,7 @@ export function extrasFromSettings(settings: AppSettings): Record<string, unknow
     feedSaves: settings.feedSaves,
     feedDrop: settings.feedDrop,
     feedStyleCards: settings.feedStyleCards,
+    shopWholeLookPhone: settings.shopWholeLookPhone,
     feedDropSlot: settings.feedDropSlot,
     feedStyleEvery: settings.feedStyleEvery,
     feedBecauseEvery: settings.feedBecauseEvery,
@@ -204,6 +208,7 @@ export const EXTRAS_KEYS = [
   "feedSaves",
   "feedDrop",
   "feedStyleCards",
+  "shopWholeLookPhone",
   "feedDropSlot",
   "feedStyleEvery",
   "feedBecauseEvery",

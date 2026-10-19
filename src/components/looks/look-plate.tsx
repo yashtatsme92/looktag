@@ -25,6 +25,21 @@ import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { useSettingsStore } from "@/lib/settings/store";
 
+const FLAG_PHONE_QUERY = "(max-width: 599px)";
+
+/** The Shop whole look flag applies below 600px (native app always counts as phone). */
+function useFlagPhone() {
+  const [phone, setPhone] = useState(true);
+  useLayoutEffect(() => {
+    const query = window.matchMedia(FLAG_PHONE_QUERY);
+    const sync = () => setPhone(query.matches || document.documentElement.classList.contains("native-app"));
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+  return phone;
+}
+
 export function LookPlate({
   look,
   userState,
@@ -45,6 +60,11 @@ export function LookPlate({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
   const feedFollow = useSettingsStore((s) => s.feedFollow);
+  const shopWholeLookPhone = useSettingsStore((s) => s.shopWholeLookPhone);
+  const flagPhone = useFlagPhone();
+  /** Below 600px the spotlight never shows Shop whole look; the sheet footer shows it only when the flag is on. */
+  const showSpotlightWhole = !flagPhone;
+  const showShopWhole = !flagPhone || shopWholeLookPhone;
 
   useEffect(() => {
     hydrateSaved();
@@ -373,13 +393,15 @@ export function LookPlate({
             </button>
           </div>
           {spotlight ? (
-            <button
-              type="button"
-              className="look-plate-shop-whole"
-              onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}
-            >
-              Shop whole look
-            </button>
+            showSpotlightWhole ? (
+              <button
+                type="button"
+                className="look-plate-shop-whole"
+                onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}
+              >
+                Shop whole look
+              </button>
+            ) : null
           ) : (
             <button type="button" className="look-plate-shop" onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}>
               Shop
@@ -394,7 +416,7 @@ export function LookPlate({
         open={shopSheetOpen}
         onClose={() => setShopSheetOpen(false)}
         onShopPiece={shop}
-        onShopWhole={shopWholeLook}
+        onShopWhole={showShopWhole ? shopWholeLook : undefined}
       />
 
       <AccountSheet

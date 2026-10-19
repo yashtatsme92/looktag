@@ -74,6 +74,14 @@ describe("parseSettings", () => {
   });
 });
 
+describe("shopWholeLookPhone", () => {
+  it("defaults off and survives the extras round-trip", () => {
+    assert.equal(parseSettings({}).shopWholeLookPhone, false);
+    const extras = extrasFromSettings({ ...DEFAULT_SETTINGS, shopWholeLookPhone: true });
+    assert.equal(parseSettings(parseExtrasJson(JSON.stringify(extras))).shopWholeLookPhone, true);
+  });
+});
+
 describe("extras json", () => {
   it("round-trips configurable knobs", () => {
     const extras = extrasFromSettings({
