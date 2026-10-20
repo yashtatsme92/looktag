@@ -27,12 +27,16 @@ function hasGlobbedMigrations(root: string): boolean {
 /**
  * Production only. Dev (`apply: "serve"`) never runs this, so the preview
  * server keeps loading PGLite from node_modules.
+ *
+ * `closeBundle` fires once per Vite environment. Copy only when the Nitro
+ * server environment closes, after `.output/server` is on disk.
  */
 function pgliteAssetsPlugin(): Plugin {
   return {
     name: "app-builder:pglite-assets",
     apply: "build",
     closeBundle() {
+      if (this.environment.name !== "nitro") return;
       const code = copyPgliteAssets();
       if (code !== 0) this.error("[pglite] production build is missing wasm/data assets");
     },

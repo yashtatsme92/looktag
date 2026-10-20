@@ -66,7 +66,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build the production server
-        run: npm run build
+        # Bare vite build, not `npm run build`. The npm script also runs
+        # scripts/copy-pglite-assets.mjs, which already copies these files on
+        # main, so it would not fail if this plugin were removed.
+        run: PATH="$(pwd)/node_modules/.bin:$PATH" node scripts/with-app-env.mjs vite build
         env:
           VITE_AUTH_ENABLED: "true"
           BETTER_AUTH_SECRET: ci-prod-secret-0123456789abcdef01
