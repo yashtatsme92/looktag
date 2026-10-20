@@ -54,3 +54,56 @@ jobs:
           npm run test:e2e:aspect
           npm run test:e2e:create-phone
           npm run test:e2e:auth-methods
+
+  prod-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the production server
+        # Bare vite build, not `npm run build`. The npm script also runs
+        # scripts/copy-pglite-assets.mjs, which already copies these files on
+        # main, so it would not fail if this plugin were removed.
+        run: PATH="$(pwd)/node_modules/.bin:$PATH" node scripts/with-app-env.mjs vite build
+        env:
+          VITE_AUTH_ENABLED: "true"
+          BETTER_AUTH_SECRET: ci-prod-secret-0123456789abcdef01
+          BETTER_AUTH_URL: http://127.0.0.1:4173
+      - name: Database-backed route returns 200
+        env:
+          VITE_AUTH_ENABLED: "true"
+          BETTER_AUTH_SECRET: ci-prod-secret-0123456789abcdef01
+          BETTER_AUTH_URL: http://127.0.0.1:4173
+          PORT: "4173"
+          HOST: 127.0.0.1
+          PROD_CHECK_URL: http://127.0.0.1:4173
+        run: |
+          for file in pglite.data pglite.wasm initdb.wasm; do
+            test -s ".output/server/_libs/$file" || {
+              echo "missing .output/server/_libs/$file"
+              find .output -name "$file" -o -name 'electric-sql__pglite*' || true
+              exit 1
+            }
+          done
+          node .output/server/index.mjs > /tmp/looktag-prod.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/api/auth/ok >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:4173/api/auth/ok >/dev/null || {
+            cat /tmp/looktag-prod.log
+            exit 1
+          }
+          node scripts/check-prod-db.mjs || {
+            cat /tmp/looktag-prod.log
+            exit 1
+          }

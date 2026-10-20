@@ -8,6 +8,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
+// @ts-expect-error JS module alongside the TS vite config
+import { copyPgliteAssets } from "./scripts/copy-pglite-assets.mjs";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
@@ -20,6 +22,25 @@ function hasGlobbedMigrations(root: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Production only. Dev (`apply: "serve"`) never runs this, so the preview
+ * server keeps loading PGLite from node_modules.
+ *
+ * `closeBundle` fires once per Vite environment. Copy only when the Nitro
+ * server environment closes, after `.output/server` is on disk.
+ */
+function pgliteAssetsPlugin(): Plugin {
+  return {
+    name: "app-builder:pglite-assets",
+    apply: "build",
+    closeBundle() {
+      if (this.environment.name !== "nitro") return;
+      const code = copyPgliteAssets();
+      if (code !== 0) this.error("[pglite] production build is missing wasm/data assets");
+    },
+  };
 }
 
 /**
@@ -180,6 +201,7 @@ export default defineConfig(({ command, isPreview }) => ({
             // false, so removing this silently unwires /?install=1 on deploys.
             serverDir: "./server",
           }),
+          pgliteAssetsPlugin(),
         ]
       : []),
     viteReact(),

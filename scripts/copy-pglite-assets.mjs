@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 /**
  * Nitro traces @electric-sql/pglite JS but not the wasm/data blobs. Copy them
- * next to the bundled module so any host (Node server, Docker, Vercel, preview)
- * can boot PGLite when DATABASE_URL is unset.
+ * next to every bundled module that loads them via import.meta.url, including
+ * .output/server/_libs, so `node .output/server/index.mjs` can boot PGLite.
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PGLITE_ASSET_FILES = ["pglite.data", "pglite.wasm", "initdb.wasm"];
+
+const WASM_REF = /pglite\.(?:wasm|data)|initdb\.wasm/;
+const TEXT_EXT = /\.(mjs|js|cjs)$/;
 
 const rootFromScript = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -21,16 +24,15 @@ export function pgliteDestinations(root) {
   ];
 }
 
-function findPgliteModuleDirs(dir, acc = [], depth = 0) {
-  if (depth > 6 || !existsSync(dir)) return acc;
+function walkOutput(dir, acc, depth = 0) {
+  if (depth > 8 || !existsSync(dir)) return;
   let entries;
   try {
     entries = readdirSync(dir);
   } catch {
-    return acc;
+    return;
   }
   for (const name of entries) {
-    if (name === "node_modules" && depth > 0) continue;
     const full = join(dir, name);
     let st;
     try {
@@ -39,19 +41,44 @@ function findPgliteModuleDirs(dir, acc = [], depth = 0) {
       continue;
     }
     if (st.isDirectory()) {
-      findPgliteModuleDirs(full, acc, depth + 1);
+      if (name.toLowerCase() === "pglite") {
+        const dist = join(full, "dist");
+        if (existsSync(dist)) acc.add(dist);
+      }
+      walkOutput(full, acc, depth + 1);
       continue;
     }
-    if (/pglite/i.test(name) && /\.(mjs|js|cjs)$/.test(name)) acc.push(dir);
+    if (!TEXT_EXT.test(name) || !st.isFile() || st.size > 20_000_000) continue;
+    if (/pglite/i.test(name)) {
+      acc.add(dir);
+      continue;
+    }
+    let text = "";
+    try {
+      text = readFileSync(full, "utf8");
+    } catch {
+      continue;
+    }
+    if (WASM_REF.test(text)) acc.add(dir);
   }
-  return acc;
+}
+
+/** Directories under the production output that must sit beside the wasm blobs. */
+export function findPgliteAssetDirs(root) {
+  const acc = new Set();
+  for (const base of [
+    join(root, ".output/server"),
+    join(root, ".output/functions"),
+    join(root, ".vercel"),
+  ]) {
+    walkOutput(base, acc);
+  }
+  return [...acc];
 }
 
 export function resolvePgliteCopyTargets(root) {
   const dests = new Set(pgliteDestinations(root));
-  for (const base of [join(root, ".output"), join(root, ".vercel")]) {
-    for (const dir of findPgliteModuleDirs(base)) dests.add(dir);
-  }
+  for (const dir of findPgliteAssetDirs(root)) dests.add(dir);
   return [...dests].filter((dir) => existsSync(dir) || existsSync(dirname(dir)));
 }
 
@@ -91,6 +118,16 @@ export function copyPgliteAssets(root = rootFromScript) {
       copyFileSync(join(srcDir, file), join(destDir, file));
     }
     console.log("[pglite] copied assets →", destDir);
+  }
+  const serverDir = join(root, ".output/server");
+  if (existsSync(serverDir)) {
+    const libs = join(serverDir, "_libs");
+    for (const file of PGLITE_ASSET_FILES) {
+      if (!existsSync(join(libs, file))) {
+        console.error(`[pglite] ${file} missing from ${libs}`);
+        return 1;
+      }
+    }
   }
   return 0;
 }
