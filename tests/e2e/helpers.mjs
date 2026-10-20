@@ -295,9 +295,15 @@ export async function fillAdminLogin(page, origin) {
     { timeout: 2_000 },
   ).then(() => true).catch(() => false);
   if (alreadyIn) return;
-  await page.locator("#creator-email").waitFor({ timeout: 8_000 });
+  // Email sign-up off hides #creator-email until "Admin sign in" is opened.
+  await page.locator('[data-settings-hydrated="true"]').waitFor({ timeout: 10_000 }).catch(() => {});
+  const emailInput = page.locator("#creator-email");
+  if ((await emailInput.count()) === 0) {
+    await page.getByRole("button", { name: "Admin sign in", exact: true }).click();
+  }
+  await emailInput.waitFor({ timeout: 8_000 });
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 }).catch(() => {});
-  const signInTab = page.getByRole("button", { name: "Sign in" }).first();
+  const signInTab = page.getByRole("button", { name: "Sign in", exact: true }).first();
   if (await signInTab.count()) {
     await signInTab.click().catch(() => {});
   }

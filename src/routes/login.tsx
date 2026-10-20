@@ -207,7 +207,11 @@ function Login() {
       .then(() => {
         window.clearTimeout(unlock);
         if (window.location.pathname.startsWith("/login")) {
-          setError("That sign-in did not complete. Try email.");
+          setError(
+            emailOn
+              ? "That sign-in did not complete. Try email."
+              : "That sign-in did not complete. Try again or use another method.",
+          );
           setBusy(false);
         }
       })
@@ -325,12 +329,21 @@ function Login() {
         {authEnabled && methodCount > 0 ? (
           <div className="flex flex-col gap-5">
             {!emailOn ? oauthButtons : null}
+            {!emailOn && !adminEmailOpen && error ? (
+              <p role="alert" aria-live="assertive" className="text-sm text-destructive">
+                {error}
+              </p>
+            ) : null}
             {!emailOn ? (
               <button
                 type="button"
                 className="min-h-11 self-start text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 aria-expanded={adminEmailOpen}
-                onClick={() => setAdminEmailOpen((open) => !open)}
+                onClick={() => {
+                  const opening = !adminEmailOpen;
+                  if (opening) setError("");
+                  setAdminEmailOpen(opening);
+                }}
               >
                 {adminEmailOpen ? "Hide admin sign-in" : "Admin sign in"}
               </button>
@@ -419,7 +432,7 @@ function Login() {
                     placeholder={mode === "signup" ? "At least 8 characters" : "Password"}
                   />
                 </div>
-                {error ? <p className="text-sm text-destructive">{error}</p> : null}
+                {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
                 <Button type="submit" disabled={busy} className="w-full">
                   {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in with email"}
                 </Button>

@@ -6,7 +6,7 @@
 import { chromium } from "playwright";
 import { pieceEditorIsFooter, saveDockStaysDown } from "../../src/lib/looks/edit-footer.ts";
 import { CREATE_DRAFT_KEY } from "../../src/lib/looks/create-draft.ts";
-import { SCREENSHOT_DIR, resolveAdminCredentials, resolveOrigin, withPage } from "./helpers.mjs";
+import { SCREENSHOT_DIR, fillAdminLogin, resolveAdminCredentials, resolveOrigin, setSwitch, withPage } from "./helpers.mjs";
 
 const origin = resolveOrigin();
 const results = [];
@@ -1573,6 +1573,33 @@ async function flowSaveSheetBackFromLogin(page, label) {
   record(`flow.save-sheet.back-clears-pending-${label}`, pending === null, String(pending));
 }
 
+/** Email sign-in is off: the sheet still has one way into /login, and Back clears the pending save. */
+async function flowSaveSheetEmailOff(page, label) {
+  await goto(page, "/looks/seed-sunday-coat");
+  await page.locator('[data-settings-hydrated="true"], [data-hydrated="true"]').first().waitFor({ timeout: 10_000 }).catch(() => {});
+  await openSaveSheet(page);
+  const drawer = page.locator("[data-vaul-drawer]");
+  const signIn = drawer.getByRole("link", { name: "Continue to sign in" });
+  await signIn.waitFor({ timeout: 8_000 });
+  const emailLink = await drawer.getByRole("link", { name: "Continue with email" }).count();
+  const emailField = await drawer.locator("input[type='email']").count();
+  const actions = await drawer.getByRole("link", { name: /continue|sign in/i }).count();
+  await signIn.click();
+  await page.waitForURL(/\/login\?/, { timeout: 8_000 });
+  // Back only clears the pending save once the login page has attached its listener.
+  await page.locator('[data-settings-hydrated="true"]').waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Admin sign in", exact: true }).waitFor({ timeout: 8_000 });
+  const pendingAtLogin = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
+  await page.goBack();
+  await page.waitForURL(/\/looks\/seed-sunday-coat$/, { timeout: 8_000 });
+  const pending = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
+  record(
+    `flow.save-sheet.email-off-${label}`,
+    actions === 1 && emailLink === 0 && emailField === 0 && pendingAtLogin !== null && pending === null,
+    JSON.stringify({ actions, emailLink, emailField, pendingAtLogin, pending }),
+  );
+}
+
 /** The sheet stays inside the viewport with Cancel fully visible, and nothing paints below it. */
 async function flowSaveSheetPlacement(page, label, path) {
   await goto(page, path);
@@ -2067,6 +2094,40 @@ try {
       }
     }, `ui-save-sheet-${label}`, { viewport });
   }
+
+  await withPage(browser, origin, async (page) => {
+    await fillAdminLogin(page, origin);
+    await page.goto(`${origin}/admin/studio`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator('[data-hydrated="true"]').waitFor({ timeout: 10_000 });
+    // Email is the only method by default, so turning it off alone is ignored.
+    await setSwitch(page.getByRole("switch", { name: /Apple sign-up/i }), true);
+    await setSwitch(page.getByRole("switch", { name: /Email sign-up/i }), false);
+  }, "ui-email-off-setup", { viewport: { width: 1280, height: 800 } });
+
+  for (const [label, viewport] of [
+    ["390", { width: 390, height: 844 }],
+    ["834", { width: 834, height: 1194 }],
+    ["1280", { width: 1280, height: 800 }],
+  ]) {
+    await withPage(browser, origin, async (page) => {
+      await prime(page);
+      await flowSaveSheetEmailOff(page, label);
+    }, `ui-save-sheet-email-off-${label}`, { viewport });
+  }
+
+  await withPage(browser, origin, async (page) => {
+    // Email is still off, so reveal admin sign-in before looking for #creator-email.
+    await page.goto(`${origin}/login?next=%2Fadmin`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator('[data-settings-hydrated="true"]').waitFor({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Admin sign in", exact: true }).click();
+    await page.locator("#creator-email").waitFor({ timeout: 8_000 });
+    await fillAdminLogin(page, origin);
+    await page.goto(`${origin}/admin/studio`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.locator('[data-hydrated="true"]').waitFor({ timeout: 10_000 });
+    // Email back on first, then the extra provider off, so later steps see the defaults.
+    await setSwitch(page.getByRole("switch", { name: /Email sign-up/i }), true);
+    await setSwitch(page.getByRole("switch", { name: /Apple sign-up/i }), false);
+  }, "ui-email-off-restore", { viewport: { width: 1280, height: 800 } });
 
   await withPage(browser, origin, async (page) => {
     await prime(page);
