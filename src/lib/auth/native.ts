@@ -15,7 +15,7 @@ export const nativeTrustedOrigins: readonly string[] = [
 /**
  * Exact deep-link callbacks the native app registers.
  * `looktag://` and `looktag:///` only — not `looktag://callback` or any other path.
- * A query string is allowed so the session cookie and app nonce can ride back.
+ * A query string is allowed so the session hand-off and app nonce can ride back.
  */
 export function isRegisteredLooktagCallback(value: string): boolean {
   let url: URL;

@@ -54,6 +54,22 @@ describe("expo authorization proxy", () => {
       400,
     );
     assert.equal(
+      rejectExpoProxy(
+        request(
+          `https://accounts.google.com/o/oauth2/v2/auth?state=abc&redirect_uri=${encodeURIComponent(`${origin}/api/auth/callback/apple`)}`,
+        ),
+      )?.status,
+      400,
+    );
+    assert.equal(
+      rejectExpoProxy(
+        request(
+          `https://appleid.apple.com/auth/authorize?state=abc&redirect_uri=${encodeURIComponent(`${origin}/api/auth/callback/google`)}`,
+        ),
+      )?.status,
+      400,
+    );
+    assert.equal(
       rejectExpoProxy(request("https://accounts.google.com/o/oauth2/v2/auth?state=abc", { oauthState: "attacker" }))?.status,
       400,
     );

@@ -1,6 +1,9 @@
-import { isRegisteredLooktagCallback, isRegisteredRedirectUri } from "./native.ts";
+import { isRegisteredLooktagCallback } from "./native.ts";
 
-const PROVIDER_HOSTS = new Set(["accounts.google.com", "appleid.apple.com"]);
+const PROVIDER_CALLBACK: Record<string, string> = {
+  "accounts.google.com": "/api/auth/callback/google",
+  "appleid.apple.com": "/api/auth/callback/apple",
+};
 
 export function crossSiteResponse(request: Request): Response | null {
   const site = request.headers.get("sec-fetch-site")?.toLowerCase();
@@ -10,10 +13,29 @@ export function crossSiteResponse(request: Request): Response | null {
   return null;
 }
 
+/** Each provider host may only use its own registered callback, or a looktag:// deep link. */
+export function providerRedirectMatches(target: URL, appOrigin: string): boolean {
+  const expectedPath = PROVIDER_CALLBACK[target.hostname];
+  if (!expectedPath) return false;
+  const redirectUri = target.searchParams.get("redirect_uri");
+  if (!redirectUri) return false;
+  if (isRegisteredLooktagCallback(redirectUri)) return true;
+  let redirect: URL;
+  try {
+    redirect = new URL(redirectUri);
+  } catch {
+    return false;
+  }
+  if (redirect.username !== "" || redirect.password !== "") return false;
+  if (redirect.origin !== appOrigin) return false;
+  if (redirect.search !== "" || redirect.hash !== "") return false;
+  return redirect.pathname === expectedPath;
+}
+
 /** Block the Expo proxy before Better Auth sees it.
  *  Returns a response when the request must not be proxied, otherwise null.
- *  A 302 is only the registered looktag:// callback, and the route still
- *  requires the one-time app nonce before it is sent.
+ *  A 302 is only the registered looktag:// callback. The route still requires
+ *  the one-time nonce, and drops any query that was passed through.
  */
 export function rejectExpoProxy(request: Request): Response | null {
   const url = new URL(request.url);
@@ -41,12 +63,7 @@ export function rejectExpoProxy(request: Request): Response | null {
     return new Response(null, { status: 302, headers: { location: authorizationURL } });
   }
 
-  if (target.protocol !== "https:" || !PROVIDER_HOSTS.has(target.hostname)) {
-    return new Response("Invalid authorizationURL", { status: 400 });
-  }
-
-  const redirectUri = target.searchParams.get("redirect_uri");
-  if (!redirectUri || !isRegisteredRedirectUri(redirectUri, url.origin)) {
+  if (target.protocol !== "https:" || !providerRedirectMatches(target, url.origin)) {
     return new Response("Invalid authorizationURL", { status: 400 });
   }
 
