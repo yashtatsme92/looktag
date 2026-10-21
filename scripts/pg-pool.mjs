@@ -36,6 +36,31 @@ export function postgresPoolOptions(connectionString) {
 }
 
 /**
+ * Neon’s `-pooler` host is PgBouncer in transaction mode. A session
+ * `pg_advisory_lock` ends with that backend as soon as the statement does,
+ * so it does not cover the rest of the migrate. Direct connections and PGLite
+ * can hold a session lock for the whole run.
+ * The connection string is never logged.
+ * @param {string | undefined | null} connectionString
+ * @returns {"session" | "transaction"}
+ */
+export function migrationLockMode(connectionString) {
+  if (!connectionString || !String(connectionString).trim()) return "session";
+  const raw = String(connectionString).trim();
+  let host = "";
+  try {
+    host = new URL(raw).hostname;
+  } catch {
+    const at = raw.lastIndexOf("@");
+    const rest = at >= 0 ? raw.slice(at + 1) : raw;
+    host = rest.split("/")[0]?.split("?")[0] ?? "";
+  }
+  const name = host.toLowerCase();
+  if (name.includes("-pooler") || name.startsWith("pooler.")) return "transaction";
+  return "session";
+}
+
+/**
  * One factory call, then the same instance. Used by tests to prove the pool is shared.
  * @template T
  * @param {() => T} factory

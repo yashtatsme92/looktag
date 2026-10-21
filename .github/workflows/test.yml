@@ -108,9 +108,10 @@ jobs:
             exit 1
           }
 
-  # Optional. Not a required check. Skips unless the repo has a DATABASE_URL secret
-  # pointing at a Neon branch. Never prints the URL.
+  # Optional. Not a required check. The job is skipped unless DATABASE_URL is set
+  # (a Neon branch). It never prints the URL.
   neon-smoke:
+    if: ${{ secrets.DATABASE_URL != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -120,19 +121,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: See if a Neon URL is configured
-        id: neon
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          if [ -n "$DATABASE_URL" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "DATABASE_URL secret is not set — skipping Neon smoke."
-          fi
       - name: Migrate, seed, and check a fresh database
-        if: steps.neon.outputs.enabled == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           VITE_AUTH_ENABLED: "true"

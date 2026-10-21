@@ -6,6 +6,9 @@
  * in ../migrations to DATABASE_URL. Each file is applied in one transaction and
  * recorded in a `_migrations` table, so it runs once and is safe to re-run.
  * A Postgres advisory lock keeps two deploys from applying the same file.
+ * A direct connection holds `pg_advisory_lock` for the whole run. Neon's
+ * pooled (`-pooler`) endpoint cannot keep a session lock, so each file takes
+ * `pg_advisory_xact_lock` inside its transaction instead.
  *
  * When sign-in is on (`VITE_AUTH_ENABLED` is not `"false"`, matching Better
  * Auth), `migrations/auth/0001_auth.sql` is included. The top-level copy
@@ -22,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
 import { authEnabledFromEnv, runMigrate } from "./apply-migrations.mjs";
-import { postgresPoolOptions } from "./pg-pool.mjs";
+import { migrationLockMode, postgresPoolOptions } from "./pg-pool.mjs";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 if (!databaseUrl) {
@@ -43,7 +46,11 @@ async function main() {
     exec: (text) => client.query(text),
   };
   try {
-    const { applied, crops } = await runMigrate(db, { migrationsDir, authEnabled });
+    const { applied, crops } = await runMigrate(db, {
+      migrationsDir,
+      authEnabled,
+      lockMode: migrationLockMode(databaseUrl),
+    });
     if (crops) console.log(`[migrate] backfilled ${crops} centred look crop(s).`);
     console.log(
       applied ? `[migrate] done — ${applied} migration(s) applied.` : "[migrate] up to date.",

@@ -1,12 +1,14 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  migrationLockMode,
   openSharedPool,
   postgresPoolOptions,
   resolveDbSource,
   singleton,
   warnIfProductionWithoutDatabase,
 } from "../../scripts/pg-pool.mjs";
+import { applyMigrations } from "../../scripts/apply-migrations.mjs";
 
 describe("database backend selection", () => {
   it("treats a blank DATABASE_URL as PGLite", () => {
@@ -77,5 +79,47 @@ describe("database backend selection", () => {
       ),
       false,
     );
+  });
+
+  it("uses a transaction lock on a Neon pooler host and a session lock otherwise", () => {
+    assert.equal(
+      migrationLockMode(
+        "postgresql://user:password@ep-example-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require",
+      ),
+      "transaction",
+    );
+    assert.equal(
+      migrationLockMode(
+        "postgresql://user:password@ep-example.eu-central-1.aws.neon.tech/neondb?sslmode=require",
+      ),
+      "session",
+    );
+    assert.equal(migrationLockMode("postgres://local/db"), "session");
+    assert.equal(migrationLockMode("   "), "session");
+  });
+
+  it("takes pg_advisory_xact_lock inside each file on the pooler", async () => {
+    const calls: string[] = [];
+    const db = {
+      async query(text: string) {
+        calls.push(text);
+        return { rows: [] as Array<Record<string, unknown>> };
+      },
+      async exec(text: string) {
+        calls.push(`exec:${text}`);
+      },
+    };
+    const applied = await applyMigrations(
+      db,
+      [{ name: "0002_looks.sql", path: "0002_looks.sql", text: "select 1" }],
+      { lockMode: "transaction", authEnabled: true },
+    );
+    assert.equal(applied, 1);
+    assert.equal(calls.filter((sql) => sql.includes("pg_advisory_xact_lock")).length, 2);
+    assert.equal(
+      calls.some((sql) => sql.includes("pg_advisory_lock(")),
+      false,
+    );
+    assert.ok(calls.some((sql) => sql.startsWith("exec:")));
   });
 });
