@@ -107,3 +107,62 @@ jobs:
             cat /tmp/looktag-prod.log
             exit 1
           }
+
+  # Optional. Not a required check. Skips unless the repo has a DATABASE_URL secret
+  # pointing at a Neon branch. Never prints the URL.
+  neon-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: See if a Neon URL is configured
+        id: neon
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -n "$DATABASE_URL" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "DATABASE_URL secret is not set — skipping Neon smoke."
+          fi
+      - name: Migrate, seed, and check a fresh database
+        if: steps.neon.outputs.enabled == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          VITE_AUTH_ENABLED: "true"
+          BETTER_AUTH_SECRET: ci-neon-secret-0123456789abcdef01
+          BETTER_AUTH_URL: http://127.0.0.1:4173
+          PORT: "4173"
+          HOST: 127.0.0.1
+          PROD_CHECK_URL: http://127.0.0.1:4173
+        run: |
+          set -euo pipefail
+          npm run db:migrate
+          npm run db:seed
+          npm run db:migrate
+          npm run db:seed
+          PATH="$(pwd)/node_modules/.bin:$PATH" node scripts/with-app-env.mjs vite build
+          node scripts/copy-pglite-assets.mjs
+          node .output/server/index.mjs > /tmp/looktag-neon.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/api/auth/ok >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:4173/api/auth/ok >/dev/null || {
+            cat /tmp/looktag-neon.log
+            exit 1
+          }
+          node scripts/check-prod-db.mjs || {
+            cat /tmp/looktag-neon.log
+            exit 1
+          }

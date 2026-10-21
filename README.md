@@ -55,11 +55,26 @@ recorded in `_migrations`.
 | `0007_houses_admin.sql` | House owner + approval status |
 
 **No `DATABASE_URL`.** The app uses PGLite (Postgres compiled to WASM).
-Migrations run on first query. Fine for local work and the live preview.
+Migrations and `seedCatalog` run on first query. Fine for local work, tests, and CI.
+Production without `DATABASE_URL` still boots, and logs a warning that data will not persist.
 
-**With `DATABASE_URL`.** Any Postgres (Neon, RDS, local). `scripts/dev.sh`
-runs `npm run db:migrate` before the server. The same command runs at the end
-of `npm run build`.
+**With `DATABASE_URL`.** Neon (or any Postgres). Use Neon's **pooled** endpoint:
+the host contains `-pooler`, and the URL includes `?sslmode=require`. App queries
+and Better Auth share one pool.
+
+First deploy against an empty database (schema and repo seed only — no copy of
+an old PGLite database; existing users sign up again):
+
+```sh
+# Set DATABASE_URL in the host's build env and runtime env, then:
+npm run db:migrate   # also runs at the end of npm run build
+npm run db:seed      # idempotent; safe to run again
+```
+
+`scripts/dev.sh` runs `npm run db:migrate` before the server. Seed is a separate
+step so CI never needs a network database. Editorial looks are not a second SQL
+file: `db:seed` calls the same `seedCatalog` the server runs, inserting code
+seeds (`src/lib/looks/seed.ts`, `src/lib/labels/seed.ts`) with `on conflict do nothing`.
 
 Prefer host-injected secrets in deploy. For local reference, copy
 [`.env.example`](.env.example) to a private `.env` that is **never committed**.
@@ -73,7 +88,7 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 
 | Variable | Role | Required for deploy | If unset |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | Postgres | Recommended for production data | Embedded PGLite |
+| `DATABASE_URL` | Neon pooled Postgres (`-pooler` host, `sslmode=require`) | Recommended for production data | Embedded PGLite |
 | `BETTER_AUTH_SECRET` | Better Auth signing secret | **Yes** | Ephemeral preview secret (sessions reset on restart) |
 | `BETTER_AUTH_URL` | Public auth origin (OAuth / CSRF) | **Yes** | Dynamic preview host / localhost |
 | `GROK_AUTH_ISSUER` | Grok auth broker issuer | Recommended | `https://auth.grok.me` |
@@ -254,7 +269,8 @@ node tests/e2e/run.mjs
 | `npm run dev` | Vite via `scripts/with-app-env.mjs` |
 | `npm run build` | Production build, PGLite assets, migrate |
 | `npm run preview:restart` | Serve the built app on :8081 |
-| `npm run db:migrate` | Apply `migrations/` to `DATABASE_URL` |
+| `npm run db:migrate` | Apply `migrations/` to `DATABASE_URL` (advisory lock, auth schema when sign-in is on) |
+| `npm run db:seed` | Idempotent houses, looks, and creators. Run after the first migrate |
 | `npm run native:sync` | Capacitor sync |
 | `sh startup.sh` | Revive: start only if nothing is listening |
 

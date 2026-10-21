@@ -5,21 +5,26 @@
  * Runs during `npm run build` on any host — applying pending files
  * in ../migrations to DATABASE_URL. Each file is applied in one transaction and
  * recorded in a `_migrations` table, so it runs once and is safe to re-run.
+ * A Postgres advisory lock keeps two deploys from applying the same file.
  *
- * The read is non-recursive, so the opt-in auth schema under migrations/auth/
- * is not applied to an app that never asked for sign-in.
+ * When sign-in is on (`VITE_AUTH_ENABLED` is not `"false"`, matching Better
+ * Auth), `migrations/auth/0001_auth.sql` is included. The top-level copy
+ * `migrations/0001_auth.sql` is what PGLite applies; basename dedupe means a
+ * fresh database runs that schema once. Sign-in off skips it.
  *
- * No DATABASE_URL (local / preview builds) -> skip; the PGLite fallback applies
- * the same files at startup instead (see src/lib/db.ts).
+ * After the files, centred look crops are backfilled the same way PGLite does
+ * at startup (`src/lib/db.ts`).
+ *
+ * No DATABASE_URL (local / preview / CI) -> skip; the PGLite fallback migrates
+ * itself. Seed data is a separate step: `npm run db:seed`.
  */
-import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
-import { pendingMigrations } from "./migration-plan.mjs";
-import { backfillLookCrops } from "./backfill-look-crops.mjs";
+import { authEnabledFromEnv, runMigrate } from "./apply-migrations.mjs";
+import { postgresPoolOptions } from "./pg-pool.mjs";
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL?.trim();
 if (!databaseUrl) {
   console.log(
     "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",
@@ -28,57 +33,21 @@ if (!databaseUrl) {
 }
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+const authEnabled = authEnabledFromEnv(process.env.VITE_AUTH_ENABLED);
 
 async function main() {
-  let entries;
-  try {
-    entries = await readdir(migrationsDir);
-  } catch {
-    console.log("[migrate] no migrations/ directory — nothing to do.");
-    return;
-  }
-  // An app with no schema of its own must not pay for a database connection.
-  if (pendingMigrations(entries, []).length === 0) {
-    console.log("[migrate] no migrations — nothing to do.");
-    return;
-  }
-
-  const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+  const pool = new pg.Pool({ ...postgresPoolOptions(databaseUrl), max: 1 });
   const client = await pool.connect();
+  const db = {
+    query: (text, params) => client.query(text, params),
+    exec: (text) => client.query(text),
+  };
   try {
-    await client.query(
-      "CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
+    const { applied, crops } = await runMigrate(db, { migrationsDir, authEnabled });
+    if (crops) console.log(`[migrate] backfilled ${crops} centred look crop(s).`);
+    console.log(
+      applied ? `[migrate] done — ${applied} migration(s) applied.` : "[migrate] up to date.",
     );
-    const applied = (await client.query("SELECT name FROM _migrations")).rows.map(
-      (r) => r.name,
-    );
-
-    let count = 0;
-    for (const { name } of pendingMigrations(entries, applied)) {
-      const text = await readFile(join(migrationsDir, name), "utf8");
-      try {
-        await client.query("BEGIN");
-        // pg's simple-query protocol runs a whole multi-statement file at once.
-        await client.query(text);
-        await client.query("INSERT INTO _migrations (name) VALUES ($1)", [name]);
-        await client.query("COMMIT");
-      } catch (err) {
-        console.error(`[migrate] error applying ${name}`);
-        try {
-          await client.query("ROLLBACK");
-        } catch {
-          // ROLLBACK fails when the connection died — keep the original error.
-        }
-        throw err;
-      }
-      console.log(`[migrate] applied ${name}`);
-      count += 1;
-    }
-    const cropCount = await backfillLookCrops({
-      query: async (text, params = []) => (await client.query(text, params)).rows,
-    });
-    if (cropCount) console.log(`[migrate] backfilled ${cropCount} centred look crop(s).`);
-    console.log(count ? `[migrate] done — ${count} migration(s) applied.` : "[migrate] up to date.");
   } finally {
     client.release();
     await pool.end();
@@ -87,7 +56,6 @@ async function main() {
 
 main().catch((err) => {
   console.error("[migrate] failed:", err?.message || err);
-  // pg errors carry the context needed to debug a bad SQL file.
   for (const key of ["code", "detail", "hint", "position", "where"]) {
     if (err?.[key] != null) console.error(`[migrate]   ${key}: ${err[key]}`);
   }

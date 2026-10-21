@@ -1,5 +1,10 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
 import { backfillLookCrops } from "../../scripts/backfill-look-crops.mjs";
+import {
+  getSharedPgPool,
+  resolveDbSource,
+  warnIfProductionWithoutDatabase,
+} from "../../scripts/pg-pool.mjs";
 
 /** Which database backend is active. Fashion collections live in migrations/0006. Profile details live in 0008. */
 export type DbSource = "neon" | "pglite";
@@ -9,7 +14,7 @@ export type DbSource = "neon" | "pglite";
 const rawDatabaseUrl =
   typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
 const databaseUrl =
-  rawDatabaseUrl && rawDatabaseUrl.trim() ? rawDatabaseUrl : undefined;
+  resolveDbSource(rawDatabaseUrl) === "neon" ? rawDatabaseUrl?.trim() : undefined;
 
 /**
  * Active backend: real **Neon** when `DATABASE_URL` is set (deployed / configured
@@ -88,13 +93,8 @@ function toSql(run: Run): Sql {
 
 function createNeonSql(): Promise<Sql> {
   globalRef.__pgSqlPromise__ ??= (async () => {
-    // Regular Postgres driver: node-postgres (`pg`) — works directly with Neon's
-    // pooled endpoint. One pool per process; warm serverless instances reuse it.
-    const { Pool, types } = await import("pg");
-    types.setTypeParser(OID_INT8, Number);
-    types.setTypeParser(OID_DATE, identity);
-    types.setTypeParser(OID_INTERVAL, identity);
-    const pool = new Pool({ connectionString: databaseUrl });
+    // Same pool Better Auth uses (see getPgPool). Warm instances reuse it.
+    const pool = getSharedPgPool(databaseUrl!);
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
       return res.rows as T[];
@@ -104,6 +104,14 @@ function createNeonSql(): Promise<Sql> {
     throw err;
   });
   return globalRef.__pgSqlPromise__;
+}
+
+/** The process-wide Postgres pool. Throws on the PGLite fallback. */
+export function getPgPool() {
+  if (!databaseUrl) {
+    throw new Error("getPgPool() is only available when DATABASE_URL is set");
+  }
+  return getSharedPgPool(databaseUrl);
 }
 
 async function createPgliteSql(): Promise<Sql> {
@@ -229,6 +237,13 @@ export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite
 export function ensureDbReady(): Promise<void> {
   if (dbSource !== "pglite") return Promise.resolve();
   return getSql().then(() => undefined);
+}
+
+if (typeof window === "undefined") {
+  warnIfProductionWithoutDatabase({
+    NODE_ENV: process.env.NODE_ENV,
+    DATABASE_URL: rawDatabaseUrl,
+  });
 }
 
 // Server-only eager start: kick PGLite bootstrap as soon as this module loads in
