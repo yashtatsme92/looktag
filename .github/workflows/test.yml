@@ -108,29 +108,10 @@ jobs:
             exit 1
           }
 
-  # Optional. Not a required check. `neon-smoke` is skipped unless DATABASE_URL
-  # is set (a Neon branch). The secret is read in a step — job-level `if` cannot
-  # see `secrets` — and the URL is never printed.
-  neon-gate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      enabled: ${{ steps.gate.outputs.enabled }}
-    steps:
-      - id: gate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          if [ -n "$DATABASE_URL" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "DATABASE_URL secret is not set — skipping Neon smoke."
-          fi
-
+  # Optional. Not a required check. The database steps run only when a
+  # DATABASE_URL secret is set (a Neon branch). The URL is never printed.
+  # Do not put `secrets` in this job's `if` — GitHub rejects that context there.
   neon-smoke:
-    needs: neon-gate
-    if: needs.neon-gate.outputs.enabled == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -140,7 +121,19 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: See if a Neon URL is configured
+        id: neon
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -n "$DATABASE_URL" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "DATABASE_URL secret is not set — skipping Neon smoke."
+          fi
       - name: Migrate, seed, and check a fresh database
+        if: steps.neon.outputs.enabled == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           VITE_AUTH_ENABLED: "true"
