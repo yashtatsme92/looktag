@@ -56,11 +56,15 @@ recorded in `_migrations`.
 
 **No `DATABASE_URL`.** The app uses PGLite (Postgres compiled to WASM).
 Migrations and `seedCatalog` run on first query. Fine for local work, tests, and CI.
-Production without `DATABASE_URL` still boots, and logs a warning that data will not persist.
+Production (`NODE_ENV=production`) without `DATABASE_URL` refuses to boot, because
+that database is wiped on restart. `LOOKTAG_ALLOW_EPHEMERAL_DB=1` is the only opt-in,
+and CI's prod-server job is the only place that sets it.
 
-**With `DATABASE_URL`.** Neon (or any Postgres). Use Neon's **pooled** endpoint:
-the host contains `-pooler`, and the URL includes `?sslmode=require`. App queries
-and Better Auth share one pool.
+**With `DATABASE_URL`.** Any Postgres, including Neon. Use Neon's **pooled** endpoint:
+the host contains `-pooler`, and the URL includes `?sslmode=require`. Certificates
+are verified. `sslmode=no-verify` or `DATABASE_SSL_NO_VERIFY=1` turns that off for
+a local server. App queries and Better Auth share one pool. The backend name is
+`postgres` (`neon` is an accepted alias).
 
 First deploy against an empty database (schema and repo seed only — no copy of
 an old PGLite database; existing users sign up again):
@@ -74,7 +78,9 @@ npm run db:seed      # idempotent; safe to run again
 `scripts/dev.sh` runs `npm run db:migrate` before the server. Seed is a separate
 step so CI never needs a network database. Editorial looks are not a second SQL
 file: `db:seed` calls the same `seedCatalog` the server runs, inserting code
-seeds (`src/lib/looks/seed.ts`, `src/lib/labels/seed.ts`) with `on conflict do nothing`.
+seeds (`src/lib/looks/seed.ts`, `src/lib/labels/seed.ts`) with `on conflict do nothing`
+through `seeded_items` (editorial looks and `house-*` looks). `db:seed` also
+computes centred crops, so they are not left null until the next migrate.
 
 Prefer host-injected secrets in deploy. For local reference, copy
 [`.env.example`](.env.example) to a private `.env` that is **never committed**.

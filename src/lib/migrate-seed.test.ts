@@ -61,10 +61,23 @@ describe("migrate and seed idempotency", () => {
     assert.ok(seeded.totals.fashion_collections > 0);
     assert.ok(seeded.totals.fashion_styles > 0);
     assert.ok(seeded.totals.seeded_items > 0);
+    const houseLedger = await pg.query<{ id: string }>(
+      "select id from seeded_items where kind = 'house_look' order by id",
+    );
+    assert.equal(houseLedger.rows.length, 7);
+    const cropped = await pg.query<{ n: number }>(
+      "select count(*)::int as n from looks where id like 'house-%' and crop_json like '%\"w\"%'",
+    );
+    assert.equal(Number(cropped.rows[0]?.n), 7);
 
     await seedDatabase(sql);
     const reseeded = await counts(pg);
     assert.deepEqual(reseeded, seeded);
+
+    await pg.query("delete from looks where id = 'house-noir-column'");
+    await seedDatabase(sql);
+    const restored = await pg.query("select id from looks where id = 'house-noir-column'");
+    assert.equal(restored.rows.length, 0);
     await closeSeedLoader();
     await pg.close();
   });

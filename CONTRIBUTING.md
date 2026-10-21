@@ -15,10 +15,12 @@ sh scripts/dev.sh --background  # start and return
 ```
 
 Unset `DATABASE_URL` uses embedded PGLite. Set `DATABASE_URL` for Neon or another
-Postgres server. Use the pooled host (`-pooler`) and `?sslmode=require`.
+Postgres server. Use the pooled host (`-pooler`) and `?sslmode=require`
+(certificates are checked; `DATABASE_SSL_NO_VERIFY=1` is the local opt-out).
+Production without `DATABASE_URL` exits unless `LOOKTAG_ALLOW_EPHEMERAL_DB=1`.
 `scripts/dev.sh` runs migrations first. After the first migrate on an empty
-database, run `npm run db:seed` (idempotent). Do not import an old PGLite
-database; seed is the repo catalog only.
+database, run `npm run db:seed` (idempotent, and it fills look crops). Do not
+import an old PGLite database; seed is the repo catalog only.
 
 Optional local env: copy `.env.example` to a private `.env` (never commit it) or
 export variables in your shell. Deploy hosts should inject secrets directly.

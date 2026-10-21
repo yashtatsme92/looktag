@@ -1,28 +1,28 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
 import { backfillLookCrops } from "../../scripts/backfill-look-crops.mjs";
 import {
+  assertProductionDatabase,
   getSharedPgPool,
   resolveDbSource,
-  warnIfProductionWithoutDatabase,
 } from "../../scripts/pg-pool.mjs";
+import { pgliteDialect } from "./auth/pglite-dialect";
 
-/** Which database backend is active. Fashion collections live in migrations/0006. Profile details live in 0008. */
-export type DbSource = "neon" | "pglite";
+/** Which database backend is active. "neon" is accepted as an alias of "postgres". */
+export type DbSource = "postgres" | "pglite";
 
 // An empty/whitespace DATABASE_URL (an easy misconfig in deploy UIs) must mean
 // "unset" — otherwise production would silently run on the PGLite fallback.
 const rawDatabaseUrl =
   typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
 const databaseUrl =
-  resolveDbSource(rawDatabaseUrl) === "neon" ? rawDatabaseUrl?.trim() : undefined;
+  resolveDbSource(rawDatabaseUrl) === "postgres" ? rawDatabaseUrl?.trim() : undefined;
 
 /**
- * Active backend: real **Neon** when `DATABASE_URL` is set (deployed / configured
- * sandbox), otherwise a local embedded **PGLite** (Postgres compiled to WASM) so
- * the app has a working database even with nothing configured — the live preview
- * included. Swap in Neon later by just setting `DATABASE_URL`; no code changes.
+ * Active backend: real **Postgres** when `DATABASE_URL` is set (Neon or any
+ * other server), otherwise a local embedded **PGLite** (Postgres compiled to
+ * WASM) so dev, tests and CI have a working database with nothing configured.
  */
-export const dbSource: DbSource = databaseUrl ? "neon" : "pglite";
+export const dbSource: DbSource = databaseUrl ? "postgres" : "pglite";
 
 /**
  * Minimal shared SQL surface, satisfied by both Neon and PGLite. Both the
@@ -91,7 +91,7 @@ function toSql(run: Run): Sql {
   return sql;
 }
 
-function createNeonSql(): Promise<Sql> {
+function createPostgresSql(): Promise<Sql> {
   globalRef.__pgSqlPromise__ ??= (async () => {
     // Same pool Better Auth uses (see getPgPool). Warm instances reuse it.
     const pool = getSharedPgPool(databaseUrl!);
@@ -112,6 +112,15 @@ export function getPgPool() {
     throw new Error("getPgPool() is only available when DATABASE_URL is set");
   }
   return getSharedPgPool(databaseUrl);
+}
+
+/**
+ * Better Auth database: the shared Postgres pool, or the PGLite dialect.
+ * Auth does not choose a vendor; this module does.
+ */
+export function authDatabase() {
+  if (databaseUrl) return getPgPool();
+  return { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
 }
 
 async function createPgliteSql(): Promise<Sql> {
@@ -191,11 +200,11 @@ async function createSql(): Promise<Sql> {
         "or a server route loader, never from client code.",
     );
   }
-  return dbSource === "neon" ? createNeonSql() : createPgliteSql();
+  return dbSource === "postgres" ? createPostgresSql() : createPgliteSql();
 }
 
 /**
- * Get the shared, **server-only** SQL client. Neon when `DATABASE_URL` is set,
+ * Get the shared, **server-only** SQL client. Postgres when `DATABASE_URL` is set,
  * otherwise the local PGLite fallback. Memoized — safe to call per request.
  *
  * Schema comes from `migrations/*.sql`, auto-applied before the first query on
@@ -212,7 +221,7 @@ export function getSql(): Promise<Sql> {
 /**
  * The shared PGLite instance (preview only), with `migrations/*.sql` applied.
  * Lets Better Auth persist to the SAME embedded DB as app data in preview (via a
- * Kysely dialect). Throws when `DATABASE_URL` is set (that path uses Neon).
+ * Kysely dialect). Throws when `DATABASE_URL` is set (that path uses Postgres).
  */
 export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite> {
   if (dbSource !== "pglite") {
@@ -229,7 +238,7 @@ export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite
  *
  * - **PGLite** (preview / no `DATABASE_URL`): open the in-memory DB and apply
  *   `migrations/*.sql`. Idempotent — concurrent callers share one promise.
- * - **Neon**: no-op (pool is created lazily on first query).
+ * - **Postgres**: no-op (pool is created lazily on first query).
  *
  * Vite `configureServer` awaits this at dev startup; production imports of this
  * module kick it off immediately (see bottom of file).
@@ -240,9 +249,11 @@ export function ensureDbReady(): Promise<void> {
 }
 
 if (typeof window === "undefined") {
-  warnIfProductionWithoutDatabase({
+  assertProductionDatabase({
     NODE_ENV: process.env.NODE_ENV,
     DATABASE_URL: rawDatabaseUrl,
+    LOOKTAG_ALLOW_EPHEMERAL_DB: process.env.LOOKTAG_ALLOW_EPHEMERAL_DB,
+    ALLOW_EPHEMERAL_DB: process.env.ALLOW_EPHEMERAL_DB,
   });
 }
 

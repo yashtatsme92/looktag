@@ -1,12 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  assertProductionDatabase,
   migrationLockMode,
+  normalizeDbSource,
   openSharedPool,
   postgresPoolOptions,
   resolveDbSource,
   singleton,
-  warnIfProductionWithoutDatabase,
 } from "../../scripts/pg-pool.mjs";
 import { applyMigrations } from "../../scripts/apply-migrations.mjs";
 
@@ -15,23 +16,32 @@ describe("database backend selection", () => {
     assert.equal(resolveDbSource(undefined), "pglite");
     assert.equal(resolveDbSource(""), "pglite");
     assert.equal(resolveDbSource("   "), "pglite");
-    assert.equal(resolveDbSource("postgresql://looktag/db"), "neon");
+    assert.equal(resolveDbSource("postgresql://looktag/db"), "postgres");
+    assert.equal(resolveDbSource("neon"), "postgres");
+    assert.equal(normalizeDbSource("neon"), "postgres");
+    assert.equal(normalizeDbSource("postgres"), "postgres");
+    assert.equal(normalizeDbSource("pglite"), "pglite");
   });
 
-  it("sets ssl for Neon and a modest pool", () => {
+  it("verifies TLS by default and only skips with an explicit opt-in", () => {
     const pooled = postgresPoolOptions(
       "postgresql://user:password@ep-example-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require",
     );
     assert.equal(pooled.max, 5);
     assert.equal(pooled.idleTimeoutMillis, 10_000);
-    assert.deepEqual(pooled.ssl, { rejectUnauthorized: false });
-    assert.equal(
-      postgresPoolOptions("postgres://local/db").ssl,
-      undefined,
-    );
+    assert.deepEqual(pooled.ssl, { rejectUnauthorized: true });
+    assert.equal(pooled.connectionString.includes("sslmode="), false);
+    assert.equal(postgresPoolOptions("postgres://local/db").ssl, undefined);
     assert.deepEqual(postgresPoolOptions("postgres://local/db?sslmode=verify-full").ssl, {
       rejectUnauthorized: true,
     });
+    assert.deepEqual(postgresPoolOptions("postgres://local/db?sslmode=no-verify").ssl, {
+      rejectUnauthorized: false,
+    });
+    assert.deepEqual(
+      postgresPoolOptions("postgres://local/db?sslmode=require", { DATABASE_SSL_NO_VERIFY: "1" }).ssl,
+      { rejectUnauthorized: false },
+    );
   });
 
   it("uses one shared pool (mock pg)", () => {
@@ -50,34 +60,43 @@ describe("database backend selection", () => {
     assert.equal(first, second);
     assert.equal(created.length, 1);
     assert.equal(created[0]?.max, 5);
-    assert.deepEqual(created[0]?.ssl, { rejectUnauthorized: false });
+    assert.deepEqual(created[0]?.ssl, { rejectUnauthorized: true });
 
     const get = singleton(() => ({ id: created.length }));
     assert.equal(get(), get());
   });
 
-  it("warns once in production when DATABASE_URL is missing and does not exit", () => {
-    const messages: string[] = [];
-    const flag = { done: false };
-    const warn = (message: string) => messages.push(message);
-    assert.equal(
-      warnIfProductionWithoutDatabase({ NODE_ENV: "production", DATABASE_URL: "  " }, warn, flag),
-      true,
+  it("refuses production without DATABASE_URL unless ephemeral mode is opted in", () => {
+    assert.throws(
+      () => assertProductionDatabase({ NODE_ENV: "production", DATABASE_URL: "  " }),
+      /PGLite/,
     );
-    assert.equal(
-      warnIfProductionWithoutDatabase({ NODE_ENV: "production", DATABASE_URL: "" }, warn, flag),
-      false,
+    assert.throws(
+      () => assertProductionDatabase({ NODE_ENV: "production", DATABASE_URL: "" }),
+      /LOOKTAG_ALLOW_EPHEMERAL_DB/,
     );
-    assert.equal(messages.length, 1);
-    assert.match(messages[0] ?? "", /PGLite/);
-    assert.doesNotMatch(messages[0] ?? "", /postgres:\/\//);
-    assert.equal(
-      warnIfProductionWithoutDatabase(
-        { NODE_ENV: "test", DATABASE_URL: "" },
-        warn,
-        { done: false },
-      ),
-      false,
+    assert.doesNotThrow(() =>
+      assertProductionDatabase({
+        NODE_ENV: "production",
+        DATABASE_URL: "",
+        LOOKTAG_ALLOW_EPHEMERAL_DB: "1",
+      }),
+    );
+    assert.doesNotThrow(() =>
+      assertProductionDatabase({
+        NODE_ENV: "production",
+        DATABASE_URL: "",
+        ALLOW_EPHEMERAL_DB: "1",
+      }),
+    );
+    assert.doesNotThrow(() =>
+      assertProductionDatabase({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgres://looktag/db",
+      }),
+    );
+    assert.doesNotThrow(() =>
+      assertProductionDatabase({ NODE_ENV: "test", DATABASE_URL: "" }),
     );
   });
 

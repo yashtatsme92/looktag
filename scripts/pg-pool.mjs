@@ -14,23 +14,65 @@ const OID_INTERVAL = 1186;
 
 /** @param {string | undefined | null} raw */
 export function resolveDbSource(raw) {
-  return raw && String(raw).trim() ? "neon" : "pglite";
+  const text = raw == null ? "" : String(raw).trim();
+  if (!text) return "pglite";
+  const named = text.toLowerCase();
+  // "neon" is a legacy alias for any Postgres backend.
+  if (named === "neon" || named === "postgres") return "postgres";
+  if (named === "pglite") return "pglite";
+  return "postgres";
+}
+
+/**
+ * @param {string | undefined | null} source
+ * @returns {"postgres" | "pglite"}
+ */
+export function normalizeDbSource(source) {
+  if (source === "neon" || source === "postgres") return "postgres";
+  return "pglite";
+}
+
+/**
+ * Drop `sslmode` so node-postgres cannot replace an explicit `ssl` option.
+ * pg-connection-string overwrites `ssl` from the URL, and a future pg will
+ * treat `sslmode=require` as unverified.
+ * @param {string} connectionString
+ */
+function stripSslMode(connectionString) {
+  return connectionString
+    .replace(/([?&])sslmode=[^&]*&/gi, "$1")
+    .replace(/([?&])sslmode=[^&]*$/i, "")
+    .replace(/\?$/, "");
 }
 
 /**
  * @param {string} connectionString
+ * @param {Record<string, string | undefined>} [env]
  */
-export function postgresPoolOptions(connectionString) {
+export function postgresPoolOptions(connectionString, env = process.env) {
   const match = connectionString.match(/[?&]sslmode=([^&]+)/i);
   const mode = match?.[1]?.toLowerCase();
-  /** @type {{ connectionString: string, max: number, idleTimeoutMillis: number, ssl?: { rejectUnauthorized: boolean } }} */
+  const noVerify = mode === "no-verify" || env.DATABASE_SSL_NO_VERIFY === "1";
+  /** @type {{ connectionString: string, max: number, idleTimeoutMillis: number, ssl?: { rejectUnauthorized: boolean } | false }} */
   const options = {
-    connectionString,
+    connectionString: stripSslMode(connectionString),
     max: 5,
     idleTimeoutMillis: 10_000,
   };
-  if (mode === "require" || mode === "prefer" || mode === "verify-ca" || mode === "verify-full") {
-    options.ssl = { rejectUnauthorized: mode === "verify-full" || mode === "verify-ca" };
+  if (mode === "disable") {
+    options.ssl = false;
+    return options;
+  }
+  const encrypted =
+    noVerify ||
+    mode === "require" ||
+    mode === "prefer" ||
+    mode === "verify-ca" ||
+    mode === "verify-full";
+  if (encrypted) {
+    // Neon serves a public certificate. Verification stays on unless the URL
+    // says sslmode=no-verify or DATABASE_SSL_NO_VERIFY=1 (local opt-in).
+    options.ssl = { rejectUnauthorized: !noVerify };
   }
   return options;
 }
@@ -112,21 +154,23 @@ export function getSharedPgPool(connectionString) {
   return openSharedPool(connectionString, pg);
 }
 
-const warned = { done: false };
-
 /**
- * Production without DATABASE_URL keeps booting (CI's prod-server job does
- * that) but says so once. The message never includes a URL.
- * @param {{ NODE_ENV?: string, DATABASE_URL?: string }} env
- * @param {(message: string) => void} [warn]
- * @param {{ done: boolean }} [flag]
+ * Production without DATABASE_URL must not boot on in-memory PGLite.
+ * CI's prod-server job opts in with LOOKTAG_ALLOW_EPHEMERAL_DB=1.
+ * The error never includes a URL.
+ * @param {{
+ *   NODE_ENV?: string,
+ *   DATABASE_URL?: string,
+ *   LOOKTAG_ALLOW_EPHEMERAL_DB?: string,
+ *   ALLOW_EPHEMERAL_DB?: string,
+ * }} env
  */
-export function warnIfProductionWithoutDatabase(env, warn = console.warn, flag = warned) {
-  const missing = resolveDbSource(env.DATABASE_URL) === "pglite";
-  if (env.NODE_ENV !== "production" || !missing || flag.done) return false;
-  flag.done = true;
-  warn(
-    "[db] DATABASE_URL is not set. This production process is using embedded PGLite, which does not persist across restarts. Set DATABASE_URL to the Neon pooled connection string (host contains -pooler, sslmode=require).",
+export function assertProductionDatabase(env) {
+  if (env.NODE_ENV !== "production") return;
+  if (resolveDbSource(env.DATABASE_URL) !== "pglite") return;
+  const optIn = env.LOOKTAG_ALLOW_EPHEMERAL_DB ?? env.ALLOW_EPHEMERAL_DB;
+  if (optIn === "1" || optIn === "true") return;
+  throw new Error(
+    "[db] DATABASE_URL is not set. Production will not boot on in-memory PGLite because that data is lost on restart. Set DATABASE_URL, or set LOOKTAG_ALLOW_EPHEMERAL_DB=1 to opt in.",
   );
-  return true;
 }

@@ -8,6 +8,11 @@
  * `src/lib/labels/seed.ts`) and are inserted by `seedCatalog` — the same
  * function the server runs on first read. Inserts are `on conflict do nothing`
  * (looks also go through `seeded_items`), so running this again changes nothing.
+ * House looks (`house-*`) are recorded as `house_look` the same way.
+ * Centred crops are computed here, so migrate-then-seed leaves no null crops.
+ *
+ * The Vite loader does not watch files (`server.watch` is null). Seed needs
+ * the dev dependency `vite` on the machine that runs it.
  *
  * Looks are not copied into a second SQL file. A fresh PGLite database gets
  * the same rows when the server calls `seedCatalog`; this command does that
@@ -19,6 +24,7 @@
  */
 import { createServer } from "vite";
 import pg from "pg";
+import { backfillLookCrops } from "./backfill-look-crops.mjs";
 import { postgresPoolOptions } from "./pg-pool.mjs";
 
 /** @type {Promise<{ seedCatalog: (sql: object) => Promise<void>, close: () => Promise<void> }> | undefined} */
@@ -30,7 +36,7 @@ async function loadSeedCatalog() {
       configFile: false,
       root: process.cwd(),
       resolve: { alias: { "@": `${process.cwd()}/src` } },
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, watch: null, hmr: false },
       appType: "custom",
       logLevel: "silent",
     });
@@ -73,6 +79,7 @@ export function toSql(runner) {
 export async function seedDatabase(sql) {
   const { seedCatalog } = await loadSeedCatalog();
   await seedCatalog(sql);
+  return backfillLookCrops(/** @type {any} */ (sql));
 }
 
 export async function closeSeedLoader() {
@@ -94,7 +101,8 @@ async function main() {
   const pool = new pg.Pool({ ...postgresPoolOptions(databaseUrl), max: 1 });
   const client = await pool.connect();
   try {
-    await seedDatabase(toSql({ query: (text, params) => client.query(text, params) }));
+    const crops = await seedDatabase(toSql({ query: (text, params) => client.query(text, params) }));
+    if (crops) console.log(`[seed] backfilled ${crops} centred look crop(s).`);
     console.log("[seed] catalog is up to date.");
   } finally {
     client.release();
