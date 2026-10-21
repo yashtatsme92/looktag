@@ -319,6 +319,12 @@ describe("native-ready auth server", () => {
     const pasted = await cookieJar().fetch(proxyPath(url, nonce));
     assert.equal(pasted.status, 400, "the nonce is consumed by the first browser open");
 
+    const again = await nativeSignIn(cookieJar(), "google", nonce);
+    assert.equal(again.status, 400, "a consumed nonce cannot be registered again");
+    const replay = await cookieJar().fetch(proxyPath(url, nonce));
+    assert.equal(replay.status, 400, "a consumed nonce cannot reopen the proxy");
+    assert.equal(replay.headers.get("location"), null, "the provider is not reached");
+
     const loop = await call(
       `/api/auth/expo-authorization-proxy?authorizationURL=${encodeURIComponent(`${base}/x`)}`,
     );

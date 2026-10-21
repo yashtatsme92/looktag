@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
+import { getRequestIP } from "@tanstack/react-start/server";
 import { crossSiteResponse, rejectExpoProxy } from "@/lib/auth/expo-proxy";
 import { bearerFromHeaders, bearerOnlyHeaders, isRegisteredLooktagCallback } from "@/lib/auth/native";
 import {
@@ -8,7 +9,12 @@ import {
   nonceEquals,
   withNonceOnLooktag,
 } from "@/lib/auth/native-callback";
-import { allowNativeNonceIssue, nativeNonceClientKey, nativeNonceIdentifier } from "@/lib/auth/native-nonce";
+import {
+  NATIVE_NONCE_USED,
+  allowNativeNonceIssue,
+  nativeNonceClientKey,
+  nativeNonceIdentifier,
+} from "@/lib/auth/native-nonce";
 import { auth } from "@/lib/auth/server";
 import { getSql } from "@/lib/db";
 
@@ -39,7 +45,9 @@ async function nonceInUse(nonce: string): Promise<boolean> {
   const sql = await getSql();
   const ident = nativeNonceIdentifier(nonce);
   const rows = await sql<{ identifier: string }>`
-    select identifier from verification where identifier = ${ident} and "expiresAt" > now() limit 1
+    select identifier from verification
+    where identifier = ${ident} and "expiresAt" > now()
+    limit 1
   `;
   return rows.length > 0;
 }
@@ -56,16 +64,35 @@ async function registerNonce(nonce: string, state: string): Promise<void> {
   `;
 }
 
-/** Delete the one-time row. A replay, or a nonce that was never registered, returns false. */
+/**
+ * Mark the one-time row used and keep its original expiry. A replay, a
+ * tombstone, or a nonce that was never registered returns false.
+ */
 async function consumeNonce(nonce: string): Promise<boolean> {
   const sql = await getSql();
   const ident = nativeNonceIdentifier(nonce);
   const rows = await sql<{ identifier: string }>`
-    delete from verification
-    where identifier = ${ident} and "expiresAt" > now()
+    update verification
+    set value = ${NATIVE_NONCE_USED}
+    where identifier = ${ident}
+      and "expiresAt" > now()
+      and value is distinct from ${NATIVE_NONCE_USED}
     returning identifier
   `;
   return rows.length > 0;
+}
+
+function nonceRateKey(request: Request): string {
+  let socketAddress: string | null = null;
+  try {
+    socketAddress = getRequestIP() ?? null;
+  } catch {
+    socketAddress = null;
+  }
+  return nativeNonceClientKey({
+    forwardedFor: request.headers.get("x-forwarded-for"),
+    socketAddress,
+  });
 }
 
 async function readVerification(identifier: string): Promise<Record<string, unknown> | null> {
@@ -154,7 +181,7 @@ async function prepareNativeSignIn(
   if (foreignOrigin(request)) return new Response("Forbidden", { status: 403 });
   const blocked = crossSiteResponse(request);
   if (blocked) return blocked;
-  if (!allowNativeNonceIssue(nativeNonceClientKey(request))) {
+  if (!allowNativeNonceIssue(nonceRateKey(request))) {
     return new Response("Too many requests", { status: 429 });
   }
 
