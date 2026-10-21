@@ -23,9 +23,9 @@
  */
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import pg from "pg";
 import { authEnabledFromEnv, runMigrate } from "./apply-migrations.mjs";
-import { migrationLockMode, postgresPoolOptions } from "./pg-pool.mjs";
+import { migrationLockMode } from "../src/lib/providers/db/neon-pooler.ts";
+import { openDedicatedPool } from "../src/lib/providers/db/postgres.ts";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 if (!databaseUrl) {
@@ -39,7 +39,7 @@ const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "migra
 const authEnabled = authEnabledFromEnv(process.env.VITE_AUTH_ENABLED);
 
 async function main() {
-  const pool = new pg.Pool({ ...postgresPoolOptions(databaseUrl), max: 1 });
+  const pool = openDedicatedPool(databaseUrl);
   const client = await pool.connect();
   const db = {
     query: (text, params) => client.query(text, params),

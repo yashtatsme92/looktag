@@ -7,6 +7,8 @@ import {
 } from "@/lib/looks/region.ts";
 import type { CatalogShop, SuggestedOffer, SuggestSearchConfig } from "./suggest-types";
 import { fetchText } from "./suggest-vision";
+import { search as braveWebSearch } from "@/lib/providers/shop-search/brave";
+import { search as googleWebSearch } from "@/lib/providers/shop-search/google-cse";
 
 const MAX_OFFERS = 4;
 
@@ -48,24 +50,13 @@ export async function braveSearch(
   const region = resolveRegion(config.country);
   const domains = pickSearchDomains(shops, region.id, 8);
   if (domains.length === 0) return [];
-  const siteClause = domains.map((host) => `site:${host}`).join(" OR ");
-  const endpoint = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(
-    `${query} ${region.name} ${siteClause}`,
-  )}&count=10&country=${encodeURIComponent(region.id.toLowerCase())}`;
-  const response = await fetch(endpoint, {
-    headers: { Accept: "application/json", "X-Subscription-Token": key },
-  });
-  if (!response.ok) return [];
-  const body = (await response.json()) as {
-    web?: { results?: { url?: string; title?: string; description?: string; thumbnail?: { src?: string } }[] };
-  };
+  const hits = await braveWebSearch(query, { id: region.id, name: region.name }, domains, key);
   const offers: SuggestedOffer[] = [];
-  for (const row of body.web?.results ?? []) {
-    if (!row.url) continue;
+  for (const row of hits) {
     const offer = urlToOffer(row.url, shops, {
       title: row.title,
-      snippet: row.description,
-      imageUrl: row.thumbnail?.src,
+      snippet: row.snippet,
+      imageUrl: row.imageUrl,
     }, config.country);
     if (offer) offers.push(offer);
   }
@@ -83,24 +74,13 @@ export async function googleSearch(
   const region = resolveRegion(config.country);
   const domains = pickSearchDomains(shops, region.id, 8);
   if (domains.length === 0) return [];
-  const siteClause = domains.map((host) => `site:${host}`).join(" OR ");
-  const endpoint = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(key)}&cx=${encodeURIComponent(
-    cx,
-  )}&q=${encodeURIComponent(`${query} ${region.name} ${siteClause}`)}&num=8&gl=${encodeURIComponent(
-    region.id.toLowerCase(),
-  )}`;
-  const response = await fetch(endpoint);
-  if (!response.ok) return [];
-  const body = (await response.json()) as {
-    items?: { link?: string; title?: string; snippet?: string; pagemap?: { cse_thumbnail?: { src?: string }[] } }[];
-  };
+  const hits = await googleWebSearch(query, { id: region.id, name: region.name }, domains, key, cx);
   const offers: SuggestedOffer[] = [];
-  for (const row of body.items ?? []) {
-    if (!row.link) continue;
-    const offer = urlToOffer(row.link, shops, {
+  for (const row of hits) {
+    const offer = urlToOffer(row.url, shops, {
       title: row.title,
       snippet: row.snippet,
-      imageUrl: row.pagemap?.cse_thumbnail?.[0]?.src,
+      imageUrl: row.imageUrl,
     }, config.country);
     if (offer) offers.push(offer);
   }

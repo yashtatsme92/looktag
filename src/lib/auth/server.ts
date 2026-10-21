@@ -41,6 +41,7 @@ import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { enforceSignInMethod, methodForAuthRequest } from "./method-gate";
 import { nativeTrustedOrigins } from "./native";
+import { appleOriginNeeded, socialProviders as buildSocialProviders } from "@/lib/providers/auth/social";
 import { GROK_PROVIDERS } from "./providers";
 import { readSettings } from "../settings/store.server";
 import {
@@ -133,33 +134,10 @@ trustedOrigins.push(...nativeTrustedOrigins);
 
 // Direct Google / Apple sign-in for the native app, enabled only when their
 // credentials are configured (the web app keeps using the broker providers).
-const googleClientId = env("GOOGLE_CLIENT_ID");
-const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
-const appleClientId = env("APPLE_CLIENT_ID");
-const appleClientSecret = env("APPLE_CLIENT_SECRET");
-const appleBundleId = env("APPLE_APP_BUNDLE_IDENTIFIER");
-if (appleClientId && appleClientSecret) {
+if (appleOriginNeeded()) {
   trustedOrigins.push("https://appleid.apple.com");
 }
-const socialProviders = {
-  ...(googleClientId && googleClientSecret
-    ? {
-        google: {
-          clientId: googleClientId,
-          clientSecret: googleClientSecret,
-        },
-      }
-    : {}),
-  ...(appleClientId && appleClientSecret
-    ? {
-        apple: {
-          clientId: appleClientId,
-          clientSecret: appleClientSecret,
-          ...(appleBundleId ? { appBundleIdentifier: appleBundleId } : {}),
-        },
-      }
-    : {}),
-};
+const socialProviders = buildSocialProviders();
 
 // Static broker OAuth endpoints (skip OIDC discovery on every sign-in / callback).
 // Discovery would cost an extra network hop to the broker before the popup can

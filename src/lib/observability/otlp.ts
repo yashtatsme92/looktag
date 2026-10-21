@@ -5,7 +5,8 @@ import {
   ATTR_TELEMETRY_SDK_LANGUAGE,
   ATTR_TELEMETRY_SDK_NAME,
   ATTR_TELEMETRY_SDK_VERSION,
-} from "@opentelemetry/semantic-conventions";
+  appEnv,
+} from "../providers/telemetry/otlp.ts";
 import type {
   AttrValue,
   Attributes,
@@ -61,9 +62,7 @@ export function otlpAttributes(attrs: Attributes): OtlpKeyValue[] {
 }
 
 export function resourceAttributes(serviceName: string): Attributes {
-  const envName =
-    (typeof process !== "undefined" && (process.env.VERCEL_ENV || process.env.NODE_ENV)) ||
-    "development";
+  const envName = typeof process === "undefined" ? "development" : appEnv();
   return {
     [ATTR_SERVICE_NAME]: serviceName || "looktag",
     [ATTR_SERVICE_VERSION]: "1.0.0",

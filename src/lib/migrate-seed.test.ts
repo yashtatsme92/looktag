@@ -2,11 +2,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { PGlite } from "@electric-sql/pglite";
+import { openMemoryPglite, type EmbeddedDb } from "./providers/db/pglite.ts";
 import { runMigrate } from "../../scripts/apply-migrations.mjs";
 import { closeSeedLoader, seedDatabase, toSql } from "../../scripts/seed.mjs";
 
-function adapt(pg: PGlite) {
+function adapt(pg: EmbeddedDb) {
   return {
     query: async (text: string, params: unknown[] = []) => {
       const result = await pg.query<Record<string, unknown>>(text, params);
@@ -16,7 +16,7 @@ function adapt(pg: PGlite) {
   };
 }
 
-async function counts(pg: PGlite) {
+async function counts(pg: EmbeddedDb) {
   const tables = [
     "looks",
     "fashion_labels",
@@ -36,7 +36,7 @@ async function counts(pg: PGlite) {
 
 describe("migrate and seed idempotency", () => {
   it("applies each migration once and does not change seed rows on a second run", async () => {
-    const pg = new PGlite();
+    const pg = await openMemoryPglite();
     await pg.waitReady;
     const db = adapt(pg);
     const migrationsDir = path.join(process.cwd(), "migrations");

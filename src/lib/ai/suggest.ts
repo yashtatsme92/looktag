@@ -8,6 +8,7 @@ import {
   requireAiSearchUserId,
   type AiSearchKind,
 } from "./limits";
+import { aiAvailable } from "@/lib/providers/ai";
 import { searchOffers } from "./suggest-search";
 import { clampPercent, identifyPin, readLookPhoto } from "./suggest-vision";
 import type { SuggestedPiece, SuggestSearchConfig } from "./suggest-types";
@@ -43,7 +44,7 @@ async function enforceAiSearchQuota(userId: string, kind: AiSearchKind): Promise
 }
 
 export const aiStatus = createServerFn({ method: "GET" }).handler(async () => {
-  return { available: Boolean(process.env.XAI_API_KEY) };
+  return { available: aiAvailable() };
 });
 
 export const suggestPieces = createServerFn({ method: "POST" })

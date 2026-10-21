@@ -2,7 +2,7 @@ import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { PGlite } from "@electric-sql/pglite";
+import { openMemoryPglite, type EmbeddedDb } from "../providers/db/pglite.ts";
 import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import type { Sql } from "../db.ts";
 import type { FashionStyle } from "./model.ts";
@@ -18,7 +18,7 @@ import {
   setHouseCover,
 } from "./style-record.ts";
 
-function toSql(pg: PGlite): Sql {
+function toSql(pg: EmbeddedDb): Sql {
   const sql = (async <T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]) => {
     let text = strings[0] ?? "";
     for (let index = 0; index < values.length; index += 1) {
@@ -35,7 +35,7 @@ function toSql(pg: PGlite): Sql {
 }
 
 async function openDb(): Promise<Sql> {
-  const pg = new PGlite({ parsers: { 20: (value: string) => Number(value) } });
+  const pg = await openMemoryPglite({ 20: (value: string) => Number(value) });
   await pg.waitReady;
   const dir = path.join(process.cwd(), "migrations");
   const names = (await readdir(dir)).filter((name) => name.endsWith(".sql"));

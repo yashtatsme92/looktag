@@ -1,4 +1,6 @@
 import { getSql } from "@/lib/db";
+import { captureException } from "@/lib/providers/errors";
+import { resolveTelemetryProvider } from "@/lib/providers/telemetry";
 import type {
   ObservabilityConfig,
   PublicSignal,
@@ -219,6 +221,7 @@ function startMs(signal: TelemetrySignal): number {
 }
 
 async function exportSignals(signals: TelemetrySignal[], config: ObservabilityConfig) {
+  if (resolveTelemetryProvider() === "none") return;
   const urls = resolveOtlpUrls(config.otlpEndpoint);
   if (!urls) return;
   const headers = {
@@ -242,8 +245,8 @@ async function postOtlp(url: string, headers: Record<string, string>, body: unkn
       headers,
       body: JSON.stringify(body),
     });
-  } catch {
-    // Collector outage must never take down look browsing or search.
+  } catch (error) {
+    captureException(error, { where: "[telemetry] collector unreachable" });
   }
 }
 

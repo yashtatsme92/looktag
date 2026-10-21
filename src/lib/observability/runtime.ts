@@ -2,7 +2,7 @@ import {
   ATTR_ERROR_TYPE,
   ATTR_EXCEPTION_MESSAGE,
   ATTR_EXCEPTION_TYPE,
-} from "@opentelemetry/semantic-conventions";
+} from "../providers/telemetry/otlp.ts";
 import type {
   Attributes,
   CompletedSpan,
