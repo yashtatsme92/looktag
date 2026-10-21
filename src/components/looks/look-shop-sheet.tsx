@@ -2,6 +2,7 @@ import { useEffect, useRef, type KeyboardEvent } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useStylePin } from "@/components/labels/style-pin-note";
+import { FadeLayer } from "@/components/ds/fade-layer";
 import { SkeletonOfferRow } from "@/components/ds/skeleton";
 import { useDelayedLoad } from "@/lib/loading/delayed-load";
 import { settleLoad } from "@/lib/loading/test-delay";
@@ -97,6 +98,7 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
         <p className="look-sheet-sub">
           No account needed. One Shop per piece, straight to the live page.
         </p>
+        <FadeLayer stateKey={offers.phase === "skeleton" ? "skeleton" : "rows"}>
         <ul className="look-sheet-list">
           {offers.phase === "error" ? (
             <li className="look-sheet-row">
@@ -114,6 +116,7 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
             ))
           )}
         </ul>
+        </FadeLayer>
         {onShopWhole ? (
           <button
             type="button"

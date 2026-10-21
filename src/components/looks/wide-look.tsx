@@ -19,6 +19,7 @@ import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
+import { FadeLayer, useStaggerIn } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid, SkeletonOfferRow } from "@/components/ds/skeleton";
 import { shareOrCopy } from "@/lib/looks/share";
@@ -71,6 +72,7 @@ export function WideLook({
     cacheKey: `shop-panel:${look.id}:${look.tags.map((tag) => tag.id).join(",")}`,
   });
   const echoLoad = useDelayedLoad(() => settleLoad(echo), { cacheKey: `echo-detail:${look.id}` });
+  const echoIn = useStaggerIn(`${look.id}:${echoLoad.phase}`);
 
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
 
@@ -271,7 +273,8 @@ export function WideLook({
             {echoLoad.phase === "skeleton" ? (
               <SkeletonGrid count={4} captions />
             ) : (
-            <div className="wide-grid echo-lane">
+            <FadeLayer stateKey="echo">
+            <div className={cn("wide-grid echo-lane echo-stagger", echoIn && "is-in")}>
               {echo.map((item) => (
                 <article key={item.id} className="wide-tile echo-tile">
                   <Link to="/looks/$lookId" params={{ lookId: item.id }} className="wide-tile-hit" aria-label={item.title || "Look"}>
@@ -287,6 +290,7 @@ export function WideLook({
                 </article>
               ))}
             </div>
+            </FadeLayer>
             )}
           </section>
         ) : null}
@@ -333,17 +337,13 @@ function WidePieceRow({
         onClick={onToggle}
       >
         <span className="wide-pn">{index + 1}</span>
-        <span className="wide-pth">
-          {lookSrc ? (
-            <ImgSlot
-              src={lookSrc}
-              alt=""
-              aspectRatio="1 / 1"
-              slotClassName="img-slot-fill"
-              style={{ objectPosition: `${tag.x}% ${tag.y}%`, transform: "scale(2.4)", transformOrigin: `${tag.x}% ${tag.y}%` }}
-            />
-          ) : null}
-        </span>
+        <span
+          className="wide-pth"
+          style={{
+            backgroundImage: lookSrc ? `url(${lookSrc})` : undefined,
+            backgroundPosition: `${tag.x}% ${tag.y}%`,
+          }}
+        />
         <span className="wide-ptx">
           <span className="wide-pnm">{stylePin ? stylePin.styleName : pieceName}</span>
           <span className="wide-prt">

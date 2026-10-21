@@ -1,40 +1,49 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { HouseCard } from "@/components/labels/house-card";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
+import { FadeLayer } from "@/components/ds/fade-layer";
 import { SkeletonGrid } from "@/components/ds/skeleton";
-import { ImgSlot } from "@/components/ds/img-slot";
 import { pickWeeklyDrop, splitScoutedHouses, type WeeklyDrop } from "@/lib/home/engagement";
 import { getHousesAvailability, listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { consumerHouseIndex, houseCoverSrc, publicLines, type FashionLabel } from "@/lib/labels/model";
-import { useCachedLoad } from "@/lib/loading/cached-load";
+import { clientDeferred, useRouteLoad } from "@/lib/loading/route-load";
 import { useSettingsStore } from "@/lib/settings/store";
+
+type HousesIndex = {
+  open: boolean;
+  labels: FashionLabel[];
+  covers: Record<string, string>;
+  drop: WeeklyDrop | null;
+};
+
+async function loadHousesIndex(): Promise<HousesIndex> {
+  try {
+    const open = await getHousesAvailability();
+    if (!open) return { open: false, labels: [], covers: {}, drop: null };
+    const [labels, collections, styles] = await Promise.all([
+      listFashionLabels(),
+      listFashionCollections(),
+      listFashionStyles(),
+    ]);
+    const covers: Record<string, string> = {};
+    for (const label of labels) {
+      const lines = publicLines(
+        collections.filter((collection) => collection.labelId === label.id),
+        styles.filter((style) => style.labelId === label.id),
+      );
+      covers[label.id] = houseCoverSrc(lines, label.coverSrc);
+    }
+    return { open: true, labels, covers, drop: pickWeeklyDrop(labels, collections, styles) };
+  } catch {
+    return { open: true, labels: [], covers: {}, drop: null };
+  }
+}
 
 export const Route = createFileRoute("/houses")({
   ssr: true,
-  loader: async () => {
-    try {
-      const open = await getHousesAvailability();
-      if (!open) return { open: false, labels: [] as FashionLabel[], covers: {} as Record<string, string>, drop: null as WeeklyDrop | null };
-      const [labels, collections, styles] = await Promise.all([
-        listFashionLabels(),
-        listFashionCollections(),
-        listFashionStyles(),
-      ]);
-      const covers: Record<string, string> = {};
-      for (const label of labels) {
-        const lines = publicLines(
-          collections.filter((collection) => collection.labelId === label.id),
-          styles.filter((style) => style.labelId === label.id),
-        );
-        covers[label.id] = houseCoverSrc(lines, label.coverSrc);
-      }
-      return { open: true, labels, covers, drop: pickWeeklyDrop(labels, collections, styles) };
-    } catch {
-      return { open: true, labels: [] as FashionLabel[], covers: {} as Record<string, string>, drop: null as WeeklyDrop | null };
-    }
-  },
+  loader: () => clientDeferred(loadHousesIndex),
   head: () => ({
     meta: [
       { title: "Houses — Looktag" },
@@ -49,27 +58,13 @@ export const Route = createFileRoute("/houses")({
 
 function HousesPage() {
   const seeded = Route.useLoaderData();
-  const closed = useHousesClosed(seeded.open);
-  const [labels, setLabels] = useState<FashionLabel[]>(seeded.labels);
-  const covers = seeded.covers;
+  const housesLoad = useRouteLoad(seeded, "houses:index", loadHousesIndex);
+  const data = housesLoad.data;
+  const closed = useHousesClosed(data ? data.open : true);
+  const labels = data?.labels ?? [];
+  const covers = data?.covers ?? {};
   const feedDropOn = useSettingsStore((s) => s.feedDrop);
-  const housesLoad = useCachedLoad(seeded.labels, closed ? "houses:index:closed" : "houses:index");
-  const drop = !closed && feedDropOn ? seeded.drop : null;
-
-  useEffect(() => {
-    if (closed) return;
-    let alive = true;
-    void listFashionLabels()
-      .then((next) => {
-        if (alive) setLabels(next);
-      })
-      .catch(() => {
-        if (alive) setLabels([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [closed]);
+  const drop = !closed && feedDropOn ? (data?.drop ?? null) : null;
 
   const index = useMemo(() => consumerHouseIndex(labels), [labels]);
 
@@ -91,7 +86,7 @@ function HousesPage() {
         to="/houses/$labelId/$collectionId"
         params={{ labelId: drop.houseId, collectionId: drop.lineSlug }}
       >
-        <ImgSlot src={drop.imageSrc} alt="" still slotClassName="img-slot-fill" />
+        <img src={drop.imageSrc} alt="" />
       </Link>
       <div>
         <p className="house-drop-kicker">This week's drop</p>
@@ -135,12 +130,15 @@ function HousesPage() {
           For houses
         </Link>
       </div>
+      <FadeLayer stateKey={housesLoad.skeleton ? "skeleton" : housesLoad.waiting ? "waiting" : "ready"}>
       {housesLoad.error ? (
         <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
       ) : housesLoad.skeleton ? (
         <SkeletonGrid count={8} captions />
+      ) : housesLoad.waiting ? (
+        <div className="is-loading-old" aria-hidden />
       ) : index.scouted.length === 0 ? weeklyDrop : null}
-      {housesLoad.error || housesLoad.skeleton ? null : empty ? (
+      {housesLoad.error || housesLoad.skeleton || housesLoad.waiting ? null : empty ? (
         <p className="text-sm text-muted-foreground">No houses yet.</p>
       ) : (
         <>
@@ -165,6 +163,7 @@ function HousesPage() {
           ) : null}
         </>
       )}
+      </FadeLayer>
     </AppShell>
   );
 }

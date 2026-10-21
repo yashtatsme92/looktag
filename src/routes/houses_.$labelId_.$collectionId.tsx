@@ -5,12 +5,13 @@ import { toast } from "sonner";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
+import { FadeLayer } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { Button } from "@/components/ui/button";
 import { getFashionCollection, getHousesAvailability, type FashionCollectionPage } from "@/lib/labels/api";
 import { publicLines } from "@/lib/labels/model";
-import { useCachedLoad } from "@/lib/loading/cached-load";
+import { clientDeferred, isDeferred, useRouteLoad } from "@/lib/loading/route-load";
 import { shareOrCopy } from "@/lib/looks/share";
 import { recordShareView } from "@/lib/share/api";
 import {
@@ -20,30 +21,42 @@ import {
   shareHead,
 } from "@/lib/share-meta";
 
+type LineData = {
+  open: boolean;
+  page: FashionCollectionPage | null;
+  origin: string;
+};
+
+async function loadLine(labelId: string, collectionId: string): Promise<LineData> {
+  try {
+    const open = await getHousesAvailability();
+    if (!open) return { open: false, page: null, origin: "" };
+    const data = await getFashionCollection({
+      data: { labelId, collectionId },
+    });
+    const share = await recordShareView({
+      data: {
+        kind: "collection",
+        id: `${labelId}/${collectionId}`,
+        found: Boolean(data),
+      },
+    });
+    return { open: true, page: data as FashionCollectionPage | null, origin: share.origin };
+  } catch {
+    return { open: true, page: null, origin: "" };
+  }
+}
+
 export const Route = createFileRoute("/houses_/$labelId_/$collectionId")({
   ssr: true,
-  loader: async ({ params }) => {
-    try {
-      const open = await getHousesAvailability();
-      if (!open) return { open: false, page: null as FashionCollectionPage | null, origin: "" };
-      const data = await getFashionCollection({
-        data: { labelId: params.labelId, collectionId: params.collectionId },
-      });
-      const share = await recordShareView({
-        data: {
-          kind: "collection",
-          id: `${params.labelId}/${params.collectionId}`,
-          found: Boolean(data),
-        },
-      });
-      return { open: true, page: data as FashionCollectionPage | null, origin: share.origin };
-    } catch {
-      return { open: true, page: null, origin: "" };
-    }
+  loader: ({ params }) => clientDeferred(() => loadLine(params.labelId, params.collectionId)),
+  headers: ({ loaderData }) => {
+    if (!loaderData || isDeferred(loaderData)) return {};
+    return shareCacheHeaders(Boolean(loaderData.page));
   },
-  headers: ({ loaderData }) => shareCacheHeaders(Boolean(loaderData?.page)),
   head: ({ loaderData }) => {
-    const page = loaderData?.page;
+    if (!loaderData || isDeferred(loaderData)) return { meta: [{ title: "Line — Looktag" }] };
+    const page = loaderData.page;
     if (!page) return notFoundShareHead("collection");
     const imageSrc = page.styles[0]?.imageSrc ?? "";
     return shareHead(collectionShareMeta(page.label, page.collection, loaderData.origin, imageSrc));
@@ -53,15 +66,18 @@ export const Route = createFileRoute("/houses_/$labelId_/$collectionId")({
 
 function LinePage() {
   const { labelId, collectionId } = Route.useParams();
-  const { page, open } = Route.useLoaderData();
-  const closed = useHousesClosed(open);
+  const seeded = Route.useLoaderData();
+  const lineLoad = useRouteLoad(seeded, `house:${labelId}:line:${collectionId}`, () => loadLine(labelId, collectionId));
+  const data = lineLoad.data;
+  const page = data?.page ?? null;
+  const closed = useHousesClosed(data ? data.open : true);
   const [sharing, setSharing] = useState(false);
   const line = page ? publicLines([page.collection], page.styles)[0] : undefined;
-  const stylesLoad = useCachedLoad(line?.styles ?? [], `house:${labelId}:line:${collectionId}`);
+  const pending = !data && !lineLoad.error;
 
   if (closed) return <HousesClosed />;
 
-  if (!page || !line) {
+  if (!pending && !lineLoad.error && (!page || !line)) {
     return (
       <AppShell title="Line" backTo={`/houses/${labelId}`}>
         <h1 className="ds-screen-title">Line not found</h1>
@@ -75,9 +91,12 @@ function LinePage() {
     );
   }
 
-  const { label, collection } = page;
+  const label = page?.label;
+  const collection = page?.collection;
+  const stateKey = lineLoad.error ? "error" : lineLoad.skeleton ? "skeleton" : pending ? "waiting" : "ready";
 
   async function shareLine() {
+    if (!label || !collection) return;
     setSharing(true);
     const url = `${window.location.origin}/houses/${labelId}/${collection.slug || collectionId}`;
     const result = await shareOrCopy({
@@ -94,54 +113,63 @@ function LinePage() {
   return (
     <AppShell
       title="Line"
-      backTo={`/houses/${label.id}`}
+      backTo={label ? `/houses/${label.id}` : `/houses/${labelId}`}
       trailing={
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-11"
-          aria-label="Share line"
-          disabled={sharing}
-          onClick={() => void shareLine()}
-        >
-          <Share2 className="size-5" />
-        </Button>
+        label && collection ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-11"
+            aria-label="Share line"
+            disabled={sharing}
+            onClick={() => void shareLine()}
+          >
+            <Share2 className="size-5" />
+          </Button>
+        ) : null
       }
     >
-      <article>
-        <p className="wide-kicker house-line-kicker">
-          <Link to="/houses/$labelId" params={{ labelId: label.id }}>
-            {label.name}
-          </Link>{" "}
-          · Line
-        </p>
-        <ScreenTitle>{collection.name}</ScreenTitle>
-        {collection.caption ? <p className="house-line">{collection.caption}</p> : null}
-        <h2 className="ops-section house-looks-title">Styles</h2>
-        {stylesLoad.error ? (
+      <FadeLayer stateKey={stateKey}>
+        {lineLoad.error ? (
           <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
-        ) : stylesLoad.skeleton ? (
-          <SkeletonGrid count={4} captions />
-        ) : (
-        <ul className="house-lines">
-          {line.styles.map((style) => (
-            <li key={style.id}>
-              <Link
-                to="/houses/$labelId/$collectionId/$styleId"
-                params={{ labelId: label.id, collectionId: collection.slug, styleId: style.id }}
-                className="house-card"
-                aria-label={style.name}
-              >
-                <ImgSlot src={style.imageSrc} alt="" slotClassName="img-slot-fill" />
-                <div className="house-card-caption">
-                  <p className="house-card-name">{style.name}</p>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-        )}
-      </article>
+        ) : lineLoad.skeleton ? (
+          <div className="house-lines-block">
+            <h2 className="ops-section house-looks-title">Styles</h2>
+            <SkeletonGrid count={4} captions />
+          </div>
+        ) : pending ? (
+          <div className="is-loading-old" aria-hidden />
+        ) : label && collection && line ? (
+          <article>
+            <p className="wide-kicker house-line-kicker">
+              <Link to="/houses/$labelId" params={{ labelId: label.id }}>
+                {label.name}
+              </Link>{" "}
+              · Line
+            </p>
+            <ScreenTitle>{collection.name}</ScreenTitle>
+            {collection.caption ? <p className="house-line">{collection.caption}</p> : null}
+            <h2 className="ops-section house-looks-title">Styles</h2>
+            <ul className="house-lines">
+              {line.styles.map((style) => (
+                <li key={style.id}>
+                  <Link
+                    to="/houses/$labelId/$collectionId/$styleId"
+                    params={{ labelId: label.id, collectionId: collection.slug, styleId: style.id }}
+                    className="house-card"
+                    aria-label={style.name}
+                  >
+                    <ImgSlot src={style.imageSrc} alt="" slotClassName="img-slot-fill" />
+                    <div className="house-card-caption">
+                      <p className="house-card-name">{style.name}</p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ) : null}
+      </FadeLayer>
     </AppShell>
   );
 }

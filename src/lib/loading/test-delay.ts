@@ -1,9 +1,13 @@
 const DELAY_KEY = "looktag-load-delay";
 const ERROR_KEY = "looktag-load-error";
 
+function testHooksEnabled() {
+  return Boolean(import.meta.env?.DEV);
+}
+
 /** Test-only. E2E sets sessionStorage or `?loadDelay=` so a surface can miss the 300ms window. */
 export function readTestLoadDelay(): number {
-  if (typeof window === "undefined") return 0;
+  if (!testHooksEnabled() || typeof window === "undefined") return 0;
   try {
     const params = new URLSearchParams(window.location.search);
     const raw = params.get("loadDelay") || sessionStorage.getItem(DELAY_KEY) || "";
@@ -15,7 +19,7 @@ export function readTestLoadDelay(): number {
 }
 
 export function readTestLoadError(): boolean {
-  if (typeof window === "undefined") return false;
+  if (!testHooksEnabled() || typeof window === "undefined") return false;
   try {
     return sessionStorage.getItem(ERROR_KEY) === "1" || new URLSearchParams(window.location.search).get("loadError") === "1";
   } catch {

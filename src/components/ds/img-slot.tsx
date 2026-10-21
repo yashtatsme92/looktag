@@ -31,11 +31,6 @@ export function ImgSlot({
       className={cn("img-slot", slotClassName)}
       data-still={still ? "true" : undefined}
       style={{ "--ar": aspectRatio } as CSSProperties}
-      ref={(node) => {
-        if (!node) return;
-        if (src) node.setAttribute("src", src);
-        else node.removeAttribute("src");
-      }}
     >
       <img
         ref={imageRef}

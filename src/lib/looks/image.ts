@@ -18,7 +18,6 @@ export async function readLookImage(file: File, onProgress?: (percent: number) =
   }
   const bytes = await readFileBytes(file, (ratio) => report(ratio * 70));
   report(80);
-  await decodeAndEncode(file, bytes);
   report(95);
   let binary = "";
   for (let offset = 0; offset < bytes.length; offset += 0x8000) {
@@ -48,23 +47,6 @@ function readFileBytes(file: File, onRatio: (ratio: number) => void): Promise<Ui
     reader.onerror = () => reject(new Error("Could not read that photo."));
     reader.readAsArrayBuffer(file);
   });
-}
-
-/** Decode then encode so progress cannot finish before the pixels are usable. Failures stay non-fatal for odd test bytes. */
-async function decodeAndEncode(file: File, bytes: Uint8Array) {
-  if (typeof createImageBitmap !== "function" || bytes.length < 8) return;
-  try {
-    const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: file.type }));
-    if (typeof document !== "undefined") {
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, bitmap.width);
-      canvas.height = Math.max(1, bitmap.height);
-      canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
-    }
-    bitmap.close?.();
-  } catch {
-    /* not a decodable image — the caller still gets the original bytes */
-  }
 }
 
 export async function imageSrcToDataUrl(src: string): Promise<string> {

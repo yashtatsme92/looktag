@@ -10,10 +10,14 @@ export async function delayRoutes(page, routes, delayMs) {
       return url.pathname.startsWith(pattern);
     });
   const handler = async (route) => {
-    if (matches(new URL(route.request().url()))) {
-      await page.waitForTimeout(delayMs);
+    try {
+      if (matches(new URL(route.request().url()))) {
+        await page.waitForTimeout(delayMs);
+      }
+      await route.continue();
+    } catch {
+      /* The page can close while a delayed route is still in flight. */
     }
-    await route.continue();
   };
   await page.route("**/*", handler);
   return () => page.unroute("**/*", handler);

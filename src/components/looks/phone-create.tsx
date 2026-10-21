@@ -215,11 +215,7 @@ function PinPlate({
   mode,
 }: PhoneCreateProps) {
   const selected = look.tags.find((tag) => tag.id === selectedId) ?? null;
-  const hint = finding
-    ? "Finding…"
-    : suggestNote
-      ? suggestNote
-      : "Tap the look to place a pin";
+  const hint = suggestNote || "Tap the look to place a pin";
 
   return (
     <div className="create-plate" data-step={step} data-kb-root>
@@ -275,7 +271,7 @@ function PinPlate({
           <div className="create-pin-find">
             <button type="button" className="create-find" onClick={onFind} disabled={finding}>
               <ScanSearch className="size-4" />
-              {finding ? "Finding…" : "Find pieces in photo"}
+              Find pieces in photo
             </button>
           </div>
           <div className="create-pin-actions">
@@ -368,7 +364,7 @@ function applyRetailer(tag: ProductTag, text: string): ProductTag {
   return { ...tag, retailerId: "", brand: text };
 }
 
-function DetailsStep({ look, onPatch, onStep, onContinueDetails, onEditCrop }: PhoneCreateProps) {
+function DetailsStep({ look, readingPhoto, onPatch, onStep, onContinueDetails, onEditCrop }: PhoneCreateProps) {
   return (
     <div className="create-paper" data-kb-root>
       <header className="create-paper-bar">
@@ -418,7 +414,7 @@ function DetailsStep({ look, onPatch, onStep, onContinueDetails, onEditCrop }: P
         />
       </div>
       <div className="create-paper-dock" data-kb-dock>
-        <button type="button" className="create-btn-primary" onClick={onContinueDetails}>
+        <button type="button" className="create-btn-primary" onClick={onContinueDetails} disabled={readingPhoto}>
           Continue
         </button>
       </div>
@@ -487,6 +483,7 @@ function CropStep({
   mode,
   look,
   cropReady,
+  readingPhoto,
   cropEditing: cropEditingProp,
   outsideCropPins,
   onStep,
@@ -520,7 +517,7 @@ function CropStep({
         )}
         <h1 className="create-paper-title">{title}</h1>
         {!cropEditing ? (
-          <button type="button" className="crop-skip" onClick={onSkipCrop} disabled={!cropReady}>
+          <button type="button" className="crop-skip" onClick={onSkipCrop} disabled={readingPhoto || !cropReady}>
             Skip
           </button>
         ) : (
@@ -543,7 +540,7 @@ function CropStep({
             <button type="button" className="create-btn-ghost crop-cancel" onClick={onCancelCrop}>
               Cancel
             </button>
-            <button type="button" className="create-btn-primary crop-use" onClick={onSaveCrop} disabled={!cropReady}>
+            <button type="button" className="create-btn-primary crop-use" onClick={onSaveCrop} disabled={readingPhoto || !cropReady}>
               Save crop
             </button>
           </>
@@ -552,7 +549,7 @@ function CropStep({
             <button type="button" className="create-btn-ghost crop-change" onClick={onLibrary}>
               Change photo
             </button>
-            <button type="button" className="create-btn-primary crop-use" onClick={onUsePhoto} disabled={!cropReady}>
+            <button type="button" className="create-btn-primary crop-use" onClick={onUsePhoto} disabled={readingPhoto || !cropReady}>
               Use photo
             </button>
           </>

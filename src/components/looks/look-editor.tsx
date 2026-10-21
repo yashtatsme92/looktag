@@ -178,13 +178,6 @@ export function LookEditor({
     setPhotoError(null);
     setReadingPhoto(true);
     setUploadProgress(0);
-    const timeout = window.setTimeout(() => {
-      if (uploadTokenRef.current !== token) return;
-      uploadTokenRef.current += 1;
-      setPhotoError("Could not read that photo.");
-      setUploadProgress(null);
-      setReadingPhoto(false);
-    }, 10_000);
     try {
       const imageSrc = await readLookImage(file, (percent) => {
         if (uploadTokenRef.current === token) setUploadProgress(percent);
@@ -206,7 +199,6 @@ export function LookEditor({
       setUploadProgress(null);
       toast.error(message);
     } finally {
-      window.clearTimeout(timeout);
       pendingUploadsRef.current = Math.max(0, pendingUploadsRef.current - 1);
       setReadingPhoto(pendingUploadsRef.current > 0);
     }
@@ -725,7 +717,7 @@ export function LookEditor({
                   onClick={() => void handleFindPieces()}
                   disabled={findingPieces}
                 >
-                  {findingPieces ? "Finding…" : "Find all pieces"}
+                  Find all pieces
                 </Button>
               </div>
             ) : (
@@ -752,7 +744,7 @@ export function LookEditor({
                     onClick={() => void handleFindPieces()}
                     disabled={findingPieces}
                   >
-                    {findingPieces ? "Finding…" : "Find more"}
+                    Find more
                   </Button>
                 </div>
                 {selectedTag ? (

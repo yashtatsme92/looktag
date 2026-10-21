@@ -21,18 +21,27 @@ export function FeedTabs({
     const button = mode === "following" ? followRef.current : feedRef.current;
     const nav = button?.parentElement;
     if (!button || !nav) return;
-    const navBox = nav.getBoundingClientRect();
-    const buttonBox = button.getBoundingClientRect();
-    const inset = variant === "echo" ? 10 : 0;
-    setBox({
-      x: buttonBox.left - navBox.left + inset,
-      width: Math.max(0, buttonBox.width - inset * 2),
-    });
+    const measure = () => {
+      const navBox = nav.getBoundingClientRect();
+      const buttonBox = button.getBoundingClientRect();
+      const inset = variant === "echo" ? 10 : 0;
+      setBox({
+        x: buttonBox.left - navBox.left + inset,
+        width: Math.max(0, buttonBox.width - inset * 2),
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(nav);
+    observer.observe(button);
+    return () => observer.disconnect();
   }, [mode, unseen, variant]);
 
   return (
     <nav className={variant === "echo" ? "echo-tabs" : "wide-tabs"} aria-label="Looks">
-      <span className="tab-indicator" style={{ transform: `translate3d(${box.x}px, 0, 0)`, width: box.width }} />
+      {box.width > 0 ? (
+        <span className="tab-indicator" style={{ transform: `translate3d(${box.x}px, 0, 0)`, width: box.width }} />
+      ) : null}
       <button ref={feedRef} type="button" aria-current={mode === "feed" ? "page" : undefined} onClick={onFeed}>
         For you
       </button>

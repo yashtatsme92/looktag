@@ -76,16 +76,9 @@ function Queue({
   return (
     <section className="ops-queue">
       <h2 className="ops-section">{title}</h2>
-      {phase === "skeleton" ? (
-        <div aria-hidden="true">
-          <SkeletonAdminRow />
-          <SkeletonAdminRow />
-          <SkeletonAdminRow />
-        </div>
-      ) : null}
       {phase === "error" ? <p className="ops-lead">Couldn't load houses.</p> : null}
       {phase === "ready" && houses.length === 0 ? <p className="ops-lead">{empty}</p> : null}
-      {phase === "ready" && houses.length > 0 ? (
+      {phase === "skeleton" || (phase === "ready" && houses.length > 0) ? (
         <div className="ops-table" role="table" aria-label={title}>
           <div className="ops-thead" role="row">
             <span>House</span>
@@ -93,9 +86,17 @@ function Queue({
             <span>Scouted</span>
             <span>Actions</span>
           </div>
-          {houses.map((house) => (
-            <HouseRow key={house.id} house={house} onPatch={onPatch} />
-          ))}
+          {phase === "skeleton" ? (
+            <>
+              <SkeletonAdminRow />
+              <SkeletonAdminRow />
+              <SkeletonAdminRow />
+            </>
+          ) : (
+            houses.map((house) => (
+              <HouseRow key={house.id} house={house} onPatch={onPatch} />
+            ))
+          )}
         </div>
       ) : null}
     </section>

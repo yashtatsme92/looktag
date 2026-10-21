@@ -9,6 +9,7 @@ import { FollowingHouseTile } from "@/components/home/following-card";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { FeedLoadError } from "@/components/ds/feed-error";
 import { FeedTabs } from "@/components/ds/feed-tabs";
+import { FadeLayer, useStaggerIn } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
@@ -195,8 +196,10 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const followSkeleton = mode === "following" && followingLoad.phase === "skeleton";
   const followError = mode === "following" && followingLoad.phase === "error";
   const followWaiting = mode === "following" && followingLoad.phase === "waiting";
-  const showFollowing = mode === "following" && followingLoad.phase === "ready";
+  const showFollowing = mode === "following" && (followingLoad.phase === "ready" || followWaiting);
   const laneSkeleton = mode === "lane" && laneLoad.phase === "skeleton";
+  const staggerIn = useStaggerIn(`${mode}:${followingLoad.phase}:${laneLoad.phase}`);
+  const gridKey = `${mode}:${followSkeleton ? "s" : followError ? "e" : "c"}:${laneSkeleton ? "l" : "t"}`;
 
   if (!anchor) return null;
 
@@ -331,7 +334,8 @@ export function WideHome({ looks }: { looks: Look[] }) {
           </>
         )}
 
-        <div className={cn("wide-grid", (mode === "lane" || showFollowing) && "echo-lane", followWaiting && "is-loading-old")}>
+        <FadeLayer stateKey={gridKey}>
+        <div className={cn("wide-grid", (mode === "lane" || showFollowing) && "echo-lane echo-stagger", staggerIn && "is-in", followWaiting && "is-loading-old")}>
           {followSkeleton || laneSkeleton ? (
             <SkeletonGrid count={8} captions />
           ) : followError ? (
@@ -417,6 +421,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
             </div>
           ) : null}
         </div>
+        </FadeLayer>
         {mode === "following" ? (
           <div className="echo-end echo-end-ink">
             <p>That's everything from who you follow.</p>

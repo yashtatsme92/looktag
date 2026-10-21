@@ -9,6 +9,7 @@ import { FollowingHousePlate } from "@/components/home/following-card";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { FeedLoadError } from "@/components/ds/feed-error";
 import { FeedTabs } from "@/components/ds/feed-tabs";
+import { useCrossfade, useStaggerIn } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
@@ -372,6 +373,10 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     dragRef.current.active = false;
   }
 
+  const staggerKey = `${mode}:${followingLoad.phase}:${laneLoad.phase}`;
+  const staggerIn = useStaggerIn(mode === "feed" ? "feed" : staggerKey);
+  const swap = useCrossfade(mode);
+
   if (!anchor) return null;
 
   const paperBar = mode === "lane" || mode === "creator";
@@ -446,7 +451,14 @@ export function EchoHome({ looks }: { looks: Look[] }) {
 
       <div
         ref={scrollerRef}
-        className={cn("echo-snap", mode === "lane" && "echo-lane", followWaiting && "is-loading-old")}
+        className={cn(
+          "echo-snap",
+          mode === "lane" && "echo-lane",
+          (mode === "lane" || (showFollowing && !followSkeleton)) && "echo-stagger",
+          staggerIn && "is-in",
+          followWaiting && "is-loading-old",
+        )}
+        data-swap={swap}
         onScroll={onScroll}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

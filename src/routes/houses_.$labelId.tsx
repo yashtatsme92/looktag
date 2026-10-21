@@ -7,13 +7,15 @@ import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { Button } from "@/components/ui/button";
+import { FadeLayer } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getFashionLabel, getHousesAvailability, type FashionLabelPage } from "@/lib/labels/api";
-import { houseCoverSrc, publicLines, toggleHouseFollow } from "@/lib/labels/model";
-import { useCachedLoad } from "@/lib/loading/cached-load";
+import { houseCoverSrc, publicLines, toggleHouseFollow, type FashionLabel } from "@/lib/labels/model";
+import { loadingCache } from "@/lib/loading/cache";
+import { clientDeferred, isDeferred, useRouteLoad } from "@/lib/loading/route-load";
 import { shareOrCopy } from "@/lib/looks/share";
 import { recordShareView } from "@/lib/share/api";
 import {
@@ -25,6 +27,12 @@ import {
 
 const FOLLOW_KEY = "looktag-followed-houses-v1";
 
+type HouseProfileData = {
+  open: boolean;
+  house: FashionLabelPage | null;
+  origin: string;
+};
+
 function readFollows(): string[] {
   try {
     const raw = localStorage.getItem(FOLLOW_KEY);
@@ -35,24 +43,37 @@ function readFollows(): string[] {
   }
 }
 
+function cachedHouse(labelId: string): { label: FashionLabel; cover: string } | null {
+  const entry = loadingCache.get<{ labels: FashionLabel[]; covers: Record<string, string> }>("houses:index");
+  const label = entry?.value.labels.find((item) => item.id === labelId);
+  if (!label) return null;
+  return { label, cover: label.coverSrc || entry?.value.covers[label.id] || "" };
+}
+
+async function loadHouseProfile(labelId: string): Promise<HouseProfileData> {
+  try {
+    const open = await getHousesAvailability();
+    if (!open) return { open: false, house: null, origin: "" };
+    const data = await getFashionLabel({ data: labelId });
+    const share = await recordShareView({
+      data: { kind: "house", id: labelId, found: Boolean(data) },
+    });
+    return { open: true, house: data as FashionLabelPage | null, origin: share.origin };
+  } catch {
+    return { open: true, house: null, origin: "" };
+  }
+}
+
 export const Route = createFileRoute("/houses_/$labelId")({
   ssr: true,
-  loader: async ({ params }) => {
-    try {
-      const open = await getHousesAvailability();
-      if (!open) return { open: false, house: null as FashionLabelPage | null, origin: "" };
-      const data = await getFashionLabel({ data: params.labelId });
-      const share = await recordShareView({
-        data: { kind: "house", id: params.labelId, found: Boolean(data) },
-      });
-      return { open: true, house: data as FashionLabelPage | null, origin: share.origin };
-    } catch {
-      return { open: true, house: null, origin: "" };
-    }
+  loader: ({ params }) => clientDeferred(() => loadHouseProfile(params.labelId)),
+  headers: ({ loaderData }) => {
+    if (!loaderData || isDeferred(loaderData)) return {};
+    return shareCacheHeaders(Boolean(loaderData.house));
   },
-  headers: ({ loaderData }) => shareCacheHeaders(Boolean(loaderData?.house)),
   head: ({ loaderData }) => {
-    const label = loaderData?.house?.label;
+    if (!loaderData || isDeferred(loaderData)) return { meta: [{ title: "House — Looktag" }] };
+    const label = loaderData.house?.label;
     if (!label) return notFoundShareHead("house");
     const imageSrc = label.coverSrc || loaderData.house?.styles[0]?.imageSrc || "";
     return shareHead(houseShareMeta(label, loaderData.origin, imageSrc));
@@ -60,12 +81,45 @@ export const Route = createFileRoute("/houses_/$labelId")({
   component: HouseProfile,
 });
 
+function HouseHeader({
+  label,
+  cover,
+  following,
+  onFollow,
+}: {
+  label: FashionLabel;
+  cover: string;
+  following: boolean;
+  onFollow: () => void;
+}) {
+  const line = label.bio?.trim() || label.city?.trim() || "";
+  return (
+    <div className="house-profile-hero">
+      {cover ? <ImgSlot src={cover} alt="" still slotClassName="house-hero" /> : null}
+      <div className="house-profile-info">
+        <p className="wide-kicker">House</p>
+        <ScreenTitle>{label.name}</ScreenTitle>
+        {label.scouted ? (
+          <p className="house-profile-scout">
+            <span className="scouted-dot" aria-hidden />
+            Scouted
+          </p>
+        ) : null}
+        {line ? <p className="house-line">{line}</p> : null}
+        <button type="button" className="house-primary house-follow" onClick={onFollow}>
+          {following ? "Following" : "Follow"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function HouseProfile() {
   const { labelId } = Route.useParams();
-  const { house, open } = Route.useLoaderData();
-  const lineSource = house ? publicLines(house.lines, house.styles) : [];
-  const linesLoad = useCachedLoad(lineSource, `house:${labelId}:lines`);
-  const closed = useHousesClosed(open);
+  const seeded = Route.useLoaderData();
+  const houseLoad = useRouteLoad(seeded, `house:${labelId}`, () => loadHouseProfile(labelId));
+  const data = houseLoad.data;
+  const closed = useHousesClosed(data ? data.open : true);
   const { user, isPending } = useCurrentUserState();
   const [sharing, setSharing] = useState(false);
   const [follows, setFollows] = useState<string[]>([]);
@@ -77,7 +131,12 @@ function HouseProfile() {
 
   if (closed) return <HousesClosed />;
 
-  if (!house) {
+  const house = data?.house ?? null;
+  const pending = !data && !houseLoad.error;
+  const cached = cachedHouse(labelId);
+  const label = house?.label ?? cached?.label;
+
+  if (!pending && !houseLoad.skeleton && !houseLoad.error && !house) {
     return (
       <AppShell title="House" backTo="/houses">
         <h1 className="ds-screen-title">House not found</h1>
@@ -89,11 +148,13 @@ function HouseProfile() {
     );
   }
 
-  const { label } = house;
-  const lines = linesLoad.skeleton ? [] : linesLoad.value;
-  const following = follows.includes(label.id);
+  const lines = house ? publicLines(house.lines, house.styles) : [];
+  const following = label ? follows.includes(label.id) : false;
+  const cover = house ? houseCoverSrc(lines, house.label.coverSrc) : (cached?.cover ?? "");
+  const stateKey = houseLoad.error ? "error" : houseLoad.skeleton ? "skeleton" : pending ? "waiting" : "ready";
 
   async function shareHouse() {
+    if (!label) return;
     setSharing(true);
     const url = `${window.location.origin}/houses/${labelId}`;
     const result = await shareOrCopy({
@@ -108,6 +169,7 @@ function HouseProfile() {
   }
 
   function follow() {
+    if (!label) return;
     if (authEnabled && !isPending && !user) {
       setSheetOpen(true);
       return;
@@ -122,84 +184,87 @@ function HouseProfile() {
     toast.success(next.includes(label.id) ? `Following ${label.name}` : `Unfollowed ${label.name}`);
   }
 
-  const cover = houseCoverSrc(lines, label.coverSrc);
-  const line = label.bio?.trim() || label.city?.trim() || "";
-
   return (
     <AppShell
-      title={label.name}
+      title={label?.name ?? "House"}
       backTo="/houses"
       trailing={
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-11"
-          aria-label="Share house"
-          disabled={sharing}
-          onClick={() => void shareHouse()}
-        >
-          <Share2 className="size-5" />
-        </Button>
+        label ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-11"
+            aria-label="Share house"
+            disabled={sharing}
+            onClick={() => void shareHouse()}
+          >
+            <Share2 className="size-5" />
+          </Button>
+        ) : null
       }
     >
-      <article className="house-profile">
-        <div className="house-profile-hero">
-          {cover ? <ImgSlot src={cover} alt="" still slotClassName="house-hero" /> : null}
-          <div className="house-profile-info">
-            <p className="wide-kicker">House</p>
-            <ScreenTitle>{label.name}</ScreenTitle>
-            {label.scouted ? (
-              <p className="house-profile-scout">
-                <span className="scouted-dot" aria-hidden />
-                Scouted
-              </p>
-            ) : null}
-            {line ? <p className="house-line">{line}</p> : null}
-            <button type="button" className="house-primary house-follow" onClick={follow}>
-              {following ? "Following" : "Follow"}
-            </button>
-          </div>
-        </div>
-        <div className="house-profile-lines">
-          <h2 className="ops-section house-looks-title">Lines</h2>
-          {linesLoad.error ? (
-            <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
-          ) : linesLoad.skeleton ? (
-            <SkeletonGrid count={4} captions />
-          ) : lines.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No Lines yet.</p>
+      <FadeLayer stateKey={stateKey}>
+        {houseLoad.error ? (
+          <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
+        ) : houseLoad.skeleton ? (
+          <article className="house-profile">
+            {label ? <HouseHeader label={label} cover={cover} following={following} onFollow={follow} /> : null}
+            <div className="house-profile-lines">
+              <h2 className="ops-section house-looks-title">Lines</h2>
+              <SkeletonGrid count={4} captions />
+            </div>
+          </article>
+        ) : pending ? (
+          label ? (
+            <article className="house-profile is-loading-old">
+              <HouseHeader label={label} cover={cover} following={following} onFollow={follow} />
+            </article>
           ) : (
-            <ul className="house-lines">
-              {lines.map(({ collection, styles }) => (
-                <li key={collection.id}>
-                  <Link
-                    to="/houses/$labelId/$collectionId"
-                    params={{ labelId: label.id, collectionId: collection.slug }}
-                    className="house-card"
-                    aria-label={`${collection.name}, Line`}
-                  >
-                    <ImgSlot src={styles[0]?.imageSrc} alt="" slotClassName="img-slot-fill" />
-                    <div className="house-card-caption">
-                      <span className="house-card-scout">Line</span>
-                      <p className="house-card-name">{collection.name}</p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </article>
-      <AccountSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        title="Sign in to follow"
-        description="Follow stays on this house. Cancel returns here."
-        intent="follow"
-        next={`/houses/${label.id}`}
-        primary="Continue with email"
-        secondary="Cancel"
-      />
+            <div className="is-loading-old" aria-hidden />
+          )
+        ) : label && house ? (
+          <article className="house-profile">
+            <HouseHeader label={label} cover={cover} following={following} onFollow={follow} />
+            <div className="house-profile-lines">
+              <h2 className="ops-section house-looks-title">Lines</h2>
+              {lines.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No Lines yet.</p>
+              ) : (
+                <ul className="house-lines">
+                  {lines.map(({ collection, styles }) => (
+                    <li key={collection.id}>
+                      <Link
+                        to="/houses/$labelId/$collectionId"
+                        params={{ labelId: label.id, collectionId: collection.slug }}
+                        className="house-card"
+                        aria-label={`${collection.name}, Line`}
+                      >
+                        <ImgSlot src={styles[0]?.imageSrc} alt="" slotClassName="img-slot-fill" />
+                        <div className="house-card-caption">
+                          <span className="house-card-scout">Line</span>
+                          <p className="house-card-name">{collection.name}</p>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </article>
+        ) : null}
+      </FadeLayer>
+      {label ? (
+        <AccountSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          title="Sign in to follow"
+          description="Follow stays on this house. Cancel returns here."
+          intent="follow"
+          next={`/houses/${label.id}`}
+          primary="Continue with email"
+          secondary="Cancel"
+        />
+      ) : null}
     </AppShell>
   );
 }

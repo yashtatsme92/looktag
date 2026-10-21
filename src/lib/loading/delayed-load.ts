@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { loadingCache, type LoadCache } from "./cache.ts";
 
 export type LoadPhase = "ready" | "waiting" | "skeleton" | "error";
@@ -10,7 +10,7 @@ export type DelayedLoadSnapshot<T> = {
   scrollY?: number | null;
 };
 
-export type DelayedLoadOptions = {
+export type DelayedLoadOptions<T = unknown> = {
   cacheKey?: string;
   delayMs?: number;
   minSkeletonMs?: number;
@@ -19,6 +19,8 @@ export type DelayedLoadOptions = {
   /** Defaults to window.scrollY. Surfaces with an inner scroller pass their own. */
   getScroll?: () => number | null;
   setScroll?: (scrollY: number) => void;
+  /** Already-known data (SSR). Skips the wait so the first paint matches the server. */
+  initial?: T;
 };
 
 export type DelayedLoadController<T> = {
@@ -30,7 +32,7 @@ export type DelayedLoadController<T> = {
 
 export function createDelayedLoad<T>(
   load: () => Promise<T>,
-  options: DelayedLoadOptions = {},
+  options: DelayedLoadOptions<T> = {},
 ): DelayedLoadController<T> {
   const delayMs = options.delayMs ?? 300;
   const minSkeletonMs = options.minSkeletonMs ?? 400;
@@ -39,7 +41,12 @@ export function createDelayedLoad<T>(
   const cached = options.cacheKey ? cache?.get<T>(options.cacheKey) : undefined;
   let snapshot: DelayedLoadSnapshot<T> = cached
     ? { phase: "ready", data: cached.value, scrollY: cached.scrollY }
-    : { phase: "waiting" };
+    : options.initial !== undefined
+      ? { phase: "ready", data: options.initial }
+      : { phase: "waiting" };
+  if (!cached && options.initial !== undefined && options.cacheKey) {
+    cache?.set(options.cacheKey, options.initial);
+  }
   let delayTimer: ReturnType<typeof setTimeout> | undefined;
   let minTimer: ReturnType<typeof setTimeout> | undefined;
   let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
@@ -124,11 +131,13 @@ export function createDelayedLoad<T>(
     },
     dispose() {
       if (snapshot.phase === "ready" && snapshot.data !== undefined && options.cacheKey) {
-        const scrollY = options.getScroll
+        const live = options.getScroll
           ? options.getScroll()
           : typeof window === "undefined"
             ? (snapshot.scrollY ?? null)
             : window.scrollY;
+        const previous = cache?.get<T>(options.cacheKey)?.scrollY ?? null;
+        const scrollY = live != null && live > 1 ? live : previous != null && previous > 1 ? previous : live;
         cache?.set(options.cacheKey, snapshot.data, scrollY);
       }
       request += 1;
@@ -143,7 +152,7 @@ export function createDelayedLoad<T>(
 /** Starts on mount. Screens that already know they are pending should render Skeleton instead. */
 export function useDelayedLoad<T>(
   load: () => Promise<T>,
-  options: DelayedLoadOptions = {},
+  options: DelayedLoadOptions<T> = {},
 ): DelayedLoadSnapshot<T> {
   const { cacheKey, delayMs, minSkeletonMs, timeoutMs } = options;
   const loadRef = useRef(load);
@@ -152,6 +161,9 @@ export function useDelayedLoad<T>(
   const setScrollRef = useRef(options.setScroll);
   getScrollRef.current = options.getScroll;
   setScrollRef.current = options.setScroll;
+  const initialRef = useRef(options.initial);
+  initialRef.current = options.initial;
+  const hasInitial = options.initial !== undefined;
   const controller = useMemo(
     () =>
       createDelayedLoad(() => loadRef.current(), {
@@ -160,12 +172,13 @@ export function useDelayedLoad<T>(
         minSkeletonMs,
         timeoutMs,
         cache: typeof window === "undefined" ? undefined : options.cache ?? loadingCache,
+        initial: hasInitial ? initialRef.current : undefined,
         getScroll: () => {
           if (getScrollRef.current) return getScrollRef.current();
           return typeof window === "undefined" ? null : window.scrollY;
         },
       }),
-    [cacheKey, delayMs, minSkeletonMs, timeoutMs, options.cache],
+    [cacheKey, delayMs, minSkeletonMs, timeoutMs, options.cache, hasInitial],
   );
   const snapshot = useSyncExternalStore(
     controller.subscribe,
@@ -178,11 +191,28 @@ export function useDelayedLoad<T>(
     return () => controller.dispose();
   }, [controller]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (snapshot.phase !== "ready" || snapshot.scrollY == null || typeof window === "undefined") return;
     if (setScrollRef.current) setScrollRef.current(snapshot.scrollY);
     else window.scrollTo({ top: snapshot.scrollY, behavior: "instant" });
   }, [snapshot.phase, snapshot.scrollY]);
+
+  const dataRef = useRef(snapshot.data);
+  dataRef.current = snapshot.data;
+  useEffect(() => {
+    if (snapshot.phase !== "ready" || !cacheKey || typeof window === "undefined") return;
+    const cache = options.cache ?? loadingCache;
+    const save = () => {
+      const value = dataRef.current;
+      if (value === undefined) return;
+      const y = getScrollRef.current ? getScrollRef.current() : window.scrollY;
+      const previous = cache.get<T>(cacheKey)?.scrollY ?? null;
+      if ((y == null || y <= 1) && previous != null && previous > 1) return;
+      cache.set(cacheKey, value, y);
+    };
+    window.addEventListener("scroll", save, true);
+    return () => window.removeEventListener("scroll", save, true);
+  }, [snapshot.phase, cacheKey, options.cache]);
 
   return snapshot;
 }

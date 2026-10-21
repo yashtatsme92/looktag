@@ -65,3 +65,34 @@ export function FadeLayer({
     </div>
   );
 }
+
+/** Tiles start hidden. The next frame sets `.is-in` so the stagger transition runs. */
+export function useStaggerIn(key: string) {
+  const [shown, setShown] = useState(key);
+  const [on, setOn] = useState(false);
+  if (key !== shown) {
+    setShown(key);
+    setOn(false);
+  }
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setOn(true));
+    return () => cancelAnimationFrame(frame);
+  }, [shown]);
+  return on;
+}
+
+/** First paint stays up. Later key changes drop to 0, then fade back over 150ms. */
+export function useCrossfade(key: string) {
+  const [shown, setShown] = useState(key);
+  const [on, setOn] = useState(true);
+  if (key !== shown) {
+    setShown(key);
+    setOn(false);
+  }
+  useEffect(() => {
+    if (on) return;
+    const frame = requestAnimationFrame(() => setOn(true));
+    return () => cancelAnimationFrame(frame);
+  }, [on, shown]);
+  return on ? "on" : "off";
+}

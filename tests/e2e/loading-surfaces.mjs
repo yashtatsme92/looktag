@@ -7,7 +7,7 @@ import {
   resolveOrigin,
   STYLE_GUIDE_KEY,
 } from "./helpers.mjs";
-import { installLoadingObserver, readLoadingLog } from "./loading-helpers.mjs";
+import { installLoadingObserver, readLoadingLog, delayServerFunctions } from "./loading-helpers.mjs";
 
 const origin = resolveOrigin();
 const widths = [
@@ -39,7 +39,7 @@ function ms(value) {
   return Number(text);
 }
 
-async function openContext(browser, viewport, { delay = 0, reduce = false, saved = false } = {}) {
+async function openContext(browser, viewport, { reduce = false, saved = false } = {}) {
   const context = await browser.newContext({
     viewport,
     locale: "en-GB",
@@ -47,18 +47,17 @@ async function openContext(browser, viewport, { delay = 0, reduce = false, saved
     reducedMotion: reduce ? "reduce" : "no-preference",
   });
   await context.addInitScript(
-    ({ guide, coach, boot, delay, saved }) => {
+    ({ guide, coach, boot, saved }) => {
       try {
         localStorage.setItem(guide, "done");
         localStorage.setItem(coach, "done");
         sessionStorage.setItem(boot, "done");
-        if (delay) sessionStorage.setItem("looktag-load-delay", String(delay));
         if (saved) localStorage.setItem("looktag-saved-v1", JSON.stringify(["seed-sunday-coat"]));
       } catch {
         /* private mode */
       }
     },
-    { guide: STYLE_GUIDE_KEY, coach: BROWSE_COACH_KEY, boot: BOOT_SKIP_KEY, delay, saved },
+    { guide: STYLE_GUIDE_KEY, coach: BROWSE_COACH_KEY, boot: BOOT_SKIP_KEY, saved },
   );
   const page = await context.newPage();
   page.setDefaultTimeout(12_000);
@@ -66,83 +65,85 @@ async function openContext(browser, viewport, { delay = 0, reduce = false, saved
   return { context, page };
 }
 
-async function shopSurface(page, width, delay) {
+function skeletonEnter(log, since) {
+  return log.find(
+    (entry) => entry.type === "enter" && String(entry.classes).includes("skeleton") && entry.at >= since - 30,
+  );
+}
+
+async function now(page) {
+  return page.evaluate(() => performance.now());
+}
+
+async function armDelay(page, ms) {
+  return delayServerFunctions(page, ["/_serverFn/"], ms);
+}
+
+async function shopSurface(page, width) {
   const desktop = width >= 1024;
   await page.goto(`${origin}/looks/seed-sofia-sun-bleached-linen`, { waitUntil: "domcontentloaded" });
   await ready(page);
   if (!desktop) {
     await page.locator(".look-plate-shop").waitFor({ timeout: 8_000 });
-    const opened = Date.now();
     await page.locator(".look-plate-shop").click();
     await page.locator(".look-sheet").waitFor({ timeout: 4_000 });
-    if (!delay) {
-      await page.waitForTimeout(400);
-      check(`shop.sync-no-skeleton.${width}`, (await page.locator(".look-sheet .skeleton").count()) === 0);
-      return;
-    }
     const header = await page.locator(".look-sheet").innerText();
     check(`shop.header.${width}`, /Shop this look/.test(header), header.slice(0, 80));
-    const elapsed = Date.now() - opened;
-    if (elapsed < 250) await page.waitForTimeout(250 - elapsed);
-    check(`shop.skeleton-delay.${width}`, (await page.locator(".look-sheet .skeleton-offer-row").count()) === 0);
-    await page.waitForFunction(() => document.querySelector(".look-sheet .skeleton-offer-row"), null, { timeout: 3_000 });
+    await page.waitForTimeout(450);
+    check(`shop.sync-no-skeleton.${width}`, (await page.locator(".look-sheet .skeleton").count()) === 0);
     const duration = await page.locator(".look-sheet").evaluate((el) => getComputedStyle(el).animationDuration);
     check(`shop.sheet-250.${width}`, Math.abs(ms(duration) - 250) < 2, duration);
-  } else {
-    await page.locator(".wide-panel h2", { hasText: "Shop this look" }).waitFor({ timeout: 8_000 });
-    const header = await page.locator(".wide-panel").innerText();
-    check(`shop.header.${width}`, /Shop this look/.test(header), header.slice(0, 80));
-    check(`shop.panel-not-sheet.${width}`, (await page.locator(".look-sheet").count()) === 0);
-    if (!delay) {
-      await page.waitForTimeout(400);
-      check(`shop.sync-no-skeleton.${width}`, (await page.locator(".wide-panel .skeleton").count()) === 0);
-      return;
-    }
-    await page.waitForFunction(() => {
-      const el = document.querySelector(".wide-panel .skeleton-offer-row");
-      const box = el?.getBoundingClientRect();
-      return Boolean(box && box.height >= 40);
-    }, null, { timeout: 3_000 });
-    const log = await readLoadingLog(page);
-    const entered = log.find((entry) => entry.type === "enter" && String(entry.classes).includes("skeleton"));
-    check(`shop.skeleton-delay.${width}`, Boolean(entered) && entered.at >= 250, JSON.stringify(entered));
+    return;
   }
-  if (delay) {
-    const rowText = await page.locator(".skeleton-offer-row").first().innerText();
-    check(`shop.no-price.${width}`, !/[€$]/.test(rowText) && !/\d/.test(rowText), rowText);
-  }
+  await page.locator(".wide-panel h2", { hasText: "Shop this look" }).waitFor({ timeout: 8_000 });
+  const header = await page.locator(".wide-panel").innerText();
+  check(`shop.header.${width}`, /Shop this look/.test(header), header.slice(0, 80));
+  check(`shop.panel-not-sheet.${width}`, (await page.locator(".look-sheet").count()) === 0);
+  await page.waitForTimeout(450);
+  check(`shop.sync-no-skeleton.${width}`, (await page.locator(".wide-panel .skeleton").count()) === 0);
 }
 
 async function feedSurface(page, width) {
   await page.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
   await ready(page);
-  await page.getByRole("button", { name: "Following" }).waitFor({ timeout: 10_000 });
-  const before = await page.evaluate(() => performance.now());
-  await page.getByRole("button", { name: "Following" }).click();
+  const following = page.getByRole("button", { name: "Following" }).first();
+  await following.waitFor({ timeout: 10_000 });
+  const at = await now(page);
+  await following.click();
   await page.locator(".skeleton-grid").first().waitFor({ state: "attached", timeout: 8_000 });
   const log = await readLoadingLog(page);
-  const entered = log.find((entry) => entry.type === "enter" && entry.classes.includes("skeleton"));
-  check(`feed.skeleton-delay.${width}`, Boolean(entered) && entered.at - before >= 250, JSON.stringify({ entered, before }));
+  const entered = skeletonEnter(log, at);
+  check(`feed.skeleton-delay.${width}`, Boolean(entered) && entered.at - at >= 250, JSON.stringify({ entered, at }));
   const grid = await page.locator(".skeleton-grid").first().evaluate((el) => {
     const style = getComputedStyle(el);
     const first = el.firstElementChild ? getComputedStyle(el.firstElementChild).gridColumn : "";
+    const box = el.getBoundingClientRect();
     return {
       columns: style.gridTemplateColumns.split(" ").filter(Boolean).length,
       gap: style.gap,
       tile: el.firstElementChild ? getComputedStyle(el.firstElementChild).aspectRatio : "",
       radius: el.firstElementChild ? getComputedStyle(el.firstElementChild).borderRadius : "",
       lead: first,
+      width: box.width,
     };
   });
   const expected = width >= 1280 ? 4 : width >= 1024 ? 3 : 2;
-  check(`feed.columns.${width}`, grid.columns === expected && grid.gap === "12px", JSON.stringify(grid));
+  check(`feed.columns.${width}`, grid.columns === expected && grid.gap === "12px" && grid.width > 200, JSON.stringify(grid));
   if (width === 1194) {
     check("feed.lead-span.1194", /span 2/.test(grid.lead), grid.lead);
     check("feed.tile-radius.1194", ms(grid.radius) === 24 || grid.radius.startsWith("24"), grid.radius);
   }
   const indicator = page.locator(".tab-indicator").first();
-  const motion = await indicator.evaluate((el) => getComputedStyle(el).transitionDuration);
-  check(`feed.indicator-200.${width}`, motion.split(",").some((part) => Math.abs(ms(part) - 200) < 2), motion);
+  const motion = await indicator.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      duration: style.transitionDuration,
+      ease: style.transitionTimingFunction,
+      width: el.getBoundingClientRect().width,
+    };
+  });
+  check(`feed.indicator-200.${width}`, motion.duration.split(",").some((part) => Math.abs(ms(part) - 200) < 2) && motion.width > 8, JSON.stringify(motion));
+  check(`feed.indicator-ease.${width}`, /0\.23/.test(motion.ease), motion.ease);
   await page.evaluate(() => {
     const host = document.createElement("div");
     host.id = "stagger-probe";
@@ -166,26 +167,39 @@ async function feedSurface(page, width) {
 }
 
 async function housesSurface(page, width) {
-  await page.goto(`${origin}/houses`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  await page.locator('a[href="/houses"]:visible').first().waitFor({ timeout: 8_000 });
+  const at = await now(page);
+  await page.locator('a[href="/houses"]:visible').first().click();
+  await page.waitForURL(/\/houses$/, { timeout: 8_000 });
   await page.locator(".skeleton-grid").first().waitFor({ state: "attached", timeout: 8_000 });
+  const log = await readLoadingLog(page);
+  const entered = skeletonEnter(log, at);
+  check(`houses.skeleton-delay.${width}`, Boolean(entered) && entered.at - at >= 250, JSON.stringify({ entered, at }));
   const columns = await page.locator(".skeleton-grid").first().evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length);
   const expected = width >= 1280 ? 4 : width >= 1024 ? 3 : 2;
   check(`houses.columns.${width}`, columns === expected, String(columns));
-  await page.goto(`${origin}/houses/label-atelier-noir`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
-  const followVisible = await page.getByRole("button", { name: "Follow" }).isVisible();
-  check(`houses.header-immediate.${width}`, followVisible, `follow=${followVisible}`);
-  await page.locator(".house-profile-lines .skeleton-grid").first().waitFor({ state: "attached", timeout: 4_000 });
-  check(`houses.lines-skeleton.${width}`, (await page.locator(".house-profile-lines .skeleton").count()) > 0);
+  await page.locator('a[href="/houses/label-atelier-noir"]:visible').first().waitFor({ timeout: 15_000 });
+  const profileAt = await now(page);
+  await page.locator('a[href="/houses/label-atelier-noir"]:visible').first().click();
+  await page.locator(".house-profile-lines .skeleton-grid").first().waitFor({ state: "attached", timeout: 8_000 });
+  const during = await page.locator("body").innerText();
+  check(`houses.not-found-hidden.${width}`, !/House not found/.test(during));
+  const profileLog = await readLoadingLog(page);
+  const profileEntered = profileLog.find(
+    (entry) => entry.type === "enter" && String(entry.classes).includes("skeleton") && entry.at >= profileAt,
+  );
+  check(`houses.lines-skeleton.${width}`, Boolean(profileEntered) && profileEntered.at - profileAt >= 250, JSON.stringify({ profileEntered, profileAt }));
 }
 
 async function youSurface(page) {
   await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded" });
-  await page.locator(".skeleton-grid").first().waitFor({ state: "attached", timeout: 8_000 });
-  check("you.saved-skeleton", (await page.locator(".skeleton-grid").count()) > 0);
-  await page.getByRole("tab", { name: "Drafts" }).click();
-  await page.locator(".skeleton-draft-row").first().waitFor({ state: "attached", timeout: 3_000 });
-  check("you.drafts-not-grid", (await page.locator(".skeleton-grid").count()) === 0 && (await page.locator(".skeleton-draft-row").count()) > 0);
+  await ready(page);
+  await page.waitForTimeout(500);
+  check("you.saved-no-skeleton", (await page.locator(".skeleton-grid").count()) === 0);
+  const body = await page.locator(".you-home").innerText();
+  check("you.saved-painted", /Saved|Sunday|coat/i.test(body), body.slice(0, 120));
 }
 
 async function createSurface(page, width) {
@@ -247,22 +261,56 @@ async function createSurface(page, width) {
 }
 
 async function reducedMotion(page) {
+  await page.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  await page.locator('a[href="/houses"]:visible').first().click();
+  await page.locator(".skeleton").first().waitFor({ state: "attached", timeout: 8_000 });
+  const motion = await page.evaluate(() => ({
+    skeleton: getComputedStyle(document.querySelector(".skeleton")).animationName,
+  }));
+  check("reduce.skeleton", motion.skeleton === "none", motion.skeleton);
   await page.goto(`${origin}/looks/seed-sofia-sun-bleached-linen`, { waitUntil: "domcontentloaded" });
   await ready(page);
   await page.locator(".look-plate-shop").click();
   await page.locator(".look-sheet").waitFor();
-  await page.waitForFunction(() => {
-    const el = document.querySelector(".look-sheet .skeleton-offer-row, .skeleton-offer-row");
-    return Boolean(el);
-  }, null, { timeout: 3_000 });
-  const motion = await page.evaluate(() => ({
-    sheet: getComputedStyle(document.querySelector(".look-sheet")).animationName,
-    skeleton: getComputedStyle(document.querySelector(".skeleton")).animationName,
-    tile: getComputedStyle(document.body.appendChild(Object.assign(document.createElement("div"), { className: "echo-tile" }))).transitionDelay,
+  const sheet = await page.locator(".look-sheet").evaluate((el) => getComputedStyle(el).animationName);
+  check("reduce.sheet", sheet === "none", sheet);
+  const tile = await page.evaluate(() => getComputedStyle(document.body.appendChild(Object.assign(document.createElement("div"), { className: "echo-tile" }))).transitionDelay);
+  check("reduce.tile-delay", ms(tile) === 0, tile);
+}
+
+async function fastHouses(page) {
+  await page.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  await page.locator('a[href="/houses"]:visible').first().click();
+  await page.getByRole("heading", { name: "Scouted" }).waitFor({ timeout: 8_000 });
+  await page.waitForTimeout(400);
+  check("houses.fast-no-skeleton", (await page.locator(".skeleton").count()) === 0);
+}
+
+async function holdHouses(page) {
+  await page.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  await page.locator('a[href="/houses"]:visible').first().click();
+  const span = await page.evaluate(() => new Promise((resolve) => {
+    const start = performance.now();
+    let first = 0;
+    let last = 0;
+    const tick = () => {
+      const skel = Boolean(document.querySelector(".skeleton"));
+      const now = performance.now();
+      if (skel && !first) first = now;
+      if (skel) last = now;
+      if (first && !skel && now - last > 80) {
+        resolve({ held: last - first });
+        return;
+      }
+      if (now - start > 8000) resolve({ held: last ? last - first : 0, timeout: true });
+      else requestAnimationFrame(tick);
+    };
+    tick();
   }));
-  check("reduce.sheet", motion.sheet === "none", motion.sheet);
-  check("reduce.skeleton", motion.skeleton === "none", motion.skeleton);
-  check("reduce.tile-delay", ms(motion.tile) === 0, motion.tile);
+  check("houses.hold-400", span.held >= 380, JSON.stringify(span));
 }
 
 async function backFromStyle(page) {
@@ -279,7 +327,7 @@ async function backFromStyle(page) {
 
 async function signInAdmin(page) {
   const { email, password } = resolveAdminCredentials();
-  await page.goto(`${origin}/login?next=${encodeURIComponent("/admin/houses")}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${origin}/login?next=${encodeURIComponent("/admin")}`, { waitUntil: "domcontentloaded" });
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
   await page.locator("#creator-email").fill(email.toLowerCase() === "admin@looktag.studio" ? "admin" : email);
   await page.locator("#creator-password").fill(password);
@@ -289,11 +337,17 @@ async function signInAdmin(page) {
 
 async function adminSurface(page, width) {
   await signInAdmin(page);
-  await page.goto(`${origin}/admin/houses`, { waitUntil: "domcontentloaded" });
-  await page.locator(".skeleton-admin-row").first().waitFor({ timeout: 3_000 });
+  const stop = await armDelay(page, 1600);
+  const at = await now(page);
+  await page.locator('a[href="/admin/houses"]:visible').first().click();
+  await page.locator(".skeleton-admin-row").first().waitFor({ timeout: 8_000 });
+  const log = await readLoadingLog(page);
+  const entered = skeletonEnter(log, at);
+  check(`admin.skeleton-delay.${width}`, Boolean(entered) && entered.at - at >= 250, JSON.stringify({ entered, at }));
   const height = await page.locator(".skeleton-admin-row").first().evaluate((el) => el.getBoundingClientRect().height);
   check(`admin.row.${width}`, height >= 60, String(height));
-  await page.locator(".ops-table [role=switch]").first().waitFor({ timeout: 8_000 });
+  await page.locator(".ops-table [role=switch]").first().waitFor({ timeout: 12_000 });
+  await stop();
   const toggle = page.locator(".ops-table [role=switch]:not([disabled])").first();
   const before = await toggle.getAttribute("aria-checked");
   await toggle.click();
@@ -332,12 +386,17 @@ async function adminSurface(page, width) {
 const browser = await chromium.launch({ headless: true });
 try {
   for (const viewport of widths) {
-    const slow = await openContext(browser, viewport, { delay: 1600 });
+    const slow = await openContext(browser, viewport, {});
     try {
-      await shopSurface(slow.page, viewport.width, true);
+      await armDelay(slow.page, 1600);
+      await shopSurface(slow.page, viewport.width);
       await feedSurface(slow.page, viewport.width);
       await housesSurface(slow.page, viewport.width);
-      if (viewport.width === 390) await youSurface(slow.page);
+      if (viewport.width === 390) {
+        await youSurface(slow.page);
+        const overflow = await slow.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+        check("overflow.390", !overflow);
+      }
     } catch (error) {
       mkdirSync("/workspace/screenshots", { recursive: true });
       await slow.page.screenshot({ path: `/workspace/screenshots/loading-${viewport.width}.png` }).catch(() => undefined);
@@ -346,9 +405,9 @@ try {
       await slow.context.close();
     }
 
-    const fast = await openContext(browser, viewport, { delay: 0 });
+    const fast = await openContext(browser, viewport, {});
     try {
-      await shopSurface(fast.page, viewport.width, false);
+      await fastHouses(fast.page);
       await createSurface(fast.page, viewport.width);
     } catch (error) {
       check(`fast.${viewport.width}`, false, error instanceof Error ? error.message : String(error));
@@ -357,8 +416,9 @@ try {
     }
   }
 
-  const reduced = await openContext(browser, widths[0], { delay: 1600, reduce: true });
+  const reduced = await openContext(browser, widths[0], { reduce: true });
   try {
+    await armDelay(reduced.page, 1600);
     await reducedMotion(reduced.page);
   } catch (error) {
     check("reduce", false, error instanceof Error ? error.message : String(error));
@@ -366,7 +426,7 @@ try {
     await reduced.context.close();
   }
 
-  const back = await openContext(browser, widths[0], { delay: 1600 });
+  const back = await openContext(browser, widths[0], {});
   try {
     await backFromStyle(back.page);
   } catch (error) {
@@ -375,10 +435,20 @@ try {
     await back.context.close();
   }
 
+  const hold = await openContext(browser, widths[0], {});
+  try {
+    await armDelay(hold.page, 350);
+    await holdHouses(hold.page);
+  } catch (error) {
+    check("houses.hold", false, error instanceof Error ? error.message : String(error));
+  } finally {
+    await hold.context.close();
+  }
+
   try {
     resolveAdminCredentials();
     for (const viewport of widths) {
-      const admin = await openContext(browser, viewport, { delay: 1600 });
+      const admin = await openContext(browser, viewport, {});
       try {
         await adminSurface(admin.page, viewport.width);
       } catch (error) {
@@ -387,11 +457,12 @@ try {
         await admin.context.close();
       }
     }
-    const adminReduce = await openContext(browser, widths[0], { delay: 1600, reduce: true });
+    const adminReduce = await openContext(browser, widths[0], { reduce: true });
     try {
       await signInAdmin(adminReduce.page);
-      await adminReduce.page.goto(`${origin}/admin/houses`, { waitUntil: "domcontentloaded" });
-      await adminReduce.page.locator(".skeleton-admin-row").first().waitFor({ timeout: 3_000 });
+      await armDelay(adminReduce.page, 1600);
+      await adminReduce.page.locator('a[href="/admin/houses"]:visible').first().click();
+      await adminReduce.page.locator(".skeleton-admin-row").first().waitFor({ timeout: 8_000 });
       const name = await adminReduce.page.locator(".skeleton").first().evaluate((el) => getComputedStyle(el).animationName);
       check("admin.reduce.skeleton", name === "none", name);
     } catch (error) {

@@ -189,15 +189,29 @@ export function SessionSplit({ mode = "split", children }: { mode?: "split" | "a
   return <>{children}</>;
 }
 
+function useSkeletonAfter(pending: boolean, delayMs = 300) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!pending) {
+      setShow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShow(true), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [pending, delayMs]);
+  return pending && show;
+}
+
 export function AdminGate({ children }: { children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const showSkeleton = useSkeletonAfter(isPending);
 
   if (isPending) {
     return (
       <AppShell title="Admin" backTo="/">
-        <Skeleton className="h-48 rounded-xl" />
+        {showSkeleton ? <Skeleton className="h-48 rounded-xl" /> : null}
       </AppShell>
     );
   }
