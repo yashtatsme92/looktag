@@ -282,7 +282,11 @@ describe("editorial look seeding", () => {
         allLooks.map((row) => row.id),
         SEED_LOOKS.map((look) => look.id).sort(),
       );
-      assert.equal(ledgerBeforeDelete.length, 34);
+      assert.equal(
+        ledgerBeforeDelete.filter((row) => row.kind === "editorial_look").length,
+        34,
+      );
+      assert.equal(ledgerBeforeDelete.filter((row) => row.kind === "house_look").length, 7);
 
       const deleted = SEED_LOOKS[10]!;
       await sql`delete from looks where id = ${deleted.id}`;

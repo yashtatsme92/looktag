@@ -51,6 +51,38 @@ test("pending migrations are returned in name order", () => {
   );
 });
 
+test("duplicate 0012 files stay in stable name order", () => {
+  assert.deepEqual(
+    pendingMigrations(
+      ["0012_maison_calve.sql", "0012_backfill_creator_seeded_items.sql", "0002_looks.sql"],
+      [],
+    ).map((row) => row.name),
+    ["0002_looks.sql", "0012_backfill_creator_seeded_items.sql", "0012_maison_calve.sql"],
+  );
+});
+
+test("the auth schema is included once when sign-in is on and skipped when it is off", () => {
+  const paths = ["0002_looks.sql", "0001_auth.sql", "auth/0001_auth.sql"];
+  const on = pendingMigrations(paths, [], { authEnabled: true });
+  assert.deepEqual(
+    on.map((row) => row.name),
+    ["0001_auth.sql", "0002_looks.sql"],
+  );
+  assert.equal(on.filter((row) => row.name === "0001_auth.sql").length, 1);
+  assert.equal(on.find((row) => row.name === "0001_auth.sql").path, "0001_auth.sql");
+
+  const off = pendingMigrations(paths, [], { authEnabled: false });
+  assert.deepEqual(
+    off.map((row) => row.name),
+    ["0002_looks.sql"],
+  );
+
+  const onlyAuthDir = pendingMigrations(["auth/0001_auth.sql", "0002_looks.sql"], [], {
+    authEnabled: true,
+  });
+  assert.equal(onlyAuthDir[0].path, "auth/0001_auth.sql");
+});
+
 test("non-.sql entries are dropped (readdir also yields the auth/ directory)", () => {
   assert.equal(isMigrationFile("auth"), false);
   assert.deepEqual(pendingMigrations(["auth", "README.md"], []), []);

@@ -143,16 +143,24 @@ export function parseLook(row: LookRow): Look {
 export async function insertLook(sql: Sql, look: Look) {
   const stats = lookStats(look);
   const collectionId = look.collectionId ?? null;
+  // The ledger insert is the gate: a deleted house seed is not put back.
   await sql`
+    with new_seed as (
+      insert into seeded_items (kind, id)
+      values ('house_look', ${look.id})
+      on conflict (kind, id) do nothing
+      returning id
+    )
     insert into looks (
       id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
       pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id
-    ) values (
+    )
+    select
       ${look.id}, ${look.userId}, ${look.title}, ${look.caption}, ${look.creator},
       ${look.imageSrc}, ${JSON.stringify(look.moods ?? [])}, ${JSON.stringify(look.tags)},
       ${stats.pinCount}, ${stats.comparedCount}, ${stats.retailerCount}, true,
       ${look.createdAt}, ${look.updatedAt}, ${collectionId}
-    )
+    from new_seed
     on conflict (id) do nothing
   `;
   if (collectionId) {
