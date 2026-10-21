@@ -1,4 +1,5 @@
 import { mkdirSync } from "node:fs";
+import { toJSON } from "seroval";
 import { checkedUrl } from "../../scripts/browser-guard.mjs";
 
 export const STYLE_GUIDE_KEY = "looktag-style-guide-v1";
@@ -28,6 +29,43 @@ export function snippet(text) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 180);
+}
+
+/** Drop Create drafts and pending saves left by an upload. Pages are closed after each test; this makes the cleanup explicit. */
+export async function clearUploadedDrafts(page) {
+  await page
+    .evaluate((keys) => {
+      for (const key of keys) sessionStorage.removeItem(key);
+    }, ["looktag-create-draft-v1", "looktag-pending-save-v1"])
+    .catch(() => undefined);
+}
+
+/** Delete a look this test published, then drop its draft. Seed rows are never passed here. */
+export async function deleteUploadedLook(page, lookId) {
+  if (!lookId || lookId.startsWith("seed-") || lookId.startsWith("house-")) return;
+  const fn = Buffer.from(
+    JSON.stringify({
+      file: "/src/lib/looks/looks-write.ts?tss-serverfn-split",
+      export: "deleteLook_createServerFn_handler",
+    }),
+  ).toString("base64url");
+  const body = JSON.stringify(toJSON({ data: lookId, context: {} }));
+  const status = await page.evaluate(
+    async ({ fn, body }) => {
+      const res = await fetch(`/_serverFn/${fn}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json", "x-tsr-serverfn": "true" },
+        body,
+      });
+      return res.status;
+    },
+    { fn, body },
+  );
+  if (status !== 200) {
+    throw new Error(`uploaded look cleanup failed for ${lookId} (${status})`);
+  }
+  await clearUploadedDrafts(page);
 }
 
 export function productUrl(href) {

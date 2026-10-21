@@ -6,7 +6,7 @@
 import { chromium } from "playwright";
 import { pieceEditorIsFooter, saveDockStaysDown } from "../../src/lib/looks/edit-footer.ts";
 import { CREATE_DRAFT_KEY } from "../../src/lib/looks/create-draft.ts";
-import { SCREENSHOT_DIR, fillAdminLogin, resolveAdminCredentials, resolveOrigin, setSwitch, withPage } from "./helpers.mjs";
+import { SCREENSHOT_DIR, clearUploadedDrafts, deleteUploadedLook, fillAdminLogin, resolveAdminCredentials, resolveOrigin, setSwitch, withPage } from "./helpers.mjs";
 
 const origin = resolveOrigin();
 const results = [];
@@ -963,6 +963,8 @@ async function screenEditGuest(page) {
 
 async function flowSignedInEdit(page) {
   const stamp = Date.now().toString(36);
+  let publishedId = "";
+  try {
   await goto(page, `/login?next=${encodeURIComponent("/create")}`);
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
   await page.getByRole("button", { name: "Create account", exact: true }).click();
@@ -991,6 +993,7 @@ async function flowSignedInEdit(page) {
   }
   await page.getByRole("button", { name: "Publish" }).click();
   await page.waitForURL(/\/looks\//, { timeout: 15_000 });
+  publishedId = new URL(page.url()).pathname.split("/").filter(Boolean).at(-1) ?? "";
   record("flow.edit.published", /\/looks\//.test(page.url()));
 
   await goto(page, `${new URL(page.url()).pathname}/edit`);
@@ -1026,6 +1029,10 @@ async function flowSignedInEdit(page) {
     (await page.getByRole("button", { name: "Change photo" }).count()) === 0 &&
       (await page.getByRole("button", { name: "Skip" }).count()) === 0,
   );
+  } finally {
+    if (publishedId) await deleteUploadedLook(page, publishedId);
+    else await clearUploadedDrafts(page);
+  }
 }
 
 /** The decorative hangtag chip is a phone-only element: hidden (display none) on tablet and desktop. */
@@ -1053,6 +1060,8 @@ const CREATED_LOOK = {
 /** Publishes a four-pin look with a Style-linked pin that has no offers, then checks every placement of the pin card. */
 async function flowPinCardClear(page) {
   const stamp = `pc${Date.now().toString(36)}`;
+  let publishedId = "";
+  try {
   await goto(page, `/login?next=${encodeURIComponent("/create")}`);
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
   await page.getByRole("button", { name: "Create account", exact: true }).click();
@@ -1084,6 +1093,7 @@ async function flowPinCardClear(page) {
     throw error;
   });
   const path = new URL(page.url()).pathname;
+  publishedId = path.split("/").filter(Boolean).at(-1) ?? "";
   record("flow.pins4.published", /\/looks\//.test(path), path);
 
   async function pinsClear(label) {
@@ -1183,6 +1193,10 @@ async function flowPinCardClear(page) {
     await page.keyboard.press("Escape");
   }
   for (const popup of page.context().pages().slice(1)) await popup.close().catch(() => undefined);
+  } finally {
+    if (publishedId) await deleteUploadedLook(page, publishedId);
+    else await clearUploadedDrafts(page);
+  }
 }
 
 /** Desktop look: a cover-cropped photo card that fits the viewport, with a top-left Back. */
