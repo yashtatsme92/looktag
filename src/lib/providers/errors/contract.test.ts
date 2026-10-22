@@ -27,6 +27,14 @@ describe("error provider", () => {
       captureException(new Error("shown"), { where: "[test]" });
       assert.equal(lines.length, 1);
       assert.equal(lines[0]?.[0], "[test]");
+    process.env.ERROR_PROVIDER = "sentyr";
+    assert.doesNotThrow(() => captureException(new Error("original-kept")));
+    assert.ok(lines.some((line) => String(line[1] ?? line[0]).includes("original-kept") || String(line.join(" ")).includes("original-kept")));
+    process.env.ERROR_PROVIDER = "console";
+    console.error = () => {
+      throw new Error("console down");
+    };
+    assert.doesNotThrow(() => captureException(new Error("still-kept")));
     } finally {
       console.error = original;
       if (previous === undefined) delete process.env.ERROR_PROVIDER;

@@ -2,7 +2,7 @@ import {
   ATTR_ERROR_TYPE,
   ATTR_EXCEPTION_MESSAGE,
   ATTR_EXCEPTION_TYPE,
-} from "../providers/telemetry/otlp.ts";
+} from "../providers/telemetry/index.ts";
 import type {
   Attributes,
   CompletedSpan,

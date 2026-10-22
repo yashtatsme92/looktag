@@ -181,6 +181,15 @@ export default defineConfig(({ command, isPreview }) => ({
   resolve: { tsconfigPaths: true },
   plugins: [
     pgliteBootstrapPlugin(),
+    {
+      name: "looktag-provider-boot",
+      configureServer() {
+        return async () => {
+          const { bootProviders } = await import("./src/lib/providers/boot.ts");
+          bootProviders();
+        };
+      },
+    },
     // Before tanstackStart so /auth/popup never falls through to the SPA.
     authPopupPlugin(),
     // Dev-only /__app-env, read by scripts/check-auth-invariant.mjs.

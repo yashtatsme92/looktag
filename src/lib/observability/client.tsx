@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { ATTR_HTTP_ROUTE, ATTR_URL_PATH } from "@/lib/providers/telemetry/otlp";
+import { ATTR_HTTP_ROUTE, ATTR_URL_PATH } from "@/lib/providers/telemetry";
 import { isSharePath } from "@/lib/pwa/boot";
 import { chromeLayout, layoutSurface } from "@/lib/pwa/use-wide-layout";
 import { shareKindFromPath } from "@/lib/share-meta";

@@ -19,10 +19,11 @@ describe("provider import boundary", () => {
     try {
       await mkdir(join(dir, "src"), { recursive: true });
       const host = ["api", "x.ai"].join(".");
-      await writeFile(join(dir, "src", "leak.ts"), `const url = "https://${host}/v1";\n`);
+      await writeFile(join(dir, "src", "leak.ts"), `const url = "https://${host}/v1";\nimport { x } from "@/lib/providers/telemetry/otlp";\n`);
       const violations = await findProviderImportViolations(dir);
-      assert.equal(violations.length, 1);
-      assert.match(violations[0], /leak\.ts/);
+      assert.equal(violations.length, 2);
+      assert.match(violations.join("\n"), /leak\.ts/);
+      assert.match(violations.join("\n"), /telemetry adapter/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

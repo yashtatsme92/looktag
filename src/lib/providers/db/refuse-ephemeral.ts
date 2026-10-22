@@ -1,18 +1,24 @@
 import { assertProductionDatabase } from "../../../../scripts/pg-pool.mjs";
 
-/** Exit before listen when production has no database and no explicit opt-in. */
-export function refuseEphemeralDatabase(): void {
-  try {
-    assertProductionDatabase({
-      NODE_ENV: process.env.NODE_ENV,
-      DATABASE_URL: process.env.DATABASE_URL,
-      LOOKTAG_ALLOW_EPHEMERAL_DB: process.env.LOOKTAG_ALLOW_EPHEMERAL_DB,
-      ALLOW_EPHEMERAL_DB: process.env.ALLOW_EPHEMERAL_DB,
-    });
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
-  }
-}
+type Env = {
+  NODE_ENV?: string;
+  DATABASE_URL?: string;
+  DB_PROVIDER?: string;
+  LOOKTAG_ALLOW_EPHEMERAL_DB?: string;
+  ALLOW_EPHEMERAL_DB?: string;
+};
 
-refuseEphemeralDatabase();
+/**
+ * Production without a database exits unless the process opted into PGLite.
+ * `DB_PROVIDER=pglite` is that choice even when `DATABASE_URL` is also set:
+ * the named provider wins, and this guard does not treat the URL as the driver.
+ */
+export function refuseEphemeralDatabase(env: Env = process.env): void {
+  if (env.DB_PROVIDER?.trim().toLowerCase() === "pglite") return;
+  assertProductionDatabase({
+    NODE_ENV: env.NODE_ENV,
+    DATABASE_URL: env.DATABASE_URL,
+    LOOKTAG_ALLOW_EPHEMERAL_DB: env.LOOKTAG_ALLOW_EPHEMERAL_DB,
+    ALLOW_EPHEMERAL_DB: env.ALLOW_EPHEMERAL_DB,
+  });
+}

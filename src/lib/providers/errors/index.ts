@@ -16,33 +16,86 @@ export function resolveErrorProvider(env: Env = process.env): ErrorProviderName 
   unknownProvider("ERROR_PROVIDER", named, ERROR_PROVIDERS);
 }
 
-function report(method: "captureException" | "captureMessage", value: unknown, context?: ErrorContext) {
-  const provider = resolveErrorProvider();
-  if (provider === "none") return;
-  if (provider === "sentry") {
-    void import("./sentry.ts").then((mod) => {
-      if (method === "captureException") void mod.captureException(value, context);
-      else void mod.captureMessage(String(value), context);
-    });
-    return;
-  }
+function fallback(method: "captureException" | "captureMessage", value: unknown, context?: ErrorContext) {
   if (method === "captureException") consoleReporter.captureException(value, context);
   else consoleReporter.captureMessage(String(value), context);
 }
 
-export function captureException(error: unknown, context?: ErrorContext): void {
-  report("captureException", error, context);
+function report(method: "captureException" | "captureMessage", value: unknown, context?: ErrorContext) {
+  let provider: ErrorProviderName = "console";
+  try {
+    provider = resolveErrorProvider();
+  } catch (error) {
+    console.error("[errors] reporter configuration failed; using console", error);
+    provider = "console";
+  }
+  if (provider === "none") return;
+  if (provider === "sentry") {
+    void import("./sentry.ts")
+      .then((mod) => {
+        const pending =
+          method === "captureException" ? mod.captureException(value, context) : mod.captureMessage(String(value), context);
+        return Promise.resolve(pending).catch((error: unknown) => {
+          console.error("[errors] sentry adapter failed; using console", error);
+          fallback(method, value, context);
+        });
+      })
+      .catch((error: unknown) => {
+        console.error("[errors] sentry adapter failed; using console", error);
+        fallback(method, value, context);
+      });
+    return;
+  }
+  fallback(method, value, context);
 }
 
+/** Never throws. A bad provider or a failed adapter logs and falls back to the console reporter. */
+export function captureException(error: unknown, context?: ErrorContext): void {
+  try {
+    report("captureException", error, context);
+  } catch (failure) {
+    try {
+      console.error("[errors] captureException failed", failure);
+      console.error(error);
+    } catch {
+      /* the original error must not be replaced by a reporter failure */
+    }
+  }
+}
+
+/** Never throws. See `captureException`. */
 export function captureMessage(message: string, context?: ErrorContext): void {
-  report("captureMessage", message, context);
+  try {
+    report("captureMessage", message, context);
+  } catch (failure) {
+    try {
+      console.error("[errors] captureMessage failed", failure);
+      console.error(message);
+    } catch {
+      /* keep the caller's error */
+    }
+  }
 }
 
 export function setUser(user: ErrorUser): void {
-  const provider = resolveErrorProvider();
-  if (provider !== "sentry") {
-    consoleReporter.setUser(user);
+  let provider: ErrorProviderName = "console";
+  try {
+    provider = resolveErrorProvider();
+  } catch (error) {
+    console.error("[errors] reporter configuration failed; using console", error);
     return;
   }
-  void import("./sentry.ts").then((mod) => mod.setUser(user));
+  if (provider !== "sentry") {
+    try {
+      consoleReporter.setUser(user);
+    } catch (error) {
+      console.error("[errors] setUser failed", error);
+    }
+    return;
+  }
+  void import("./sentry.ts")
+    .then((mod) => mod.setUser(user))
+    .catch((error: unknown) => {
+      console.error("[errors] sentry adapter failed", error);
+    });
 }
