@@ -7,6 +7,10 @@ describe("ai provider", () => {
     assert.equal(resolveAiProvider({}), "stub");
     assert.equal(resolveAiProvider({ XAI_API_KEY: "present" }), "xai");
     assert.equal(resolveAiProvider({ AI_PROVIDER: "stub", XAI_API_KEY: "present" }), "stub");
+    assert.throws(
+      () => resolveAiProvider({ AI_PROVIDER: "grok" }),
+      /Unknown AI_PROVIDER "grok"\. Expected xai\|stub\./,
+    );
     assert.equal(aiAvailable({}), false);
     assert.equal(aiAvailable({ XAI_API_KEY: "present" }), true);
     const previous = process.env.AI_PROVIDER;

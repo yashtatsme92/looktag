@@ -5,7 +5,7 @@ import { emailSender, resolveEmailProvider } from "./index.ts";
 describe("email provider", () => {
   it("logs through the console adapter and is not wired to a flow", async () => {
     assert.equal(resolveEmailProvider({}), "console");
-    assert.throws(() => resolveEmailProvider({ EMAIL_PROVIDER: "smtp" }), /console/);
+    assert.throws(() => resolveEmailProvider({ EMAIL_PROVIDER: "smtp" }), /Unknown EMAIL_PROVIDER "smtp"/);
     const lines: unknown[][] = [];
     const original = console.info;
     console.info = (...args: unknown[]) => {

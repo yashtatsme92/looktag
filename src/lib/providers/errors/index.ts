@@ -1,15 +1,19 @@
 import * as consoleReporter from "./console.ts";
 import type { ErrorContext, ErrorProviderName, ErrorUser } from "./types.ts";
+import { unknownProvider } from "../unknown.ts";
 
 export type { ErrorContext, ErrorProviderName, ErrorReporter, ErrorUser } from "./types.ts";
 
 type Env = { ERROR_PROVIDER?: string };
 
+const ERROR_PROVIDERS = ["console", "sentry", "none"] as const;
+
 /** `ERROR_PROVIDER=console|sentry|none`. Default console. */
 export function resolveErrorProvider(env: Env = process.env): ErrorProviderName {
   const named = env.ERROR_PROVIDER?.trim().toLowerCase();
-  if (named === "sentry" || named === "none") return named;
-  return "console";
+  if (!named) return "console";
+  if (named === "console" || named === "sentry" || named === "none") return named;
+  unknownProvider("ERROR_PROVIDER", named, ERROR_PROVIDERS);
 }
 
 function report(method: "captureException" | "captureMessage", value: unknown, context?: ErrorContext) {

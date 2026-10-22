@@ -7,6 +7,10 @@ describe("error provider", () => {
     assert.equal(resolveErrorProvider({}), "console");
     assert.equal(resolveErrorProvider({ ERROR_PROVIDER: "sentry" }), "sentry");
     assert.equal(resolveErrorProvider({ ERROR_PROVIDER: "none" }), "none");
+    assert.throws(
+      () => resolveErrorProvider({ ERROR_PROVIDER: "sentyr" }),
+      /Unknown ERROR_PROVIDER "sentyr"\. Expected console\|sentry\|none\./,
+    );
     const previous = process.env.ERROR_PROVIDER;
     const lines: unknown[][] = [];
     const original = console.error;

@@ -1,4 +1,4 @@
-export type ShopSearchProviderName = "brave" | "google-cse";
+export type ShopSearchProviderName = "brave" | "google-cse" | "duckduckgo";
 
 export type ShopRegion = { id: string; name: string };
 

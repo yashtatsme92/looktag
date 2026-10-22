@@ -12,6 +12,10 @@ describe("telemetry provider", () => {
     assert.equal(resolveTelemetryProvider({}), "otlp");
     assert.equal(resolveTelemetryProvider({ TELEMETRY_PROVIDER: "none" }), "none");
     assert.equal(resolveTelemetryProvider({ TELEMETRY_PROVIDER: "otlp" }), "otlp");
+    assert.throws(
+      () => resolveTelemetryProvider({ TELEMETRY_PROVIDER: "jaeger" }),
+      /Unknown TELEMETRY_PROVIDER "jaeger"\. Expected otlp\|none\./,
+    );
     assert.equal(telemetry({ TELEMETRY_PROVIDER: "none" }).name, "none");
     assert.equal(ATTR_SERVICE_NAME, "service.name");
   });

@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
 import { captureException } from "@/lib/providers/errors";
-import { resolveTelemetryProvider } from "@/lib/providers/telemetry";
+import { postOtlp, resolveTelemetryProvider } from "@/lib/providers/telemetry";
 import type {
   ObservabilityConfig,
   PublicSignal,
@@ -232,19 +232,15 @@ async function exportSignals(signals: TelemetrySignal[], config: ObservabilityCo
   const metrics = signals.filter((s): s is Extract<TelemetrySignal, { kind: "metric" }> => s.kind === "metric");
   const logs = signals.filter((s): s is Extract<TelemetrySignal, { kind: "log" }> => s.kind === "log");
   const posts: Array<Promise<void>> = [];
-  if (spans.length) posts.push(postOtlp(urls.traces, headers, encodeOtlpTraces(spans, config.serviceName)));
-  if (metrics.length) posts.push(postOtlp(urls.metrics, headers, encodeOtlpMetrics(metrics, config.serviceName)));
-  if (logs.length) posts.push(postOtlp(urls.logs, headers, encodeOtlpLogs(logs, config.serviceName)));
+  if (spans.length) posts.push(postOtlpPayload(urls.traces, headers, encodeOtlpTraces(spans, config.serviceName)));
+  if (metrics.length) posts.push(postOtlpPayload(urls.metrics, headers, encodeOtlpMetrics(metrics, config.serviceName)));
+  if (logs.length) posts.push(postOtlpPayload(urls.logs, headers, encodeOtlpLogs(logs, config.serviceName)));
   await Promise.all(posts);
 }
 
-async function postOtlp(url: string, headers: Record<string, string>, body: unknown): Promise<void> {
+async function postOtlpPayload(url: string, headers: Record<string, string>, body: unknown): Promise<void> {
   try {
-    await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
+    await postOtlp(url, headers, body);
   } catch (error) {
     captureException(error, { where: "[telemetry] collector unreachable" });
   }
@@ -363,14 +359,10 @@ export async function probeOtlp(config: ObservabilityConfig): Promise<{ ok: bool
   const urls = resolveOtlpUrls(config.otlpEndpoint);
   if (!urls) return { ok: false, status: 0, message: "Add an OTLP HTTP base URL first." };
   try {
-    const response = await fetch(urls.traces, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...parseOtlpHeaders(config.otlpHeaders),
-      },
-      body: JSON.stringify(encodeProbe(config)),
-    });
+    const response = await postOtlp(urls.traces, {
+      "content-type": "application/json",
+      ...parseOtlpHeaders(config.otlpHeaders),
+    }, encodeProbe(config));
     const message = response.ok
       ? `Collector accepted the probe (${response.status}).`
       : `Collector returned ${response.status}.`;
