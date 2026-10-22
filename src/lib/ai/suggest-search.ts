@@ -7,6 +7,7 @@ import {
 import { enrichOfferImages } from "./product-image";
 import type { CatalogShop, SuggestedOffer, SuggestSearchConfig } from "./suggest-types";
 import { extractJson } from "./suggest-vision";
+import { searchProducts } from "@/lib/providers/ai";
 import {
   asOffer,
   braveSearch,
@@ -70,28 +71,14 @@ Rules:
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
   try {
-    const response = await fetch("https://api.x.ai/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: SEARCH_MODEL,
-        stream: true,
-        max_tool_calls: 1,
-        include: ["web_search_call.action.sources"],
-        input: prompt,
-        tools: [
-          {
-            type: "web_search",
-            filters: { allowed_domains: domains },
-          },
-        ],
-      }),
+    const response = await searchProducts({
+      apiKey,
+      model: SEARCH_MODEL,
+      prompt,
+      domains,
       signal: controller.signal,
     });
-    if (!response.ok) return [];
+    if (!response) return [];
     const found = await collectSearchUrls(response);
     const fromJson: SuggestedOffer[] = [];
     for (const row of found.jsonOffers) {

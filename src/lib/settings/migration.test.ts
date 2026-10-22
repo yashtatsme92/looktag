@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
+import { openMemoryPglite } from "../providers/db/pglite.ts";
 
 describe("email-only signup migration", () => {
   it("updates untouched settings and preserves other extras", async () => {
-    const db = new PGlite();
+    const db = await openMemoryPglite();
     try {
       await db.exec(await readFile("migrations/0004_studio.sql", "utf8"));
       await db.exec(await readFile("migrations/0005_studio_config.sql", "utf8"));
@@ -36,7 +36,7 @@ describe("email-only signup migration", () => {
   });
 
   it("preserves saved sign-in choices", async () => {
-    const db = new PGlite();
+    const db = await openMemoryPglite();
     try {
       await db.exec(await readFile("migrations/0004_studio.sql", "utf8"));
       await db.exec(await readFile("migrations/0005_studio_config.sql", "utf8"));
@@ -68,7 +68,7 @@ describe("email-only signup migration", () => {
   });
 
   it("does not fail when untouched settings contain malformed extras", async () => {
-    const db = new PGlite();
+    const db = await openMemoryPglite();
     try {
       await db.exec(await readFile("migrations/0004_studio.sql", "utf8"));
       await db.exec(await readFile("migrations/0005_studio_config.sql", "utf8"));

@@ -4,9 +4,6 @@
  * `getSharedPgPool` so a deployed process does not open two pools.
  * Connection strings are never logged.
  */
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
 
 const OID_INT8 = 20;
 const OID_DATE = 1082;
@@ -146,13 +143,9 @@ export function openSharedPool(connectionString, pgModule) {
 }
 
 /**
- * One pool per process. The first caller creates it; later callers get the same pool.
- * @param {string} connectionString
+ * One pool per process. Implemented in the Postgres adapter, which is the
+ * only module allowed to import `pg`. This file stays driver-free.
  */
-export function getSharedPgPool(connectionString) {
-  const pg = require("pg");
-  return openSharedPool(connectionString, pg);
-}
 
 /**
  * Production without DATABASE_URL must not boot on in-memory PGLite.

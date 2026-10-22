@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+import { ATTR_SERVICE_NAME } from "../providers/telemetry/index.ts";
 import {
   clampSampleRatio,
   mergeConfig,

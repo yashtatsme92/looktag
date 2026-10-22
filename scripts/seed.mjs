@@ -23,9 +23,8 @@
  * No DATABASE_URL -> skip. PGLite seeds itself on first request.
  */
 import { createServer } from "vite";
-import pg from "pg";
 import { backfillLookCrops } from "./backfill-look-crops.mjs";
-import { postgresPoolOptions } from "./pg-pool.mjs";
+import { openDedicatedPool } from "../src/lib/providers/db/postgres.ts";
 
 /** @type {Promise<{ seedCatalog: (sql: object) => Promise<void>, close: () => Promise<void> }> | undefined} */
 let loader;
@@ -98,7 +97,7 @@ async function main() {
     );
     return;
   }
-  const pool = new pg.Pool({ ...postgresPoolOptions(databaseUrl), max: 1 });
+  const pool = openDedicatedPool(databaseUrl);
   const client = await pool.connect();
   try {
     const crops = await seedDatabase(toSql({ query: (text, params) => client.query(text, params) }));

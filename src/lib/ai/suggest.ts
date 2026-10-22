@@ -8,6 +8,7 @@ import {
   requireAiSearchUserId,
   type AiSearchKind,
 } from "./limits";
+import { aiAvailable, readXaiApiKey } from "@/lib/providers/ai";
 import { searchOffers } from "./suggest-search";
 import { clampPercent, identifyPin, readLookPhoto } from "./suggest-vision";
 import type { SuggestedPiece, SuggestSearchConfig } from "./suggest-types";
@@ -43,7 +44,7 @@ async function enforceAiSearchQuota(userId: string, kind: AiSearchKind): Promise
 }
 
 export const aiStatus = createServerFn({ method: "GET" }).handler(async () => {
-  return { available: Boolean(process.env.XAI_API_KEY) };
+  return { available: aiAvailable() };
 });
 
 export const suggestPieces = createServerFn({ method: "POST" })
@@ -58,7 +59,7 @@ export const suggestPieces = createServerFn({ method: "POST" })
         span.setAttribute("looktag.search.engine", data.search.engine);
         span.setAttribute("looktag.search.country", (data.search.country || "DE").toUpperCase());
         span.setAttribute("looktag.search.user", userId);
-        const apiKey = process.env.XAI_API_KEY;
+        const apiKey = readXaiApiKey();
         if (!apiKey) return { ok: false as const, error: "AI is not available in this environment." };
         const shops = data.search.retailers.filter((shop) => shop.domains.length > 0);
         if (shops.length === 0) {
@@ -113,7 +114,7 @@ export const suggestShops = createServerFn({ method: "POST" })
         span.setAttribute("looktag.search.engine", data.search.engine);
         span.setAttribute("looktag.search.country", (data.search.country || "DE").toUpperCase());
         span.setAttribute("looktag.search.user", userId);
-        const apiKey = process.env.XAI_API_KEY;
+        const apiKey = readXaiApiKey();
         const shops = data.search.retailers.filter((shop) => shop.domains.length > 0);
         if (shops.length === 0) {
           return { ok: false as const, error: "Turn on at least one shop in Catalog before searching." };
@@ -160,7 +161,7 @@ export const searchPin = createServerFn({ method: "POST" })
         span.setAttribute("looktag.search.engine", data.search.engine);
         span.setAttribute("looktag.search.country", (data.search.country || "DE").toUpperCase());
         span.setAttribute("looktag.search.user", userId);
-        const apiKey = process.env.XAI_API_KEY;
+        const apiKey = readXaiApiKey();
         const shops = data.search.retailers.filter((shop) => shop.domains.length > 0);
         if (shops.length === 0) {
           return { ok: false as const, error: "Turn on at least one shop in Catalog before searching." };
