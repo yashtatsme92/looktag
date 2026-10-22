@@ -4,6 +4,8 @@ import {
   NATIVE_APP_SCHEME,
   bearerFromHeaders,
   bearerOnlyHeaders,
+  isRegisteredLooktagCallback,
+  isRegisteredRedirectUri,
   nativeTrustedOrigins,
 } from "./native.ts";
 
@@ -14,6 +16,29 @@ describe("native auth helpers", () => {
     assert.equal(NATIVE_APP_SCHEME, "looktag");
     assert.ok(nativeTrustedOrigins.includes("looktag://"));
     assert.ok(nativeTrustedOrigins.includes("looktag://*"));
+  });
+
+  it("allows only the registered looktag callback paths", () => {
+    assert.equal(isRegisteredLooktagCallback("looktag://"), true);
+    assert.equal(isRegisteredLooktagCallback("looktag:///"), true);
+    assert.equal(isRegisteredLooktagCallback("looktag://?cookie=abc"), true);
+    assert.equal(isRegisteredLooktagCallback("looktag://callback"), false);
+    assert.equal(isRegisteredLooktagCallback("looktag:///callback"), false);
+    assert.equal(isRegisteredLooktagCallback("looktag://evil/path"), false);
+    assert.equal(isRegisteredLooktagCallback("https://looktag"), false);
+  });
+
+  it("checks redirect_uri against the registered redirect URIs", () => {
+    const origin = "http://127.0.0.1:8080";
+    assert.equal(isRegisteredRedirectUri(`${origin}/api/auth/callback/google`, origin), true);
+    assert.equal(isRegisteredRedirectUri(`${origin}/api/auth/callback/apple`, origin), true);
+    assert.equal(isRegisteredRedirectUri("looktag://", origin), true);
+    assert.equal(isRegisteredRedirectUri("looktag:///", origin), true);
+    assert.equal(isRegisteredRedirectUri("looktag://callback", origin), false);
+    assert.equal(isRegisteredRedirectUri(`${origin}/api/auth/callback/google/extra`, origin), false);
+    assert.equal(isRegisteredRedirectUri(`${origin}/api/auth/callback/evil`, origin), false);
+    assert.equal(isRegisteredRedirectUri("https://evil.example/api/auth/callback/google", origin), false);
+    assert.equal(isRegisteredRedirectUri(`${origin}/api/auth/callback/google?next=/`, origin), false);
   });
 
   it("bearerFromHeaders reads the token case-insensitively", () => {
