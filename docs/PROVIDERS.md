@@ -73,8 +73,6 @@ Better Auth stays the framework. `AUTH_PROVIDER` is unset or `better-auth`. Any 
 - `src/lib/auth/method-gate.ts`
 - `src/lib/auth/client.ts`
 
-E2E cleanup of an `@looktag.test` signup goes through `providers/auth/delete-user.ts`, which calls Better Auth's `internalAdapter.deleteUser` (sessions and accounts included). The server function that calls it is imported only when `import.meta.env.DEV` is set, so it is not in the production build.
-
 Env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET`, `APPLE_APP_BUNDLE_IDENTIFIER`.
 
 ## email

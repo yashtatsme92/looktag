@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { SaveStatus } from "@/components/ds/save-status";
+import { SkeletonAdminRow } from "@/components/ds/skeleton";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
   DEFAULT_CADENCE,
@@ -20,6 +22,9 @@ import { readFeedAudit, writeFeedAudit, type FeedAudit } from "@/lib/home/follow
 import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import type { FashionCollection, FashionLabel, FashionStyle } from "@/lib/labels/model";
 import { useLooksStore } from "@/lib/looks/store";
+import { useDelayedLoad } from "@/lib/loading/delayed-load";
+import type { OptimisticPhase } from "@/lib/loading/optimistic";
+import { settleLoad } from "@/lib/loading/test-delay";
 import type { AppSettings } from "@/lib/settings/model";
 import { useSettingsStore } from "@/lib/settings/store";
 
@@ -79,6 +84,11 @@ export function FeedAdmin() {
   const [applyOpen, setApplyOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [switchOn, setSwitchOn] = useState<Partial<Record<FeedFeatureKey, boolean>>>({});
+  const [statusKey, setStatusKey] = useState<string | null>(null);
+  const [statusPhase, setStatusPhase] = useState<OptimisticPhase>("idle");
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const modulesLoad = useDelayedLoad(() => settleLoad(FEED_FEATURES), { cacheKey: "admin:feed:modules" });
   const [labels, setLabels] = useState<FashionLabel[]>([]);
   const [collections, setCollections] = useState<FashionCollection[]>([]);
   const [styles, setStyles] = useState<FashionStyle[]>([]);
@@ -139,10 +149,32 @@ export function FeedAdmin() {
 
   async function applySwitch() {
     if (!pending) return;
+    const current = pending;
+    setPending(null);
+    setSwitchOn((state) => ({ ...state, [current.key]: current.next }));
+    setStatusKey(current.key);
+    setStatusPhase("saving");
+    setStatusError(null);
     setBusy(true);
     try {
-      await save(remember(pending.key, { [pending.key]: pending.next }));
-      setPending(null);
+      await save(remember(current.key, { [current.key]: current.next }));
+      setStatusPhase("saved");
+      window.setTimeout(() => {
+        setStatusPhase("idle");
+        setSwitchOn((state) => {
+          const next = { ...state };
+          delete next[current.key];
+          return next;
+        });
+      }, 1650);
+    } catch (error) {
+      setSwitchOn((state) => {
+        const next = { ...state };
+        delete next[current.key];
+        return next;
+      });
+      setStatusPhase("error");
+      setStatusError(error instanceof Error ? error.message : "Could not save.");
     } finally {
       setBusy(false);
     }
@@ -195,6 +227,9 @@ export function FeedAdmin() {
   async function applySettings() {
     if (!draft || !canApply) return;
     setBusy(true);
+    setStatusKey("settings");
+    setStatusPhase("saving");
+    setStatusError(null);
     try {
       await save(
         remember(editing || "feed", {
@@ -207,9 +242,14 @@ export function FeedAdmin() {
           feedRunIds: draft.runIds.join(","),
         }),
       );
+      setStatusPhase("saved");
+      window.setTimeout(() => setStatusPhase("idle"), 1650);
       setApplyOpen(false);
       setEditing(null);
       setDraft(null);
+    } catch (error) {
+      setStatusPhase("error");
+      setStatusError(error instanceof Error ? error.message : "Could not save.");
     } finally {
       setBusy(false);
     }
@@ -227,8 +267,17 @@ export function FeedAdmin() {
       <h1 className="ops-title">Feed & discovery</h1>
       <p className="ops-lead">Changes reach each shopper on their next feed load. Nothing moves mid-scroll.</p>
       <div className="feed-modules">
-        {FEED_FEATURES.map((feature) => {
-          const on = Boolean(settings[feature.key]);
+        {modulesLoad.phase === "skeleton" ? (
+          <div aria-hidden="true">
+            <SkeletonAdminRow />
+            <SkeletonAdminRow />
+            <SkeletonAdminRow />
+          </div>
+        ) : modulesLoad.phase === "error" ? (
+          <p className="ops-lead">Couldn't load this.</p>
+        ) : (
+        FEED_FEATURES.map((feature) => {
+          const on = feature.key in switchOn ? Boolean(switchOn[feature.key]) : Boolean(settings[feature.key]);
           const changed = audit[feature.key];
           const status = statusFor(feature.key, on);
           const tone = status.startsWith("Off") ? "off" : status.includes("needs attention") ? "att" : "on";
@@ -249,6 +298,7 @@ export function FeedAdmin() {
                     aria-label={feature.label}
                     onCheckedChange={(next) => setPending({ key: feature.key, label: feature.label, next })}
                   />
+                  {statusKey === feature.key ? <SaveStatus phase={statusPhase} error={statusError} /> : null}
                 </span>
               </div>
               <p className="feed-module-detail">{feature.detail}</p>
@@ -264,7 +314,8 @@ export function FeedAdmin() {
               </div>
             </article>
           );
-        })}
+        })
+        )}
       </div>
       <section className="ops-row">
         <div className="ops-switch-copy">
@@ -344,6 +395,7 @@ export function FeedAdmin() {
             <button type="button" className="house-primary" disabled={!canApply || busy} onClick={() => setApplyOpen(true)}>
               Save changes
             </button>
+            <SaveStatus phase={statusKey === "settings" ? statusPhase : "idle"} error={statusError} />
             <button type="button" className="house-ghost" onClick={restore}>
               Restore defaults
             </button>

@@ -19,10 +19,15 @@ import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
+import { FadeLayer, useStaggerIn } from "@/components/ds/fade-layer";
+import { ImgSlot } from "@/components/ds/img-slot";
+import { SkeletonGrid, SkeletonOfferRow } from "@/components/ds/skeleton";
 import { shareOrCopy } from "@/lib/looks/share";
 import { useLooksStore } from "@/lib/looks/store";
 import { useSettingsStore } from "@/lib/settings/store";
 import type { Look, ProductTag } from "@/lib/looks/types";
+import { useDelayedLoad } from "@/lib/loading/delayed-load";
+import { settleLoad } from "@/lib/loading/test-delay";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { cn } from "@/lib/utils";
 
@@ -63,6 +68,11 @@ export function WideLook({
   );
   const lane = useEchoLane(look, deck, forYou, { limit: 4 });
   const echo = useMemo(() => lane.slice(0, 4), [lane]);
+  const shopLoad = useDelayedLoad(() => settleLoad(look.tags), {
+    cacheKey: `shop-panel:${look.id}:${look.tags.map((tag) => tag.id).join(",")}`,
+  });
+  const echoLoad = useDelayedLoad(() => settleLoad(echo), { cacheKey: `echo-detail:${look.id}` });
+  const echoRef = useStaggerIn(`${look.id}:${echoLoad.phase}`);
 
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
 
@@ -219,7 +229,12 @@ export function WideLook({
                 <h2>Shop this look</h2>
                 <span>{pieceLine(look) || "No pieces"}</span>
               </div>
-              {look.tags.map((tag, index) => (
+              {shopLoad.phase === "error" ? (
+                <p className="wide-prt">No close match yet</p>
+              ) : shopLoad.phase === "skeleton" ? (
+                look.tags.map((tag) => <SkeletonOfferRow key={tag.id} />)
+              ) : (
+                look.tags.map((tag, index) => (
                 <WidePieceRow
                   key={tag.id}
                   tag={tag}
@@ -229,7 +244,8 @@ export function WideLook({
                   onToggle={() => setSelectedId(tag.id === selectedId ? null : tag.id)}
                   onShop={() => shopPiece(tag)}
                 />
-              ))}
+                ))
+              )}
             </div>
             <div className="wide-panel-ft">
               <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={() => (look.tags.length ? setShopSheetOpen(true) : toast.message("No pieces on this look yet"))}>
@@ -249,16 +265,20 @@ export function WideLook({
         </div>
 
         {echo.length > 0 ? (
-          <section className="wide-echo" aria-label="Echo">
+          <section className="wide-echo echo-lane" aria-label="Echo">
             <div className="wide-echo-hd">
               <p className="wide-kicker">More like this look</p>
               <h2>Echo from {look.title || "this look"}</h2>
             </div>
-            <div className="wide-grid">
+            {echoLoad.phase === "skeleton" ? (
+              <SkeletonGrid count={4} captions />
+            ) : (
+            <FadeLayer stateKey="echo">
+            <div ref={echoRef} className="wide-grid echo-lane echo-stagger">
               {echo.map((item) => (
-                <article key={item.id} className="wide-tile">
+                <article key={item.id} className="wide-tile echo-tile">
                   <Link to="/looks/$lookId" params={{ lookId: item.id }} className="wide-tile-hit" aria-label={item.title || "Look"}>
-                    <img src={item.imageSrc} alt="" />
+                    <ImgSlot src={item.imageSrc} alt="" slotClassName="img-slot-fill" />
                   </Link>
                   <div className="wide-tile-cap">
                     <p className="wide-kicker">{echoKicker(item)}</p>
@@ -270,6 +290,8 @@ export function WideLook({
                 </article>
               ))}
             </div>
+            </FadeLayer>
+            )}
           </section>
         ) : null}
       </div>

@@ -27,6 +27,7 @@ import { initialPhoneStep, type PhoneCreateStepId } from "@/lib/looks/create-ste
 import type { CropRect } from "@/lib/looks/crop";
 import { useCatalogStore } from "@/lib/looks/catalog";
 import { imageSrcToDataUrl, readLookImage } from "@/lib/looks/image";
+import { UploadProgress } from "@/components/ds/upload-progress";
 import { MOODS } from "@/lib/looks/moods";
 import { replaceSystemOffers, tagOffers, wornLink } from "@/lib/looks/offers";
 import { isHttpUrl, isProductUrl } from "@/lib/looks/retailers";
@@ -76,6 +77,7 @@ export function LookEditor({
   const [captionOpen, setCaptionOpen] = useState(Boolean(look.caption.trim()));
   const [fieldFocus, setFieldFocus] = useState(false);
   const [readingPhoto, setReadingPhoto] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [phoneStep, setPhoneStep] = useState<PhoneCreateStepId>(() =>
     initialPhoneStep(
@@ -175,8 +177,11 @@ export function LookEditor({
     pendingUploadsRef.current += 1;
     setPhotoError(null);
     setReadingPhoto(true);
+    setUploadProgress(0);
     try {
-      const imageSrc = await readLookImage(file);
+      const imageSrc = await readLookImage(file, (percent) => {
+        if (uploadTokenRef.current === token) setUploadProgress(percent);
+      });
       if (uploadTokenRef.current !== token) return;
       patch({ imageSrc, crop: undefined });
       setCropBase(null);
@@ -184,10 +189,14 @@ export function LookEditor({
       setCropEditing(false);
       setOutsideCropPins(null);
       if (phone) setPhoneStep("crop");
+      window.setTimeout(() => {
+        if (uploadTokenRef.current === token) setUploadProgress(null);
+      }, 150);
     } catch (error) {
       if (uploadTokenRef.current !== token) return;
       const message = error instanceof Error ? error.message : "Could not read that photo.";
       setPhotoError(message);
+      setUploadProgress(null);
       toast.error(message);
     } finally {
       pendingUploadsRef.current = Math.max(0, pendingUploadsRef.current - 1);
@@ -538,6 +547,7 @@ export function LookEditor({
           suggestNote={suggestNote}
           saving={saving}
           readingPhoto={readingPhoto}
+          uploadProgress={uploadProgress}
           photoError={photoError}
           dragOver={dragOver}
           saveLabel={saveLabel}
@@ -707,7 +717,7 @@ export function LookEditor({
                   onClick={() => void handleFindPieces()}
                   disabled={findingPieces}
                 >
-                  {findingPieces ? "Reading photo…" : "Find all pieces"}
+                  Find all pieces
                 </Button>
               </div>
             ) : (
@@ -734,7 +744,7 @@ export function LookEditor({
                     onClick={() => void handleFindPieces()}
                     disabled={findingPieces}
                   >
-                    {findingPieces ? "Reading…" : "Find more"}
+                    Find more
                   </Button>
                 </div>
                 {selectedTag ? (
@@ -801,6 +811,7 @@ export function LookEditor({
           phone={phone}
           dragOver={dragOver}
           reading={readingPhoto}
+          uploadProgress={uploadProgress}
           error={photoError}
           onDragOver={setDragOver}
           onFiles={handleFiles}
@@ -927,6 +938,7 @@ function PhotoStep({
   phone,
   dragOver,
   reading,
+  uploadProgress,
   error,
   onDragOver,
   onFiles,
@@ -937,6 +949,7 @@ function PhotoStep({
   phone: boolean;
   dragOver: boolean;
   reading: boolean;
+  uploadProgress: number | null;
   error: string | null;
   onDragOver: (over: boolean) => void;
   onFiles: (files: FileList | null) => void | Promise<void>;
@@ -983,6 +996,7 @@ function PhotoStep({
             {errorMessage}
           </p>
         ) : null}
+        <UploadProgress value={uploadProgress} />
         {guestHint ? (
           <p className="mt-3 text-sm text-muted-foreground">Sign in to search shops or to publish.</p>
         ) : null}
