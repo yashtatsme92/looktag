@@ -68,6 +68,32 @@ export async function deleteUploadedLook(page, lookId) {
   await clearUploadedDrafts(page);
 }
 
+/** Delete the signed-in `@looktag.test` user this test created. Seed and admin accounts are refused. */
+export async function deleteSignedUpUser(page) {
+  const fn = Buffer.from(
+    JSON.stringify({
+      file: "/src/lib/looks/looks-write.ts?tss-serverfn-split",
+      export: "deleteSignedUpUser_createServerFn_handler",
+    }),
+  ).toString("base64url");
+  const body = JSON.stringify(toJSON({ data: null, context: {} }));
+  const status = await page.evaluate(
+    async ({ fn, body }) => {
+      const res = await fetch(`/_serverFn/${fn}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json", "x-tsr-serverfn": "true" },
+        body,
+      });
+      return res.status;
+    },
+    { fn, body },
+  );
+  if (status !== 200) {
+    throw new Error(`signed-up user cleanup failed (${status})`);
+  }
+}
+
 export function productUrl(href) {
   if (!href) return false;
   try {

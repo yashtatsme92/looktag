@@ -6,7 +6,7 @@
 import { chromium } from "playwright";
 import { pieceEditorIsFooter, saveDockStaysDown } from "../../src/lib/looks/edit-footer.ts";
 import { CREATE_DRAFT_KEY } from "../../src/lib/looks/create-draft.ts";
-import { SCREENSHOT_DIR, clearUploadedDrafts, deleteUploadedLook, fillAdminLogin, resolveAdminCredentials, resolveOrigin, setSwitch, withPage } from "./helpers.mjs";
+import { SCREENSHOT_DIR, clearUploadedDrafts, deleteSignedUpUser, deleteUploadedLook, fillAdminLogin, resolveAdminCredentials, resolveOrigin, setSwitch, withPage } from "./helpers.mjs";
 
 const origin = resolveOrigin();
 const results = [];
@@ -514,6 +514,32 @@ async function flowSelectedPinClear(page, label) {
   record(`flow.look.pin-card-no-pin-covered-${label}`, anyHidden.length === 0, JSON.stringify(anyHidden));
 }
 
+async function waitForStableLookPins(page, count) {
+  await page.waitForFunction(
+    (needed) => {
+      const pins = [...document.querySelectorAll(".look-plate .tag-pin")];
+      if (pins.length < needed) return false;
+      const box = pins
+        .slice(0, needed)
+        .map((pin) => {
+          const rect = pin.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return "";
+          return `${Math.round(rect.x)}:${Math.round(rect.y)}:${Math.round(rect.width)}:${Math.round(rect.height)}`;
+        })
+        .join("|");
+      if (!box || box.split("|").some((part) => part === "")) {
+        window.__lookPinBox = "";
+        return false;
+      }
+      const same = window.__lookPinBox === box;
+      window.__lookPinBox = box;
+      return same;
+    },
+    count,
+    { timeout: 12_000 },
+  );
+}
+
 async function waitForPinCardPlacement(page) {
   await page.waitForFunction(
     () => {
@@ -964,6 +990,7 @@ async function screenEditGuest(page) {
 async function flowSignedInEdit(page) {
   const stamp = Date.now().toString(36);
   let publishedId = "";
+  let signedUp = false;
   try {
   await goto(page, `/login?next=${encodeURIComponent("/create")}`);
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
@@ -975,6 +1002,7 @@ async function flowSignedInEdit(page) {
   await page.locator("#creator-password").fill("looktag-e2e-pass-1");
   await page.locator("form").getByRole("button", { name: "Create account" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 15_000 });
+  signedUp = true;
 
   await page.evaluate(
     ({ key, raw }) => sessionStorage.setItem(key, raw),
@@ -1030,8 +1058,12 @@ async function flowSignedInEdit(page) {
       (await page.getByRole("button", { name: "Skip" }).count()) === 0,
   );
   } finally {
-    if (publishedId) await deleteUploadedLook(page, publishedId);
-    else await clearUploadedDrafts(page);
+    try {
+      if (publishedId) await deleteUploadedLook(page, publishedId);
+      else await clearUploadedDrafts(page);
+    } finally {
+      if (signedUp) await deleteSignedUpUser(page);
+    }
   }
 }
 
@@ -1061,6 +1093,7 @@ const CREATED_LOOK = {
 async function flowPinCardClear(page) {
   const stamp = `pc${Date.now().toString(36)}`;
   let publishedId = "";
+  let signedUp = false;
   try {
   await goto(page, `/login?next=${encodeURIComponent("/create")}`);
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
@@ -1072,6 +1105,7 @@ async function flowPinCardClear(page) {
   await page.locator("#creator-password").fill("looktag-e2e-pass-1");
   await page.locator("form").getByRole("button", { name: "Create account" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 15_000 });
+  signedUp = true;
   await page.evaluate(
     ({ key, raw }) => sessionStorage.setItem(key, raw),
     { key: CREATE_DRAFT_KEY, raw: JSON.stringify({ ...CREATED_LOOK, id: `ui-${stamp}` }) },
@@ -1098,10 +1132,14 @@ async function flowPinCardClear(page) {
 
   async function pinsClear(label) {
     await goto(page, path);
-    await page.locator(".look-plate .tag-pin").first().waitFor({ timeout: 10_000 });
+    await waitForStableLookPins(page, 4);
     const card = page.getByRole("dialog", { name: "Selected piece" });
     const rows = [];
     for (let index = 0; index < 4; index += 1) {
+      await page.evaluate(() => {
+        window.__lookPinBox = "";
+      });
+      await waitForStableLookPins(page, 4);
       await page.locator(".look-plate .tag-pin").nth(index).click();
       await card.waitFor({ timeout: 4_000 });
       await waitForPinCardPlacement(page);
@@ -1194,8 +1232,12 @@ async function flowPinCardClear(page) {
   }
   for (const popup of page.context().pages().slice(1)) await popup.close().catch(() => undefined);
   } finally {
-    if (publishedId) await deleteUploadedLook(page, publishedId);
-    else await clearUploadedDrafts(page);
+    try {
+      if (publishedId) await deleteUploadedLook(page, publishedId);
+      else await clearUploadedDrafts(page);
+    } finally {
+      if (signedUp) await deleteSignedUpUser(page);
+    }
   }
 }
 

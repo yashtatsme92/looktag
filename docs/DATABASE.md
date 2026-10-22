@@ -18,6 +18,10 @@ Every seeded row is recorded in `seeded_items`: editorial looks, `house-*` looks
 
 `npm run db:seed:audit` lists every look, house, product, and image row and marks it seeded or not. It prints counts and ids only. It never prints `DATABASE_URL` or image bytes.
 
-`npm run db:seed:prune` is a dry run unless you pass `--confirm`. It deletes looks that are not in the ledger, which removes the image, crop, and offers stored on those rows. Seeded rows stay. It refuses to run when `NODE_ENV=production` unless `--allow-production` is also passed. Do not point it at a real database.
+`npm run db:seed:prune` is a dry run unless you pass `--confirm`. It deletes looks that are not in the ledger. Image, crop, and offers are columns on that look row, so they go away with the row. They are not deleted from any other table. Seeded rows stay. Non-seed houses are listed as audit-only and are not deleted.
+
+Looks owned by a real user (any user id other than `editorial` or a `label-*` house) are kept. Deleting them requires `--include-user-looks` and `--confirm`. That removes published looks, not just leftover test data. The dry run prints how many of those looks each user id has, and a warning. It does not print emails.
+
+The command refuses `NODE_ENV=production` and any non-local `DATABASE_URL` (anything other than localhost, 127.0.0.1, ::1, or a PGLite/test URL) unless `--allow-production` is also passed. Do not point it at a real database.
 
 A fresh `db:migrate` then `db:seed` audits as 0 not-seeded rows.

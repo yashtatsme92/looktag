@@ -88,3 +88,23 @@ export const deleteLook = createServerFn({ method: "POST" })
       return { id };
     });
   });
+
+/** E2E cleanup. Refuses every account except the `@looktag.test` users the suites sign up. */
+export const deleteSignedUpUser = createServerFn({ method: "POST" })
+  .validator(() => null)
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const rows = await sql<{ email: string | null }>`
+      select email from "user" where id = ${context.userId} limit 1
+    `;
+    const email = rows[0]?.email ?? "";
+    if (!email.endsWith("@looktag.test")) {
+      throw new Error("Refusing to delete this account.");
+    }
+    const userId = context.userId;
+    await sql`delete from looks where user_id = ${userId}`;
+    await sql`delete from profiles where user_id = ${userId}`;
+    await sql`delete from "user" where id = ${userId} and email = ${email}`;
+    return { id: userId };
+  });
