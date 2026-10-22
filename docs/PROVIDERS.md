@@ -14,13 +14,13 @@ Interface: `Sql` in `providers/db/types.ts` (tagged template and `.query()`).
 
 Adapters: `postgres.ts` (the only `pg` import) and `pglite.ts` (the only PGLite import). `pglite-dialect.ts` is the Better Auth dialect for the embedded database. `src/lib/db.ts` does not import those modules. `providers/db/index.ts` is the registry: it picks one adapter and re-exports `openEmbeddedDb`, `sharedPgPool`, and `embeddedAuthDatabase`.
 
-Env: `DB_PROVIDER=postgres|pglite`. `neon` is a legacy alias of `postgres`. Unset follows `DATABASE_URL` (`postgres` when it is set, otherwise `pglite`). `DB_PROVIDER=postgres` or `neon` with no `DATABASE_URL` throws `DB_PROVIDER=postgres requires DATABASE_URL.` It does not fall back to PGLite. `DB_PROVIDER=pglite` selects PGLite even when `DATABASE_URL` is set, and that explicit choice does not trip the production ephemeral guard.
+Env: `DB_PROVIDER=postgres|pglite`. `neon` is a legacy alias of `postgres`. Unset follows `DATABASE_URL` (`postgres` when it is set, otherwise `pglite`). `DB_PROVIDER=postgres` or `neon` with no `DATABASE_URL` throws `DB_PROVIDER=postgres requires DATABASE_URL.` It does not fall back to PGLite. `DB_PROVIDER=pglite` selects PGLite even when `DATABASE_URL` is set. That URL is ignored, and the process logs `[db] DB_PROVIDER=pglite ignores DATABASE_URL.` Production still refuses in-memory PGLite unless `LOOKTAG_ALLOW_EPHEMERAL_DB=1` (or `ALLOW_EPHEMERAL_DB=1`) is set, whether or not `DATABASE_URL` is set. The error names `DB_PROVIDER=pglite`.
 
 `getSql()` and `dbSource` stay on `src/lib/db.ts` and delegate to the registry.
 
 Neon pooler detection is an optional hint in `providers/db/neon-pooler.ts`. Migrate uses it to pick a transaction lock on a `-pooler` host.
 
-Production without `DATABASE_URL` and without `LOOKTAG_ALLOW_EPHEMERAL_DB=1` (or `ALLOW_EPHEMERAL_DB=1`) exits the process when the server boots. `server/plugins/refuse-ephemeral.ts` imports `providers/db/refuse-ephemeral.ts` so Nitro evaluates that guard before listen, not on the first request. CI production builds set `LOOKTAG_ALLOW_EPHEMERAL_DB=1`.
+Production on in-memory PGLite exits when the server boots unless `LOOKTAG_ALLOW_EPHEMERAL_DB=1` (or `ALLOW_EPHEMERAL_DB=1`) is set. That includes an unset database and `DB_PROVIDER=pglite` (the URL does not waive the guard). `server/plugins/refuse-ephemeral.ts` imports `providers/db/refuse-ephemeral.ts` so Nitro evaluates that guard before listen, not on the first request. CI production builds set `LOOKTAG_ALLOW_EPHEMERAL_DB=1`.
 
 ## storage
 

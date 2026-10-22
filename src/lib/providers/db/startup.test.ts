@@ -58,14 +58,41 @@ describe("provider startup", () => {
     const result = boot({ NODE_ENV: "production" });
     assert.notEqual(result.status, 0);
     assert.match(`${result.stderr}${result.stdout}`, /DATABASE_URL is not set/);
+    assert.doesNotMatch(`${result.stderr}${result.stdout}`, /Listening/);
   });
 
-  it("keeps DB_PROVIDER=pglite when DATABASE_URL is set", () => {
+  it("exits in production on DB_PROVIDER=pglite with no URL", () => {
+    const result = boot({ NODE_ENV: "production", DB_PROVIDER: "pglite" });
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stderr}${result.stdout}`, /DB_PROVIDER=pglite/);
+    assert.doesNotMatch(`${result.stderr}${result.stdout}`, /Listening/);
+  });
+
+  it("exits in production on DB_PROVIDER=pglite even when DATABASE_URL is set", () => {
     const result = boot({
       NODE_ENV: "production",
       DB_PROVIDER: "pglite",
       DATABASE_URL: "postgres://db.example/looktag",
     });
+    const output = `${result.stderr}${result.stdout}`;
+    assert.notEqual(result.status, 0);
+    assert.match(output, /DB_PROVIDER=pglite/);
+    assert.match(output, /ignores DATABASE_URL/);
+    assert.doesNotMatch(output, /db\.example/);
+    assert.doesNotMatch(output, /Listening/);
+  });
+
+  it("starts in production on DB_PROVIDER=pglite when the ephemeral opt-in is set", () => {
+    const result = boot({
+      NODE_ENV: "production",
+      DB_PROVIDER: "pglite",
+      LOOKTAG_ALLOW_EPHEMERAL_DB: "1",
+    });
+    assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
+  });
+
+  it("starts in development on DB_PROVIDER=pglite", () => {
+    const result = boot({ NODE_ENV: "development", DB_PROVIDER: "pglite" });
     assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
   });
 

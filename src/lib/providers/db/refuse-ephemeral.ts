@@ -8,13 +8,32 @@ type Env = {
   ALLOW_EPHEMERAL_DB?: string;
 };
 
+const warned = globalThis as typeof globalThis & { __looktagIgnoredDatabaseUrl?: boolean };
+
+function optedIntoEphemeral(env: Env): boolean {
+  const optIn = env.LOOKTAG_ALLOW_EPHEMERAL_DB ?? env.ALLOW_EPHEMERAL_DB;
+  return optIn === "1" || optIn === "true";
+}
+
 /**
- * Production without a database exits unless the process opted into PGLite.
- * `DB_PROVIDER=pglite` is that choice even when `DATABASE_URL` is also set:
- * the named provider wins, and this guard does not treat the URL as the driver.
+ * Production on in-memory PGLite exits unless the process opted in.
+ * `DB_PROVIDER=pglite` still selects that database when `DATABASE_URL` is set
+ * (the URL is ignored, and a warning says so). It does not skip this guard.
  */
 export function refuseEphemeralDatabase(env: Env = process.env): void {
-  if (env.DB_PROVIDER?.trim().toLowerCase() === "pglite") return;
+  const provider = env.DB_PROVIDER?.trim().toLowerCase();
+  const url = env.DATABASE_URL?.trim() ?? "";
+  const explicitPglite = provider === "pglite";
+  if (explicitPglite && url && !warned.__looktagIgnoredDatabaseUrl) {
+    warned.__looktagIgnoredDatabaseUrl = true;
+    console.warn("[db] DB_PROVIDER=pglite ignores DATABASE_URL. The embedded database is used instead.");
+  }
+  if (explicitPglite) {
+    if (env.NODE_ENV !== "production" || optedIntoEphemeral(env)) return;
+    throw new Error(
+      "[db] DB_PROVIDER=pglite uses in-memory PGLite. Production will not boot on it because that data is lost on restart. Set LOOKTAG_ALLOW_EPHEMERAL_DB=1 to opt in.",
+    );
+  }
   assertProductionDatabase({
     NODE_ENV: env.NODE_ENV,
     DATABASE_URL: env.DATABASE_URL,
