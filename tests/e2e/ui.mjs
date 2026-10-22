@@ -174,7 +174,11 @@ async function flowHomeActionRow(page) {
     const button = row.getByRole("button", { name, exact: true });
     boxes.push(await button.boundingBox());
   }
-  const navTop = await page.evaluate(() => document.querySelector('nav[aria-label="App"]').getBoundingClientRect().top);
+  const navTop = await page.evaluate(() => {
+    const navs = [...document.querySelectorAll('nav[aria-label="App"]')];
+    const visible = navs.find((el) => el.getBoundingClientRect().height > 0);
+    return (visible ?? navs[0]).getBoundingClientRect().top;
+  });
   record(
     "flow.home.actions.boxes",
     boxes.every((b) => b && Math.round(b.width) === 44 && Math.round(b.height) === 44 && b.y + b.height <= navTop),
@@ -1169,7 +1173,7 @@ async function flowPinCardClear(page) {
       return {
         path: location.pathname,
         nums: rows.map((r) => r.querySelector(".look-sheet-num")?.textContent),
-        empty: rows.filter((r) => /No close match yet/.test(r.textContent) && !r.querySelector(".look-sheet-shop")).length,
+        empty: rows.filter((r) => !r.querySelector(".look-sheet-shop") && (r.dataset.style === "true" || /No close match yet/.test(r.textContent))).length,
         noShop: rows.filter((r) => !r.querySelector(".look-sheet-shop")).length,
         prices: /[€$£]|\d\s?EUR/.test(dialog.textContent),
         whole: Boolean(dialog.querySelector(".look-sheet-whole")),

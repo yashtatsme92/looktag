@@ -1,3 +1,4 @@
+import { memoPromise } from "@/lib/loading/memo-promise";
 import { create } from "zustand";
 import { getAppSettings, saveAppSettings } from "./api";
 import { DEFAULT_SETTINGS, type AppSettings } from "./model";
@@ -34,7 +35,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           : window.setTimeout(() => {
               if (!get().hydrated) set({ hydrated: true });
             }, 2500);
-      void getAppSettings()
+      void memoPromise("settings", () => getAppSettings())
         .then((settings) => {
           if (failSafe) window.clearTimeout(failSafe);
           if (id !== load) return;

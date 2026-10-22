@@ -407,6 +407,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
       <div
         ref={scrollerRef}
         className="echo-snap"
+        data-scroll-restoration-id="feed"
         onScroll={onScroll}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

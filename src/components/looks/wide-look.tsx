@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ChevronLeft, Radio, Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -206,10 +207,24 @@ export function WideLook({
                 ) : null}
               </div>
               {shareOpen ? (
-                <div className="wide-share" role="dialog" aria-label="Share">
+                <div
+                  className="wide-share"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Share"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.stopPropagation();
+                      setShareOpen(false);
+                    }
+                  }}
+                >
                   <p className="wide-kicker">Share this look</p>
                   <button type="button" className="wide-btn wide-btn-primary wide-btn-block" onClick={() => void share()}>
                     Copy link
+                  </button>
+                  <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={() => setShareOpen(false)}>
+                    Close
                   </button>
                 </div>
               ) : null}
@@ -239,14 +254,19 @@ export function WideLook({
           </aside>
         </div>
 
-        <div className="wide-shop-sheet-host" hidden={!shopSheetOpen}>
-          <LookShopSheet
-            tags={look.tags}
-            open={shopSheetOpen}
-            onClose={() => setShopSheetOpen(false)}
-            onShopPiece={shopPiece}
-          />
-        </div>
+        {shopSheetOpen
+          ? createPortal(
+              <div className="wide-shop-sheet-host">
+                <LookShopSheet
+                  tags={look.tags}
+                  open={shopSheetOpen}
+                  onClose={() => setShopSheetOpen(false)}
+                  onShopPiece={shopPiece}
+                />
+              </div>,
+              document.body,
+            )
+          : null}
 
         {echo.length > 0 ? (
           <section className="wide-echo" aria-label="Echo">

@@ -29,14 +29,21 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const plate = sheetRef.current?.closest(".look-plate") ?? null;
     sheetRef.current?.focus({ preventScroll: true });
+    function onEscape(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClose();
+    }
+    document.addEventListener("keydown", onEscape);
     return () => {
+      document.removeEventListener("keydown", onEscape);
       requestAnimationFrame(() => {
         // The opener can be swapped out while the sheet is open (Shop <-> Shop whole look); fall back to the plate's Shop control.
         const target = opener?.isConnected ? opener : plate?.querySelector<HTMLElement>(".look-plate-shop, .look-plate-shop-whole");
         target?.focus({ preventScroll: true });
       });
     };
-  }, [open]);
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -61,7 +68,7 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
     if (event.shiftKey && (active === first || active === sheet)) {
       event.preventDefault();
       last.focus();
-    } else if (!event.shiftKey && active === last) {
+    } else if (!event.shiftKey && (active === last || active === sheet)) {
       event.preventDefault();
       first.focus();
     }

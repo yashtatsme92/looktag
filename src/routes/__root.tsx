@@ -6,6 +6,7 @@ import { TelemetryProvider } from "@/lib/observability/client";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { BootSplash, StaticBootSplash } from "@/components/layout/boot-splash";
 import { ThemeSync } from "@/components/layout/theme-sync";
+import { ScrollRestore } from "@/components/layout/scroll-restore";
 import { ViewportLock } from "@/components/layout/viewport-lock";
 import { parseThemeId, DEFAULT_THEME, readStoredTheme } from "@/lib/design/themes";
 import { withTimeout } from "@/lib/login-next";
@@ -157,6 +158,7 @@ function RootDocument() {
           <TelemetryProvider>
             <ThemeSync />
             <ViewportLock />
+            <ScrollRestore />
             <BootSplash initialSplash={splashId}>
               <Outlet />
             </BootSplash>
