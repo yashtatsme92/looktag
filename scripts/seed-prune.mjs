@@ -10,46 +10,78 @@
  *
  * Non-seed houses are reported as audit-only. This script does not delete them.
  *
- * Refuses NODE_ENV=production, and any non-local DATABASE_URL (anything other
- * than localhost, 127.0.0.1, ::1, or a PGLite/test URL), unless
- * `--allow-production` is passed. Never point this at a real database.
+ * Refuses NODE_ENV=production. It also refuses unless every host node-pg will
+ * connect to is loopback (localhost, 127.0.0.1, ::1) or a unix socket path.
+ * That host is `?host=` when set (it overrides the URL host), otherwise the
+ * URL host, otherwise PGHOST, otherwise localhost. A comma-separated list is
+ * checked entry by entry. Pass `--allow-production` to override. Never point
+ * this at a real database.
  *
  *   npm run db:seed:prune
  *   npm run db:seed:prune -- --confirm
  *   npm run db:seed:prune -- --include-user-looks --confirm
  */
+import { parse } from "pg-connection-string";
 import { openDedicatedPool } from "../src/lib/providers/db/postgres.ts";
 import { auditDatabase } from "./seed-audit.mjs";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 /**
- * @param {string | undefined} databaseUrl
- * @returns {string}
+ * @param {string} token
  */
-export function databaseHost(databaseUrl) {
-  const raw = databaseUrl?.trim() ?? "";
-  if (!raw || !/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return "";
-  try {
-    return new URL(raw).hostname;
-  } catch {
-    return "invalid";
+function isLoopbackOrSocket(token) {
+  const raw = token.trim();
+  if (raw.startsWith("/") || raw.startsWith("@")) return true;
+  let host = raw;
+  const bracket = host.match(/^\[([^\]]+)\](?::\d+)?$/);
+  if (bracket) host = bracket[1];
+  else {
+    const named = host.match(/^(.+):(\d+)$/);
+    if (named && !named[1].includes(":")) host = named[1];
   }
+  return LOOPBACK.has(host.toLowerCase());
 }
 
 /**
- * True for an unset URL, a loopback host, or a PGLite/test token.
+ * Hosts node-pg passes to the socket. `?host=` wins over the URL hostname
+ * (`pg-connection-string`). An empty host then uses PGHOST, then localhost
+ * (`pg` ConnectionParameters). Comma-separated entries are separate targets.
+ * This does not open a connection.
  * @param {string | undefined} databaseUrl
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string[]}
  */
-export function isLocalDatabase(databaseUrl) {
+export function connectHosts(databaseUrl, env = {}) {
   const raw = databaseUrl?.trim() ?? "";
-  if (!raw) return true;
+  if (!raw) return ["localhost"];
   const lower = raw.toLowerCase();
-  if (lower === "pglite" || lower.startsWith("pglite:") || lower.startsWith("memory:")) return true;
-  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return false;
-  const host = databaseHost(raw);
-  if (!host) return true;
-  return LOCAL_HOSTS.has(host.toLowerCase());
+  if (lower === "pglite" || lower.startsWith("pglite:") || lower.startsWith("memory:")) return ["localhost"];
+  // Keyword conninfo is not what this script passes to `pg`. Refuse it.
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) && !raw.startsWith("/")) return ["invalid"];
+  let parsed;
+  try {
+    parsed = parse(raw);
+  } catch {
+    return ["invalid"];
+  }
+  const parsedHost = typeof parsed.host === "string" ? parsed.host.trim() : "";
+  const configured = parsedHost || String(env.PGHOST ?? "").trim() || "localhost";
+  const hosts = configured
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return hosts.length > 0 ? hosts : ["localhost"];
+}
+
+/**
+ * True when every host node-pg would connect to is loopback or a unix socket.
+ * The second argument is the process env (`PGHOST`). Omitted means no PGHOST.
+ * @param {string | undefined} databaseUrl
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+export function isLocalDatabase(databaseUrl, env = {}) {
+  return connectHosts(databaseUrl, env).every(isLoopbackOrSocket);
 }
 
 /**
@@ -79,7 +111,7 @@ export function pruneGuard(env, argv) {
         "Refusing to prune when NODE_ENV=production. Pass --allow-production to override. Do not point this at a real database.",
     };
   }
-  if (!allowProduction && !isLocalDatabase(env.DATABASE_URL)) {
+  if (!allowProduction && !isLocalDatabase(env.DATABASE_URL, env)) {
     return {
       ok: false,
       confirm,

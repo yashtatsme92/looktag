@@ -1,3 +1,6 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -27,6 +30,15 @@ describe("seed audit and prune", () => {
     assert.equal(isLocalDatabase("postgres://looktag@127.0.0.1/looktag"), true);
     assert.equal(isLocalDatabase("postgres://looktag@localhost/looktag"), true);
     assert.equal(isLocalDatabase(neon), false);
+    assert.equal(isLocalDatabase("postgresql:///db?host=203.0.113.77"), false);
+    assert.equal(isLocalDatabase("postgresql://localhost/db?host=foo-pooler.neon.tech"), false);
+    assert.equal(isLocalDatabase("postgresql:///lt177", { PGHOST: "foo-pooler.neon.tech" }), false);
+    assert.equal(isLocalDatabase("postgresql:///db?host=127.0.0.1,foo-pooler.neon.tech"), false);
+    assert.equal(isLocalDatabase("postgresql://localhost,203.0.113.77/db"), false);
+    assert.equal(isLocalDatabase("postgresql:///lt177"), true);
+    assert.equal(isLocalDatabase("postgresql://localhost/db", { PGHOST: "foo-pooler.neon.tech" }), true);
+    assert.equal(isLocalDatabase("postgresql:///db?host=/var/run/postgresql"), true);
+    assert.equal(isLocalDatabase("host=foo-pooler.neon.tech dbname=db"), false);
 
     const refusedEnv = pruneGuard({ NODE_ENV: "production", DATABASE_URL: "postgres://localhost/db" }, []);
     assert.equal(refusedEnv.ok, false);
@@ -43,6 +55,55 @@ describe("seed audit and prune", () => {
       pruneGuard({ DATABASE_URL: "postgres://127.0.0.1/db" }, ["--include-user-looks"]).includeUserLooks,
       true,
     );
+    for (const env of [
+      { DATABASE_URL: "postgresql:///db?host=203.0.113.77" },
+      { DATABASE_URL: "postgresql://localhost/db?host=foo-pooler.neon.tech" },
+      { DATABASE_URL: "postgresql:///lt177", PGHOST: "foo-pooler.neon.tech" },
+      { DATABASE_URL: "postgresql:///db?host=localhost,foo-pooler.neon.tech" },
+    ]) {
+      const refused = pruneGuard(env, ["--confirm"]);
+      assert.equal(refused.ok, false, JSON.stringify(env));
+      assert.match(refused.error, /non-local database/);
+      assert.doesNotMatch(refused.error, /neon\.tech|203\.0\.113\.77|postgres(ql)?:\/\//i);
+      assert.equal(pruneGuard(env, ["--allow-production", "--confirm"]).ok, true);
+    }
+  });
+
+  it("refuses overridden hosts before opening a connection", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "prune-net-"));
+    const preload = path.join(dir, "block.cjs");
+    writeFileSync(
+      preload,
+      `const net = require("node:net");
+net.Socket.prototype.connect = function () {
+  console.error("CONNECT_ATTEMPT");
+  process.exit(9);
+};
+`,
+    );
+    const cases = [
+      { DATABASE_URL: "postgresql:///db?host=203.0.113.77" },
+      { DATABASE_URL: "postgresql://localhost/db?host=foo-pooler.neon.tech" },
+      { DATABASE_URL: "postgresql:///lt177", PGHOST: "foo-pooler.neon.tech" },
+      { DATABASE_URL: "postgresql:///db?host=127.0.0.1,203.0.113.77" },
+    ];
+    for (const extra of cases) {
+      const result = spawnSync(process.execPath, ["--require", preload, "scripts/seed-prune.mjs", "--confirm"], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: { ...process.env, NODE_ENV: "test", PGHOST: "", PGHOSTADDR: "", ...extra },
+      });
+      const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+      assert.equal(result.status, 1, output);
+      assert.match(output, /non-local database/);
+      assert.doesNotMatch(output, /CONNECT_ATTEMPT/);
+    }
+    const source = readFileSync(path.join(process.cwd(), "src/lib/looks/looks-write.ts"), "utf8");
+    assert.doesNotMatch(source, /deleteSignedUpUser/);
+    const adapter = readFileSync(path.join(process.cwd(), "src/lib/providers/auth/delete-user.ts"), "utf8");
+    assert.match(adapter, /internalAdapter\.deleteUser/);
+    const e2e = readFileSync(path.join(process.cwd(), "src/lib/e2e/delete-signed-up-user.ts"), "utf8");
+    assert.match(e2e, /deleteLooktagTestUser/);
   });
 
   it("keeps repo seed and user looks, and removes an editorial leftover only when confirm is passed", async () => {

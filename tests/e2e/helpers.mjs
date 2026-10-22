@@ -72,7 +72,7 @@ export async function deleteUploadedLook(page, lookId) {
 export async function deleteSignedUpUser(page) {
   const fn = Buffer.from(
     JSON.stringify({
-      file: "/src/lib/looks/looks-write.ts?tss-serverfn-split",
+      file: "/src/lib/e2e/delete-signed-up-user.ts?tss-serverfn-split",
       export: "deleteSignedUpUser_createServerFn_handler",
     }),
   ).toString("base64url");
