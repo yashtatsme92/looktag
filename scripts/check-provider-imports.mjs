@@ -86,6 +86,9 @@ export async function findProviderImportViolations(root) {
       for (const host of HOSTS) {
         if (text.includes(host)) violations.push(`${rel} mentions ${host}`);
       }
+      if (text.includes("providers/telemetry/otlp")) {
+        violations.push(`${rel} imports the telemetry adapter instead of src/lib/providers/telemetry`);
+      }
     }
   }
   await walk(root);

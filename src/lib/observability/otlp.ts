@@ -6,7 +6,7 @@ import {
   ATTR_TELEMETRY_SDK_NAME,
   ATTR_TELEMETRY_SDK_VERSION,
   appEnv,
-} from "../providers/telemetry/otlp.ts";
+} from "../providers/telemetry/index.ts";
 import type {
   AttrValue,
   Attributes,

@@ -17,19 +17,30 @@ export type { DbSource, Sql };
 // "unset" — otherwise production would silently run on the PGLite fallback.
 const rawDatabaseUrl =
   typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
-const providerName =
-  typeof process !== "undefined"
-    ? resolveDbProvider({
-        DB_PROVIDER: process.env.DB_PROVIDER,
-        DATABASE_URL: rawDatabaseUrl,
-      })
-    : "pglite";
+
+function readDbProvider(): "postgres" | "pglite" {
+  if (typeof process === "undefined") return "pglite";
+  try {
+    return resolveDbProvider({
+      DB_PROVIDER: process.env.DB_PROVIDER,
+      DATABASE_URL: rawDatabaseUrl,
+    });
+  } catch (error) {
+    const event = process.env.npm_lifecycle_event ?? "";
+    if (typeof window === "undefined" && event !== "build" && event !== "typecheck") {
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+const providerName = readDbProvider();
 const databaseUrl = providerName === "postgres" ? rawDatabaseUrl?.trim() || undefined : undefined;
 
 /**
- * Active backend: real **Postgres** when `DATABASE_URL` is set (Neon or any
- * other server), otherwise a local embedded **PGLite** (Postgres compiled to
- * WASM) so dev, tests and CI have a working database with nothing configured.
+ * Active backend. `DB_PROVIDER=pglite` wins even when `DATABASE_URL` is set.
+ * Otherwise a URL selects Postgres and an unset URL selects embedded PGLite.
  */
 export const dbSource: DbSource = databaseUrl ? "postgres" : "pglite";
 
@@ -228,12 +239,15 @@ export function ensureDbReady(): Promise<void> {
 
 if (typeof window === "undefined") {
   try {
-    assertProductionDatabase({
-      NODE_ENV: process.env.NODE_ENV,
-      DATABASE_URL: providerName === "pglite" ? undefined : rawDatabaseUrl,
-      LOOKTAG_ALLOW_EPHEMERAL_DB: process.env.LOOKTAG_ALLOW_EPHEMERAL_DB,
-      ALLOW_EPHEMERAL_DB: process.env.ALLOW_EPHEMERAL_DB,
-    });
+    const explicitPglite = process.env.DB_PROVIDER?.trim().toLowerCase() === "pglite";
+    if (!explicitPglite) {
+      assertProductionDatabase({
+        NODE_ENV: process.env.NODE_ENV,
+        DATABASE_URL: providerName === "pglite" ? undefined : rawDatabaseUrl,
+        LOOKTAG_ALLOW_EPHEMERAL_DB: process.env.LOOKTAG_ALLOW_EPHEMERAL_DB,
+        ALLOW_EPHEMERAL_DB: process.env.ALLOW_EPHEMERAL_DB,
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const event = process.env.npm_lifecycle_event ?? "";
