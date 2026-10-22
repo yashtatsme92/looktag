@@ -14,6 +14,7 @@ export {
   ATTR_TELEMETRY_SDK_VERSION,
   ATTR_URL_PATH,
   appEnv,
+  postOtlp,
   resolveTelemetryProvider,
 } from "./otlp.ts";
 export type { TelemetryProvider, TelemetryProviderName };

@@ -1,4 +1,4 @@
-import { hashPassword } from "better-auth/crypto";
+import { hashPassword } from "@/lib/providers/auth";
 import type { Sql } from "@/lib/db";
 import {
   ADMIN_NAME,

@@ -6,9 +6,7 @@ import {
   urlMatchesRegion,
 } from "@/lib/looks/region.ts";
 import type { CatalogShop, SuggestedOffer, SuggestSearchConfig } from "./suggest-types";
-import { fetchText } from "./suggest-vision";
-import { search as braveWebSearch } from "@/lib/providers/shop-search/brave";
-import { search as googleWebSearch } from "@/lib/providers/shop-search/google-cse";
+import { searchEngine } from "@/lib/providers/shop-search";
 
 const MAX_OFFERS = 4;
 
@@ -20,24 +18,12 @@ export async function duckDuckGoSearch(
   const region = resolveRegion(config.country);
   const domains = pickSearchDomains(shops, region.id, 8);
   if (domains.length === 0) return [];
-  const siteClause = domains.map((host) => `site:${host}`).join(" OR ");
-  const q = `${query} ${region.name} ${siteClause}`;
-  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
-  const html = await fetchText(url);
-  if (!html) return [];
-  const hrefs = [
-    ...html.matchAll(/uddg=([^&"]+)/g),
-    ...html.matchAll(/class="result__a"[^>]*href="([^"]+)"/g),
-  ]
-    .map((match) => {
-      try {
-        return decodeURIComponent(match[1]);
-      } catch {
-        return match[1];
-      }
-    })
-    .filter(Boolean);
-  return uniqueOffers(hrefs, shops, region.id);
+  const hits = await searchEngine("duckduckgo", query, { id: region.id, name: region.name }, domains);
+  return uniqueOffers(
+    hits.map((hit) => hit.url),
+    shops,
+    region.id,
+  );
 }
 
 export async function braveSearch(
@@ -50,7 +36,13 @@ export async function braveSearch(
   const region = resolveRegion(config.country);
   const domains = pickSearchDomains(shops, region.id, 8);
   if (domains.length === 0) return [];
-  const hits = await braveWebSearch(query, { id: region.id, name: region.name }, domains, key);
+  const hits = await searchEngine(
+    "brave",
+    query,
+    { id: region.id, name: region.name },
+    domains,
+    { braveApiKey: key },
+  );
   const offers: SuggestedOffer[] = [];
   for (const row of hits) {
     const offer = urlToOffer(row.url, shops, {
@@ -74,7 +66,13 @@ export async function googleSearch(
   const region = resolveRegion(config.country);
   const domains = pickSearchDomains(shops, region.id, 8);
   if (domains.length === 0) return [];
-  const hits = await googleWebSearch(query, { id: region.id, name: region.name }, domains, key, cx);
+  const hits = await searchEngine(
+    "google",
+    query,
+    { id: region.id, name: region.name },
+    domains,
+    { googleApiKey: key, googleCx: cx },
+  );
   const offers: SuggestedOffer[] = [];
   for (const row of hits) {
     const offer = urlToOffer(row.url, shops, {

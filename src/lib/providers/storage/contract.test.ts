@@ -11,6 +11,10 @@ describe("storage provider", () => {
     assert.equal(resolveStorageProvider({}), "local");
     assert.equal(resolveStorageProvider({ STORAGE_PROVIDER: "r2" }), "r2");
     assert.equal(resolveStorageProvider({ STORAGE_PROVIDER: "s3" }), "s3");
+    assert.throws(
+      () => resolveStorageProvider({ STORAGE_PROVIDER: "s4" }),
+      /Unknown STORAGE_PROVIDER "s4"\. Expected local\|s3\|r2\./,
+    );
     const previous = process.env.STORAGE_PUBLIC_BASE_URL;
     delete process.env.STORAGE_PUBLIC_BASE_URL;
     const root = await mkdtemp(join(tmpdir(), "looktag-storage-"));

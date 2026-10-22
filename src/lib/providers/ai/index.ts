@@ -1,22 +1,27 @@
 import { describeImage as stubDescribe, searchProducts as stubSearch } from "./stub.ts";
 import type { AiProviderName, ProductSearchRequest, VisionResult } from "./types.ts";
-import { describeImage as xaiDescribe, searchProducts as xaiSearch } from "./xai.ts";
+import { describeImage as xaiDescribe, readXaiApiKey, searchProducts as xaiSearch } from "./xai.ts";
+import { unknownProvider } from "../unknown.ts";
 
 export type { AiProvider, AiProviderName, ProductSearchRequest, VisionResult } from "./types.ts";
+export { readXaiApiKey } from "./xai.ts";
 
 type Env = { AI_PROVIDER?: string; XAI_API_KEY?: string };
+
+const AI_PROVIDERS = ["xai", "stub"] as const;
 
 /** Read once per call from the env snapshot. `xai` only when a key is present, unless forced. */
 export function resolveAiProvider(env: Env = process.env): AiProviderName {
   const named = env.AI_PROVIDER?.trim().toLowerCase();
+  if (named && named !== "xai" && named !== "stub") unknownProvider("AI_PROVIDER", named, AI_PROVIDERS);
   if (named === "stub") return "stub";
   if (named === "xai") return "xai";
-  return env.XAI_API_KEY?.trim() ? "xai" : "stub";
+  return readXaiApiKey(env) ? "xai" : "stub";
 }
 
 /** Same gate the product used before the adapter split: no key means not available. */
 export function aiAvailable(env: Env = process.env): boolean {
-  return resolveAiProvider(env) === "xai" && Boolean(env.XAI_API_KEY?.trim());
+  return resolveAiProvider(env) === "xai" && Boolean(readXaiApiKey(env));
 }
 
 function xaiSelected(apiKey: string): boolean {

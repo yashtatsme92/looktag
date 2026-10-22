@@ -1,5 +1,6 @@
 import { send as consoleSend } from "./console.ts";
 import type { EmailProviderName, EmailSender, OutboundEmail } from "./types.ts";
+import { unknownProvider } from "../unknown.ts";
 
 export type { EmailProviderName, EmailSender, OutboundEmail };
 
@@ -8,9 +9,7 @@ type Env = { EMAIL_PROVIDER?: string };
 /** `EMAIL_PROVIDER=console`. That is the only adapter, and nothing calls it yet. */
 export function resolveEmailProvider(env: Env = process.env): EmailProviderName {
   const named = env.EMAIL_PROVIDER?.trim().toLowerCase();
-  if (named && named !== "console") {
-    throw new Error(`Unknown EMAIL_PROVIDER "${named}". Only "console" is implemented.`);
-  }
+  if (named && named !== "console") unknownProvider("EMAIL_PROVIDER", named, ["console"]);
   return "console";
 }
 

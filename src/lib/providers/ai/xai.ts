@@ -5,6 +5,11 @@ export const XAI_RESPONSES_URL = "https://api.x.ai/v1/responses";
 
 const VISION_MODEL = "grok-4.5";
 
+/** The only place that reads XAI_API_KEY. */
+export function readXaiApiKey(env: { XAI_API_KEY?: string } = process.env): string {
+  return env.XAI_API_KEY?.trim() ?? "";
+}
+
 /** Chat completion used to describe a look photo. No other file may call this host. */
 export async function describeImage(
   apiKey: string,

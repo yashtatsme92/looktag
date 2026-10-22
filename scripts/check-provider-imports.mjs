@@ -4,7 +4,8 @@
  * that does not depend on ESLint (host strings, not just import specifiers).
  */
 import { readdir, readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const SKIP_DIRS = new Set([
   "node_modules",
@@ -31,9 +32,25 @@ const IMPORT_PATTERNS = [
   /from\s+["']@opentelemetry\//,
   /import\(\s*["']@opentelemetry\//,
   /require\(\s*["']@opentelemetry\//,
+  /from\s+["']kysely["']/,
+  /import\(\s*["']kysely["']\s*\)/,
+  /require\(\s*["']kysely["']\s*\)/,
+  /from\s+["']better-auth/,
+  /import\(\s*["']better-auth/,
+  /require\(\s*["']better-auth/,
+  /from\s+["']@better-auth\//,
+  /import\(\s*["']@better-auth\//,
 ];
 
-const HOSTS = ["api.x.ai", "api.search.brave.com", "googleapis.com/customsearch"];
+const HOSTS = ["api.x.ai", "api.search.brave.com", "googleapis.com/customsearch", "duckduckgo.com"];
+
+/** Better Auth is the auth framework. Password hashing goes through providers/auth. */
+const BETTER_AUTH_ALLOW = new Set([
+  "src/lib/auth/server.ts",
+  "src/lib/auth/gate-session.server.ts",
+  "src/lib/auth/method-gate.ts",
+  "src/lib/auth/client.ts",
+]);
 
 const SELF = new Set([
   "scripts/check-provider-imports.mjs",
@@ -60,7 +77,10 @@ export async function findProviderImportViolations(root) {
       const rel = relative(root, path).split("\\").join("/");
       if (SELF.has(rel) || rel.startsWith("src/lib/providers/")) continue;
       const text = await readFile(path, "utf8");
+      const betterAuthAllowed = BETTER_AUTH_ALLOW.has(rel);
       for (const pattern of IMPORT_PATTERNS) {
+        const isBetterAuth = pattern.source.includes("better-auth");
+        if (isBetterAuth && betterAuthAllowed) continue;
         if (pattern.test(text)) violations.push(`${rel} imports a vendor SDK (${pattern})`);
       }
       for (const host of HOSTS) {
@@ -70,4 +90,13 @@ export async function findProviderImportViolations(root) {
   }
   await walk(root);
   return violations;
+}
+
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  const violations = await findProviderImportViolations(dirname(fileURLToPath(import.meta.url)) + "/..");
+  if (violations.length > 0) {
+    console.error(violations.join("\n"));
+    process.exit(1);
+  }
 }

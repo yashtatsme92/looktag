@@ -2,10 +2,13 @@ import { pendingMigrations } from "../../scripts/migration-plan.mjs";
 import { backfillLookCrops } from "../../scripts/backfill-look-crops.mjs";
 import { assertProductionDatabase } from "../../scripts/pg-pool.mjs";
 import { captureException } from "./providers/errors";
-import { resolveDbProvider } from "./providers/db";
-import { pgliteDialect } from "./providers/db/pglite-dialect";
-import { openPglite, type EmbeddedDb } from "./providers/db/pglite";
-import { getSharedPgPool } from "./providers/db/postgres";
+import {
+  embeddedAuthDatabase,
+  openEmbeddedDb,
+  resolveDbProvider,
+  sharedPgPool,
+  type EmbeddedDb,
+} from "./providers/db";
 import type { DbSource, Sql } from "./providers/db/types";
 
 export type { DbSource, Sql };
@@ -77,7 +80,7 @@ function toSql(run: Run): Sql {
 function createPostgresSql(): Promise<Sql> {
   globalRef.__pgSqlPromise__ ??= (async () => {
     // Same pool Better Auth uses (see getPgPool). Warm instances reuse it.
-    const pool = getSharedPgPool(databaseUrl!);
+    const pool = sharedPgPool(databaseUrl!);
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
       return res.rows as T[];
@@ -94,7 +97,7 @@ export function getPgPool() {
   if (!databaseUrl) {
     throw new Error("getPgPool() is only available when DATABASE_URL is set");
   }
-  return getSharedPgPool(databaseUrl);
+  return sharedPgPool(databaseUrl);
 }
 
 /**
@@ -103,7 +106,7 @@ export function getPgPool() {
  */
 export function authDatabase() {
   if (databaseUrl) return getPgPool();
-  return { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
+  return embeddedAuthDatabase(() => getPglite());
 }
 
 async function createPgliteSql(): Promise<Sql> {
@@ -111,7 +114,7 @@ async function createPgliteSql(): Promise<Sql> {
   // One in-memory instance per process, shared across HMR module instances, so
   // data survives source edits (it resets on dev-server restart).
   globalRef.__pgliteInstance__ ??= (async () => {
-    const pg = await openPglite();
+    const pg = await openEmbeddedDb();
     await pg.exec(
       "create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())",
     );
