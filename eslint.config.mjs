@@ -40,6 +40,33 @@ export default tseslint.config(
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/no-explicit-any": "off",
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "pg",
+              message: "Import pg only from src/lib/providers/db/postgres.ts.",
+            },
+            {
+              name: "@electric-sql/pglite",
+              message: "Import PGLite only from src/lib/providers/db/pglite.ts.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@aws-sdk/*", "@sentry/*", "@opentelemetry/*"],
+              message: "Import this vendor SDK only from its file under src/lib/providers/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/lib/providers/**"],
+    rules: {
+      "no-restricted-imports": "off",
     },
   },
   // Disable rules that conflict with Prettier formatting.

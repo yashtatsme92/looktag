@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { PGlite } from "@electric-sql/pglite";
+import { openMemoryPglite, type EmbeddedDb } from "../providers/db/pglite.ts";
 import { createServer } from "vite";
 import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import type { Sql } from "../db.ts";
@@ -14,7 +14,7 @@ const SEED_LEDGER_MIGRATIONS = new Set([
   "0012_backfill_creator_seeded_items.sql",
 ]);
 
-function toSql(pg: PGlite): Sql {
+function toSql(pg: EmbeddedDb): Sql {
   const sql = (async <T = Record<string, unknown>>(
     strings: TemplateStringsArray,
     ...values: unknown[]
@@ -34,7 +34,7 @@ function toSql(pg: PGlite): Sql {
 }
 
 async function openDb(includeSeedLedger = true) {
-  const pg = new PGlite();
+  const pg = await openMemoryPglite();
   await pg.waitReady;
   const names = (await readdir(path.join(process.cwd(), "migrations"))).filter((name) =>
     name.endsWith(".sql"),

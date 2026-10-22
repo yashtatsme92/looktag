@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { PGlite } from "@electric-sql/pglite";
+import { openMemoryPglite } from "../providers/db/pglite.ts";
 import { SEED_COLLECTIONS, SEED_LABELS, SEED_STYLES } from "./seed.ts";
 
 describe("Maison Calvé seed rename", () => {
@@ -26,7 +26,7 @@ describe("Maison Calvé seed rename", () => {
   });
 
   it("renames legacy records idempotently without losing related records", async () => {
-    const pg = new PGlite();
+    const pg = await openMemoryPglite();
     await pg.waitReady;
     try {
       for (const migration of ["0001_auth.sql", "0002_looks.sql", "0004_studio.sql", "0005_studio_config.sql", "0006_collections.sql", "0007_houses_admin.sql", "0008_profile_details.sql", "0010_house_styles.sql"]) {
@@ -108,7 +108,7 @@ describe("Maison Calvé seed rename", () => {
   });
 
   it("renames Fernhollow and Thistlewick in seeded databases without duplicates", async () => {
-    const pg = new PGlite();
+    const pg = await openMemoryPglite();
     await pg.waitReady;
     try {
       for (const migration of ["0001_auth.sql", "0002_looks.sql", "0004_studio.sql", "0005_studio_config.sql", "0006_collections.sql", "0007_houses_admin.sql", "0008_profile_details.sql", "0010_house_styles.sql"]) {

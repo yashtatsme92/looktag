@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { hashPassword, verifyPassword } from "better-auth/crypto";
+import { hashPassword, verifyPassword } from "@/lib/providers/auth";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { ADMIN_USER_ID, isAdminEmail } from "@/lib/admin/access";
 import { getSql } from "@/lib/db";

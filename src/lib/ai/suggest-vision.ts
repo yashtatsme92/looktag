@@ -1,4 +1,5 @@
-const MODEL = "grok-4.5";
+import { describeImage } from "@/lib/providers/ai";
+
 const MAX_ITEMS = 3;
 
 type VisionItem = {
@@ -143,26 +144,5 @@ export async function grokChat(
   apiKey: string,
   body: Record<string, unknown>,
 ): Promise<{ ok: true; text: string; citations: string[] } | { ok: false; error: string }> {
-  try {
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ model: MODEL, ...body }),
-    });
-    if (!response.ok) {
-      return { ok: false, error: `xAI API error ${response.status}` };
-    }
-    const json = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
-      citations?: string[];
-    };
-    const text = json.choices?.[0]?.message?.content ?? "";
-    const citations = Array.isArray(json.citations) ? json.citations.filter((item) => typeof item === "string") : [];
-    return { ok: true, text, citations };
-  } catch {
-    return { ok: false, error: "Could not reach Grok." };
-  }
+  return describeImage(apiKey, body);
 }

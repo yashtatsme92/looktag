@@ -1,47 +1,49 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
 import { backfillLookCrops } from "../../scripts/backfill-look-crops.mjs";
+import { refuseEphemeralDatabase } from "./providers/db/refuse-ephemeral.ts";
+import { captureException } from "./providers/errors";
 import {
-  assertProductionDatabase,
-  getSharedPgPool,
-  resolveDbSource,
-} from "../../scripts/pg-pool.mjs";
-import { pgliteDialect } from "./auth/pglite-dialect";
+  embeddedAuthDatabase,
+  openEmbeddedDb,
+  resolveDbProvider,
+  sharedPgPool,
+  type EmbeddedDb,
+} from "./providers/db";
+import type { DbSource, Sql } from "./providers/db/types";
 
-/** Which database backend is active. "neon" is accepted as an alias of "postgres". */
-export type DbSource = "postgres" | "pglite";
+export type { DbSource, Sql };
 
 // An empty/whitespace DATABASE_URL (an easy misconfig in deploy UIs) must mean
 // "unset" — otherwise production would silently run on the PGLite fallback.
 const rawDatabaseUrl =
   typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
-const databaseUrl =
-  resolveDbSource(rawDatabaseUrl) === "postgres" ? rawDatabaseUrl?.trim() : undefined;
+
+function readDbProvider(): "postgres" | "pglite" {
+  if (typeof process === "undefined") return "pglite";
+  try {
+    return resolveDbProvider({
+      DB_PROVIDER: process.env.DB_PROVIDER,
+      DATABASE_URL: rawDatabaseUrl,
+    });
+  } catch (error) {
+    const event = process.env.npm_lifecycle_event ?? "";
+    if (typeof window === "undefined" && event !== "build" && event !== "typecheck") {
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+const providerName = readDbProvider();
+const databaseUrl = providerName === "postgres" ? rawDatabaseUrl?.trim() || undefined : undefined;
 
 /**
- * Active backend: real **Postgres** when `DATABASE_URL` is set (Neon or any
- * other server), otherwise a local embedded **PGLite** (Postgres compiled to
- * WASM) so dev, tests and CI have a working database with nothing configured.
+ * Active backend. `DB_PROVIDER=pglite` wins even when `DATABASE_URL` is set.
+ * That URL is ignored. Production still refuses in-memory PGLite unless
+ * `LOOKTAG_ALLOW_EPHEMERAL_DB=1` is set.
  */
 export const dbSource: DbSource = databaseUrl ? "postgres" : "pglite";
-
-/**
- * Minimal shared SQL surface, satisfied by both Neon and PGLite. Both the
- * tagged-template and `.query()` forms resolve to an array of row objects:
- *
- *   const sql = await getSql();
- *   const rows = await sql`select * from todos where id = ${id}`; // parameterized
- *   const rows2 = await sql.query("select * from todos where id = $1", [id]);
- */
-export interface Sql {
-  <T = Record<string, unknown>>(
-    strings: TemplateStringsArray,
-    ...values: unknown[]
-  ): Promise<T[]>;
-  query<T = Record<string, unknown>>(
-    text: string,
-    params?: unknown[],
-  ): Promise<T[]>;
-}
 
 /**
  * Init state lives on globalThis as promises: dev HMR creates new instances of
@@ -52,7 +54,7 @@ export interface Sql {
  */
 const globalRef = globalThis as typeof globalThis & {
   __pgSqlPromise__?: Promise<Sql>;
-  __pgliteInstance__?: Promise<import("@electric-sql/pglite").PGlite>;
+  __pgliteInstance__?: Promise<EmbeddedDb>;
   __pgliteMigrateChain__?: Promise<void>;
 };
 
@@ -68,10 +70,6 @@ const globalRef = globalThis as typeof globalThis & {
  *   interval                     -> Postgres interval text
  * numeric already comes back as a string on both (arbitrary precision).
  */
-const OID_INT8 = 20;
-const OID_DATE = 1082;
-const OID_INTERVAL = 1186;
-const identity = (v: string) => v;
 
 type Run = <T>(text: string, params: unknown[]) => Promise<T[]>;
 
@@ -94,7 +92,7 @@ function toSql(run: Run): Sql {
 function createPostgresSql(): Promise<Sql> {
   globalRef.__pgSqlPromise__ ??= (async () => {
     // Same pool Better Auth uses (see getPgPool). Warm instances reuse it.
-    const pool = getSharedPgPool(databaseUrl!);
+    const pool = sharedPgPool(databaseUrl!);
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
       return res.rows as T[];
@@ -111,7 +109,7 @@ export function getPgPool() {
   if (!databaseUrl) {
     throw new Error("getPgPool() is only available when DATABASE_URL is set");
   }
-  return getSharedPgPool(databaseUrl);
+  return sharedPgPool(databaseUrl);
 }
 
 /**
@@ -120,7 +118,7 @@ export function getPgPool() {
  */
 export function authDatabase() {
   if (databaseUrl) return getPgPool();
-  return { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
+  return embeddedAuthDatabase(() => getPglite());
 }
 
 async function createPgliteSql(): Promise<Sql> {
@@ -128,15 +126,7 @@ async function createPgliteSql(): Promise<Sql> {
   // One in-memory instance per process, shared across HMR module instances, so
   // data survives source edits (it resets on dev-server restart).
   globalRef.__pgliteInstance__ ??= (async () => {
-    const { PGlite } = await import("@electric-sql/pglite");
-    const pg = new PGlite({
-      parsers: {
-        [OID_INT8]: Number,
-        [OID_DATE]: identity,
-        [OID_INTERVAL]: identity,
-      },
-    });
-    await pg.waitReady;
+    const pg = await openEmbeddedDb();
     await pg.exec(
       "create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())",
     );
@@ -223,7 +213,7 @@ export function getSql(): Promise<Sql> {
  * Lets Better Auth persist to the SAME embedded DB as app data in preview (via a
  * Kysely dialect). Throws when `DATABASE_URL` is set (that path uses Postgres).
  */
-export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite> {
+export async function getPglite(): Promise<EmbeddedDb> {
   if (dbSource !== "pglite") {
     throw new Error("getPglite() is only available on the PGLite fallback (no DATABASE_URL)");
   }
@@ -249,12 +239,23 @@ export function ensureDbReady(): Promise<void> {
 }
 
 if (typeof window === "undefined") {
-  assertProductionDatabase({
-    NODE_ENV: process.env.NODE_ENV,
-    DATABASE_URL: rawDatabaseUrl,
-    LOOKTAG_ALLOW_EPHEMERAL_DB: process.env.LOOKTAG_ALLOW_EPHEMERAL_DB,
-    ALLOW_EPHEMERAL_DB: process.env.ALLOW_EPHEMERAL_DB,
-  });
+  try {
+    refuseEphemeralDatabase({
+      NODE_ENV: process.env.NODE_ENV,
+      DATABASE_URL: rawDatabaseUrl,
+      DB_PROVIDER: process.env.DB_PROVIDER,
+      LOOKTAG_ALLOW_EPHEMERAL_DB: process.env.LOOKTAG_ALLOW_EPHEMERAL_DB,
+      ALLOW_EPHEMERAL_DB: process.env.ALLOW_EPHEMERAL_DB,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const event = process.env.npm_lifecycle_event ?? "";
+    if (event !== "build" && event !== "typecheck") {
+      console.error(message);
+      process.exit(1);
+    }
+    throw error;
+  }
 }
 
 // Server-only eager start: kick PGLite bootstrap as soon as this module loads in
@@ -266,7 +267,7 @@ const globalBoot = globalThis as typeof globalThis & {
 if (typeof window === "undefined" && dbSource === "pglite") {
   globalBoot.__pgBootstrapPromise__ ??= ensureDbReady().catch((err) => {
     globalBoot.__pgBootstrapPromise__ = undefined;
-    console.error("[db] PGLite bootstrap failed:", err);
+    captureException(err, { where: "[db] PGLite bootstrap failed:" });
     throw err;
   });
 }
@@ -279,7 +280,7 @@ if (typeof window === "undefined") {
       const { ensureAdminUser } = await import("./admin/ensure.server");
       await ensureAdminUser(await getSql());
     } catch (error) {
-      console.error("[looktag] admin bootstrap skipped:", error);
+      captureException(error, { where: "[looktag] admin bootstrap skipped:" });
     }
   })();
 }
