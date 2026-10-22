@@ -25,9 +25,11 @@ export function FeedTabs({
       const navBox = nav.getBoundingClientRect();
       const buttonBox = button.getBoundingClientRect();
       const inset = variant === "echo" ? 10 : 0;
-      setBox({
-        x: buttonBox.left - navBox.left + inset,
-        width: Math.max(0, buttonBox.width - inset * 2),
+      const x = buttonBox.left - navBox.left + inset;
+      const width = Math.max(0, buttonBox.width - inset * 2);
+      setBox((current) => {
+        if (Math.abs(current.x - x) < 0.5 && Math.abs(current.width - width) < 0.5) return current;
+        return { x, width };
       });
     };
     measure();

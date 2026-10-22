@@ -8,6 +8,7 @@ import { ScreenTitle } from "@/components/layout/screen-title";
 import { FadeLayer } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
+import { HouseLinePending } from "@/components/ds/route-pending";
 import { Button } from "@/components/ui/button";
 import { getFashionCollection, getHousesAvailability, type FashionCollectionPage } from "@/lib/labels/api";
 import { publicLines } from "@/lib/labels/model";
@@ -50,6 +51,9 @@ async function loadLine(labelId: string, collectionId: string): Promise<LineData
 export const Route = createFileRoute("/houses_/$labelId_/$collectionId")({
   ssr: true,
   loader: ({ params }) => clientDeferred(() => loadLine(params.labelId, params.collectionId), `house:${params.labelId}:line:${params.collectionId}`),
+  pendingMs: 300,
+  pendingMinMs: 420,
+  pendingComponent: HouseLinePending,
   headers: ({ loaderData }) => {
     if (!loaderData || isDeferred(loaderData)) return {};
     return shareCacheHeaders(Boolean(loaderData.page));

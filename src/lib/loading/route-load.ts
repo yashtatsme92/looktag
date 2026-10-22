@@ -5,14 +5,19 @@ import { readPageScroll, writePageScroll } from "./page-scroll.ts";
 
 export type Deferred = { deferred: true };
 
-/** Server renders with data. Client navigations resolve immediately and load in the page. A warm cache returns the saved value so Back paints content, not a skeleton. */
+/** Server renders with data. A warm cache returns the saved value so Back paints content, not a skeleton. A cold client navigation stays on the previous page until this promise settles; the route's pendingComponent covers the wait after 300ms. */
 export function clientDeferred<T>(load: () => Promise<T>, cacheKey?: string): Promise<T | Deferred> {
   if (import.meta.env?.SSR) return load();
   if (cacheKey && typeof window !== "undefined") {
     const hit = loadingCache.get<T>(cacheKey);
     if (hit) return Promise.resolve(hit.value);
   }
-  return Promise.resolve({ deferred: true });
+  return load().then((value) => {
+    if (cacheKey && typeof window !== "undefined" && !loadingCache.get(cacheKey)) {
+      loadingCache.set(cacheKey, value, 0);
+    }
+    return value;
+  });
 }
 
 export function isDeferred(value: unknown): value is Deferred {

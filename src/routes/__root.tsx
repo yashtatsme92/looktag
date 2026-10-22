@@ -1,4 +1,5 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
@@ -141,6 +142,16 @@ export const Route = createRootRoute({
   component: RootDocument,
 });
 
+function RoutePendingDim() {
+  const status = useRouterState({ select: (state) => state.status });
+  useEffect(() => {
+    const root = document.documentElement;
+    if (status === "pending") root.classList.add("route-pending");
+    else root.classList.remove("route-pending", "route-skeleton");
+  }, [status]);
+  return null;
+}
+
 function RootDocument() {
   const ctx = Route.useRouteContext();
   const splashId = parseSplashId(ctx.splashId);
@@ -168,6 +179,7 @@ function RootDocument() {
           <TelemetryProvider>
             <ThemeSync />
             <ViewportLock />
+            <RoutePendingDim />
             <BootSplash initialSplash={splashId}>
               <Outlet />
             </BootSplash>

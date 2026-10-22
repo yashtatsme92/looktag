@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FadeLayer } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
+import { HouseProfilePending } from "@/components/ds/route-pending";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getFashionLabel, getHousesAvailability, type FashionLabelPage } from "@/lib/labels/api";
@@ -67,6 +68,9 @@ async function loadHouseProfile(labelId: string): Promise<HouseProfileData> {
 export const Route = createFileRoute("/houses_/$labelId")({
   ssr: true,
   loader: ({ params }) => clientDeferred(() => loadHouseProfile(params.labelId), `house:${params.labelId}`),
+  pendingMs: 300,
+  pendingMinMs: 420,
+  pendingComponent: HouseProfilePending,
   headers: ({ loaderData }) => {
     if (!loaderData || isDeferred(loaderData)) return {};
     return shareCacheHeaders(Boolean(loaderData.house));

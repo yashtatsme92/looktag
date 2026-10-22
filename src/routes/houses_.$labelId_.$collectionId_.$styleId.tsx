@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { FadeLayer } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
+import { HouseStylePending } from "@/components/ds/route-pending";
 import { Button } from "@/components/ui/button";
 import { getFashionCollection, getHousesAvailability } from "@/lib/labels/api";
 import { clientDeferred, useRouteLoad } from "@/lib/loading/route-load";
@@ -52,6 +53,9 @@ export const Route = createFileRoute("/houses_/$labelId_/$collectionId_/$styleId
       () => loadStyle(params.labelId, params.collectionId, params.styleId),
       `house:${params.labelId}:style:${params.styleId}`,
     ),
+  pendingMs: 300,
+  pendingMinMs: 420,
+  pendingComponent: HouseStylePending,
   component: StylePage,
 });
 

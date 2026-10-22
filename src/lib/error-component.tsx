@@ -1,14 +1,22 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { TriangleAlert } from "lucide-react";
 import { captureException } from "@/lib/providers/errors";
 
 export function AppErrorComponent({ error }: ErrorComponentProps) {
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove("route-pending", "route-skeleton");
+    // #176 reports the failure from this screen. A skeleton that was still
+    // fading underneath the boundary must not stay on the error screen.
+    for (const node of document.querySelectorAll(".skeleton")) node.remove();
+  }, []);
   useEffect(() => {
     captureException(error);
   }, [error]);
   return (
     <main
+      data-screen="error"
       className={
         "flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center " +
         "bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50"

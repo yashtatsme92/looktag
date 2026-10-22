@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent, type UIEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type UIEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, Layers, Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -66,6 +66,8 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const dragRef = useRef({ x: 0, y: 0, active: false, moved: false });
   const scrollerRef = useRef<HTMLDivElement>(null);
   const indexRef = useRef(0);
+  const feedTargetRef = useRef(0);
+  const deckLengthRef = useRef(0);
   const { user, isPending } = useCurrentUserState();
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
@@ -105,18 +107,12 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         : Promise.resolve(null),
     {
       cacheKey: mode === "following" ? `feed:following:${followRetry}` : "feed:following:idle",
-      getScroll: () => scrollerRef.current?.scrollTop ?? 0,
-      setScroll: (y) => {
-        if (scrollerRef.current) scrollerRef.current.scrollTop = y;
-      },
+      trackScroll: false,
     },
   );
   useDelayedLoad(() => Promise.resolve(deck.length), {
     cacheKey: "feed:phone",
-    getScroll: () => scrollerRef.current?.scrollTop ?? 0,
-    setScroll: (y) => {
-      if (scrollerRef.current) scrollerRef.current.scrollTop = y;
-    },
+    trackScroll: false,
   });
 
   useEffect(() => {
@@ -207,27 +203,29 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     [houseCards, mode, plates],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    const saved = loadingCache.get<number>("feed:phone");
-    if (saved?.scrollY != null && saved.scrollY > 1 && mode === "feed") {
-      indexRef.current = el.clientHeight > 0 ? Math.round(saved.scrollY / el.clientHeight) : 0;
-      el.scrollTop = saved.scrollY;
-      return;
+    const feed = mode === "feed";
+    // Tab switches and the chrome snap guard share this scroller. Restore the
+    // For you plate only from a position this effect saved — never from a
+    // capture-phase listener that recorded the snap to the last plate.
+    let target = 0;
+    if (feed) {
+      const saved = loadingCache.get<number>("feed:phone");
+      if (saved?.scrollY != null && saved.scrollY > 1) target = saved.scrollY;
     }
-    indexRef.current = 0;
-    el.scrollTop = 0;
-    // Chrome re-snaps this mandatory feed to the last plate once, before any
-    // gesture. Put it back. A real swipe or wheel opts out.
+    feedTargetRef.current = target;
+    indexRef.current = el.clientHeight > 0 ? Math.round(target / el.clientHeight) : 0;
+    el.scrollTop = target;
     let touched = false;
     const mark = () => {
       touched = true;
     };
     const onScroll = () => {
-      if (touched || el.scrollTop <= 1) return;
-      el.scrollTop = 0;
-      indexRef.current = 0;
+      if (touched || Math.abs(el.scrollTop - target) <= 1) return;
+      el.scrollTop = target;
+      indexRef.current = el.clientHeight > 0 ? Math.round(target / el.clientHeight) : 0;
     };
     el.addEventListener("pointerdown", mark, { capture: true });
     el.addEventListener("wheel", mark, { capture: true });
@@ -235,6 +233,10 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     el.addEventListener("scroll", onScroll);
     const stop = window.setTimeout(() => el.removeEventListener("scroll", onScroll), 2500);
     return () => {
+      if (feed) {
+        const y = touched ? el.scrollTop : target;
+        loadingCache.set("feed:phone", deckLengthRef.current, y > 1 ? y : 0);
+      }
       window.clearTimeout(stop);
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("pointerdown", mark, { capture: true });
@@ -374,8 +376,17 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   }
 
   const staggerKey = `${mode}:${followingLoad.phase}:${laneLoad.phase}`;
-  const staggerIn = useStaggerIn(mode === "feed" ? "feed" : staggerKey);
-  const swap = useCrossfade(mode);
+  const staggerRef = useStaggerIn(mode === "feed" ? "feed" : staggerKey);
+  const swapRef = useCrossfade(mode);
+  const setScrollerNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      scrollerRef.current = node;
+      staggerRef(node);
+      swapRef(node);
+    },
+    [staggerRef, swapRef],
+  );
+  deckLengthRef.current = deck.length;
 
   if (!anchor) return null;
 
@@ -450,15 +461,13 @@ export function EchoHome({ looks }: { looks: Look[] }) {
       {mode === "creator" ? <p className="echo-pill echo-pill-ink">From {anchor.creator || "this creator"}</p> : null}
 
       <div
-        ref={scrollerRef}
+        ref={setScrollerNode}
         className={cn(
           "echo-snap",
           mode === "lane" && "echo-lane",
           (mode === "lane" || (showFollowing && !followSkeleton)) && "echo-stagger",
-          staggerIn && "is-in",
           followWaiting && "is-loading-old",
         )}
-        data-swap={swap}
         onScroll={onScroll}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

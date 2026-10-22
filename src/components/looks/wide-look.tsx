@@ -72,7 +72,7 @@ export function WideLook({
     cacheKey: `shop-panel:${look.id}:${look.tags.map((tag) => tag.id).join(",")}`,
   });
   const echoLoad = useDelayedLoad(() => settleLoad(echo), { cacheKey: `echo-detail:${look.id}` });
-  const echoIn = useStaggerIn(`${look.id}:${echoLoad.phase}`);
+  const echoRef = useStaggerIn(`${look.id}:${echoLoad.phase}`);
 
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
 
@@ -274,7 +274,7 @@ export function WideLook({
               <SkeletonGrid count={4} captions />
             ) : (
             <FadeLayer stateKey="echo">
-            <div className={cn("wide-grid echo-lane echo-stagger", echoIn && "is-in")}>
+            <div ref={echoRef} className="wide-grid echo-lane echo-stagger">
               {echo.map((item) => (
                 <article key={item.id} className="wide-tile echo-tile">
                   <Link to="/looks/$lookId" params={{ lookId: item.id }} className="wide-tile-hit" aria-label={item.title || "Look"}>

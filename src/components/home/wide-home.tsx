@@ -198,7 +198,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const followWaiting = mode === "following" && followingLoad.phase === "waiting";
   const showFollowing = mode === "following" && (followingLoad.phase === "ready" || followWaiting);
   const laneSkeleton = mode === "lane" && laneLoad.phase === "skeleton";
-  const staggerIn = useStaggerIn(`${mode}:${followingLoad.phase}:${laneLoad.phase}`);
+  const staggerRef = useStaggerIn(`${mode}:${followingLoad.phase}:${laneLoad.phase}`);
   const gridKey = `${mode}:${followSkeleton ? "s" : followError ? "e" : "c"}:${laneSkeleton ? "l" : "t"}`;
 
   if (!anchor) return null;
@@ -335,7 +335,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
         )}
 
         <FadeLayer stateKey={gridKey}>
-        <div className={cn("wide-grid", (mode === "lane" || showFollowing) && "echo-lane echo-stagger", staggerIn && "is-in", followWaiting && "is-loading-old")}>
+        <div ref={staggerRef} className={cn("wide-grid", (mode === "lane" || showFollowing) && "echo-lane echo-stagger", followWaiting && "is-loading-old")}>
           {followSkeleton || laneSkeleton ? (
             <SkeletonGrid count={followSkeleton ? followMix.length : 8} lead={!followSkeleton} captions />
           ) : followError ? (

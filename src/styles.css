@@ -143,12 +143,29 @@
 .fade-layer > * {
   grid-area: 1 / 1;
   min-width: 0;
-  opacity: 0;
+  opacity: 1;
   transition: opacity var(--dur-crossfade) var(--ease-std);
 }
 
-.fade-layer > [data-active="true"] {
-  opacity: 1;
+.fade-layer > [data-active="false"] {
+  opacity: 0;
+}
+
+.fade-layer > [data-enter="true"][data-active="true"] {
+  animation: fade-layer-in var(--dur-crossfade) var(--ease-std);
+}
+
+@keyframes fade-layer-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+html.route-pending:not(.route-skeleton) .app-frame {
+  opacity: var(--dim-loading);
 }
 
 .is-loading-old {

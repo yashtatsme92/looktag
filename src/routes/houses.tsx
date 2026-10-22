@@ -5,6 +5,7 @@ import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed
 import { AppShell } from "@/components/layout/app-shell";
 import { FadeLayer } from "@/components/ds/fade-layer";
 import { SkeletonGrid } from "@/components/ds/skeleton";
+import { HousesIndexPending } from "@/components/ds/route-pending";
 import { pickWeeklyDrop, splitScoutedHouses, type WeeklyDrop } from "@/lib/home/engagement";
 import { getHousesAvailability, listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { consumerHouseIndex, houseCoverSrc, publicLines, type FashionLabel } from "@/lib/labels/model";
@@ -44,6 +45,9 @@ async function loadHousesIndex(): Promise<HousesIndex> {
 export const Route = createFileRoute("/houses")({
   ssr: true,
   loader: () => clientDeferred(loadHousesIndex, "houses:index"),
+  pendingMs: 300,
+  pendingMinMs: 420,
+  pendingComponent: HousesIndexPending,
   head: () => ({
     meta: [
       { title: "Houses — Looktag" },
@@ -146,7 +150,7 @@ function HousesPage() {
           For houses
         </Link>
       </div>
-      <FadeLayer stateKey={housesLoad.skeleton ? "skeleton" : housesLoad.waiting ? "waiting" : "ready"}>
+      <FadeLayer stateKey={housesLoad.error ? "error" : housesLoad.skeleton ? "skeleton" : housesLoad.waiting ? "waiting" : "ready"}>
       {housesLoad.error ? (
         <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
       ) : housesLoad.skeleton ? (

@@ -21,6 +21,12 @@ export type DelayedLoadOptions<T = unknown> = {
   setScroll?: (scrollY: number) => void;
   /** Already-known data (SSR). Skips the wait so the first paint matches the server. */
   initial?: T;
+  /**
+   * When false, this load does not listen for scroll and does not restore it.
+   * The phone feed owns its scroller itself so a tab switch cannot replay
+   * another surface's position. Defaults to true.
+   */
+  trackScroll?: boolean;
 };
 
 export type DelayedLoadController<T> = {
@@ -130,7 +136,12 @@ export function createDelayedLoad<T>(
       return () => listeners.delete(listener);
     },
     dispose() {
-      if (snapshot.phase === "ready" && snapshot.data !== undefined && options.cacheKey) {
+      if (
+        options.trackScroll !== false &&
+        snapshot.phase === "ready" &&
+        snapshot.data !== undefined &&
+        options.cacheKey
+      ) {
         const live = options.getScroll
           ? options.getScroll()
           : typeof window === "undefined"
@@ -150,6 +161,26 @@ export function createDelayedLoad<T>(
 }
 
 /** Starts on mount. Screens that already know they are pending should render Skeleton instead. */
+const scrollSavers = new Set<() => void>();
+let scrollListening = false;
+let scrollFrame = 0;
+
+function ensureScrollListener() {
+  if (scrollListening || typeof window === "undefined") return;
+  scrollListening = true;
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (scrollFrame) return;
+      scrollFrame = requestAnimationFrame(() => {
+        scrollFrame = 0;
+        for (const save of scrollSavers) save();
+      });
+    },
+    { capture: true, passive: true },
+  );
+}
+
 export function useDelayedLoad<T>(
   load: () => Promise<T>,
   options: DelayedLoadOptions<T> = {},
@@ -164,6 +195,7 @@ export function useDelayedLoad<T>(
   const initialRef = useRef(options.initial);
   initialRef.current = options.initial;
   const hasInitial = options.initial !== undefined;
+  const trackScroll = options.trackScroll !== false;
   const controller = useMemo(
     () =>
       createDelayedLoad(() => loadRef.current(), {
@@ -173,12 +205,13 @@ export function useDelayedLoad<T>(
         timeoutMs,
         cache: typeof window === "undefined" ? undefined : options.cache ?? loadingCache,
         initial: hasInitial ? initialRef.current : undefined,
+        trackScroll,
         getScroll: () => {
           if (getScrollRef.current) return getScrollRef.current();
           return typeof window === "undefined" ? null : window.scrollY;
         },
       }),
-    [cacheKey, delayMs, minSkeletonMs, timeoutMs, options.cache, hasInitial],
+    [cacheKey, delayMs, minSkeletonMs, timeoutMs, options.cache, hasInitial, trackScroll],
   );
   const snapshot = useSyncExternalStore(
     controller.subscribe,
@@ -192,15 +225,16 @@ export function useDelayedLoad<T>(
   }, [controller]);
 
   useLayoutEffect(() => {
+    if (!trackScroll) return;
     if (snapshot.phase !== "ready" || snapshot.scrollY == null || typeof window === "undefined") return;
     if (setScrollRef.current) setScrollRef.current(snapshot.scrollY);
     else window.scrollTo({ top: snapshot.scrollY, behavior: "instant" });
-  }, [snapshot.phase, snapshot.scrollY]);
+  }, [snapshot.phase, snapshot.scrollY, trackScroll]);
 
   const dataRef = useRef(snapshot.data);
   dataRef.current = snapshot.data;
   useEffect(() => {
-    if (snapshot.phase !== "ready" || !cacheKey || typeof window === "undefined") return;
+    if (!trackScroll || snapshot.phase !== "ready" || !cacheKey || typeof window === "undefined") return;
     const cache = options.cache ?? loadingCache;
     const save = () => {
       const value = dataRef.current;
@@ -210,9 +244,12 @@ export function useDelayedLoad<T>(
       if ((y == null || y <= 1) && previous != null && previous > 1) return;
       cache.set(cacheKey, value, y);
     };
-    window.addEventListener("scroll", save, true);
-    return () => window.removeEventListener("scroll", save, true);
-  }, [snapshot.phase, cacheKey, options.cache]);
+    scrollSavers.add(save);
+    ensureScrollListener();
+    return () => {
+      scrollSavers.delete(save);
+    };
+  }, [snapshot.phase, cacheKey, options.cache, trackScroll]);
 
   return snapshot;
 }
