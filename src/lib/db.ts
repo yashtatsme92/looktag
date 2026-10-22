@@ -1,6 +1,6 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
 import { backfillLookCrops } from "../../scripts/backfill-look-crops.mjs";
-import { assertProductionDatabase } from "../../scripts/pg-pool.mjs";
+import { refuseEphemeralDatabase } from "./providers/db/refuse-ephemeral.ts";
 import { captureException } from "./providers/errors";
 import {
   embeddedAuthDatabase,
@@ -40,7 +40,8 @@ const databaseUrl = providerName === "postgres" ? rawDatabaseUrl?.trim() || unde
 
 /**
  * Active backend. `DB_PROVIDER=pglite` wins even when `DATABASE_URL` is set.
- * Otherwise a URL selects Postgres and an unset URL selects embedded PGLite.
+ * That URL is ignored. Production still refuses in-memory PGLite unless
+ * `LOOKTAG_ALLOW_EPHEMERAL_DB=1` is set.
  */
 export const dbSource: DbSource = databaseUrl ? "postgres" : "pglite";
 
@@ -239,15 +240,13 @@ export function ensureDbReady(): Promise<void> {
 
 if (typeof window === "undefined") {
   try {
-    const explicitPglite = process.env.DB_PROVIDER?.trim().toLowerCase() === "pglite";
-    if (!explicitPglite) {
-      assertProductionDatabase({
-        NODE_ENV: process.env.NODE_ENV,
-        DATABASE_URL: providerName === "pglite" ? undefined : rawDatabaseUrl,
-        LOOKTAG_ALLOW_EPHEMERAL_DB: process.env.LOOKTAG_ALLOW_EPHEMERAL_DB,
-        ALLOW_EPHEMERAL_DB: process.env.ALLOW_EPHEMERAL_DB,
-      });
-    }
+    refuseEphemeralDatabase({
+      NODE_ENV: process.env.NODE_ENV,
+      DATABASE_URL: rawDatabaseUrl,
+      DB_PROVIDER: process.env.DB_PROVIDER,
+      LOOKTAG_ALLOW_EPHEMERAL_DB: process.env.LOOKTAG_ALLOW_EPHEMERAL_DB,
+      ALLOW_EPHEMERAL_DB: process.env.ALLOW_EPHEMERAL_DB,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const event = process.env.npm_lifecycle_event ?? "";
