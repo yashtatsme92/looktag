@@ -92,6 +92,19 @@ test("a load times out after ten seconds", (t) => {
   t.mock.timers.reset();
 });
 
+test("dispose keeps a scroller position above one pixel", () => {
+  const cache = createLoadCache();
+  cache.set("houses:index", ["rows"], 0);
+  const controller = createDelayedLoad(async () => ["rows"], {
+    cache,
+    cacheKey: "houses:index",
+    getScroll: () => 400,
+  });
+  controller.start();
+  controller.dispose();
+  assert.equal(cache.get("houses:index")?.scrollY, 400);
+});
+
 test("a cache hit is ready immediately and does not call the loader", () => {
   const cache = createLoadCache();
   cache.set("feed", ["cached"], 42);

@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { toast } from "sonner";
 import { AdminGate } from "@/components/admin/admin-gate";
 import { AppShell } from "@/components/layout/app-shell";
+import { SaveStatus } from "@/components/ds/save-status";
+import { SkeletonAdminRow } from "@/components/ds/skeleton";
 import { listAdminHouses, setHouseStatus, setLabelScouted, type AdminHouse } from "@/lib/labels/api";
-import { houseQueueActions, queueStatusLabel, type HouseStatus } from "@/lib/labels/model";
+import { houseQueueActions, queueStatusLabel, type HouseQueueAction } from "@/lib/labels/model";
+import { useDelayedLoad } from "@/lib/loading/delayed-load";
+import { useOptimisticSave } from "@/lib/loading/optimistic";
+import { settleLoad } from "@/lib/loading/test-delay";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin_/houses")({ component: AdminHousesPage });
@@ -18,53 +22,16 @@ function AdminHousesPage() {
 }
 
 function HousesAdmin() {
+  const load = useDelayedLoad(() => settleLoad(listAdminHouses()), { cacheKey: "admin:houses" });
   const [houses, setHouses] = useState<AdminHouse[]>([]);
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    let alive = true;
-    void listAdminHouses()
-      .then((rows) => {
-        if (!alive) return;
-        setHouses(rows);
-        setLoaded(true);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setHouses([]);
-        setLoaded(true);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    if (load.phase === "ready" && load.data) setHouses(load.data);
+  }, [load.phase, load.data]);
 
   function patchHouse(saved: AdminHouse | null) {
     if (!saved) return;
     setHouses((current) => current.map((item) => (item.id === saved.id ? { ...item, ...saved } : item)));
-  }
-
-  async function patchStatus(id: string, status: HouseStatus) {
-    try {
-      const saved = await setHouseStatus({ data: { id, status } });
-      if (!saved) return;
-      setHouses((current) =>
-        current.map((item) => (item.id === saved.id ? { ...item, ...saved } : item)),
-      );
-      toast.success(
-        status === "approved"
-          ? "House is live"
-          : status === "rejected"
-            ? "House declined"
-            : status === "disabled"
-              ? "House disabled"
-              : status === "hold"
-                ? "House on hold"
-                : "Moved to waiting",
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update house.");
-    }
   }
 
   const waiting = useMemo(() => houses.filter((house) => house.status === "pending"), [houses]);
@@ -77,18 +44,16 @@ function HousesAdmin() {
         <Queue
           title="Waiting"
           houses={waiting}
-          loaded={loaded}
+          phase={load.phase}
           empty="No applications right now."
-          onStatus={patchStatus}
-          onScouted={patchHouse}
+          onPatch={patchHouse}
         />
         <Queue
           title="All houses"
           houses={rest}
-          loaded={loaded}
+          phase={load.phase}
           empty="No houses yet."
-          onStatus={patchStatus}
-          onScouted={patchHouse}
+          onPatch={patchHouse}
         />
       </div>
     </AppShell>
@@ -98,24 +63,22 @@ function HousesAdmin() {
 function Queue({
   title,
   houses,
-  loaded,
+  phase,
   empty,
-  onStatus,
-  onScouted,
+  onPatch,
 }: {
   title: string;
   houses: AdminHouse[];
-  loaded: boolean;
+  phase: "ready" | "waiting" | "skeleton" | "error";
   empty: string;
-  onStatus: (id: string, status: HouseStatus) => void;
-  onScouted: (house: AdminHouse) => void;
+  onPatch: (house: AdminHouse) => void;
 }) {
   return (
     <section className="ops-queue">
       <h2 className="ops-section">{title}</h2>
-      {!loaded ? <p className="ops-lead">Loading…</p> : null}
-      {loaded && houses.length === 0 ? <p className="ops-lead">{empty}</p> : null}
-      {houses.length > 0 ? (
+      {phase === "error" ? <p className="ops-lead">Couldn't load houses.</p> : null}
+      {phase === "ready" && houses.length === 0 ? <p className="ops-lead">{empty}</p> : null}
+      {phase === "skeleton" || (phase === "ready" && houses.length > 0) ? (
         <div className="ops-table" role="table" aria-label={title}>
           <div className="ops-thead" role="row">
             <span>House</span>
@@ -123,24 +86,24 @@ function Queue({
             <span>Scouted</span>
             <span>Actions</span>
           </div>
-          {houses.map((house) => (
-            <HouseRow key={house.id} house={house} onStatus={onStatus} onScouted={onScouted} />
-          ))}
+          {phase === "skeleton" ? (
+            <>
+              <SkeletonAdminRow />
+              <SkeletonAdminRow />
+              <SkeletonAdminRow />
+            </>
+          ) : (
+            houses.map((house) => (
+              <HouseRow key={house.id} house={house} onPatch={onPatch} />
+            ))
+          )}
         </div>
       ) : null}
     </section>
   );
 }
 
-function HouseRow({
-  house,
-  onStatus,
-  onScouted,
-}: {
-  house: AdminHouse;
-  onStatus: (id: string, status: HouseStatus) => void;
-  onScouted: (house: AdminHouse) => void;
-}) {
+function HouseRow({ house, onPatch }: { house: AdminHouse; onPatch: (house: AdminHouse) => void }) {
   const actions = houseQueueActions(house.status).filter((action) => action.id !== "scouted");
   const live = house.status === "approved" || house.status === "disabled";
   return (
@@ -155,34 +118,59 @@ function HouseRow({
         </span>
       </div>
       <div className={cn("ops-qscout", house.status === "disabled" && "muted")}>
-        <ScoutSwitch house={house} onScouted={onScouted} />
+        <ScoutSwitch house={house} onPatch={onPatch} />
       </div>
       <div className="ops-qactions">
         {actions.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            className={cn("ops-sm", action.id === "approve" || action.id === "enable" ? "ops-sm-solid" : "ops-sm-ghost")}
-            aria-label={`${action.label} ${house.name}`}
-            onClick={() => {
-              if (action.status) onStatus(house.id, action.status);
-            }}
-          >
-            {action.label}
-          </button>
+          <StatusAction key={action.id} house={house} action={action} onPatch={onPatch} />
         ))}
       </div>
     </div>
   );
 }
 
-function ScoutSwitch({
+function StatusAction({
   house,
-  onScouted,
+  action,
+  onPatch,
 }: {
   house: AdminHouse;
-  onScouted: (house: AdminHouse) => void;
+  action: HouseQueueAction;
+  onPatch: (house: AdminHouse) => void;
 }) {
+  const save = useOptimisticSave();
+  return (
+    <span className="ops-qaction">
+      <button
+        type="button"
+        className={cn("ops-sm", action.id === "approve" || action.id === "enable" ? "ops-sm-solid" : "ops-sm-ghost")}
+        aria-label={`${action.label} ${house.name}`}
+        onClick={() => {
+          if (!action.status) return;
+          const previous = house;
+          void save.run(
+            async () => {
+              const saved = await setHouseStatus({ data: { id: house.id, status: action.status! } });
+              if (!saved) throw new Error("Could not update house.");
+              return saved;
+            },
+            () => onPatch(previous),
+            (saved) => onPatch({ ...house, ...saved }),
+          );
+        }}
+      >
+        {action.label}
+      </button>
+      <SaveStatus phase={save.phase} error={save.error} />
+    </span>
+  );
+}
+
+function ScoutSwitch({ house, onPatch }: { house: AdminHouse; onPatch: (house: AdminHouse) => void }) {
+  const save = useOptimisticSave();
+  const serverOn = house.status === "approved" && house.scouted;
+  const [on, setOn] = useState(serverOn);
+  useEffect(() => setOn(serverOn), [serverOn]);
   if (house.status !== "approved" && house.status !== "disabled") {
     return (
       <span className="ops-qcity" aria-hidden>
@@ -191,7 +179,6 @@ function ScoutSwitch({
     );
   }
   const locked = house.status === "disabled";
-  const on = house.status === "approved" && house.scouted;
   return (
     <>
       <span className="ops-scout-label">Scouted</span>
@@ -205,13 +192,21 @@ function ScoutSwitch({
         aria-label={`Scouted, ${house.name}`}
         onClick={() => {
           if (locked) return;
-          void setLabelScouted({ data: { id: house.id, scouted: !house.scouted } })
-            .then((saved) => {
-              if (saved) onScouted({ ...house, ...saved });
-            })
-            .catch(() => toast.error("Could not update Scouted."));
+          const next = !on;
+          const previous = on;
+          setOn(next);
+          void save.run(
+            async () => {
+              const saved = await setLabelScouted({ data: { id: house.id, scouted: next } });
+              if (!saved) throw new Error("Could not update Scouted.");
+              return saved;
+            },
+            () => setOn(previous),
+            (saved) => onPatch({ ...house, ...saved }),
+          );
         }}
       />
+      <SaveStatus phase={save.phase} error={save.error} />
     </>
   );
 }

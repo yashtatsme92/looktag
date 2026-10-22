@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { ImgSlot } from "@/components/ds/img-slot";
 import type { FollowingHouseCard } from "@/lib/home/engagement";
 
 export function FollowingHousePlate({ card }: { card: FollowingHouseCard }) {
@@ -13,11 +14,11 @@ export function FollowingHousePlate({ card }: { card: FollowingHouseCard }) {
           className="echo-photo"
           aria-label={`${card.title}, ${kicker}`}
         >
-          <img src={card.imageSrc} alt="" />
+          <ImgSlot src={card.imageSrc} alt="" slotClassName="img-slot-fill" />
         </Link>
       ) : (
         <Link to="/houses/$labelId/$collectionId" params={params} className="echo-photo" aria-label={`${card.title}, ${kicker}`}>
-          <img src={card.imageSrc} alt="" />
+          <ImgSlot src={card.imageSrc} alt="" slotClassName="img-slot-fill" />
         </Link>
       )}
       <div className="echo-meta">
@@ -35,7 +36,7 @@ export function FollowingHouseTile({ card }: { card: FollowingHouseCard }) {
   const params = { labelId: card.houseId, collectionId: card.lineSlug };
   const inner = (
     <>
-      <img src={card.imageSrc} alt="" />
+      <ImgSlot src={card.imageSrc} alt="" slotClassName="img-slot-fill" />
       <div className="wide-tile-cap">
         <p className="wide-kicker">{kicker}</p>
         <h3>{card.title}</h3>

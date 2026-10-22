@@ -34,6 +34,16 @@ test("application source has no spinning or full-page spinner placeholders", asy
 test("loading motion uses reduced-motion overrides and responsive skeleton columns", async () => {
   const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   assert.match(styles, /--dur-crossfade:\s*150ms/);
+  assert.match(styles, /--dur-indicator:\s*200ms/);
+  assert.match(styles, /--dur-image:\s*200ms/);
+  assert.match(styles, /--dur-lane:\s*250ms/);
+  assert.match(styles, /--dur-sheet:\s*250ms/);
+  assert.match(styles, /--stagger-step:\s*30ms/);
+  assert.match(styles, /--ease-std:\s*cubic-bezier\(0\.4,\s*0,\s*0\.2,\s*1\)/);
+  assert.match(styles, /--ease-out:\s*cubic-bezier\(0\.23,\s*1,\s*0\.32,\s*1\)/);
+  assert.match(styles, /--skel:\s*#e2e2e2/i);
+  assert.match(styles, /--skel-2:\s*#d6d6d6/i);
+  assert.match(styles, /--ph:\s*#d4d4d4/i);
   assert.match(styles, /--skeleton-delay:\s*300ms/);
   assert.match(styles, /--skeleton-min:\s*400ms/);
   assert.match(styles, /--load-timeout:\s*10000ms/);

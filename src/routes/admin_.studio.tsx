@@ -3,6 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { AdminGate } from "@/components/admin/admin-gate";
 import { BrowseBar, BrowsePager, useScrollPicked } from "@/components/admin/browse-bar";
+import { FadeLayer } from "@/components/ds/fade-layer";
+import { SaveStatus } from "@/components/ds/save-status";
+import { SkeletonAdminRow } from "@/components/ds/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { AdminNav } from "@/components/observability/admin-nav";
@@ -29,6 +32,9 @@ import { SCOUTED_FLAG, type FashionCollection, type RankedLabel } from "@/lib/la
 import { SEARCH_ENGINES } from "@/lib/looks/catalog";
 import { SEARCH_REGIONS, resolveRegion } from "@/lib/looks/region";
 import { useLooksStore } from "@/lib/looks/store";
+import { useDelayedLoad } from "@/lib/loading/delayed-load";
+import type { OptimisticPhase } from "@/lib/loading/optimistic";
+import { settleLoad } from "@/lib/loading/test-delay";
 import {
   hasSignupMethod,
   type AppSettings,
@@ -58,6 +64,22 @@ function StudioAdmin() {
   const [filter, setFilter] = useState<HouseFilter>("all");
   const [page, setPage] = useState(1);
   const [picked, setPicked] = useState<string | null>(null);
+  const [savePhase, setSavePhase] = useState<OptimisticPhase>("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [pendingSettings, setPendingSettings] = useState<Partial<AppSettings> | null>(null);
+  const [scoutOn, setScoutOn] = useState<Record<string, boolean>>({});
+  const [scoutPhase, setScoutPhase] = useState<Record<string, OptimisticPhase>>({});
+  const [scoutError, setScoutError] = useState<Record<string, string>>({});
+  const labelsOn = settings.labelsEnabled;
+  const houseLoad = useDelayedLoad(
+    () =>
+      settleLoad(
+        labelsOn
+          ? Promise.all([listRankedLabels(), listFashionCollections()])
+          : Promise.resolve([[] as RankedLabel[], [] as FashionCollection[]] as const),
+      ),
+    { cacheKey: labelsOn ? "admin:studio:houses" : "admin:studio:off" },
+  );
 
   useEffect(() => {
     settings.hydrate();
@@ -68,23 +90,11 @@ function StudioAdmin() {
   }, [settings.searchCountry]);
 
   useEffect(() => {
-    let alive = true;
-    void Promise.all([listRankedLabels(), listFashionCollections()])
-      .then(([rows, nextCollections]) => {
-        if (alive) {
-          setHouses(rows.map(toHouseBrowse));
-          setCollections(nextCollections);
-        }
-      })
-      .catch(() => {
-        if (!alive) return;
-        setHouses([]);
-        setCollections([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [settings.labelsEnabled]);
+    if (houseLoad.phase !== "ready" || !houseLoad.data) return;
+    const [rows, nextCollections] = houseLoad.data;
+    setHouses(rows.map(toHouseBrowse));
+    setCollections(nextCollections);
+  }, [houseLoad.phase, houseLoad.data]);
 
   async function patch(next: Partial<AppSettings>) {
     if (next.signupGoogle === true && !settings.signupApple && next.signupApple !== true) {
@@ -99,6 +109,9 @@ function StudioAdmin() {
       toast.error("Leave at least one sign-up method on.");
       return;
     }
+    setPendingSettings(changes);
+    setSavePhase("saving");
+    setSaveError(null);
     try {
       const saved = await settings.save(changes);
       if (typeof changes.labelsEnabled === "boolean") {
@@ -115,10 +128,14 @@ function StudioAdmin() {
           setCollections([]);
         }
       }
-      toast.success("Studio updated");
+      setPendingSettings(null);
+      setSavePhase("saved");
+      window.setTimeout(() => setSavePhase("idle"), 1650);
       return saved;
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save.");
+      setPendingSettings(null);
+      setSavePhase("error");
+      setSaveError(error instanceof Error ? error.message : "Could not save.");
     }
   }
 
@@ -152,29 +169,30 @@ function StudioAdmin() {
           <MethodRow
             label="Email"
             hint="Creates accounts with name, email, and password. Admin email sign-in stays available when off."
-            checked={settings.signupEmail}
+            checked={typeof pendingSettings?.signupEmail === "boolean" ? pendingSettings.signupEmail : settings.signupEmail}
             onChange={(checked) => void patch({ signupEmail: checked })}
           />
           <MethodRow
             label="Google"
             hint="Opens a sign-in window."
-            checked={settings.signupGoogle}
+            checked={typeof pendingSettings?.signupGoogle === "boolean" ? pendingSettings.signupGoogle : settings.signupGoogle}
             disabled={!settings.signupApple && !settings.signupGoogle}
             onChange={(checked) => void patch({ signupGoogle: checked })}
           />
           <MethodRow
             label="Apple"
             hint="Opens a sign-in window. Required to enable Google."
-            checked={settings.signupApple}
+            checked={typeof pendingSettings?.signupApple === "boolean" ? pendingSettings.signupApple : settings.signupApple}
             onChange={(checked) => void patch({ signupApple: checked })}
           />
           <MethodRow
             label="X"
             hint="Opens a sign-in window."
-            checked={settings.signupX}
+            checked={typeof pendingSettings?.signupX === "boolean" ? pendingSettings.signupX : settings.signupX}
             onChange={(checked) => void patch({ signupX: checked })}
           />
         </ul>
+        <SaveStatus phase={savePhase} error={saveError} />
       </section>
 
       <section className="mb-6 rounded-xl bg-card p-5 shadow-[var(--shadow-border)]">
@@ -288,12 +306,24 @@ function StudioAdmin() {
               total={list.total}
               noun="houses"
             />
-            {list.total === 0 ? (
+            <FadeLayer stateKey={`${filter}:${sort}:${page}`}>
+            {houseLoad.phase === "error" ? (
+              <p className="text-sm text-muted-foreground">Couldn't load houses.</p>
+            ) : houseLoad.phase === "skeleton" ? (
+              <div aria-hidden="true">
+                <SkeletonAdminRow />
+                <SkeletonAdminRow />
+                <SkeletonAdminRow />
+              </div>
+            ) : list.total === 0 ? (
               <p className="text-sm text-muted-foreground">No houses match.</p>
             ) : (
               <>
                 <ul className="flex flex-col">
-                  {list.items.map((house) => (
+                  {list.items.map((house) => {
+                    const scouted = house.id in scoutOn ? scoutOn[house.id] : house.scouted;
+                    const phase = scoutPhase[house.id] ?? "idle";
+                    return (
                     <li
                       key={house.id}
                       data-picked={picked === house.id ? "true" : undefined}
@@ -320,21 +350,47 @@ function StudioAdmin() {
                         {house.score > 0 ? house.score : ""}
                       </p>
                       <Switch
-                        checked={house.scouted}
+                        checked={scouted}
                         onCheckedChange={(checked) => {
+                          setScoutOn((current) => ({ ...current, [house.id]: checked }));
+                          setScoutPhase((current) => ({ ...current, [house.id]: "saving" }));
+                          setScoutError((current) => {
+                            const next = { ...current };
+                            delete next[house.id];
+                            return next;
+                          });
                           void setLabelScouted({ data: { id: house.id, scouted: checked } })
                             .then((saved) => {
-                              if (!saved) return;
+                              if (!saved) throw new Error("Could not update Scouted.");
                               setHouses((current) =>
                                 current.map((item) => (item.id === saved.id ? { ...item, ...saved } : item)),
                               );
+                              setScoutPhase((current) => ({ ...current, [house.id]: "saved" }));
+                              window.setTimeout(() => {
+                                setScoutPhase((current) =>
+                                  current[house.id] === "saved" ? { ...current, [house.id]: "idle" } : current,
+                                );
+                              }, 1650);
                             })
-                            .catch(() => toast.error("Could not update Scouted."));
+                            .catch((error) => {
+                              setScoutOn((current) => {
+                                const next = { ...current };
+                                delete next[house.id];
+                                return next;
+                              });
+                              setScoutPhase((current) => ({ ...current, [house.id]: "error" }));
+                              setScoutError((current) => ({
+                                ...current,
+                                [house.id]: error instanceof Error ? error.message : "Could not update Scouted.",
+                              }));
+                            });
                         }}
-                        aria-label={`${house.scouted ? "Remove" : "Mark"} ${SCOUTED_FLAG} on ${house.name}`}
+                        aria-label={`${scouted ? "Remove" : "Mark"} ${SCOUTED_FLAG} on ${house.name}`}
                       />
+                      <SaveStatus phase={phase} error={scoutError[house.id]} />
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
                 <BrowsePager
                   page={list.page}
@@ -347,6 +403,7 @@ function StudioAdmin() {
                 />
               </>
             )}
+            </FadeLayer>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
