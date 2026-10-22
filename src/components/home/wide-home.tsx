@@ -337,7 +337,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
         <FadeLayer stateKey={gridKey}>
         <div className={cn("wide-grid", (mode === "lane" || showFollowing) && "echo-lane echo-stagger", staggerIn && "is-in", followWaiting && "is-loading-old")}>
           {followSkeleton || laneSkeleton ? (
-            <SkeletonGrid count={8} captions />
+            <SkeletonGrid count={followSkeleton ? followMix.length : 8} lead={!followSkeleton} captions />
           ) : followError ? (
             <FeedLoadError
               onRetry={() => {

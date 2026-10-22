@@ -47,7 +47,11 @@ async function loadStyle(labelId: string, collectionId: string, styleId: string)
 
 export const Route = createFileRoute("/houses_/$labelId_/$collectionId_/$styleId")({
   ssr: true,
-  loader: ({ params }) => clientDeferred(() => loadStyle(params.labelId, params.collectionId, params.styleId)),
+  loader: ({ params }) =>
+    clientDeferred(
+      () => loadStyle(params.labelId, params.collectionId, params.styleId),
+      `house:${params.labelId}:style:${params.styleId}`,
+    ),
   component: StylePage,
 });
 

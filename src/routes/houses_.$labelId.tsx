@@ -66,7 +66,7 @@ async function loadHouseProfile(labelId: string): Promise<HouseProfileData> {
 
 export const Route = createFileRoute("/houses_/$labelId")({
   ssr: true,
-  loader: ({ params }) => clientDeferred(() => loadHouseProfile(params.labelId)),
+  loader: ({ params }) => clientDeferred(() => loadHouseProfile(params.labelId), `house:${params.labelId}`),
   headers: ({ loaderData }) => {
     if (!loaderData || isDeferred(loaderData)) return {};
     return shareCacheHeaders(Boolean(loaderData.house));
@@ -95,7 +95,7 @@ function HouseHeader({
   const line = label.bio?.trim() || label.city?.trim() || "";
   return (
     <div className="house-profile-hero">
-      {cover ? <ImgSlot src={cover} alt="" still slotClassName="house-hero" /> : null}
+      {cover ? <img className="house-hero" src={cover} alt="" /> : null}
       <div className="house-profile-info">
         <p className="wide-kicker">House</p>
         <ScreenTitle>{label.name}</ScreenTitle>
@@ -216,12 +216,10 @@ function HouseProfile() {
           </article>
         ) : pending ? (
           label ? (
-            <article className="house-profile is-loading-old">
+            <article className="house-profile">
               <HouseHeader label={label} cover={cover} following={following} onFollow={follow} />
             </article>
-          ) : (
-            <div className="is-loading-old" aria-hidden />
-          )
+          ) : null
         ) : label && house ? (
           <article className="house-profile">
             <HouseHeader label={label} cover={cover} following={following} onFollow={follow} />

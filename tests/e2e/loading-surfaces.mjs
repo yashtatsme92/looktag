@@ -104,6 +104,13 @@ async function shopSurface(page, width) {
 }
 
 async function feedSurface(page, width) {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("looktag-followed-creators-v1", JSON.stringify(["editorial"]));
+    } catch {
+      /* private mode */
+    }
+  });
   await page.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
   await ready(page);
   const following = page.getByRole("button", { name: "Following" }).first();
@@ -114,7 +121,10 @@ async function feedSurface(page, width) {
   const log = await readLoadingLog(page);
   const entered = skeletonEnter(log, at);
   check(`feed.skeleton-delay.${width}`, Boolean(entered) && entered.at - at >= 250, JSON.stringify({ entered, at }));
-  const grid = await page.locator(".skeleton-grid").first().evaluate((el) => {
+  const grid = await page.evaluate(() => {
+    const nodes = [...document.querySelectorAll(".lt-wide .skeleton-grid, .lt-phone .skeleton-grid")];
+    const el = nodes.find((node) => node.getBoundingClientRect().width > 200) ?? nodes[0];
+    if (!el) return { columns: 0, gap: "", tile: "", radius: "", lead: "", width: 0 };
     const style = getComputedStyle(el);
     const first = el.firstElementChild ? getComputedStyle(el.firstElementChild).gridColumn : "";
     const box = el.getBoundingClientRect();
@@ -127,11 +137,16 @@ async function feedSurface(page, width) {
       width: box.width,
     };
   });
-  const expected = width >= 1280 ? 4 : width >= 1024 ? 3 : 2;
-  check(`feed.columns.${width}`, grid.columns === expected && grid.gap === "12px" && grid.width > 200, JSON.stringify(grid));
+  const expected = width >= 1440 ? 4 : width >= 1024 ? 3 : 2;
+  const expectedGap = width >= 1024 ? 24 : width >= 768 ? 16 : 12;
+  check(
+    `feed.columns.${width}`,
+    grid.columns === expected && Math.abs(Number.parseFloat(grid.gap) - expectedGap) < 0.5 && grid.width > 200,
+    JSON.stringify(grid),
+  );
   if (width === 1194) {
-    check("feed.lead-span.1194", /span 2/.test(grid.lead), grid.lead);
-    check("feed.tile-radius.1194", ms(grid.radius) === 24 || grid.radius.startsWith("24"), grid.radius);
+    check("feed.tile-span.1194", !/span 2/.test(grid.lead || ""), grid.lead || "auto");
+    check("feed.tile-radius.1194", ms(grid.radius) === 24 || String(grid.radius).startsWith("24"), grid.radius);
   }
   const indicator = page.locator(".tab-indicator").first();
   const motion = await indicator.evaluate((el) => {
@@ -325,6 +340,36 @@ async function backFromStyle(page) {
   check("houses.back-no-skeleton", (await page.locator(".skeleton").count()) === 0);
 }
 
+async function backRestoresHouses(page, width) {
+  await page.goto(`${origin}/houses`, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  await page.getByRole("heading", { name: "Scouted" }).waitFor({ timeout: 12_000 });
+  await page.evaluate(() => {
+    const main = document.querySelector(".native-main");
+    if (main instanceof HTMLElement && /(auto|scroll)/.test(getComputedStyle(main).overflowY)) main.scrollTop = 400;
+    else window.scrollTo(0, 400);
+  });
+  await page.evaluate(() => {
+    const link = document.querySelector('a[href="/houses/label-atelier-noir"]');
+    if (link instanceof HTMLElement) link.click();
+  });
+  await page.getByRole("heading", { name: "Atelier Noir" }).waitFor({ timeout: 12_000 });
+  await page.goBack();
+  await page.waitForURL((url) => url.pathname === "/houses", { timeout: 8_000 });
+  await page.waitForTimeout(450);
+  const state = await page.evaluate(() => {
+    const main = document.querySelector(".native-main");
+    const scroller = main instanceof HTMLElement && /(auto|scroll)/.test(getComputedStyle(main).overflowY);
+    return {
+      scroll: scroller && main instanceof HTMLElement ? main.scrollTop : window.scrollY,
+      skeletons: document.querySelectorAll(".skeleton").length,
+      dim: document.querySelectorAll(".is-loading-old").length,
+    };
+  });
+  check(`houses.back-cached.${width}`, state.skeletons === 0 && state.dim === 0, JSON.stringify(state));
+  if (width === 390) check("houses.back-scroll.390", state.scroll >= 350, JSON.stringify(state));
+}
+
 async function signInAdmin(page) {
   const { email, password } = resolveAdminCredentials();
   await page.goto(`${origin}/login?next=${encodeURIComponent("/admin")}`, { waitUntil: "domcontentloaded" });
@@ -392,6 +437,7 @@ try {
       await shopSurface(slow.page, viewport.width);
       await feedSurface(slow.page, viewport.width);
       await housesSurface(slow.page, viewport.width);
+      await backRestoresHouses(slow.page, viewport.width);
       if (viewport.width === 390) {
         await youSurface(slow.page);
         const overflow = await slow.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);

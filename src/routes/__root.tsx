@@ -16,6 +16,11 @@ import phase1aCss from "../styles.phase1-a.css?url";
 
 const APP_NAME = "Looktag";
 
+type SessionUser = { id: string; email: string | null } | null;
+
+/** Last session seen by this document. Client navigations reuse it and refresh in the background. */
+let sessionCache: SessionUser | undefined;
+
 const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
   const { getSessionUser } = await import("@/lib/auth/verify.server");
   const u = await getSessionUser();
@@ -30,16 +35,22 @@ const fetchChrome = createServerFn({ method: "GET" }).handler(async () => {
 
 export const Route = createRootRoute({
   beforeLoad: async () => {
-    // Never block a navigation on session SSR — a stalled getSession after
-    // email sign-up was hanging the app on the "Please wait…" login screen.
-    const sessionUser = await withTimeout(fetchSessionUser(), 2000, null);
+    // Never block a client navigation on the session round trip. The value is
+    // not read by the tree; auth uses authClient. Awaiting it froze the old
+    // page at full opacity until the fetch returned, so the tap had no dim.
     if (typeof document !== "undefined") {
+      const sessionUser = sessionCache ?? null;
+      void withTimeout(fetchSessionUser(), 2000, null).then((user) => {
+        sessionCache = user ?? null;
+      });
       return {
         sessionUser,
         splashId: readStoredSplash(),
         themeId: readStoredTheme(),
       };
     }
+    const sessionUser = await withTimeout(fetchSessionUser(), 2000, null);
+    sessionCache = sessionUser ?? null;
     const chrome = await withTimeout(fetchChrome(), 800, {
       splashId: DEFAULT_SPLASH,
       themeId: DEFAULT_THEME,

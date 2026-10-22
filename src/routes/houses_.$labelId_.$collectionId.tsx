@@ -49,7 +49,7 @@ async function loadLine(labelId: string, collectionId: string): Promise<LineData
 
 export const Route = createFileRoute("/houses_/$labelId_/$collectionId")({
   ssr: true,
-  loader: ({ params }) => clientDeferred(() => loadLine(params.labelId, params.collectionId)),
+  loader: ({ params }) => clientDeferred(() => loadLine(params.labelId, params.collectionId), `house:${params.labelId}:line:${params.collectionId}`),
   headers: ({ loaderData }) => {
     if (!loaderData || isDeferred(loaderData)) return {};
     return shareCacheHeaders(Boolean(loaderData.page));

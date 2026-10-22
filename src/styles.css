@@ -5409,6 +5409,16 @@ input[type="search"]::-webkit-search-decoration {
   gap: 1rem;
 }
 
+/* Following skeleton uses the same tracks as the tiles it replaces (L6). */
+.wide-grid > .skeleton-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.wide-grid > .skeleton-grid > :first-child {
+  grid-column: auto;
+}
+
 .wide-beat {
   display: flex;
   grid-column: 1 / -1;
@@ -6040,6 +6050,11 @@ html.native-app .house-manage[data-editor="open"] .house-save {
     gap: 1.5rem;
   }
 
+  .wide-grid > .skeleton-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
   .wide-lead-photo img {
     object-position: center 20%;
   }
@@ -6047,7 +6062,8 @@ html.native-app .house-manage[data-editor="open"] .house-save {
 
 @media (min-width: 1440px) {
   .wide-leadrow,
-  .wide-grid {
+  .wide-grid,
+  .wide-grid > .skeleton-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 

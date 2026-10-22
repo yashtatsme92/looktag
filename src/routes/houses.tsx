@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { HouseCard } from "@/components/labels/house-card";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
@@ -43,7 +43,7 @@ async function loadHousesIndex(): Promise<HousesIndex> {
 
 export const Route = createFileRoute("/houses")({
   ssr: true,
-  loader: () => clientDeferred(loadHousesIndex),
+  loader: () => clientDeferred(loadHousesIndex, "houses:index"),
   head: () => ({
     meta: [
       { title: "Houses — Looktag" },
@@ -61,10 +61,26 @@ function HousesPage() {
   const housesLoad = useRouteLoad(seeded, "houses:index", loadHousesIndex);
   const data = housesLoad.data;
   const closed = useHousesClosed(data ? data.open : true);
-  const labels = data?.labels ?? [];
+  const [refetched, setRefetched] = useState<FashionLabel[] | null>(null);
+  const labels = useMemo(() => refetched ?? data?.labels ?? [], [data?.labels, refetched]);
   const covers = data?.covers ?? {};
   const feedDropOn = useSettingsStore((s) => s.feedDrop);
   const drop = !closed && feedDropOn ? (data?.drop ?? null) : null;
+
+  useEffect(() => {
+    if (closed || !data?.open) return;
+    let alive = true;
+    void listFashionLabels()
+      .then((next) => {
+        if (alive) setRefetched(next);
+      })
+      .catch(() => {
+        if (alive) setRefetched([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [closed, data?.open]);
 
   const index = useMemo(() => consumerHouseIndex(labels), [labels]);
 

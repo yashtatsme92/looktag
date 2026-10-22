@@ -1,11 +1,17 @@
 import { useRef } from "react";
+import { loadingCache } from "./cache.ts";
 import { useDelayedLoad, type LoadPhase } from "./delayed-load.ts";
+import { readPageScroll, writePageScroll } from "./page-scroll.ts";
 
 export type Deferred = { deferred: true };
 
-/** Server renders with data. Client navigations resolve immediately and load in the page. */
-export function clientDeferred<T>(load: () => Promise<T>): Promise<T | Deferred> {
+/** Server renders with data. Client navigations resolve immediately and load in the page. A warm cache returns the saved value so Back paints content, not a skeleton. */
+export function clientDeferred<T>(load: () => Promise<T>, cacheKey?: string): Promise<T | Deferred> {
   if (import.meta.env?.SSR) return load();
+  if (cacheKey && typeof window !== "undefined") {
+    const hit = loadingCache.get<T>(cacheKey);
+    if (hit) return Promise.resolve(hit.value);
+  }
   return Promise.resolve({ deferred: true });
 }
 
@@ -16,6 +22,7 @@ export function isDeferred(value: unknown): value is Deferred {
 /**
  * Seeded (SSR) data is ready on the first paint. A deferred client navigation
  * fetches here, so the route can paint a skeleton instead of blocking the previous page.
+ * Scroll is the page scroller: `.native-main` on the phone, the window on the web.
  */
 export function useRouteLoad<T>(seeded: T | Deferred, cacheKey: string, load: () => Promise<T>) {
   const deferred = isDeferred(seeded);
@@ -24,6 +31,8 @@ export function useRouteLoad<T>(seeded: T | Deferred, cacheKey: string, load: ()
   const snapshot = useDelayedLoad(load, {
     cacheKey,
     initial: deferred ? undefined : seedRef.current,
+    getScroll: readPageScroll,
+    setScroll: writePageScroll,
   });
   if (!deferred) {
     return {
