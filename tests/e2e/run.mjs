@@ -159,6 +159,28 @@ const GUEST_TO_SHOP_FLOW = `async function guestToShopFlow(browser) {
       popup?.url() || shopHref || "missing",
     );
     await popup?.close().catch(() => {});
+    const uploadedId = new URL(page.url()).pathname.split("/").filter(Boolean).pop();
+    if (uploadedId && !uploadedId.startsWith("seed-") && !uploadedId.startsWith("house-")) {
+      const fn = Buffer.from(JSON.stringify({
+        file: "/src/lib/looks/looks-write.ts?tss-serverfn-split",
+        export: "deleteLook_createServerFn_handler",
+      })).toString("base64url");
+      const body = JSON.stringify({
+        t: { t: 10, i: 0, p: { k: ["data", "context"], v: [{ t: 1, s: uploadedId }, { t: 10, i: 1, p: { k: [], v: [] }, o: 0 }] }, o: 0 },
+        f: 127,
+        m: [],
+      });
+      await page.evaluate(async ({ fn, body }) => {
+        const res = await fetch("/_serverFn/" + fn, {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json", "x-tsr-serverfn": "true" },
+          body,
+        });
+        if (!res.ok) throw new Error("uploaded look cleanup failed " + res.status);
+        for (const key of ["looktag-create-draft-v1", "looktag-pending-save-v1"]) sessionStorage.removeItem(key);
+      }, { fn, body });
+    }
   }, "guest-to-shop");
 }`;
 
