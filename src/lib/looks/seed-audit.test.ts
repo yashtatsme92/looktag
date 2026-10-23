@@ -8,7 +8,16 @@ import { openMemoryPglite } from "../providers/db/pglite.ts";
 import { runMigrate } from "../../../scripts/apply-migrations.mjs";
 import { closeSeedLoader, seedDatabase, toSql } from "../../../scripts/seed.mjs";
 import { auditDatabase, formatAudit } from "../../../scripts/seed-audit.mjs";
-import { formatPrune, isLocalDatabase, pruneGuard, pruneUnseededLooks } from "../../../scripts/seed-prune.mjs";
+import {
+  formatPrune,
+  formatRemoteDryRun,
+  isLocalDatabase,
+  isReadOnlySql,
+  pruneGuard,
+  pruneUnseededLooks,
+  reportUnseeded,
+  SEED_ADMIN_EMAIL,
+} from "../../../scripts/seed-prune.mjs";
 import { imageKey } from "../../../scripts/seed-ledger.mjs";
 
 function adapt(pg: Awaited<ReturnType<typeof openMemoryPglite>>) {
@@ -223,6 +232,189 @@ net.Socket.prototype.connect = function () {
         ["tx-a", "tx-b"],
       );
     } finally {
+      await pg.close();
+    }
+  });
+
+  it("remote dry-run never writes and still refuses remote deletion", async () => {
+    assert.equal(isReadOnlySql("begin read only"), true);
+    assert.equal(isReadOnlySql("rollback"), true);
+    assert.equal(isReadOnlySql('select id, email from "user" order by id'), true);
+    for (const statement of [
+      "begin",
+      "begin read write",
+      "commit",
+      "delete from looks where id = $1",
+      "insert into looks (id) values ($1)",
+      "update looks set title = 'x'",
+      "truncate looks",
+      "drop table looks",
+      "alter table looks add column n int",
+      "create table x (id int)",
+      "select 1; delete from looks",
+      "select 1 into extra from looks",
+      "select id from looks for update",
+    ]) {
+      assert.equal(isReadOnlySql(statement), false, statement);
+    }
+
+    const neon = "postgresql://user:password@ep-example-pooler.eu-central-1.aws.neon.tech/neondb";
+    const remoteEnvs = [
+      { NODE_ENV: "production", DATABASE_URL: neon },
+      { DATABASE_URL: "postgresql:///db?host=203.0.113.77" },
+      { DATABASE_URL: "postgresql://localhost/db?host=foo-pooler.neon.tech" },
+      { DATABASE_URL: "postgresql:///lt177", PGHOST: "foo-pooler.neon.tech" },
+      { DATABASE_URL: "postgresql:///db?host=127.0.0.1,foo-pooler.neon.tech" },
+      { DATABASE_URL: "postgresql://localhost,203.0.113.77/db" },
+      { DATABASE_URL: "host=foo-pooler.neon.tech dbname=db" },
+    ];
+    for (const env of remoteEnvs) {
+      const allowed = pruneGuard(env, ["--remote-dry-run"]);
+      assert.equal(allowed.ok, true, JSON.stringify(env));
+      assert.equal(allowed.confirm, false);
+      assert.equal(allowed.includeUserLooks, false);
+      assert.equal(allowed.remoteDryRun, true);
+      const blocked = pruneGuard(env, ["--remote-dry-run", "--confirm"]);
+      assert.equal(blocked.ok, false, JSON.stringify(env));
+      assert.equal(blocked.confirm, false);
+      assert.match(blocked.error, /never deletes or writes/);
+      assert.doesNotMatch(blocked.error, /neon\.tech|203\.0\.113|postgres(ql)?:\/\//i);
+      assert.equal(pruneGuard(env, ["--remote-dry-run", "--allow-production", "--confirm"]).ok, false);
+      assert.equal(pruneGuard(env, ["--remote-dry-run", "--include-user-looks"]).ok, false);
+      assert.equal(pruneGuard(env, ["--confirm"]).ok, false);
+    }
+    assert.equal(pruneGuard({ NODE_ENV: "production" }, ["--remote-dry-run"]).ok, false);
+    assert.match(pruneGuard({}, ["--remote-dry-run"]).error, /without DATABASE_URL/);
+    assert.equal(pruneGuard({ DATABASE_URL: "postgres://127.0.0.1/db" }, ["--confirm"]).remoteDryRun, false);
+    assert.equal(SEED_ADMIN_EMAIL, "admin@looktag.studio");
+
+    const dir = mkdtempSync(path.join(tmpdir(), "prune-remote-dry-"));
+    const preload = path.join(dir, "block.cjs");
+    writeFileSync(
+      preload,
+      `const net = require("node:net");
+net.Socket.prototype.connect = function () {
+  console.error("CONNECT_ATTEMPT");
+  process.exit(9);
+};
+`,
+    );
+    const cliCases = [
+      {
+        args: ["--remote-dry-run", "--confirm"],
+        env: { NODE_ENV: "production", DATABASE_URL: neon },
+        pattern: /never deletes or writes/,
+      },
+      {
+        args: ["--remote-dry-run", "--allow-production", "--confirm"],
+        env: { DATABASE_URL: "postgresql:///db?host=203.0.113.77" },
+        pattern: /never deletes or writes/,
+      },
+      {
+        args: ["--remote-dry-run", "--include-user-looks"],
+        env: { DATABASE_URL: "postgresql://localhost/db?host=foo-pooler.neon.tech", PGHOST: "foo-pooler.neon.tech" },
+        pattern: /never deletes or writes/,
+      },
+      {
+        args: ["--remote-dry-run"],
+        env: { NODE_ENV: "production", DATABASE_URL: "" },
+        pattern: /without DATABASE_URL/,
+      },
+    ];
+    for (const extra of cliCases) {
+      const result = spawnSync(process.execPath, ["--require", preload, "scripts/seed-prune.mjs", ...extra.args], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: { ...process.env, PGHOST: "", PGHOSTADDR: "", ...extra.env },
+      });
+      const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+      assert.equal(result.status, 1, output);
+      assert.match(output, extra.pattern);
+      assert.doesNotMatch(output, /CONNECT_ATTEMPT/);
+      assert.doesNotMatch(output, /neon\.tech|203\.0\.113|postgres(ql)?:\/\//i);
+    }
+
+    const pg = await openMemoryPglite();
+    try {
+      const db = adapt(pg);
+      await runMigrate(db, {
+        migrationsDir: path.join(process.cwd(), "migrations"),
+        authEnabled: true,
+      });
+      await seedDatabase(toSql(db));
+      const bytes = "data:image/jpeg;base64," + "B".repeat(80);
+      const insertLook = (id: string, image: string) =>
+        db.query(
+          `insert into looks (
+            id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+            pin_count, compared_count, retailer_count, published, created_at, updated_at, crop_json
+          ) values ($1, 'user-other', $1, '', 'Uploader', $2, '[]', '[]', 0, 0, 0, true, 1, 1, null)`,
+          [id, image],
+        );
+      await insertLook("upload-1", bytes);
+      await insertLook("file-look", "/uploads/not-seed-followup.jpg");
+      await db.query(
+        `insert into fashion_labels (id, name, handle, created_at) values ('label-extra', 'Extra', 'extra-house', 1)`,
+      );
+      await db.query(
+        `insert into "user" ("id", "name", "email", "emailVerified", "createdAt", "updatedAt")
+         values ($1, 'Admin', $2, true, current_timestamp, current_timestamp)`,
+        ["seed-admin", "Admin@Looktag.Studio"],
+      );
+      await db.query(
+        `insert into "user" ("id", "name", "email", "emailVerified", "createdAt", "updatedAt")
+         values ($1, 'Other', $2, true, current_timestamp, current_timestamp)`,
+        ["user-other", "other@looktag.test"],
+      );
+
+      const idList = async (sql: string) => (await db.query(sql)).rows.map((row) => String(row.id));
+      const before = {
+        looks: await idList("select id from looks order by id"),
+        users: await idList('select id from "user" order by id'),
+        houses: await idList("select id from fashion_labels order by id"),
+      };
+      const seen: string[] = [];
+      const report = await reportUnseeded(
+        async (text, params = []) => {
+          assert.equal(isReadOnlySql(text), true, text);
+          seen.push(text.trim().toLowerCase().replace(/\s+/g, " "));
+          return db.query(text, params);
+        },
+        { adminEmail: "admin@looktag.studio" },
+      );
+      assert.deepEqual(report.users, ["user-other"]);
+      assert.deepEqual(report.looks, ["file-look", "upload-1"]);
+      assert.deepEqual(report.houses, ["label-extra"]);
+      assert.deepEqual(report.images, ["/uploads/not-seed-followup.jpg"]);
+      assert.deepEqual(report.dataImages, ["data:upload-1"]);
+      assert.equal(seen[0], "begin read only");
+      assert.equal(seen[seen.length - 1], "rollback");
+      assert.equal(seen.some((sql) => /^(delete|insert|update|commit|truncate|drop|alter|create)\b/.test(sql)), false);
+      const text = formatRemoteDryRun(report);
+      assert.match(text, /remote-dry-run read-only; wrote 0/);
+      assert.match(text, /users other than the seed admin 1/);
+      assert.match(text, /looks 2/);
+      assert.match(text, /houses 1/);
+      assert.match(text, /images\/uploads 1/);
+      assert.match(text, /data-url images 1/);
+      assert.match(text, /image data:upload-1/);
+      assert.doesNotMatch(text, /looktag\.studio|other@looktag\.test|base64|postgres(ql)?:\/\//i);
+      assert.doesNotMatch(text, /seed-admin/);
+
+      await db.query("begin read only");
+      await assert.rejects(
+        () => db.query("delete from looks where id = 'upload-1'"),
+        /read-only|cannot execute delete/i,
+      );
+      await db.query("rollback");
+      const after = {
+        looks: await idList("select id from looks order by id"),
+        users: await idList('select id from "user" order by id'),
+        houses: await idList("select id from fashion_labels order by id"),
+      };
+      assert.deepEqual(after, before);
+    } finally {
+      await closeSeedLoader();
       await pg.close();
     }
   });

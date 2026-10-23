@@ -17,9 +17,18 @@
  * checked entry by entry. Pass `--allow-production` to override. Never point
  * this at a real database.
  *
+ * `--remote-dry-run` reads `DATABASE_URL` even when the host is not loopback
+ * and even when `NODE_ENV=production`. It opens `begin read only` and ends
+ * with `rollback`. It never deletes or writes. `--confirm` and
+ * `--include-user-looks` are refused in this mode, before any connection.
+ * The report lists ids and counts only: users other than the seed admin,
+ * not-seeded looks, houses, image paths and uploads, and data-URL images
+ * (`data:<owner>`). It does not print emails or image bytes.
+ *
  *   npm run db:seed:prune
  *   npm run db:seed:prune -- --confirm
  *   npm run db:seed:prune -- --include-user-looks --confirm
+ *   DATABASE_URL=... npm run db:seed:prune -- --remote-dry-run
  */
 import { parse } from "pg-connection-string";
 import { openDedicatedPool } from "../src/lib/providers/db/postgres.ts";
@@ -102,11 +111,41 @@ export function pruneGuard(env, argv) {
   const confirm = argv.includes("--confirm");
   const allowProduction = argv.includes("--allow-production");
   const includeUserLooks = argv.includes("--include-user-looks");
+  const remoteDryRun = argv.includes("--remote-dry-run");
+  if (remoteDryRun) {
+    if (confirm || includeUserLooks) {
+      return {
+        ok: false,
+        confirm: false,
+        includeUserLooks: false,
+        remoteDryRun: true,
+        error:
+          "Refusing --remote-dry-run together with a delete flag. This mode never deletes or writes.",
+      };
+    }
+    if (!String(env.DATABASE_URL ?? "").trim()) {
+      return {
+        ok: false,
+        confirm: false,
+        includeUserLooks: false,
+        remoteDryRun: true,
+        error: "Refusing --remote-dry-run without DATABASE_URL.",
+      };
+    }
+    return {
+      ok: true,
+      confirm: false,
+      includeUserLooks: false,
+      remoteDryRun: true,
+      error: "",
+    };
+  }
   if (!allowProduction && env.NODE_ENV === "production") {
     return {
       ok: false,
       confirm,
       includeUserLooks,
+      remoteDryRun: false,
       error:
         "Refusing to prune when NODE_ENV=production. Pass --allow-production to override. Do not point this at a real database.",
     };
@@ -116,11 +155,12 @@ export function pruneGuard(env, argv) {
       ok: false,
       confirm,
       includeUserLooks,
+      remoteDryRun: false,
       error:
         "Refusing to prune a non-local database. Pass --allow-production to override. Do not point this at a real database.",
     };
   }
-  return { ok: true, confirm, includeUserLooks, error: "" };
+  return { ok: true, confirm, includeUserLooks, remoteDryRun: false, error: "" };
 }
 
 /**
@@ -225,6 +265,132 @@ export function formatPrune(result) {
   return lines.join("\n");
 }
 
+const READ_ONLY_TXN = new Set([
+  "begin read only",
+  "begin transaction read only",
+  "begin work read only",
+  "start transaction read only",
+]);
+
+/** Seed admin mailbox. Matches `ADMIN_EMAIL` in `src/lib/admin/access.ts`. */
+export const SEED_ADMIN_EMAIL = "admin@looktag.studio";
+
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+export function seedAdminEmail(env = {}) {
+  const raw = String(env.ADMIN_EMAIL ?? "").trim().toLowerCase();
+  return raw || SEED_ADMIN_EMAIL;
+}
+
+/**
+ * True only for the statements the remote dry-run sends: a read-only
+ * transaction, `select` (no `into`, no row lock), and `rollback`.
+ * @param {string} text
+ */
+export function isReadOnlySql(text) {
+  let normalized = String(text ?? "")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--[^\n]*/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (normalized.endsWith(";")) normalized = normalized.slice(0, -1).trim();
+  if (!normalized || normalized.includes(";")) return false;
+  if (READ_ONLY_TXN.has(normalized)) return true;
+  if (normalized === "rollback" || normalized === "rollback transaction" || normalized === "rollback work") {
+    return true;
+  }
+  if (!/^select\b/.test(normalized)) return false;
+  if (/\binto\b/.test(normalized)) return false;
+  if (/\bfor\s+(update|no\s+key\s+update|share|key\s+share)\b/.test(normalized)) return false;
+  return true;
+}
+
+/**
+ * Read-only report of rows that are not repo seed.
+ * Opens `begin read only` and ends with `rollback`. Never deletes or writes.
+ * Users are ids only. The seed admin email is not printed.
+ * @param {(text: string, params?: unknown[]) => Promise<{ rows: any[] }>} query
+ * @param {{ adminEmail?: string }} [options]
+ */
+export async function reportUnseeded(query, options = {}) {
+  const adminEmail = String(options.adminEmail ?? SEED_ADMIN_EMAIL).trim().toLowerCase() || SEED_ADMIN_EMAIL;
+  /**
+   * @param {string} text
+   * @param {unknown[]} [params]
+   */
+  const guarded = async (text, params = []) => {
+    if (!isReadOnlySql(text)) {
+      throw new Error("remote dry-run refused a statement that is not read-only");
+    }
+    return query(text, params);
+  };
+  await guarded("begin read only");
+  try {
+    const audited = await auditDatabase(guarded);
+    const users = await guarded('select id, email from "user" order by id');
+    /** @type {string[]} */
+    const otherUsers = [];
+    for (const row of users.rows) {
+      const email = String(row.email ?? "").trim().toLowerCase();
+      if (email === adminEmail) continue;
+      otherUsers.push(String(row.id));
+    }
+    /** @type {string[]} */
+    const looks = [];
+    /** @type {string[]} */
+    const houses = [];
+    /** @type {string[]} */
+    const images = [];
+    /** @type {string[]} */
+    const dataImages = [];
+    for (const row of audited) {
+      if (row.seeded) continue;
+      if (row.kind === "look") looks.push(row.id);
+      else if (row.kind === "house") houses.push(row.id);
+      else if (row.kind === "image") {
+        if (String(row.id).startsWith("data:")) dataImages.push(row.id);
+        else images.push(row.id);
+      }
+    }
+    await guarded("rollback");
+    return { users: otherUsers, looks, houses, images, dataImages };
+  } catch (error) {
+    try {
+      await guarded("rollback");
+    } catch {
+      /* the connection may already be aborted */
+    }
+    throw error;
+  }
+}
+
+/**
+ * @param {{
+ *   users: string[],
+ *   looks: string[],
+ *   houses: string[],
+ *   images: string[],
+ *   dataImages: string[],
+ * }} result
+ */
+export function formatRemoteDryRun(result) {
+  const lines = ["remote-dry-run read-only; wrote 0"];
+  const sections = [
+    ["users other than the seed admin", "user", result.users],
+    ["looks", "look", result.looks],
+    ["houses", "house", result.houses],
+    ["images/uploads", "image", result.images],
+    ["data-url images", "image", result.dataImages],
+  ];
+  for (const [label, prefix, ids] of sections) {
+    lines.push(`${label} ${ids.length}`);
+    for (const id of ids) lines.push(`  ${prefix} ${id}`);
+  }
+  return lines.join("\n");
+}
+
 /** @param {string} text */
 function safeError(text) {
   if (/postgres(ql)?:\/\//i.test(text)) return "database connection failed";
@@ -245,11 +411,17 @@ async function main() {
   const pool = openDedicatedPool(databaseUrl);
   const client = await pool.connect();
   try {
-    const result = await pruneUnseededLooks(
-      /** @param {string} text @param {unknown[]} [params] */
-      (text, params = []) => client.query(text, params),
-      { confirm: guard.confirm, includeUserLooks: guard.includeUserLooks },
-    );
+    /** @param {string} text @param {unknown[]} [params] */
+    const query = (text, params = []) => client.query(text, params);
+    if (guard.remoteDryRun) {
+      const result = await reportUnseeded(query, { adminEmail: seedAdminEmail(process.env) });
+      console.log(formatRemoteDryRun(result));
+      return;
+    }
+    const result = await pruneUnseededLooks(query, {
+      confirm: guard.confirm,
+      includeUserLooks: guard.includeUserLooks,
+    });
     console.log(formatPrune(result));
   } finally {
     client.release();

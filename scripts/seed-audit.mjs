@@ -27,7 +27,12 @@ export async function auditDatabase(query) {
   /** @type {{ rows: Array<{ id: string, image_src?: string, images_json?: string }> }} */
   let styles = { rows: [] };
   try {
-    styles = await query("select id, image_src, images_json from fashion_styles order by id");
+    // `to_regclass` returns null when the table is missing, so a read-only
+    // transaction is not aborted the way a missing-table error would be.
+    const reg = await query("select to_regclass('fashion_styles') as rel");
+    if (reg.rows[0]?.rel) {
+      styles = await query("select id, image_src, images_json from fashion_styles order by id");
+    }
   } catch {
     styles = { rows: [] };
   }
