@@ -16,6 +16,12 @@ import { DEFAULT_SPLASH, EARLY_CHROME_SCRIPT, parseSplashId, readStoredSplash } 
 import appCss from "../styles.css?url";
 import phase1aCss from "../styles.phase1-a.css?url";
 
+// Dev-only e2e cleanup. `import.meta.env.DEV` is false in the production build,
+// so this module and its server function are left out of that bundle.
+if (import.meta.env.DEV) {
+  void import("@/lib/e2e/delete-signed-up-user");
+}
+
 const APP_NAME = "Looktag";
 
 type SessionUser = { id: string; email: string | null } | null;

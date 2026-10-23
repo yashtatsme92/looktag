@@ -7,7 +7,7 @@
  */
 import { chromium } from "playwright";
 import { CREATE_DRAFT_KEY } from "../../src/lib/looks/create-draft.ts";
-import { resolveOrigin, withPage } from "./helpers.mjs";
+import { resolveOrigin, clearUploadedDrafts, withPage } from "./helpers.mjs";
 
 const origin = resolveOrigin();
 const viewports = [
@@ -250,6 +250,7 @@ async function createFlow(browser, viewport, upload) {
         checkNative(`${label}.details.${i}`, m);
         checkPins(`${label}.details.${i}`, m);
       });
+      await clearUploadedDrafts(page);
     },
     `aspect-create-${upload.name}-${viewport.width}`,
     { viewport },

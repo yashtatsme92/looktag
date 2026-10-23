@@ -6,7 +6,7 @@
  */
 import { chromium } from "playwright";
 import { CREATE_DRAFT_KEY } from "../../src/lib/looks/create-draft.ts";
-import { resolveOrigin, withPage } from "./helpers.mjs";
+import { resolveOrigin, clearUploadedDrafts, withPage } from "./helpers.mjs";
 
 const origin = resolveOrigin();
 const viewport = { width: 390, height: 844 };
@@ -159,6 +159,7 @@ try {
       await page.getByRole("button", { name: "Close" }).click();
       await page.getByRole("dialog", { name: "Discard this look?" }).waitFor({ timeout: 5_000 });
       record("create-phone.close.discard-confirm", new URL(page.url()).pathname === "/create");
+      await clearUploadedDrafts(page);
     },
     "create-phone-close-pins",
     { viewport },
@@ -239,6 +240,7 @@ try {
       await page.getByRole("button", { name: "Continue" }).click();
       await page.getByRole("heading", { name: "Ready" }).waitFor({ timeout: 8_000 });
       record("create-phone.ready.no-tab-bar", (await tabBars(page)) === 0);
+      await clearUploadedDrafts(page);
     },
     "create-phone",
     { viewport },

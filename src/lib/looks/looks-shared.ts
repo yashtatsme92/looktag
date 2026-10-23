@@ -6,6 +6,7 @@ import { lookStats, rankScore, type RankWeights } from "./rank";
 import { normalizeLookTags } from "./offers";
 import type { CropRect } from "./crop";
 import { SEED_LOOKS } from "./seed";
+import { recordRepoSeedLedger } from "./seed-ledger";
 import { ensureFashionLabels } from "@/lib/labels/api";
 
 export type CreatorProfile = {
@@ -192,6 +193,7 @@ export async function ensureEditorialLooks(sql: Sql) {
 export async function seedCatalog(sql: Sql) {
   await ensureEditorialLooks(sql);
   await ensureFashionLabels(sql);
+  await recordRepoSeedLedger(sql);
 }
 
 export type ProfileExtras = {

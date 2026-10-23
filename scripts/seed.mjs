@@ -2,23 +2,24 @@
 /**
  * Idempotent catalog seed. Not part of `db:migrate`.
  *
- * Houses, collections, styles and creator profiles that ship in SQL migrations
- * are already applied by `npm run db:migrate`. Editorial looks and the rest of
- * the house catalog live in code (`src/lib/looks/seed.ts`,
- * `src/lib/labels/seed.ts`) and are inserted by `seedCatalog` — the same
- * function the server runs on first read. Inserts are `on conflict do nothing`
- * (looks also go through `seeded_items`), so running this again changes nothing.
- * House looks (`house-*`) are recorded as `house_look` the same way.
- * Centred crops are computed here, so migrate-then-seed leaves no null crops.
+ * Inserts only data that ships in this repo (`src/lib/looks/seed.ts`,
+ * `src/lib/labels/seed.ts`). It never reads uploads, fixtures, e2e runs, or
+ * dev data. Every seeded row is recorded in `seeded_items`, including
+ * `house-*` looks, houses, products, and image paths. Centred crops are
+ * computed here (`backfillLookCrops`), so migrate-then-seed leaves no null
+ * crops on seeded looks.
+ *
+ * Houses, collections, and styles that also ship in SQL migrations are applied
+ * by `npm run db:migrate`. Editorial looks and the rest of the house catalog
+ * are inserted by `seedCatalog` — the same function the server runs on first
+ * read. Inserts are `on conflict do nothing`, so running this again changes
+ * nothing.
  *
  * The Vite loader does not watch files (`server.watch` is null). Seed needs
  * the dev dependency `vite` on the machine that runs it.
  *
- * Looks are not copied into a second SQL file. A fresh PGLite database gets
- * the same rows when the server calls `seedCatalog`; this command does that
- * up front for Neon.
- *
  *   npm run db:migrate && npm run db:seed
+ *   npm run db:seed:audit
  *
  * No DATABASE_URL -> skip. PGLite seeds itself on first request.
  */
