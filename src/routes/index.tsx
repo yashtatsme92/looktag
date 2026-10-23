@@ -1,33 +1,43 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { EchoHome } from "@/components/home/echo-home";
 import { WideHome } from "@/components/home/wide-home";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
+import { listPublicLooks } from "@/lib/looks/api";
+import { memoPromise } from "@/lib/loading/memo-promise";
 import { useLooksStore } from "@/lib/looks/store";
+import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+  loader: async () => {
+    try {
+      return { looks: await memoPromise("looks", () => listPublicLooks()) };
+    } catch {
+      return { looks: [] };
+    }
+  },
+  staleTime: 30_000,
+  component: Home,
+});
 
 function Home() {
-  const looks = useLooksStore((s) => s.looks);
-  const refreshLooks = useLooksStore((s) => s.refresh);
+  const loaded = Route.useLoaderData();
+  const storeLooks = useLooksStore((s) => s.looks);
+  const hydrated = useLooksStore((s) => s.hydrated);
+  const chrome = useChromeLayout();
+  const looks = hydrated ? storeLooks : loaded.looks.length > 0 ? loaded.looks : storeLooks;
 
-  useEffect(() => {
-    void refreshLooks();
-  }, [refreshLooks]);
+  useLayoutEffect(() => {
+    if (loaded.looks.length === 0) return;
+    useLooksStore.setState({ looks: loaded.looks, hydrated: true });
+  }, [loaded.looks]);
 
   return (
     <AppShell title="Looks" largeTitle flush header={looks.length > 0 ? "hidden" : "bar"}>
       {looks.length > 0 ? (
-        <>
-          <div className="lt-phone">
-            <EchoHome looks={looks} />
-          </div>
-          <div className="lt-wide">
-            <WideHome looks={looks} />
-          </div>
-        </>
+        chrome === "phone" ? <EchoHome looks={looks} /> : <WideHome looks={looks} />
       ) : (
         <div className="look-feed-empty flex h-full flex-col items-start justify-end gap-4 px-5 pb-8">
           <p className="look-feed-empty-title font-display text-4xl">No looks yet</p>

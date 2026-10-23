@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ChevronLeft, Radio, Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -6,7 +7,7 @@ import { AccountSheet } from "@/components/home/account-sheet";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { authEnabled } from "@/lib/auth/client";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { ECHO_FROM_KEY, echoKicker, forYouOrder, pieceLine, recordEchoActivation } from "@/lib/home/echo";
 import { FEED_LESS_KEY, readStoredIds } from "@/lib/home/follows";
 import { useEchoLane } from "@/lib/home/use-echo-lane";
@@ -28,6 +29,7 @@ import { useSettingsStore } from "@/lib/settings/store";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { useDelayedLoad } from "@/lib/loading/delayed-load";
 import { settleLoad } from "@/lib/loading/test-delay";
+import { useOverlay } from "@/lib/overlay/use-overlay";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +45,8 @@ export function WideLook({
   const navigate = useNavigate();
   const router = useRouter();
   const looks = useLooksStore((s) => s.looks);
-  const { user, isPending } = useCurrentUserState();
+  const { user } = useCurrentUserState();
+  const runSettled = useSettledSessionAction();
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const saved = useSavedLooks((s) => s.ids.includes(look.id));
@@ -75,6 +78,9 @@ export function WideLook({
   const echoRef = useStaggerIn(`${look.id}:${echoLoad.phase}`);
 
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
+  const shareRef = useRef<HTMLDivElement>(null);
+
+  useOverlay(shareOpen, shareRef, () => setShareOpen(false));
 
   function openShop(tag: ProductTag, source: "piece_shop" | "shop_look") {
     const target = visualShopTarget(tag);
@@ -105,12 +111,14 @@ export function WideLook({
   }
 
   function save() {
-    if (authEnabled && !isPending && !user) {
-      setSheetOpen(true);
-      return;
-    }
-    const next = toggleSaved(look.id);
-    toast.success(next ? "Saved" : "Removed from wardrobe");
+    runSettled((sessionUser) => {
+      if (authEnabled && !sessionUser) {
+        setSheetOpen(true);
+        return;
+      }
+      const next = toggleSaved(look.id);
+      toast.success(next ? "Saved" : "Removed from wardrobe");
+    });
   }
 
   async function share() {
@@ -215,14 +223,28 @@ export function WideLook({
                   </Link>
                 ) : null}
               </div>
-              {shareOpen ? (
-                <div className="wide-share" role="dialog" aria-label="Share">
-                  <p className="wide-kicker">Share this look</p>
-                  <button type="button" className="wide-btn wide-btn-primary wide-btn-block" onClick={() => void share()}>
-                    Copy link
-                  </button>
-                </div>
-              ) : null}
+              {shareOpen
+                ? createPortal(
+                    <div
+                      ref={shareRef}
+                      className="wide-share"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label="Share"
+                      tabIndex={-1}
+                      data-overlay-root=""
+                    >
+                      <p className="wide-kicker">Share this look</p>
+                      <button type="button" className="wide-btn wide-btn-primary wide-btn-block" onClick={() => void share()}>
+                        Copy link
+                      </button>
+                      <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={() => setShareOpen(false)}>
+                        Close
+                      </button>
+                    </div>,
+                    document.body,
+                  )
+                : null}
             </div>
             <div className="wide-panel-bd">
               <div className="wide-sech">
@@ -255,14 +277,12 @@ export function WideLook({
           </aside>
         </div>
 
-        <div className="wide-shop-sheet-host" hidden={!shopSheetOpen}>
-          <LookShopSheet
-            tags={look.tags}
-            open={shopSheetOpen}
-            onClose={() => setShopSheetOpen(false)}
-            onShopPiece={shopPiece}
-          />
-        </div>
+        <LookShopSheet
+          tags={look.tags}
+          open={shopSheetOpen}
+          onClose={() => setShopSheetOpen(false)}
+          onShopPiece={shopPiece}
+        />
 
         {echo.length > 0 ? (
           <section className="wide-echo echo-lane" aria-label="Echo">

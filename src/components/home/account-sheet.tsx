@@ -66,11 +66,11 @@ export function AccountSheet({
         {...(description ? {} : { "aria-describedby": undefined })}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          emailRef.current?.focus();
+          emailRef.current?.focus({ preventScroll: true });
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          opener.current?.focus();
+          opener.current?.focus({ preventScroll: true });
         }}
       >
         <DrawerHeader>

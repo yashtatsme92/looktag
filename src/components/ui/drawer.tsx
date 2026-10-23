@@ -1,7 +1,6 @@
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
-import { useNativePortal } from "@/components/layout/native-portal";
-import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
+import { lockBackgroundScroll } from "@/lib/overlay/scroll-lock";
 import { cn } from "@/lib/utils";
 
 function Drawer({
@@ -16,24 +15,27 @@ function DrawerTrigger({ ...props }: React.ComponentProps<typeof DrawerPrimitive
 }
 
 function DrawerPortal({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Portal>) {
-  const container = useNativePortal();
-  const wide = useChromeLayout() !== "phone";
-  // On tablet and desktop the native screen is a page section under the 60px web header, not the viewport; a sheet portalled into it overflows the viewport by that height.
-  return <DrawerPrimitive.Portal container={wide ? undefined : (container ?? undefined)} {...props} />;
+  return <DrawerPrimitive.Portal {...props} />;
 }
 
 function DrawerClose({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Close>) {
   return <DrawerPrimitive.Close {...props} />;
 }
 
+function BackgroundScrollLock() {
+  React.useEffect(() => lockBackgroundScroll(), []);
+  return null;
+}
+
 function DrawerOverlay({
   className,
+  style,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Overlay>) {
-  const wide = useChromeLayout() !== "phone";
   return (
     <DrawerPrimitive.Overlay
-      className={cn(wide ? "fixed" : "absolute", "inset-0 z-50 bg-foreground/40", className)}
+      className={cn("fixed inset-0 z-50 bg-foreground/40", className)}
+      style={{ top: "var(--vv-offset, 0px)", height: "var(--app-height, 100dvh)", ...style }}
       {...props}
     />
   );
@@ -42,18 +44,21 @@ function DrawerOverlay({
 function DrawerContent({
   className,
   children,
+  style,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
-  const wide = useChromeLayout() !== "phone";
   return (
     <DrawerPortal>
+      <BackgroundScrollLock />
       <DrawerOverlay />
       <DrawerPrimitive.Content
+        data-overlay-root=""
+        tabIndex={-1}
         className={cn(
-          wide ? "fixed" : "absolute",
-          "inset-x-0 bottom-0 z-50 mt-24 flex max-h-[86%] flex-col rounded-t-xl bg-card text-card-foreground shadow-[var(--shadow-border-hover)] outline-none",
+          "fixed inset-x-0 z-50 mt-24 flex max-h-[86%] flex-col rounded-t-xl bg-card text-card-foreground shadow-[var(--shadow-border-hover)] outline-none",
           className,
         )}
+        style={{ bottom: "max(0px, calc(100vh - var(--vv-offset, 0px) - var(--app-height, 100vh)))", ...style }}
         {...props}
       >
         <DrawerPrimitive.Handle className="mx-auto mt-3 mb-1 h-1 w-10 shrink-0 rounded-full bg-border" />

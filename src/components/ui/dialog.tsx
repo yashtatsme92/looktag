@@ -1,6 +1,7 @@
+import { useEffect } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { useNativePortal } from "@/components/layout/native-portal";
+import { lockBackgroundScroll } from "@/lib/overlay/scroll-lock";
 import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
@@ -10,8 +11,13 @@ const DialogClose = DialogPrimitive.Close;
 function DialogPortal({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  const container = useNativePortal();
-  return <DialogPrimitive.Portal container={container ?? undefined} {...props} />;
+  // Body, not the transformed .native-screen, so position:fixed is the viewport.
+  return <DialogPrimitive.Portal {...props} />;
+}
+
+function BackgroundScrollLock() {
+  useEffect(() => lockBackgroundScroll(), []);
+  return null;
 }
 
 function DialogOverlay({
@@ -21,7 +27,7 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Overlay
       className={cn(
-        "absolute inset-0 z-50 bg-foreground/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-foreground/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className,
       )}
       {...props}
@@ -36,10 +42,12 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPortal>
+      <BackgroundScrollLock />
       <DialogOverlay />
       <DialogPrimitive.Content
+        data-overlay-root=""
         className={cn(
-          "absolute top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-card p-6 text-card-foreground shadow-[var(--shadow-border-hover)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "fixed top-[calc(var(--vv-offset,0px)+(var(--app-height,100dvh)/2))] left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-card p-6 text-card-foreground shadow-[var(--shadow-border-hover)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className,
         )}
         {...props}

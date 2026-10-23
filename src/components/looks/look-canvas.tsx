@@ -204,7 +204,13 @@ export function LookCanvas({
               setNatural({ w: img.naturalWidth, h: img.naturalHeight });
             }
           }}
-          style={imageStyle}
+          style={
+            imageStyle
+              ? imageStyle
+              : cropped
+                ? { visibility: "hidden" }
+                : undefined
+          }
           className={cn(
             "look-photo-img block select-none",
             fit === "natural" && "w-full",
@@ -236,7 +242,7 @@ export function LookCanvas({
         />
       ) : null}
 
-      {showTags && (!cropped || natural)
+      {showTags && (!cropped || imageStyle)
         ? tags.map((tag, index) => {
             const point = cropWindow
               ? {

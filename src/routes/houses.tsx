@@ -45,6 +45,7 @@ async function loadHousesIndex(): Promise<HousesIndex> {
 export const Route = createFileRoute("/houses")({
   ssr: true,
   loader: () => clientDeferred(loadHousesIndex, "houses:index"),
+  staleTime: 30_000,
   pendingMs: 300,
   pendingMinMs: 420,
   pendingComponent: HousesIndexPending,
