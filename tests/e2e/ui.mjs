@@ -1249,7 +1249,7 @@ async function flowPinCardClear(page) {
       return {
         path: location.pathname,
         nums: rows.map((r) => r.querySelector(".look-sheet-num")?.textContent),
-        empty: rows.filter((r) => !r.querySelector(".look-sheet-shop") && (r.dataset.style === "true" || /No close match yet/.test(r.textContent))).length,
+        empty: rows.filter((r) => /No close match yet/.test(r.textContent) && !r.querySelector(".look-sheet-shop")).length,
         noShop: rows.filter((r) => !r.querySelector(".look-sheet-shop")).length,
         unexplained: rows.filter(
           (r) => !r.querySelector(".look-sheet-shop") && r.getAttribute("data-style") !== "true" && !/No close match yet/.test(r.textContent ?? ""),

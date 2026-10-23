@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useRef } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -8,7 +8,7 @@ import { SkeletonOfferRow } from "@/components/ds/skeleton";
 import { useDelayedLoad } from "@/lib/loading/delayed-load";
 import { settleLoad } from "@/lib/loading/test-delay";
 import { visualShopTarget } from "@/lib/looks/offers";
-import { lockBackgroundScroll } from "@/lib/overlay/scroll-lock";
+import { useOverlay } from "@/lib/overlay/use-overlay";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { ProductTag } from "@/lib/looks/types";
 
@@ -36,57 +36,11 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
   );
 
   /** Focus moves into the sheet on open and returns to the control that opened it on close. */
-  useEffect(() => {
-    if (!open) return;
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const plate = sheetRef.current?.closest(".look-plate") ?? document.querySelector(".look-plate");
-    const release = lockBackgroundScroll();
-    sheetRef.current?.focus({ preventScroll: true });
-    function onEscape(event: globalThis.KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onClose();
-    }
-    document.addEventListener("keydown", onEscape);
-    return () => {
-      document.removeEventListener("keydown", onEscape);
-      release();
-      requestAnimationFrame(() => {
-        // The opener can be swapped out while the sheet is open (Shop <-> Shop whole look); fall back to the plate's Shop control.
-        const target = opener?.isConnected ? opener : plate?.querySelector<HTMLElement>(".look-plate-shop, .look-plate-shop-whole");
-        target?.focus({ preventScroll: true });
-      });
-    };
-  }, [open, onClose]);
+  useOverlay(open, sheetRef, onClose, {
+    returnTo: () => document.querySelector<HTMLElement>(".look-plate-shop, .look-plate-shop-whole"),
+  });
 
   if (!open) return null;
-
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      onClose();
-      return;
-    }
-    if (event.key !== "Tab") return;
-    // Focus trap: Tab and Shift+Tab cycle inside the sheet, never out to the pins and card behind the scrim.
-    const sheet = sheetRef.current;
-    if (!sheet) return;
-    const items = [...sheet.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")].filter((el) => el.getAttribute("aria-hidden") !== "true");
-    if (items.length === 0) {
-      event.preventDefault();
-      return;
-    }
-    const first = items[0];
-    const last = items[items.length - 1];
-    const active = document.activeElement;
-    if (event.shiftKey && (active === first || active === sheet)) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && (active === last || active === sheet)) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
 
   return createPortal(
     <div className="look-sheet-host">
@@ -98,8 +52,8 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
         aria-modal="true"
         aria-label="Shop this look"
         tabIndex={-1}
+        data-overlay-root=""
         data-guest-shop="ok"
-        onKeyDown={onKeyDown}
       >
         <span className="look-sheet-grab" aria-hidden />
         <button type="button" className="look-sheet-x" aria-label="Close" onClick={onClose}>

@@ -52,6 +52,8 @@ function DrawerContent({
       <BackgroundScrollLock />
       <DrawerOverlay />
       <DrawerPrimitive.Content
+        data-overlay-root=""
+        tabIndex={-1}
         className={cn(
           "fixed inset-x-0 z-50 mt-24 flex max-h-[86%] flex-col rounded-t-xl bg-card text-card-foreground shadow-[var(--shadow-border-hover)] outline-none",
           className,

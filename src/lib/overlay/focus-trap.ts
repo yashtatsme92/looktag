@@ -19,10 +19,10 @@ export function trapTab(event: KeyboardEvent, root: HTMLElement): boolean {
   const inside = active instanceof Node && root.contains(active);
   if (event.shiftKey && (!inside || active === first || active === root)) {
     event.preventDefault();
-    last.focus();
+    last.focus({ preventScroll: true });
   } else if (!event.shiftKey && (!inside || active === last || active === root)) {
     event.preventDefault();
-    first.focus();
+    first.focus({ preventScroll: true });
   }
   return true;
 }

@@ -45,6 +45,7 @@ function DialogContent({
       <BackgroundScrollLock />
       <DialogOverlay />
       <DialogPrimitive.Content
+        data-overlay-root=""
         className={cn(
           "fixed top-[calc(var(--vv-offset,0px)+(var(--app-height,100dvh)/2))] left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-card p-6 text-card-foreground shadow-[var(--shadow-border-hover)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className,

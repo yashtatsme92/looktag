@@ -187,6 +187,11 @@ html.route-pending:not(.route-skeleton) .app-frame {
   opacity: var(--dim-loading);
 }
 
+html.overlay-lock,
+html.overlay-lock body {
+  overflow: hidden !important;
+}
+
 .is-loading-old {
   opacity: var(--dim-loading);
   transition: opacity var(--dur-crossfade) var(--ease-std);
@@ -3254,8 +3259,6 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   position: absolute;
   inset: 0;
   display: block;
-  aspect-ratio: 3 / 4;
-  background: #111111;
 }
 
 .echo-photo img {

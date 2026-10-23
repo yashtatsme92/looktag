@@ -26,8 +26,9 @@ const APP_NAME = "Looktag";
 
 type SessionUser = { id: string; email: string | null } | null;
 
-/** Last session seen by this document. Client navigations reuse it and refresh in the background. */
+/** Last session seen by this document. Client navigations reuse it and do not refetch. */
 let sessionCache: SessionUser | undefined;
+let sessionLoaded = false;
 
 const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
   const { getSessionUser } = await import("@/lib/auth/verify.server");
@@ -48,9 +49,12 @@ export const Route = createRootRoute({
     // page at full opacity until the fetch returned, so the tap had no dim.
     if (typeof document !== "undefined") {
       const sessionUser = sessionCache ?? null;
-      void withTimeout(fetchSessionUser(), 2000, null).then((user) => {
-        sessionCache = user ?? null;
-      });
+      if (!sessionLoaded) {
+        sessionLoaded = true;
+        void withTimeout(fetchSessionUser(), 2000, null).then((user) => {
+          sessionCache = user ?? null;
+        });
+      }
       return {
         sessionUser,
         splashId: readStoredSplash(),

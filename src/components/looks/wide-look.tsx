@@ -7,7 +7,7 @@ import { AccountSheet } from "@/components/home/account-sheet";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { authEnabled } from "@/lib/auth/client";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { ECHO_FROM_KEY, echoKicker, forYouOrder, pieceLine, recordEchoActivation } from "@/lib/home/echo";
 import { FEED_LESS_KEY, readStoredIds } from "@/lib/home/follows";
 import { useEchoLane } from "@/lib/home/use-echo-lane";
@@ -29,8 +29,7 @@ import { useSettingsStore } from "@/lib/settings/store";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { useDelayedLoad } from "@/lib/loading/delayed-load";
 import { settleLoad } from "@/lib/loading/test-delay";
-import { lockBackgroundScroll } from "@/lib/overlay/scroll-lock";
-import { trapTab } from "@/lib/overlay/focus-trap";
+import { useOverlay } from "@/lib/overlay/use-overlay";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +45,8 @@ export function WideLook({
   const navigate = useNavigate();
   const router = useRouter();
   const looks = useLooksStore((s) => s.looks);
-  const { user, isPending } = useCurrentUserState();
+  const { user } = useCurrentUserState();
+  const runSettled = useSettledSessionAction();
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const saved = useSavedLooks((s) => s.ids.includes(look.id));
@@ -80,27 +80,7 @@ export function WideLook({
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
   const shareRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!shareOpen) return;
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const release = lockBackgroundScroll();
-    shareRef.current?.focus({ preventScroll: true });
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setShareOpen(false);
-        return;
-      }
-      const node = shareRef.current;
-      if (node) trapTab(event, node);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      release();
-      requestAnimationFrame(() => opener?.isConnected && opener.focus({ preventScroll: true }));
-    };
-  }, [shareOpen]);
+  useOverlay(shareOpen, shareRef, () => setShareOpen(false));
 
   function openShop(tag: ProductTag, source: "piece_shop" | "shop_look") {
     const target = visualShopTarget(tag);
@@ -131,12 +111,14 @@ export function WideLook({
   }
 
   function save() {
-    if (authEnabled && !isPending && !user) {
-      setSheetOpen(true);
-      return;
-    }
-    const next = toggleSaved(look.id);
-    toast.success(next ? "Saved" : "Removed from wardrobe");
+    runSettled((sessionUser) => {
+      if (authEnabled && !sessionUser) {
+        setSheetOpen(true);
+        return;
+      }
+      const next = toggleSaved(look.id);
+      toast.success(next ? "Saved" : "Removed from wardrobe");
+    });
   }
 
   async function share() {
@@ -250,6 +232,7 @@ export function WideLook({
                       aria-modal="true"
                       aria-label="Share"
                       tabIndex={-1}
+                      data-overlay-root=""
                     >
                       <p className="wide-kicker">Share this look</p>
                       <button type="button" className="wide-btn wide-btn-primary wide-btn-block" onClick={() => void share()}>

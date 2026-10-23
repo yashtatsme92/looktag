@@ -40,7 +40,7 @@ import {
   writeStoredIds,
 } from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { loadingCache } from "@/lib/loading/cache";
 import { useDelayedLoad } from "@/lib/loading/delayed-load";
 import { settleLoad } from "@/lib/loading/test-delay";
@@ -85,7 +85,8 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const runEvery = useSettingsStore((s) => s.feedRunEvery);
   const runTitle = useSettingsStore((s) => s.feedRunTitle);
   const runIds = useSettingsStore((s) => s.feedRunIds);
-  const { user, isPending } = useCurrentUserState();
+  const { user } = useCurrentUserState();
+  const runSettled = useSettledSessionAction();
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const savedIds = useSavedLooks((s) => s.ids);
@@ -220,13 +221,15 @@ export function WideHome({ looks }: { looks: Look[] }) {
   const runLooks = run ? run.lookIds.map((id) => deck.find((look) => look.id === id)).filter((look): look is Look => Boolean(look)) : [];
 
   function save(look: Look) {
-    if (authEnabled && !isPending && !user) {
-      setPendingSaveId(look.id);
-      setSheetOpen(true);
-      return;
-    }
-    const saved = toggleSaved(look.id);
-    toast.success(saved ? "Saved" : "Removed from wardrobe");
+    runSettled((sessionUser) => {
+      if (authEnabled && !sessionUser) {
+        setPendingSaveId(look.id);
+        setSheetOpen(true);
+        return;
+      }
+      const saved = toggleSaved(look.id);
+      toast.success(saved ? "Saved" : "Removed from wardrobe");
+    });
   }
 
   function echo(look: Look) {

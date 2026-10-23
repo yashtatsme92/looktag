@@ -13,12 +13,11 @@ import { PieceThumb } from "@/components/looks/piece-thumb";
 import { ECHO_FROM_KEY, echoKicker, pieceLine, recordEchoActivation } from "@/lib/home/echo";
 import { shouldUseHistoryBack, markEditOpenedFromLook } from "@/lib/nav/back";
 import { authEnabled } from "@/lib/auth/client";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
 import { placePinCard } from "@/lib/looks/pin-card";
-import { lockBackgroundScroll } from "@/lib/overlay/scroll-lock";
-import { trapTab } from "@/lib/overlay/focus-trap";
+import { useOverlay } from "@/lib/overlay/use-overlay";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
@@ -54,7 +53,8 @@ export function LookPlate({
 }) {
   const router = useRouter();
   const navigate = useNavigate();
-  const { user, isPending } = useCurrentUserState();
+  const { user } = useCurrentUserState();
+  const runSettled = useSettledSessionAction();
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const saved = useSavedLooks((s) => s.ids.includes(look.id));
@@ -159,29 +159,13 @@ export function LookPlate({
     setCardPos({ top: plateRect.top + placed.top, left: plateRect.left + placed.left });
   }, [selectedId, look.tags, plateSize.w, plateSize.h]);
 
-  useEffect(() => {
-    if (!selectedId || sheetOpen || shopSheetOpen) return;
-    const opener = pinOpenerRef.current;
-    const release = lockBackgroundScroll();
-    function onKey(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setSelectedId(null);
-        return;
-      }
-      const card = cardRef.current;
-      if (card) trapTab(event, card);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      release();
-      requestAnimationFrame(() => {
-        const pin = opener?.isConnected ? opener : plateRef.current?.querySelector<HTMLElement>(".tag-pin");
-        pin?.focus({ preventScroll: true });
-      });
-    };
-  }, [selectedId, sheetOpen, shopSheetOpen]);
+  useOverlay(Boolean(selectedId) && !sheetOpen && !shopSheetOpen, cardRef, () => setSelectedId(null), {
+    returnTo: () => {
+      const opener = pinOpenerRef.current;
+      if (opener?.isConnected) return opener;
+      return plateRef.current?.querySelector<HTMLElement>(".tag-pin") ?? null;
+    },
+  });
 
   /** Esc, arrow keys and taps on the bare plate act on this plate only, never on the whole document. */
   function onPlateKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -207,12 +191,14 @@ export function LookPlate({
   }
 
   function save() {
-    if (authEnabled && !isPending && !user) {
-      setSheetOpen(true);
-      return;
-    }
-    const next = toggleSaved(look.id);
-    toast.success(next ? "Saved" : "Removed from wardrobe");
+    runSettled((sessionUser) => {
+      if (authEnabled && !sessionUser) {
+        setSheetOpen(true);
+        return;
+      }
+      const next = toggleSaved(look.id);
+      toast.success(next ? "Saved" : "Removed from wardrobe");
+    });
   }
 
   async function share() {
@@ -308,6 +294,7 @@ export function LookPlate({
               tabIndex={-1}
               role="dialog"
               aria-label="Selected piece"
+              data-overlay-root=""
               onPointerDown={(event) => {
                 swipeRef.current = event.clientX;
               }}

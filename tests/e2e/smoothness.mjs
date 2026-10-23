@@ -17,6 +17,21 @@ function check(name, ok, detail = "") {
   if (!ok) failures.push(line);
 }
 
+function decodeServerFn(url) {
+  const raw = url.split("/_serverFn/")[1]?.split("?")[0] ?? "";
+  try {
+    return atob(raw.replace(/-/g, "+").replace(/_/g, "/"));
+  } catch {
+    return url;
+  }
+}
+
+function trackName(url) {
+  const name = decodeServerFn(url);
+  if (name.includes("ingestClientSignals")) return "";
+  return name;
+}
+
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-GB" });
 const page = await context.newPage();
 await page.addInitScript(() => {
@@ -31,13 +46,8 @@ const serverFns = [];
 page.on("request", (request) => {
   const url = request.url();
   if (!url.includes("_serverFn")) return;
-  let name = url;
-  try {
-    name = atob(url.split("/_serverFn/")[1]?.split("?")[0] ?? "");
-  } catch {
-    /* keep the raw url */
-  }
-  if (name.includes("ingestClientSignals")) return;
+  const name = trackName(url);
+  if (!name) return;
   serverFns.push(name);
 });
 await page.goto(`${origin}/`, { waitUntil: "networkidle", timeout: 30_000 });
@@ -47,9 +57,22 @@ const trees = await page.evaluate(() => ({
   wide: document.querySelectorAll(".wide-home").length,
 }));
 check("one tree at 390", trees.phone === 1 && trees.wide === 0, JSON.stringify(trees));
-const counts = serverFns.reduce((map, url) => {
-  const key = url.split("?")[0];
-  map[key] = (map[key] ?? 0) + 1;
+const bleed = await page.evaluate(() => {
+  const photo = document.querySelector(".echo-photo");
+  const stage = document.querySelector(".echo-stage");
+  if (!photo || !stage) return { gap: 999, aspect: "missing" };
+  const photoBox = photo.getBoundingClientRect();
+  const stageBox = stage.getBoundingClientRect();
+  return {
+    gap: Math.round(stageBox.bottom - photoBox.bottom),
+    aspect: getComputedStyle(photo).aspectRatio,
+    photoH: Math.round(photoBox.height),
+    stageH: Math.round(stageBox.height),
+  };
+});
+check("390 home photo is full bleed", bleed.gap <= 1 && (bleed.aspect === "auto" || bleed.aspect === "normal"), JSON.stringify(bleed));
+const counts = serverFns.reduce((map, name) => {
+  map[name] = (map[name] ?? 0) + 1;
   return map;
 }, {});
 const dupes = Object.entries(counts).filter(([, n]) => n > 1);
@@ -68,10 +91,30 @@ const housesBefore = await page.evaluate(() => {
 });
 await page.locator("a[href*='/houses/label-']").first().click();
 await page.waitForURL(/\/houses\/label-/);
+await page.waitForLoadState("networkidle");
+await page.waitForTimeout(600);
+const housesMark = serverFns.length;
 await page.goBack({ waitUntil: "networkidle" });
-await page.waitForTimeout(1200);
+await page.waitForTimeout(500);
 const housesAfter = await page.evaluate(() => document.querySelector(".native-main")?.scrollTop ?? 0);
 check("back restores houses scroll", housesBefore > 100 && Math.abs(housesAfter - housesBefore) <= 4, `${housesBefore} -> ${housesAfter}`);
+const housesAdded = serverFns.slice(housesMark).filter((name) => !name.includes("recordShareView"));
+check("back to houses makes no data requests", housesAdded.length === 0, housesAdded.join(" | ") || "0");
+const housesSkeleton = await page.evaluate(() => document.documentElement.classList.contains("route-skeleton") || Boolean(document.querySelector(".skeleton")));
+check("back to houses shows no skeleton", !housesSkeleton);
+
+await page.goto(`${origin}/`, { waitUntil: "networkidle", timeout: 30_000 });
+await page.locator("a[href*='/looks/']").first().click();
+await page.waitForURL(/\/looks\//);
+await page.waitForLoadState("networkidle");
+await page.waitForTimeout(600);
+const feedMark = serverFns.length;
+await page.goBack({ waitUntil: "networkidle" });
+await page.waitForTimeout(500);
+const feedAdded = serverFns.slice(feedMark).filter((name) => !name.includes("recordShareView"));
+const feedSkeleton = await page.evaluate(() => document.documentElement.classList.contains("route-skeleton") || Boolean(document.querySelector(".skeleton")));
+check("back to feed makes no data requests", feedAdded.length === 0, feedAdded.join(" | ") || "0");
+check("back to feed shows no skeleton", !feedSkeleton);
 
 await context.close();
 
@@ -163,6 +206,14 @@ const phonePage = await phoneLook.newPage();
 await phonePage.goto(`${origin}${lookPath}`, { waitUntil: "networkidle", timeout: 30_000 });
 await phonePage.locator(".look-plate-shop").click();
 await phonePage.locator(".look-sheet").waitFor();
+await phonePage.waitForFunction(() => {
+  const sheet = document.querySelector(".look-sheet");
+  if (!sheet) return false;
+  const top = sheet.getBoundingClientRect().top;
+  const prev = window.__sheetTop;
+  window.__sheetTop = top;
+  return typeof prev === "number" && Math.abs(prev - top) < 0.5;
+});
 const sheetBox = await phonePage.locator(".look-sheet").boundingBox();
 const locked = await phonePage.evaluate(() => document.documentElement.classList.contains("overlay-lock"));
 await phonePage.mouse.wheel(0, 400);
@@ -202,6 +253,144 @@ check("share locks the page", Math.abs(afterShare - beforeShare) <= 1, `${before
 await sharePage.keyboard.press("Escape");
 check("share escape", (await shareHost.count()) === 0);
 await shareCtx.close();
+
+function trackFns(page, bucket) {
+  page.on("request", (request) => {
+    const url = request.url();
+    if (!url.includes("_serverFn")) return;
+    const name = trackName(url);
+    if (!name) return;
+    bucket.push(name);
+  });
+}
+
+async function backgroundScroll(page) {
+  return page.evaluate(() => ({
+    y: window.scrollY,
+    doc: document.scrollingElement ? document.scrollingElement.scrollTop : 0,
+    main: document.querySelector(".native-main")?.scrollTop ?? 0,
+    panel: document.querySelector(".wide-panel-bd")?.scrollTop ?? 0,
+  }));
+}
+
+function scrollSame(before, after) {
+  return ["y", "doc", "main", "panel"].every((key) => Math.abs(before[key] - after[key]) <= 1);
+}
+
+async function assertBackgroundLocked(page, label) {
+  const before = await backgroundScroll(page);
+  await page.mouse.wheel(0, 900);
+  await page.keyboard.press("End");
+  await page.keyboard.press("PageDown");
+  await page.keyboard.press("ArrowDown");
+  const root = page.locator("[data-overlay-root]").last();
+  if (await root.count()) await root.focus();
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(80);
+  const after = await backgroundScroll(page);
+  check(`${label} background stays locked`, scrollSame(before, after), `${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+}
+
+for (const width of [1024, 1280]) {
+  const overlayCtx = await browser.newContext({ viewport: { width, height: 800 }, locale: "en-GB" });
+  const overlayPage = await overlayCtx.newPage();
+  await overlayPage.goto(`${origin}${lookPath}`, { waitUntil: "networkidle", timeout: 30_000 });
+  await overlayPage.evaluate(() => window.scrollTo(0, 0));
+
+  await overlayPage.getByRole("button", { name: "Share" }).click();
+  await overlayPage.locator(".wide-share").waitFor();
+  const shareFocus = await overlayPage.evaluate(() => document.querySelector(".wide-share")?.contains(document.activeElement) ?? false);
+  check(`share ${width} focus moves in`, shareFocus);
+  await overlayPage.keyboard.press("Tab");
+  const shareTab = await overlayPage.evaluate(() => document.querySelector(".wide-share")?.contains(document.activeElement) ?? false);
+  await overlayPage.keyboard.down("Shift");
+  await overlayPage.keyboard.press("Tab");
+  await overlayPage.keyboard.up("Shift");
+  const shareTrap = await overlayPage.evaluate(() => document.querySelector(".wide-share")?.contains(document.activeElement) ?? false);
+  check(`share ${width} traps tab`, shareTab && shareTrap);
+  await assertBackgroundLocked(overlayPage, `share ${width}`);
+  await overlayPage.getByRole("button", { name: "Share" }).focus();
+  await overlayPage.keyboard.press("Escape");
+  const shareClosed = (await overlayPage.locator(".wide-share").count()) === 0;
+  const shareBack = await overlayPage.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Share");
+  check(`share ${width} escape from trigger returns focus`, shareClosed && shareBack, `closed=${shareClosed} focus=${shareBack}`);
+
+  await overlayPage.getByRole("button", { name: "Shop whole look" }).click();
+  await overlayPage.locator(".look-sheet").waitFor();
+  const shopFocus = await overlayPage.evaluate(() => document.querySelector(".look-sheet")?.contains(document.activeElement) ?? false);
+  check(`shop ${width} focus moves in`, shopFocus);
+  await overlayPage.keyboard.press("Tab");
+  const shopTab = await overlayPage.evaluate(() => document.querySelector(".look-sheet")?.contains(document.activeElement) ?? false);
+  check(`shop ${width} traps tab`, shopTab);
+  await assertBackgroundLocked(overlayPage, `shop ${width}`);
+  await overlayPage.keyboard.press("Escape");
+  check(`shop ${width} escape closes`, (await overlayPage.locator(".look-sheet").count()) === 0);
+
+  await overlayPage.getByRole("button", { name: "Save" }).click();
+  await overlayPage.locator("[data-vaul-drawer]").waitFor({ timeout: 5_000 });
+  const signFocus = await overlayPage.evaluate(() => {
+    const root = document.querySelector("[data-vaul-drawer]");
+    return Boolean(root && root.contains(document.activeElement));
+  });
+  check(`sign-in ${width} focus moves in`, signFocus);
+  await overlayPage.keyboard.press("Tab");
+  const signTab = await overlayPage.evaluate(() => {
+    const root = document.querySelector("[data-vaul-drawer]");
+    return Boolean(root && root.contains(document.activeElement));
+  });
+  check(`sign-in ${width} traps tab`, signTab);
+  await assertBackgroundLocked(overlayPage, `sign-in ${width}`);
+  await overlayPage.keyboard.press("Escape");
+  await overlayPage.waitForTimeout(400);
+  const signOpen = await overlayPage.locator("[data-vaul-drawer][data-state='open']").count();
+  check(`sign-in ${width} escape closes`, signOpen === 0, `open=${signOpen}`);
+  await overlayCtx.close();
+}
+
+async function lookCls(delay) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-GB" });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    window.__cls = 0;
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (!entry.hadRecentInput) window.__cls += entry.value;
+      }
+    }).observe({ type: "layout-shift", buffered: true });
+  });
+  await page.route("**/*_serverFn*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    await route.continue();
+  });
+  await page.goto(`${origin}/looks/seed-sunday-coat?loadDelay=${delay}`, { waitUntil: "networkidle", timeout: 45_000 });
+  await page.waitForFunction(
+    () => {
+      const img = document.querySelector(".look-plate img");
+      return Boolean(img && img.complete && img.naturalWidth > 0 && getComputedStyle(img).visibility !== "hidden");
+    },
+    null,
+    { timeout: 20_000 },
+  );
+  await page.waitForTimeout(500);
+  const cls = await page.evaluate(() => window.__cls ?? 0);
+  await context.close();
+  return cls;
+}
+
+for (const delay of [400, 1600]) {
+  const cls = await lookCls(delay);
+  check(`look CLS 390 at ${delay}ms`, cls < 0.05, cls.toFixed(4));
+}
+
+const createCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-GB" });
+const createPage = await createCtx.newPage();
+const createFns = [];
+trackFns(createPage, createFns);
+await createPage.goto(`${origin}/create`, { waitUntil: "networkidle", timeout: 30_000 });
+await createPage.waitForTimeout(700);
+const houseCalls = createFns.filter((name) => name.includes("getMyHouse"));
+check("create calls getMyHouse once", houseCalls.length === 1, `${houseCalls.length} ${createFns.filter((name) => name.includes("getMyHouse")).join(" | ")}`);
+await createCtx.close();
 
 await browser.close();
 if (failures.length) {

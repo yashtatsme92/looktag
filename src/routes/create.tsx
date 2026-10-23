@@ -96,6 +96,7 @@ function CreateLook() {
 
   return (
     <AppShell title="Create" largeTitle>
+      {draftReady ? (
       <LookEditor
         key={look.id}
         look={look}
@@ -145,6 +146,7 @@ function CreateLook() {
           }
         }}
       />
+      ) : null}
     </AppShell>
   );
 }

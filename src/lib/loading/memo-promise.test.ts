@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { memoPromise, resetMemoPromise } from "./memo-promise.ts";
+import { memoPromise, primeMemo, resetMemoPromise } from "./memo-promise.ts";
 
 describe("memoPromise", () => {
   it("shares one in-flight call and then the settled value", async () => {
@@ -28,5 +28,17 @@ describe("memoPromise", () => {
     await assert.rejects(() => memoPromise("bad", load));
     await assert.rejects(() => memoPromise("bad", load));
     assert.equal(calls, 2);
+  });
+
+  it("primes a value so the next read does not call load", async () => {
+    resetMemoPromise();
+    primeMemo("labels", ["seed"]);
+    let calls = 0;
+    const value = await memoPromise("labels", () => {
+      calls += 1;
+      return Promise.resolve(["fresh"]);
+    });
+    assert.deepEqual(value, ["seed"]);
+    assert.equal(calls, 0);
   });
 });

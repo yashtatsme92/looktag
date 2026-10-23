@@ -43,7 +43,7 @@ import {
   writeStoredIds,
 } from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { loadingCache } from "@/lib/loading/cache";
 import { useDelayedLoad } from "@/lib/loading/delayed-load";
 import { settleLoad } from "@/lib/loading/test-delay";
@@ -68,7 +68,8 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const indexRef = useRef(0);
   const feedTargetRef = useRef(0);
   const deckLengthRef = useRef(0);
-  const { user, isPending } = useCurrentUserState();
+  const { user } = useCurrentUserState();
+  const runSettled = useSettledSessionAction();
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const savedIds = useSavedLooks((s) => s.ids);
@@ -288,13 +289,15 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   }, [anchor, deck]);
 
   function save(look: Look) {
-    if (authEnabled && !isPending && !user) {
-      setPendingSaveId(look.id);
-      setSheetOpen(true);
-      return;
-    }
-    const saved = toggleSaved(look.id);
-    toast.success(saved ? "Saved" : "Removed from wardrobe");
+    runSettled((sessionUser) => {
+      if (authEnabled && !sessionUser) {
+        setPendingSaveId(look.id);
+        setSheetOpen(true);
+        return;
+      }
+      const saved = toggleSaved(look.id);
+      toast.success(saved ? "Saved" : "Removed from wardrobe");
+    });
   }
 
   async function share(look: Look) {

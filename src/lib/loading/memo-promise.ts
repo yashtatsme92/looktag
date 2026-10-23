@@ -37,3 +37,10 @@ export function resetMemoPromise() {
   inflight.clear();
   settled.clear();
 }
+
+/** Remember a value the server already rendered so Back does not refetch it. */
+export function primeMemo<T>(key: string, value: T) {
+  if (!remember()) return;
+  if (settled.has(key) || inflight.has(key)) return;
+  settled.set(key, value);
+}

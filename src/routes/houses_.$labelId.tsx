@@ -12,7 +12,7 @@ import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { HouseProfilePending } from "@/components/ds/route-pending";
 import { authEnabled } from "@/lib/auth/client";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { getFashionLabel, getHousesAvailability, type FashionLabelPage } from "@/lib/labels/api";
 import { houseCoverSrc, publicLines, toggleHouseFollow, type FashionLabel } from "@/lib/labels/model";
 import { loadingCache } from "@/lib/loading/cache";
@@ -124,7 +124,7 @@ function HouseProfile() {
   const houseLoad = useRouteLoad(seeded, `house:${labelId}`, () => loadHouseProfile(labelId));
   const data = houseLoad.data;
   const closed = useHousesClosed(data ? data.open : true);
-  const { user, isPending } = useCurrentUserState();
+  const runSettled = useSettledSessionAction();
   const [sharing, setSharing] = useState(false);
   const [follows, setFollows] = useState<string[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -174,18 +174,20 @@ function HouseProfile() {
 
   function follow() {
     if (!label) return;
-    if (authEnabled && !isPending && !user) {
-      setSheetOpen(true);
-      return;
-    }
-    const next = toggleHouseFollow(follows, label.id);
-    setFollows(next);
-    try {
-      localStorage.setItem(FOLLOW_KEY, JSON.stringify(next));
-    } catch {
-      // private mode
-    }
-    toast.success(next.includes(label.id) ? `Following ${label.name}` : `Unfollowed ${label.name}`);
+    runSettled((sessionUser) => {
+      if (authEnabled && !sessionUser) {
+        setSheetOpen(true);
+        return;
+      }
+      const next = toggleHouseFollow(follows, label.id);
+      setFollows(next);
+      try {
+        localStorage.setItem(FOLLOW_KEY, JSON.stringify(next));
+      } catch {
+        // private mode
+      }
+      toast.success(next.includes(label.id) ? `Following ${label.name}` : `Unfollowed ${label.name}`);
+    });
   }
 
   return (
