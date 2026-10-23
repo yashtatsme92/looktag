@@ -6,13 +6,14 @@ import { WideHome } from "@/components/home/wide-home";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { listPublicLooks } from "@/lib/looks/api";
+import { memoPromise } from "@/lib/loading/memo-promise";
 import { useLooksStore } from "@/lib/looks/store";
 import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 
 export const Route = createFileRoute("/")({
   loader: async () => {
     try {
-      return { looks: await listPublicLooks() };
+      return { looks: await memoPromise("looks", () => listPublicLooks()) };
     } catch {
       return { looks: [] };
     }

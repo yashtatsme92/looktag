@@ -22,13 +22,11 @@ describe("getCreateUploadPresentation", () => {
     assert.match(copy.body, /drag and drop/i);
   });
 
-  it("returns an explicit reading state before editing begins", () => {
+  it("keeps the button label while a photo is reading", () => {
     const copy = getCreateUploadPresentation({ phone: false, reading: true });
-    assert.equal(copy.title, "Reading your photo…");
-    assert.match(copy.body, /Preview is on the way/i);
-    assert.equal(copy.primaryAction, "library");
-    assert.equal(copy.primaryLabel, "Reading…");
-    assert.equal(copy.secondaryLabel, "Take photo");
+    assert.equal(copy.title, "Choose a look photo");
+    assert.equal(copy.primaryLabel, "Choose photo");
+    assert.equal(copy.primaryLabel.includes("Reading"), false);
   });
 });
 

@@ -43,6 +43,29 @@ function ResumeCreate() {
   return null;
 }
 
+let pendingSaveTraverseToken = 0;
+let pendingSaveTraverseInstalled = false;
+
+/** History back fires `navigate` before popstate, and the router unmounts this page in that event. A listener removed on unmount never runs, so arm a permanent listener and drop the flag a tick later. */
+function installPendingSaveTraverseClear(): void {
+  if (pendingSaveTraverseInstalled || typeof window === "undefined") return;
+  pendingSaveTraverseInstalled = true;
+  const clearIfArmed = (navigationType: string | undefined) => {
+    if (!pendingSaveTraverseToken || navigationType !== "traverse") return;
+    clearPendingSave();
+  };
+  const navigation = (
+    window as Window & {
+      navigation?: { addEventListener: (type: "navigate", cb: (event: { navigationType?: string }) => void) => void };
+    }
+  ).navigation;
+  if (navigation?.addEventListener) {
+    navigation.addEventListener("navigate", (event) => clearIfArmed(event.navigationType));
+    return;
+  }
+  window.addEventListener("popstate", () => clearIfArmed("traverse"), true);
+}
+
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
     next: search.next === "/login" ? "/login" : safeNext(search.next),
@@ -106,11 +129,15 @@ function Login() {
     if (!emailOn) setMode("signin");
   }, [emailOn]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    installPendingSaveTraverseClear();
     if (!next || user) return;
-    const clearOnBack = () => clearPendingSave();
-    window.addEventListener("popstate", clearOnBack);
-    return () => window.removeEventListener("popstate", clearOnBack);
+    const token = ++pendingSaveTraverseToken;
+    return () => {
+      queueMicrotask(() => {
+        if (pendingSaveTraverseToken === token) pendingSaveTraverseToken = 0;
+      });
+    };
   }, [next, user]);
 
   async function goAfterAuth(displayName: string, userId?: string) {

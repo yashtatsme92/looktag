@@ -8,21 +8,10 @@ export type CreateUploadPresentation = {
 
 export function getCreateUploadPresentation({
   phone,
-  reading,
 }: {
   phone: boolean;
   reading?: boolean;
 }): CreateUploadPresentation {
-  if (reading) {
-    return {
-      title: "Reading your photo…",
-      body: "Preview is on the way. You’ll place pins once it’s ready.",
-      primaryAction: phone ? "camera" : "library",
-      primaryLabel: "Reading…",
-      secondaryLabel: phone ? "Choose from library" : "Take photo",
-    };
-  }
-
   if (phone) {
     return {
       title: "Start with a look",

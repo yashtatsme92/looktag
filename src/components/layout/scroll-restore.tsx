@@ -17,6 +17,8 @@ function restore(href: string) {
     const top = id ? positions.get(keyFor(href, id)) : undefined;
     if (top != null) el.scrollTop = top;
   }
+  const win = positions.get(keyFor(href, "window"));
+  if (win != null) window.scrollTo(0, win);
 }
 
 /** Puts list scroll back on Back and Forward. Push navigations stay at the top. */
@@ -35,6 +37,10 @@ export function ScrollRestore() {
       positions.set(keyFor(href, id), target.scrollTop);
     };
     document.addEventListener("scroll", onScroll, true);
+    const onWindow = () => {
+      if (!holding) positions.set(keyFor(href, "window"), window.scrollY);
+    };
+    window.addEventListener("scroll", onWindow, { passive: true });
     const unsub = router.history.subscribe(({ action, location }) => {
       const next = pathKey(location.pathname, typeof location.search === "string" ? location.search : window.location.search);
       if (action.type === "BACK" || action.type === "FORWARD" || action.type === "GO") {
@@ -56,6 +62,7 @@ export function ScrollRestore() {
     });
     return () => {
       document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("scroll", onWindow);
       unsub();
     };
   }, [router]);

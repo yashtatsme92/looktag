@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { toast } from "sonner";
 import { AdminGate } from "@/components/admin/admin-gate";
 import { Chip, Field, Stepper, Surface } from "@/components/ds";
+import { SaveStatus } from "@/components/ds/save-status";
 import { AppShell } from "@/components/layout/app-shell";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { TagPin } from "@/components/looks/tag-pin";
@@ -24,6 +24,7 @@ import {
   typeRoles,
 } from "@/lib/design/system";
 import { THEMES, type ThemeId } from "@/lib/design/themes";
+import { type OptimisticPhase } from "@/lib/loading/optimistic";
 import { replayBootSplash } from "@/lib/pwa/boot";
 import { requestInstallSheet } from "@/lib/pwa/display";
 import { useSettingsStore } from "@/lib/settings/store";
@@ -51,13 +52,24 @@ function LookAdmin() {
   const [step, setStep] = useState("pins");
   const [mood, setMood] = useState("tailored");
   const [on, setOn] = useState(true);
+  const [picked, setPicked] = useState<ThemeId | null>(null);
+  const [palettePhase, setPalettePhase] = useState<OptimisticPhase>("idle");
+  const [paletteError, setPaletteError] = useState<string | null>(null);
+  const shownTheme = picked ?? themeId;
 
   async function pickTheme(id: ThemeId) {
+    setPicked(id);
+    setPalettePhase("saving");
+    setPaletteError(null);
     try {
       await save({ themeId: id });
-      toast.success(`${THEMES.find((theme) => theme.id === id)?.name ?? id} palette on`);
+      setPicked(null);
+      setPalettePhase("saved");
+      window.setTimeout(() => setPalettePhase("idle"), 1650);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save palette.");
+      setPicked(null);
+      setPalettePhase("error");
+      setPaletteError(error instanceof Error ? error.message : "Could not save palette.");
     }
   }
 
@@ -75,7 +87,7 @@ function LookAdmin() {
         </p>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
           {THEMES.map((theme) => {
-            const selected = theme.id === themeId;
+            const selected = theme.id === shownTheme;
             return (
               <button
                 key={theme.id}
@@ -102,6 +114,7 @@ function LookAdmin() {
             );
           })}
         </div>
+        <SaveStatus phase={palettePhase} error={paletteError} />
       </Section>
 
       <Section kicker="01" title="How to restyle">

@@ -6,7 +6,14 @@
 const inflight = new Map<string, Promise<unknown>>();
 const settled = new Map<string, unknown>();
 
+function remember(): boolean {
+  if (typeof window !== "undefined") return true;
+  // The server must not keep one visitor's payload for the next request.
+  return import.meta.env?.SSR !== true;
+}
+
 export function memoPromise<T>(key: string, load: () => Promise<T>): Promise<T> {
+  if (!remember()) return load();
   if (settled.has(key)) return Promise.resolve(settled.get(key) as T);
   const pending = inflight.get(key);
   if (pending) return pending as Promise<T>;

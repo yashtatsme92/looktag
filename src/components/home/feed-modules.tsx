@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ImgSlot } from "@/components/ds/img-slot";
 import { FEED_LESS_KEY, readStoredIds, toggleStoredId, writeStoredIds } from "@/lib/home/follows";
 import type { Look } from "@/lib/looks/types";
 
@@ -40,7 +41,7 @@ export function BecausePlate({ looks }: { looks: Look[] }) {
         <div className="echo-because-row">
           {looks.map((look) => (
             <Link key={look.id} to="/looks/$lookId" params={{ lookId: look.id }} aria-label={look.title || "Look"}>
-              <img src={look.imageSrc} alt="" />
+              <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" />
               <span>{look.title || "Untitled look"}</span>
             </Link>
           ))}
@@ -58,7 +59,7 @@ export function BecauseRow({ looks }: { looks: Look[] }) {
       <div className="feed-because-row">
         {looks.map((look) => (
           <Link key={look.id} to="/looks/$lookId" params={{ lookId: look.id }} className="wide-tile">
-            <img src={look.imageSrc} alt="" />
+            <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" />
             <div className="wide-tile-cap">
               <h3>{look.title || "Untitled look"}</h3>
             </div>
@@ -97,7 +98,7 @@ export function RunPlate({ title, looks }: { title: string; looks: Look[] }) {
   return (
     <article className="echo-plate echo-run" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
       <Link to="/looks/$lookId" params={{ lookId: look.id }} className="echo-photo" aria-label={look.title || "Look"}>
-        <img src={look.imageSrc} alt="" />
+        <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" still />
       </Link>
       <div className="echo-meta">
         <p className="echo-kicker">Run</p>
@@ -125,7 +126,7 @@ export function RunRow({ title, looks }: { title: string; looks: Look[] }) {
         </p>
       </div>
       <Link to="/looks/$lookId" params={{ lookId: look.id }} className="feed-run-photo" aria-label={look.title || "Look"}>
-        <img src={look.imageSrc} alt="" />
+        <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" still />
       </Link>
       <div className="feed-run-nav">
         <button type="button" className="echo-chip-back echo-chip-back-ink" aria-label="Previous" onClick={prev} disabled={index === 0}>

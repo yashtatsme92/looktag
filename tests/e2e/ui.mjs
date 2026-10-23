@@ -166,19 +166,32 @@ async function flowHomeSnap(page) {
 async function flowHomeActionRow(page) {
   await goto(page, "/");
   await page.locator(".echo-snap").waitFor({ timeout: 10_000 });
-  const row = page.locator(".echo-plate").first().locator(".echo-actions");
-  await row.waitFor({ timeout: 10_000 });
-  const names = ["Save", "Echo", "Share"];
-  const boxes = [];
-  for (const name of names) {
-    const button = row.getByRole("button", { name, exact: true });
-    boxes.push(await button.boundingBox());
-  }
-  const navTop = await page.evaluate(() => {
-    const navs = [...document.querySelectorAll('nav[aria-label="App"]')];
-    const visible = navs.find((el) => el.getBoundingClientRect().height > 0);
-    return (visible ?? navs[0]).getBoundingClientRect().top;
-  });
+  const measured = await page
+    .waitForFunction(() => {
+      const row = [...document.querySelectorAll(".echo-actions")].find((el) => {
+        const r = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight && style.display !== "none" && style.visibility !== "hidden";
+      });
+      if (!row) return null;
+      const names = ["Save", "Echo", "Share"];
+      const boxes = names.map((name) => {
+        const button = row.querySelector(`button[aria-label="${name}"]`);
+        if (!button) return null;
+        const r = button.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      });
+      if (boxes.some((box) => !box || box.y < 0 || box.y + box.height > window.innerHeight)) return null;
+      const nav = [...document.querySelectorAll('nav[aria-label="App"]')].find((el) => {
+        const box = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return box.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      });
+      return { boxes, navTop: nav ? nav.getBoundingClientRect().top : 0 };
+    }, null, { timeout: 10_000 })
+    .then((handle) => handle.jsonValue());
+  const { boxes, navTop } = measured;
+
   record(
     "flow.home.actions.boxes",
     boxes.every((b) => b && Math.round(b.width) === 44 && Math.round(b.height) === 44 && b.y + b.height <= navTop),
@@ -188,6 +201,7 @@ async function flowHomeActionRow(page) {
     "flow.home.actions.gap",
     boxes.every((b, i) => i === 0 || Math.round(b.x - (boxes[i - 1].x + boxes[i - 1].width)) === 8),
   );
+  const row = page.locator(".echo-actions").filter({ visible: true }).first();
   const bg = await row.getByRole("button", { name: "Echo", exact: true }).evaluate((el) => getComputedStyle(el).backgroundColor);
   record("flow.home.actions.ghost", bg === "rgba(0, 0, 0, 0)", bg);
   await row.getByRole("button", { name: "Echo", exact: true }).click();
@@ -782,6 +796,7 @@ async function screenHouses(page) {
   record("screen.houses.covers", covers >= 4, String(covers));
   await page.getByRole("link", { name: "Atelier Noir", exact: true }).click();
   await page.getByRole("heading", { name: "Atelier Noir", exact: true }).waitFor({ timeout: 8_000 });
+  await page.getByText("Kinkistyles", { exact: true }).waitFor({ timeout: 8_000 });
   const profile = await page.locator("body").innerText();
   record("screen.house.profile", /Scouted/i.test(profile) && /Lines/.test(profile) && /Kinkistyles/.test(profile), profile.slice(0, 220));
   const followBox = await page.evaluate(() => {
@@ -794,7 +809,7 @@ async function screenHouses(page) {
     Boolean(followBox) && followBox.followW >= followBox.profileW - 2 && followBox.followH === 44,
     JSON.stringify(followBox),
   );
-  const hero = await page.locator(".house-hero").getAttribute("src");
+  const hero = await page.locator('[data-active="true"] .house-hero').first().getAttribute("src");
   record("screen.house.hero", Boolean(hero && hero.includes("/looks/")), hero ?? "");
   const houseTitle = await centerDelta(page, ".native-header-title");
   record("flow.header.house-title", houseTitle <= 8, String(Math.round(houseTitle)));
@@ -1167,6 +1182,19 @@ async function flowPinCardClear(page) {
     await goto(page, path);
     await page.getByRole("button", { name: "Shop whole look" }).click();
     await page.locator(".look-sheet").waitFor({ timeout: 5000 });
+    await page
+      .waitForFunction(() => {
+        const dialog = document.querySelector(".look-sheet");
+        if (!dialog) return false;
+        const rows = [...dialog.querySelectorAll(".look-sheet-row")];
+        if (!rows.length) return false;
+        return rows.every((row) => {
+          if (row.querySelector(".look-sheet-shop")) return true;
+          if (row.getAttribute("data-style") === "true") return true;
+          return /No close match yet/.test(row.textContent ?? "");
+        });
+      }, null, { timeout: 5_000 })
+      .catch(() => {});
     const sheet = await page.evaluate(() => {
       const dialog = document.querySelector(".look-sheet");
       const rows = [...dialog.querySelectorAll(".look-sheet-row")];
@@ -1175,13 +1203,16 @@ async function flowPinCardClear(page) {
         nums: rows.map((r) => r.querySelector(".look-sheet-num")?.textContent),
         empty: rows.filter((r) => !r.querySelector(".look-sheet-shop") && (r.dataset.style === "true" || /No close match yet/.test(r.textContent))).length,
         noShop: rows.filter((r) => !r.querySelector(".look-sheet-shop")).length,
+        unexplained: rows.filter(
+          (r) => !r.querySelector(".look-sheet-shop") && r.getAttribute("data-style") !== "true" && !/No close match yet/.test(r.textContent ?? ""),
+        ).length,
         prices: /[€$£]|\d\s?EUR/.test(dialog.textContent),
         whole: Boolean(dialog.querySelector(".look-sheet-whole")),
       };
     });
     record(
       `flow.${name}.shop-whole-sheet`,
-      sheet.path === path && sheet.nums.length > 0 && sheet.nums.every((n, i) => n === String(i + 1)) && !sheet.prices && !sheet.whole && sheet.empty === sheet.noShop,
+      sheet.path === path && sheet.nums.length > 0 && sheet.nums.every((n, i) => n === String(i + 1)) && !sheet.prices && !sheet.whole && sheet.unexplained === 0,
       JSON.stringify(sheet),
     );
     await page.keyboard.press("Escape");
@@ -1435,12 +1466,12 @@ async function heroRow(page, { coverW, linesCols, followMax }) {
     };
     const lines = document.querySelector(".house-profile-lines .house-lines");
     return {
-      cover: r(".house-hero"),
-      info: r(".house-profile-info"),
-      follow: r(".house-profile .house-follow"),
-      lines: r(".house-profile-lines .house-lines"),
+      cover: r('[data-active="true"] .house-hero'),
+      info: r('[data-active="true"] .house-profile-info'),
+      follow: r('[data-active="true"] .house-profile .house-follow'),
+      lines: r('[data-active="true"] .house-profile-lines .house-lines'),
       cols: lines ? getComputedStyle(lines).gridTemplateColumns.split(" ").length : 0,
-      sticky: getComputedStyle(document.querySelector(".house-profile-hero")).position === "sticky",
+      sticky: getComputedStyle(document.querySelector('[data-active="true"] .house-profile-hero')).position === "sticky",
       overflow: document.documentElement.scrollWidth > innerWidth,
     };
   });

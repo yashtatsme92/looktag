@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useRouter, Link } from "@tanstack/react-router";
 import { ChevronLeft, ExternalLink, Pencil, Radio, Share2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,8 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
 import { placePinCard } from "@/lib/looks/pin-card";
+import { lockBackgroundScroll } from "@/lib/overlay/scroll-lock";
+import { trapTab } from "@/lib/overlay/focus-trap";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
@@ -73,6 +76,7 @@ export function LookPlate({
   const swipeRef = useRef<number | null>(null);
   const plateRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const pinOpenerRef = useRef<HTMLElement | null>(null);
   const lastIndexRef = useRef(0);
   const [plateSize, setPlateSize] = useState({ w: 0, h: 0 });
   const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null);
@@ -118,6 +122,11 @@ export function LookPlate({
   }, [hasSpotlight]);
 
   useLayoutEffect(() => {
+    if (!selectedId) {
+      pinOpenerRef.current = null;
+    } else if (!pinOpenerRef.current && document.activeElement instanceof HTMLElement) {
+      pinOpenerRef.current = document.activeElement;
+    }
     const plate = plateRef.current;
     const card = cardRef.current;
     if (!plate || !card || !selectedId || plateSize.w === 0) {
@@ -147,15 +156,39 @@ export function LookPlate({
       pinRadius: 22,
       fixedX: plateRect.width < 768,
     });
-    setCardPos({ top: placed.top, left: placed.left });
+    setCardPos({ top: plateRect.top + placed.top, left: plateRect.left + placed.left });
   }, [selectedId, look.tags, plateSize.w, plateSize.h]);
+
+  useEffect(() => {
+    if (!selectedId || sheetOpen || shopSheetOpen) return;
+    const opener = pinOpenerRef.current;
+    const release = lockBackgroundScroll();
+    function onKey(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSelectedId(null);
+        return;
+      }
+      const card = cardRef.current;
+      if (card) trapTab(event, card);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      release();
+      requestAnimationFrame(() => {
+        const pin = opener?.isConnected ? opener : plateRef.current?.querySelector<HTMLElement>(".tag-pin");
+        pin?.focus({ preventScroll: true });
+      });
+    };
+  }, [selectedId, sheetOpen, shopSheetOpen]);
 
   /** Esc, arrow keys and taps on the bare plate act on this plate only, never on the whole document. */
   function onPlateKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (!selectedId) return;
     // React bubbles events out of portals (the account sheet); only keys typed inside the plate's own DOM belong here.
     if (event.defaultPrevented || sheetOpen || shopSheetOpen) return;
-    if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
+    if (!(event.target instanceof Node) || (!event.currentTarget.contains(event.target) && !cardRef.current?.contains(event.target))) return;
     if (event.key === "Escape") {
       event.stopPropagation();
       dismiss();
@@ -255,69 +288,83 @@ export function LookPlate({
         className="look-plate-canvas"
       />
       {spotlight ? <div className="look-plate-vignette" aria-hidden /> : null}
-      {spotlight ? (
-        <div
-          ref={cardRef}
-          className="look-plate-piece"
-          style={cardPos ? (plateSize.w >= 768 ? { top: cardPos.top, left: cardPos.left, right: "auto" } : { top: cardPos.top }) : undefined}
-          tabIndex={-1}
-          role="dialog"
-          aria-label="Selected piece"
-          onPointerDown={(event) => {
-            swipeRef.current = event.clientX;
-          }}
-          onPointerUp={(event) => {
-            const start = swipeRef.current;
-            swipeRef.current = null;
-            if (start === null) return;
-            const dx = event.clientX - start;
-            if (Math.abs(dx) > 48) stepSpotlight(dx < 0 ? 1 : -1);
-          }}
-        >
-          <div className="look-plate-piece-row">
-            <PieceThumb
-              lookSrc={look.imageSrc}
-              x={spotlight.x}
-              y={spotlight.y}
-              productSrc={tagOffers(spotlight).find((offer) => offer.imageUrl)?.imageUrl}
-              size="md"
-            />
-            <div className="look-plate-piece-text">
-              {stylePin ? (
-                <>
-                  <span className="look-plate-piece-name">{stylePin.styleName}</span>
-                  <span className="look-plate-piece-retailer">{stylePin.houseName}</span>
-                </>
-              ) : (
-                <>
-                  <span className="look-plate-piece-name">{spotlight.name || "Piece"}</span>
-                  <span className="look-plate-piece-retailer">
-                    {spotlightTarget ? retailerLabel(spotlight) : "No close match yet"}
-                  </span>
-                </>
-              )}
-            </div>
-            <button type="button" className="look-plate-piece-x" aria-label="Dismiss" onClick={dismiss}>
-              <X className="size-4" />
-            </button>
-          </div>
-          {stylePin || spotlightTarget ? (
-            <div className="look-plate-piece-actions">
-              {spotlightTarget ? (
-                <button
-                  type="button"
-                  className="look-plate-piece-shop"
-                  aria-label={`Shop ${spotlight.name || "piece"}`}
-                  onClick={() => shop(spotlight)}
-                >
-                  Shop
+      {spotlight && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={cardRef}
+              className="look-plate-piece"
+              style={
+                cardPos
+                  ? {
+                      position: "fixed",
+                      top: cardPos.top,
+                      left: cardPos.left,
+                      right: "auto",
+                      width: plateSize.w > 0 && plateSize.w < 768 ? plateSize.w - 32 : undefined,
+                      zIndex: 80,
+                    }
+                  : { position: "fixed", top: "54%", left: "1rem", right: "1rem", zIndex: 80 }
+              }
+              tabIndex={-1}
+              role="dialog"
+              aria-label="Selected piece"
+              onPointerDown={(event) => {
+                swipeRef.current = event.clientX;
+              }}
+              onPointerUp={(event) => {
+                const start = swipeRef.current;
+                swipeRef.current = null;
+                if (start === null) return;
+                const dx = event.clientX - start;
+                if (Math.abs(dx) > 48) stepSpotlight(dx < 0 ? 1 : -1);
+              }}
+            >
+              <div className="look-plate-piece-row">
+                <PieceThumb
+                  lookSrc={look.imageSrc}
+                  x={spotlight.x}
+                  y={spotlight.y}
+                  productSrc={tagOffers(spotlight).find((offer) => offer.imageUrl)?.imageUrl}
+                  size="md"
+                />
+                <div className="look-plate-piece-text">
+                  {stylePin ? (
+                    <>
+                      <span className="look-plate-piece-name">{stylePin.styleName}</span>
+                      <span className="look-plate-piece-retailer">{stylePin.houseName}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="look-plate-piece-name">{spotlight.name || "Piece"}</span>
+                      <span className="look-plate-piece-retailer">
+                        {spotlightTarget ? retailerLabel(spotlight) : "No close match yet"}
+                      </span>
+                    </>
+                  )}
+                </div>
+                <button type="button" className="look-plate-piece-x" aria-label="Dismiss" onClick={dismiss}>
+                  <X className="size-4" />
                 </button>
+              </div>
+              {stylePin || spotlightTarget ? (
+                <div className="look-plate-piece-actions">
+                  {spotlightTarget ? (
+                    <button
+                      type="button"
+                      className="look-plate-piece-shop"
+                      aria-label={`Shop ${spotlight.name || "piece"}`}
+                      onClick={() => shop(spotlight)}
+                    >
+                      Shop
+                    </button>
+                  ) : null}
+                  {stylePin ? <StyleViewLink pin={stylePin} className="look-plate-piece-view" /> : null}
+                </div>
               ) : null}
-              {stylePin ? <StyleViewLink pin={stylePin} className="look-plate-piece-view" /> : null}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
       <header className="look-plate-bar">
         <button
           type="button"

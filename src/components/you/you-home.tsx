@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { ImgSlot } from "@/components/ds/img-slot";
+import { Skeleton, SkeletonGrid } from "@/components/ds/skeleton";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { signOut } from "@/lib/auth/client";
@@ -12,6 +14,7 @@ import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useLooksStore } from "@/lib/looks/store";
 import type { Look } from "@/lib/looks/types";
+import { useCachedLoad } from "@/lib/loading/cached-load";
 
 type YouPane = "saved" | "drafts" | "profile";
 
@@ -85,6 +88,11 @@ function SavedPane({
   guest: boolean;
   onSignIn: () => void;
 }) {
+  const savedLoad = useCachedLoad(saved, `you:saved:${saved.map((look) => look.id).join(",") || "empty"}`);
+  if (savedLoad.skeleton) return <SkeletonGrid count={4} captions />;
+  if (savedLoad.error) {
+    return <p className="you-empty-body">Couldn't load this. Try again</p>;
+  }
   if (saved.length === 0) {
     return (
       <div className="you-empty you-empty-card">
@@ -112,7 +120,7 @@ function SavedPane({
         <li key={look.id}>
           <Link to="/looks/$lookId" params={{ lookId: look.id }} className="you-card">
             {look.imageSrc ? (
-              <img src={look.imageSrc} alt="" className="you-card-photo" />
+              <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill you-card-photo" />
             ) : (
               <span className="you-card-photo you-card-empty" />
             )}
@@ -128,6 +136,15 @@ function SavedPane({
 }
 
 function DraftsPane({ draft }: { draft: DraftCard | null }) {
+  const draftLoad = useCachedLoad(draft, draft ? `you:draft:${draft.updatedAt}` : "you:draft:empty");
+  if (draftLoad.skeleton) {
+    return (
+      <div className="you-drafts">
+        <Skeleton className="skeleton-draft-row" />
+        <Skeleton className="skeleton-draft-row" />
+      </div>
+    );
+  }
   if (!draft) {
     return (
       <div className="you-empty">
@@ -141,7 +158,7 @@ function DraftsPane({ draft }: { draft: DraftCard | null }) {
     <div className="you-drafts">
       <p className="you-kicker">In progress</p>
       <article className="you-draft">
-        {draft.imageSrc ? <img src={draft.imageSrc} alt="" className="you-draft-photo" /> : null}
+        {draft.imageSrc ? <ImgSlot src={draft.imageSrc} alt="" slotClassName="you-draft-photo" /> : null}
         <div className="you-draft-copy">
           <p className="you-draft-title">{draft.title.trim() || "Untitled draft"}</p>
           <p className="you-draft-meta">

@@ -1,8 +1,14 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { ExternalLink, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useStylePin } from "@/components/labels/style-pin-note";
+import { FadeLayer } from "@/components/ds/fade-layer";
+import { SkeletonOfferRow } from "@/components/ds/skeleton";
+import { useDelayedLoad } from "@/lib/loading/delayed-load";
+import { settleLoad } from "@/lib/loading/test-delay";
 import { visualShopTarget } from "@/lib/looks/offers";
+import { lockBackgroundScroll } from "@/lib/overlay/scroll-lock";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { ProductTag } from "@/lib/looks/types";
 
@@ -22,12 +28,19 @@ type LookShopSheetProps = {
  */
 export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, phoneWholeLook = false }: LookShopSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
+  const tagsRef = useRef(tags);
+  tagsRef.current = tags;
+  const offers = useDelayedLoad(
+    () => (open ? settleLoad(tagsRef.current) : new Promise<ProductTag[]>(() => {})),
+    { cacheKey: open ? `shop-sheet:${tags.map((tag) => tag.id).join(",")}` : "shop-sheet:closed" },
+  );
 
   /** Focus moves into the sheet on open and returns to the control that opened it on close. */
   useEffect(() => {
     if (!open) return;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const plate = sheetRef.current?.closest(".look-plate") ?? null;
+    const plate = sheetRef.current?.closest(".look-plate") ?? document.querySelector(".look-plate");
+    const release = lockBackgroundScroll();
     sheetRef.current?.focus({ preventScroll: true });
     function onEscape(event: globalThis.KeyboardEvent) {
       if (event.key !== "Escape") return;
@@ -37,6 +50,7 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
     document.addEventListener("keydown", onEscape);
     return () => {
       document.removeEventListener("keydown", onEscape);
+      release();
       requestAnimationFrame(() => {
         // The opener can be swapped out while the sheet is open (Shop <-> Shop whole look); fall back to the plate's Shop control.
         const target = opener?.isConnected ? opener : plate?.querySelector<HTMLElement>(".look-plate-shop, .look-plate-shop-whole");
@@ -57,7 +71,7 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
     // Focus trap: Tab and Shift+Tab cycle inside the sheet, never out to the pins and card behind the scrim.
     const sheet = sheetRef.current;
     if (!sheet) return;
-    const items = [...sheet.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")].filter((el) => el.offsetParent !== null);
+    const items = [...sheet.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")].filter((el) => el.getAttribute("aria-hidden") !== "true");
     if (items.length === 0) {
       event.preventDefault();
       return;
@@ -74,8 +88,8 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
     }
   }
 
-  return (
-    <>
+  return createPortal(
+    <div className="look-sheet-host">
       <div className="look-sheet-scrim" aria-hidden onClick={onClose} />
       <div
         ref={sheetRef}
@@ -95,11 +109,25 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
         <p className="look-sheet-sub">
           No account needed. One Shop per piece, straight to the live page.
         </p>
+        <FadeLayer stateKey={offers.phase === "skeleton" ? "skeleton" : "rows"}>
         <ul className="look-sheet-list">
-          {tags.map((tag, index) => (
-            <SheetRow key={tag.id} tag={tag} index={index} onShop={() => onShopPiece(tag)} />
-          ))}
+          {offers.phase === "error" ? (
+            <li className="look-sheet-row">
+              <span className="look-sheet-meta">No close match yet</span>
+            </li>
+          ) : offers.phase === "skeleton" ? (
+            tags.map((tag) => (
+              <li key={tag.id}>
+                <SkeletonOfferRow />
+              </li>
+            ))
+          ) : (
+            tags.map((tag, index) => (
+              <SheetRow key={tag.id} tag={tag} index={index} onShop={() => onShopPiece(tag)} />
+            ))
+          )}
         </ul>
+        </FadeLayer>
         {onShopWhole ? (
           <button
             type="button"
@@ -120,7 +148,8 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
           {tags.length} {tags.length === 1 ? "piece" : "pieces"} total
         </p>
       </div>
-    </>
+    </div>,
+    document.body,
   );
 }
 

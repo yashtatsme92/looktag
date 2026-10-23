@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ImgSlot } from "@/components/ds/img-slot";
 import { cn } from "@/lib/utils";
 
 type PieceThumbProps = {
@@ -34,11 +35,12 @@ export function PieceThumb({ lookSrc, x = 50, y = 50, productSrc, size = "md", a
         />
       ) : null}
       {showProduct ? (
-        <img
+        <ImgSlot
           src={productSrc}
           alt={alt}
+          aspectRatio="1 / 1"
+          slotClassName="img-slot-fill absolute inset-0"
           referrerPolicy="no-referrer"
-          className="absolute inset-0 h-full w-full object-cover"
           onError={() => setBroken(true)}
         />
       ) : null}

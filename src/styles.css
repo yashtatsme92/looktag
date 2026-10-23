@@ -39,9 +39,9 @@
   --radius-xl: 1.5rem;
   --radius: 0.75rem;
 
-  --font-sans: "Figtree", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Playfair Display", "Times New Roman", serif;
-  --font-serif: "Playfair Display", "Times New Roman", serif;
+  --font-sans: "Figtree", "Figtree Fallback", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Playfair Display", "Playfair Fallback", "Times New Roman", serif;
+  --font-serif: "Playfair Display", "Playfair Fallback", "Times New Roman", serif;
 
   --text-kicker: 0.6875rem;
   --text-caption: 0.8125rem;
@@ -102,10 +102,10 @@
   --skeleton-min: 400ms;
   --load-timeout: 10000ms;
   --dim-loading: .4;
-  --ease-std: cubic-bezier(0.2, 0, 0, 1);
-  --skel: #e8e8e8;
-  --skel-2: #dedede;
-  --ph: #ececec;
+  --ease-std: cubic-bezier(0.4, 0, 0.2, 1);
+  --skel: #e2e2e2;
+  --skel-2: #d6d6d6;
+  --ph: #d4d4d4;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -115,6 +115,25 @@
   --space-7: 3rem;
   /* Toasts sit below native header (phone) or the sticky masthead (web). */
   --toast-offset: calc(env(safe-area-inset-top, 0px) + 3.5rem);
+}
+
+/* Sized like the webfonts so the swap does not move the first screen. */
+@font-face {
+  font-family: "Playfair Fallback";
+  src: local("Times New Roman");
+  size-adjust: 112%;
+  ascent-override: 95%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Figtree Fallback";
+  src: local("Segoe UI"), local("Arial");
+  size-adjust: 100%;
+  ascent-override: 92%;
+  descent-override: 22%;
+  line-gap-override: 0%;
 }
 
 @keyframes skel-pulse {
@@ -143,12 +162,29 @@
 .fade-layer > * {
   grid-area: 1 / 1;
   min-width: 0;
-  opacity: 0;
+  opacity: 1;
   transition: opacity var(--dur-crossfade) var(--ease-std);
 }
 
-.fade-layer > [data-active="true"] {
-  opacity: 1;
+.fade-layer > [data-active="false"] {
+  opacity: 0;
+}
+
+.fade-layer > [data-enter="true"][data-active="true"] {
+  animation: fade-layer-in var(--dur-crossfade) var(--ease-std);
+}
+
+@keyframes fade-layer-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+html.route-pending:not(.route-skeleton) .app-frame {
+  opacity: var(--dim-loading);
 }
 
 .is-loading-old {
@@ -158,8 +194,9 @@
 
 .tab-indicator {
   transition:
-    transform var(--dur-indicator) var(--ease-std),
-    opacity var(--dur-indicator) var(--ease-std);
+    transform var(--dur-indicator) var(--ease-out),
+    width var(--dur-indicator) var(--ease-out),
+    opacity var(--dur-indicator) var(--ease-out);
 }
 
 .img-slot {
@@ -183,13 +220,41 @@
   opacity: 1;
 }
 
+.img-slot.img-slot-fill {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+.img-slot[data-still] > img {
+  opacity: 1;
+  transition: none;
+}
+
+.echo-snap[data-swap="off"] {
+  opacity: 0;
+}
+
+.echo-snap[data-swap="on"] {
+  transition: opacity var(--dur-crossfade) var(--ease-std);
+}
+
 .echo-lane {
   display: grid;
   gap: 12px;
+  transition:
+    grid-template-rows var(--dur-lane) var(--ease-out),
+    height var(--dur-lane) var(--ease-out),
+    opacity var(--dur-lane) var(--ease-out);
 }
 
 .echo-tile {
-  transition: opacity var(--dur-lane) var(--ease-std);
+  opacity: 0;
+  transition: opacity var(--dur-image) var(--ease-std);
+}
+
+.echo-stagger.is-in .echo-tile {
+  opacity: 1;
 }
 
 .echo-tile:nth-child(1) { transition-delay: 0ms; }
@@ -201,7 +266,15 @@
 .echo-tile:nth-child(7) { transition-delay: calc(var(--stagger-step) * 6); }
 .echo-tile:nth-child(8) { transition-delay: calc(var(--stagger-step) * 7); }
 .echo-tile:nth-child(n + 9) {
-  transition-delay: calc(var(--stagger-step) * var(--stagger-max-tiles));
+  transition-delay: calc(var(--stagger-step) * 7);
+}
+
+.wide-grid > .skeleton-grid,
+.echo-skeleton-pad > .skeleton-grid,
+.house-profile-lines > .skeleton-grid,
+.house-lines-block > .skeleton-grid {
+  grid-column: 1 / -1;
+  width: 100%;
 }
 
 .skeleton-grid {
@@ -306,6 +379,7 @@
 }
 
 .skeleton-admin-row {
+  height: 60px;
   min-height: 60px;
 }
 
@@ -348,9 +422,23 @@
   .is-loading-old,
   .tab-indicator,
   .img-slot > img,
-  .echo-tile {
+  .echo-tile,
+  .echo-tile:nth-child(n),
+  .echo-lane,
+  .echo-snap,
+  .upload-progress > span,
+  .save-status {
     transition-duration: 0ms;
     transition-delay: 0ms;
+    animation-duration: 0ms;
+  }
+
+  .echo-snap[data-swap="off"] {
+    opacity: 1;
+  }
+
+  .echo-tile {
+    opacity: 1;
   }
 }
 
@@ -3128,6 +3216,10 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   touch-action: pan-y;
 }
 
+.echo-snap.echo-lane {
+  display: block;
+}
+
 .echo-plate {
   position: relative;
   height: 100%;
@@ -3595,7 +3687,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   inset: 0;
   z-index: 46;
   background: rgb(17 17 17 / 45%);
-  animation: look-sheet-fade var(--motion-fast, 250ms) ease-out both;
+  animation: look-sheet-fade var(--dur-sheet) var(--ease-out) both;
 }
 
 .look-sheet {
@@ -3612,7 +3704,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   background: #ffffff;
   color: #111111;
-  animation: look-sheet-rise var(--motion-fast, 250ms) ease-out both;
+  animation: look-sheet-rise var(--dur-sheet) var(--ease-out) both;
 }
 
 .look-sheet:focus {
@@ -5363,6 +5455,16 @@ input[type="search"]::-webkit-search-decoration {
   gap: 1rem;
 }
 
+/* Following skeleton uses the same tracks as the tiles it replaces (L6). */
+.wide-grid > .skeleton-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.wide-grid > .skeleton-grid > :first-child {
+  grid-column: auto;
+}
+
 .wide-beat {
   display: flex;
   grid-column: 1 / -1;
@@ -5585,13 +5687,14 @@ html:not(.native-app) .wide-plate .look-photo-cover {
   position: fixed;
   top: 5rem;
   right: 1.5rem;
-  z-index: 70;
+  z-index: 80;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   border-radius: 16px;
   background: #f4f4f4;
   padding: 1rem;
+  overscroll-behavior: contain;
 }
 
 .wide-echo {
@@ -5862,6 +5965,12 @@ html:not(.native-app) .wide-plate .look-photo-cover {
   gap: 0.75rem;
 }
 
+.style-photos > .img-slot {
+  width: min(100%, 28rem);
+  border-radius: 24px;
+  background: #111;
+}
+
 .house-manage[data-editor="open"] .house-collections {
   display: none;
 }
@@ -5992,6 +6101,11 @@ html.native-app .house-manage[data-editor="open"] .house-save {
     gap: 1.5rem;
   }
 
+  .wide-grid > .skeleton-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
   .wide-lead-photo img {
     object-position: center 20%;
   }
@@ -5999,7 +6113,8 @@ html.native-app .house-manage[data-editor="open"] .house-save {
 
 @media (min-width: 1440px) {
   .wide-leadrow,
-  .wide-grid {
+  .wide-grid,
+  .wide-grid > .skeleton-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
@@ -6092,6 +6207,7 @@ html.native-app .house-manage[data-editor="open"] .house-save {
 .ops-qscout {
   display: inline-flex;
   min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -6551,6 +6667,10 @@ html.native-app .house-manage[data-editor="open"] .house-save {
   background: #111111;
 }
 
+.house-hero.img-slot > img {
+  object-position: center 20%;
+}
+
 .house-line {
   max-width: 36rem;
   margin: 0 0 1rem;
@@ -6667,13 +6787,85 @@ html:not([data-chrome="phone"]) .house-profile-info {
 
 .echo-tabs,
 .wide-tabs {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  pointer-events: none;
+}
+
+.echo-tabs .tab-indicator {
+  bottom: 6px;
+  background: #fff;
+}
+
+.wide-tabs .tab-indicator {
+  background: #111;
+}
+
+.echo-tabs:has(.tab-indicator) button[aria-current="page"]::after {
+  content: none;
+}
+
+.wide-tabs:has(.tab-indicator) button[aria-current="page"] {
+  border-bottom-color: transparent;
+}
+
+.upload-progress {
+  width: 100%;
+  height: 3px;
+  background: var(--ph);
+}
+
+.upload-progress > span {
+  display: block;
+  height: 100%;
+  background: #111;
+  transition: width var(--dur-crossfade) var(--ease-std);
+}
+
+.save-status {
+  color: #6b6b6b;
+  font-size: 0.75rem;
+}
+
+.save-status.is-saved {
+  animation: save-status-out 150ms var(--ease-std) 1500ms forwards;
+}
+
+.save-status.is-error {
+  color: #111;
+}
+
+@keyframes save-status-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.echo-skeleton-pad {
+  position: relative;
+  z-index: 5;
+  padding: calc(5.5rem + env(safe-area-inset-top)) 1rem 6rem;
+}
+
+.skeleton-draft-row {
+  height: 60px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+}
+
 .echo-tabs {
-  position: static;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0;
@@ -8101,9 +8293,30 @@ html:not([data-chrome="phone"]) .house-profile-info {
   }
 }
 
-/* Tablet and desktop: the Shop sheet floats over the whole look page instead of inside a plate. */
+/* Shop sheet is portaled to the body so fixed positioning is the viewport, not the transformed phone screen. On phone the host stops at the tab bar. */
+.look-sheet-host {
+  position: fixed;
+  z-index: 60;
+  top: var(--vv-offset, 0px);
+  right: 0;
+  left: 0;
+  height: var(--app-height, 100dvh);
+  pointer-events: none;
+}
+
+html[data-chrome="phone"] .look-sheet-host {
+  height: calc(var(--app-height, 100dvh) - 72px - env(safe-area-inset-bottom, 0px));
+}
+
+.look-sheet-host .look-sheet,
+.look-sheet-host .look-sheet-scrim {
+  pointer-events: auto;
+}
+
 .look-sheet,
-.look-sheet-scrim {
+.look-sheet-scrim,
+.wide-share,
+.look-plate-piece {
   overscroll-behavior: contain;
 }
 

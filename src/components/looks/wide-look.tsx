@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ChevronLeft, Radio, Share2 } from "lucide-react";
@@ -20,10 +20,17 @@ import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
+import { FadeLayer, useStaggerIn } from "@/components/ds/fade-layer";
+import { ImgSlot } from "@/components/ds/img-slot";
+import { SkeletonGrid, SkeletonOfferRow } from "@/components/ds/skeleton";
 import { shareOrCopy } from "@/lib/looks/share";
 import { useLooksStore } from "@/lib/looks/store";
 import { useSettingsStore } from "@/lib/settings/store";
 import type { Look, ProductTag } from "@/lib/looks/types";
+import { useDelayedLoad } from "@/lib/loading/delayed-load";
+import { settleLoad } from "@/lib/loading/test-delay";
+import { lockBackgroundScroll } from "@/lib/overlay/scroll-lock";
+import { trapTab } from "@/lib/overlay/focus-trap";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { cn } from "@/lib/utils";
 
@@ -64,8 +71,36 @@ export function WideLook({
   );
   const lane = useEchoLane(look, deck, forYou, { limit: 4 });
   const echo = useMemo(() => lane.slice(0, 4), [lane]);
+  const shopLoad = useDelayedLoad(() => settleLoad(look.tags), {
+    cacheKey: `shop-panel:${look.id}:${look.tags.map((tag) => tag.id).join(",")}`,
+  });
+  const echoLoad = useDelayedLoad(() => settleLoad(echo), { cacheKey: `echo-detail:${look.id}` });
+  const echoRef = useStaggerIn(`${look.id}:${echoLoad.phase}`);
 
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
+  const shareRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!shareOpen) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const release = lockBackgroundScroll();
+    shareRef.current?.focus({ preventScroll: true });
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setShareOpen(false);
+        return;
+      }
+      const node = shareRef.current;
+      if (node) trapTab(event, node);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      release();
+      requestAnimationFrame(() => opener?.isConnected && opener.focus({ preventScroll: true }));
+    };
+  }, [shareOpen]);
 
   function openShop(tag: ProductTag, source: "piece_shop" | "shop_look") {
     const target = visualShopTarget(tag);
@@ -206,35 +241,39 @@ export function WideLook({
                   </Link>
                 ) : null}
               </div>
-              {shareOpen ? (
-                <div
-                  className="wide-share"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Share"
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.stopPropagation();
-                      setShareOpen(false);
-                    }
-                  }}
-                >
-                  <p className="wide-kicker">Share this look</p>
-                  <button type="button" className="wide-btn wide-btn-primary wide-btn-block" onClick={() => void share()}>
-                    Copy link
-                  </button>
-                  <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={() => setShareOpen(false)}>
-                    Close
-                  </button>
-                </div>
-              ) : null}
+              {shareOpen
+                ? createPortal(
+                    <div
+                      ref={shareRef}
+                      className="wide-share"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label="Share"
+                      tabIndex={-1}
+                    >
+                      <p className="wide-kicker">Share this look</p>
+                      <button type="button" className="wide-btn wide-btn-primary wide-btn-block" onClick={() => void share()}>
+                        Copy link
+                      </button>
+                      <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={() => setShareOpen(false)}>
+                        Close
+                      </button>
+                    </div>,
+                    document.body,
+                  )
+                : null}
             </div>
             <div className="wide-panel-bd">
               <div className="wide-sech">
                 <h2>Shop this look</h2>
                 <span>{pieceLine(look) || "No pieces"}</span>
               </div>
-              {look.tags.map((tag, index) => (
+              {shopLoad.phase === "error" ? (
+                <p className="wide-prt">No close match yet</p>
+              ) : shopLoad.phase === "skeleton" ? (
+                look.tags.map((tag) => <SkeletonOfferRow key={tag.id} />)
+              ) : (
+                look.tags.map((tag, index) => (
                 <WidePieceRow
                   key={tag.id}
                   tag={tag}
@@ -244,7 +283,8 @@ export function WideLook({
                   onToggle={() => setSelectedId(tag.id === selectedId ? null : tag.id)}
                   onShop={() => shopPiece(tag)}
                 />
-              ))}
+                ))
+              )}
             </div>
             <div className="wide-panel-ft">
               <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={() => (look.tags.length ? setShopSheetOpen(true) : toast.message("No pieces on this look yet"))}>
@@ -254,31 +294,28 @@ export function WideLook({
           </aside>
         </div>
 
-        {shopSheetOpen
-          ? createPortal(
-              <div className="wide-shop-sheet-host">
-                <LookShopSheet
-                  tags={look.tags}
-                  open={shopSheetOpen}
-                  onClose={() => setShopSheetOpen(false)}
-                  onShopPiece={shopPiece}
-                />
-              </div>,
-              document.body,
-            )
-          : null}
+        <LookShopSheet
+          tags={look.tags}
+          open={shopSheetOpen}
+          onClose={() => setShopSheetOpen(false)}
+          onShopPiece={shopPiece}
+        />
 
         {echo.length > 0 ? (
-          <section className="wide-echo" aria-label="Echo">
+          <section className="wide-echo echo-lane" aria-label="Echo">
             <div className="wide-echo-hd">
               <p className="wide-kicker">More like this look</p>
               <h2>Echo from {look.title || "this look"}</h2>
             </div>
-            <div className="wide-grid">
+            {echoLoad.phase === "skeleton" ? (
+              <SkeletonGrid count={4} captions />
+            ) : (
+            <FadeLayer stateKey="echo">
+            <div ref={echoRef} className="wide-grid echo-lane echo-stagger">
               {echo.map((item) => (
-                <article key={item.id} className="wide-tile">
+                <article key={item.id} className="wide-tile echo-tile">
                   <Link to="/looks/$lookId" params={{ lookId: item.id }} className="wide-tile-hit" aria-label={item.title || "Look"}>
-                    <img src={item.imageSrc} alt="" />
+                    <ImgSlot src={item.imageSrc} alt="" slotClassName="img-slot-fill" />
                   </Link>
                   <div className="wide-tile-cap">
                     <p className="wide-kicker">{echoKicker(item)}</p>
@@ -290,6 +327,8 @@ export function WideLook({
                 </article>
               ))}
             </div>
+            </FadeLayer>
+            )}
           </section>
         ) : null}
       </div>

@@ -23,7 +23,7 @@ jobs:
 
   e2e-guest:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,6 +55,7 @@ jobs:
           npm run test:e2e:aspect
           npm run test:e2e:create-phone
           npm run test:e2e:auth-methods
+          npm run test:ui
 
   prod-server:
     runs-on: ubuntu-latest

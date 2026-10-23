@@ -1,5 +1,4 @@
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import { useNativePortal } from "@/components/layout/native-portal";
 import { cn } from "@/lib/utils";
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
@@ -10,9 +9,8 @@ function DropdownMenuContent({
   sideOffset = 6,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
-  const container = useNativePortal();
   return (
-    <DropdownMenuPrimitive.Portal container={container ?? undefined}>
+    <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
