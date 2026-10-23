@@ -1,9 +1,10 @@
 type Saved = { el: HTMLElement; overflow: string; top: number };
+type InlineSnap = { overflow: string; paddingRight: string };
 
 let depth = 0;
 let saved: Saved[] = [];
-let htmlOverflow = "";
-let pad = "";
+let htmlSnap: InlineSnap = { overflow: "", paddingRight: "" };
+let bodySnap: InlineSnap = { overflow: "", paddingRight: "" };
 let savedWindowX = 0;
 let savedWindowY = 0;
 let restoring = false;
@@ -22,12 +23,26 @@ const SCROLL_KEYS = new Set([
   "ArrowRight",
 ]);
 
+function snapOf(el: HTMLElement): InlineSnap {
+  return { overflow: el.style.overflow, paddingRight: el.style.paddingRight };
+}
+
+function restoreSnap(el: HTMLElement, snap: InlineSnap) {
+  el.style.overflow = snap.overflow;
+  el.style.paddingRight = snap.paddingRight;
+}
+
 function scrollers(): HTMLElement[] {
   const list: HTMLElement[] = [];
   const root = document.scrollingElement;
-  if (root instanceof HTMLElement) list.push(root);
-  if (document.body && !list.includes(document.body)) list.push(document.body);
+  const html = document.documentElement;
+  const body = document.body;
+  // The document element is snapshotted on its own. Listing it here used to
+  // hide its overflow and then save that hidden value as the original.
+  // Body is left untouched: writing overflow on both html and body makes the
+  // body the scrollport, so the window stops scrolling after unlock.
   for (const el of document.querySelectorAll<HTMLElement>(".native-main, .echo-snap, .wide-panel-bd")) {
+    if (el === html || el === body || el === root) continue;
     if (!list.includes(el)) list.push(el);
   }
   return list;
@@ -154,16 +169,21 @@ function onScroll() {
 }
 
 function arm() {
+  const html = document.documentElement;
+  const body = document.body;
   savedWindowX = window.scrollX;
   savedWindowY = window.scrollY;
+  // Read every inline style we might overwrite before the first write.
+  // scrollers() used to include the document element, so its overflow was set
+  // to hidden and that hidden value was then saved as the original.
+  htmlSnap = snapOf(html);
+  bodySnap = body ? snapOf(body) : { overflow: "", paddingRight: "" };
   saved = scrollers().map((el) => ({ el, overflow: el.style.overflow, top: el.scrollTop }));
   for (const item of saved) item.el.style.overflow = "hidden";
-  htmlOverflow = document.documentElement.style.overflow;
-  document.documentElement.style.overflow = "hidden";
-  const gap = window.innerWidth - document.documentElement.clientWidth;
-  pad = document.documentElement.style.paddingRight;
-  if (gap > 0) document.documentElement.style.paddingRight = `${gap}px`;
-  document.documentElement.classList.add("overlay-lock");
+  html.style.overflow = "hidden";
+  const gap = window.innerWidth - html.clientWidth;
+  if (gap > 0) html.style.paddingRight = `${gap}px`;
+  html.classList.add("overlay-lock");
   document.addEventListener("wheel", onWheel, { capture: true, passive: false });
   document.addEventListener("touchstart", onTouchStart, { capture: true, passive: true });
   document.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
@@ -183,9 +203,10 @@ function disarm() {
     if (Math.abs(item.el.scrollTop - item.top) > 1) item.el.scrollTop = item.top;
   }
   saved = [];
-  document.documentElement.style.overflow = htmlOverflow;
-  document.documentElement.style.paddingRight = pad;
-  document.documentElement.classList.remove("overlay-lock");
+  const html = document.documentElement;
+  restoreSnap(html, htmlSnap);
+  if (document.body) restoreSnap(document.body, bodySnap);
+  html.classList.remove("overlay-lock");
   if (window.scrollX !== savedWindowX || window.scrollY !== savedWindowY) {
     window.scrollTo(savedWindowX, savedWindowY);
   }
@@ -195,7 +216,11 @@ function disarm() {
  * Stops the page behind an overlay from moving. overflow:hidden keeps the
  * phone scrollers put; wheel, touch and the scroll keys are cancelled unless
  * the open overlay itself can scroll. A scroll listener puts window.scrollY
- * back if the browser moves it anyway (focus, End, PageDown).
+ * back if the browser moves it anyway (focus, End, PageDown). Closing the
+ * overlay (Esc, close, backdrop, or unmount on route change) puts the inline
+ * html and body styles back to the values captured before the lock. Body
+ * overflow is not written while locking: setting it together with html makes
+ * the body the scrollport, so the window stops scrolling after unlock.
  */
 export function lockBackgroundScroll(): () => void {
   if (typeof document === "undefined") return () => {};

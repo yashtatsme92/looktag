@@ -39,9 +39,9 @@
   --radius-xl: 1.5rem;
   --radius: 0.75rem;
 
-  --font-sans: "Figtree", "Figtree Fallback", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Playfair Display", "Playfair Fallback", "Times New Roman", serif;
-  --font-serif: "Playfair Display", "Playfair Fallback", "Times New Roman", serif;
+  --font-sans: "Figtree", "Figtree Fallback", "Figtree Linux", "Figtree System", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Playfair Display", "Playfair Fallback", "Playfair Linux", "Times New Roman", serif;
+  --font-serif: "Playfair Display", "Playfair Fallback", "Playfair Linux", "Times New Roman", serif;
 
   --text-kicker: 0.6875rem;
   --text-caption: 0.8125rem;
@@ -117,7 +117,9 @@
   --toast-offset: calc(env(safe-area-inset-top, 0px) + 3.5rem);
 }
 
-/* Sized like the webfonts so the swap does not move the first screen. */
+/* Sized like the webfonts so the swap does not move the first screen.
+   Arial / Times cover macOS and Windows. Liberation and DejaVu cover Linux,
+   where local(Arial) and local(Times New Roman) do not resolve. */
 @font-face {
   font-family: "Playfair Fallback";
   src: local("Times New Roman");
@@ -128,9 +130,36 @@
 }
 
 @font-face {
+  font-family: "Playfair Linux";
+  src: local("Liberation Serif");
+  size-adjust: 107%;
+  ascent-override: 95%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
   font-family: "Figtree Fallback";
   src: local("Segoe UI"), local("Arial");
   size-adjust: 100%;
+  ascent-override: 92%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Figtree Linux";
+  src: local("Liberation Sans");
+  size-adjust: 99%;
+  ascent-override: 92%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Figtree System";
+  src: local("DejaVu Sans");
+  size-adjust: 87%;
   ascent-override: 92%;
   descent-override: 22%;
   line-gap-override: 0%;
@@ -187,8 +216,7 @@ html.route-pending:not(.route-skeleton) .app-frame {
   opacity: var(--dim-loading);
 }
 
-html.overlay-lock,
-html.overlay-lock body {
+html.overlay-lock {
   overflow: hidden !important;
 }
 

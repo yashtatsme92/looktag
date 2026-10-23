@@ -392,6 +392,113 @@ const houseCalls = createFns.filter((name) => name.includes("getMyHouse"));
 check("create calls getMyHouse once", houseCalls.length === 1, `${houseCalls.length} ${createFns.filter((name) => name.includes("getMyHouse")).join(" | ")}`);
 await createCtx.close();
 
+/** After a close, inline overflow is back and the document can move again. */
+async function assertScrollsAfterClose(page, label) {
+  const released = await page
+    .waitForFunction(
+      () => {
+        const html = document.documentElement;
+        return html.style.overflow !== "hidden" && document.body.style.overflow !== "hidden" && !html.classList.contains("overlay-lock");
+      },
+      null,
+      { timeout: 4_000 },
+    )
+    .then(() => true)
+    .catch(() => false);
+  const result = await page.evaluate(() => {
+    const html = document.documentElement;
+    const stuck = html.style.overflow === "hidden" || document.body.style.overflow === "hidden" || html.classList.contains("overlay-lock");
+    const pad = document.createElement("div");
+    pad.setAttribute("data-scroll-probe", "");
+    pad.style.height = "140vh";
+    document.body.appendChild(pad);
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 120);
+    document.body.scrollTop = Math.max(document.body.scrollTop, 120);
+    const y = window.scrollY;
+    const body = document.body.scrollTop;
+    pad.remove();
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0;
+    let blocked = false;
+    const mark = (event) => {
+      blocked = event.defaultPrevented;
+    };
+    document.addEventListener("wheel", mark, true);
+    document.body.dispatchEvent(new WheelEvent("wheel", { deltaY: 80, bubbles: true, cancelable: true }));
+    document.removeEventListener("wheel", mark, true);
+    return { stuck, blocked, y, body, html: html.style.overflow, bodyStyle: document.body.style.overflow };
+  });
+  check(
+    `${label} page scrolls`,
+    released && !result.stuck && !result.blocked && (result.y > 40 || result.body > 40),
+    JSON.stringify(result),
+  );
+}
+
+async function openSunday(page) {
+  await page.goto(`${origin}/looks/seed-sunday-coat`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+  await page.locator("html.boot-react").waitFor({ timeout: 10_000 });
+}
+
+async function openShop(page, width) {
+  if (width >= 1024) await page.getByRole("button", { name: "Shop whole look" }).click();
+  else await page.locator(".look-plate-shop").click();
+  await page.locator(".look-sheet").waitFor({ timeout: 5_000 });
+}
+
+async function goHouses(page) {
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll("a")].find((node) => (node.textContent || "").trim() === "Houses");
+    link?.click();
+  });
+  await page.waitForURL(/\/houses/, { timeout: 8_000 });
+}
+
+for (const [width, height] of [
+  [390, 844],
+  [834, 1112],
+  [1024, 768],
+  [1280, 800],
+]) {
+  const ctx = await browser.newContext({ viewport: { width, height }, locale: "en-GB" });
+  const page = await ctx.newPage();
+  const closes = [
+    ["escape", async () => page.keyboard.press("Escape")],
+    ["close", async () => page.getByRole("button", { name: "Close" }).click()],
+    ["backdrop", async () => page.locator(".look-sheet-scrim").click({ position: { x: 8, y: 8 } })],
+    ["route", async () => goHouses(page)],
+  ];
+  for (const [name, close] of closes) {
+    await openSunday(page);
+    await openShop(page, width);
+    await close();
+    if (name !== "route") {
+      await page.waitForFunction(() => document.querySelectorAll(".look-sheet").length === 0, null, { timeout: 4_000 });
+    }
+    await assertScrollsAfterClose(page, `shop ${width} ${name}`);
+  }
+  if (width >= 1024) {
+    const shareCloses = [
+      ["escape", async () => page.keyboard.press("Escape")],
+      ["close", async () => page.locator(".wide-share").getByRole("button", { name: "Close" }).click()],
+      ["route", async () => goHouses(page)],
+    ];
+    for (const [name, close] of shareCloses) {
+      await openSunday(page);
+      await page.getByRole("button", { name: "Share" }).click();
+      await page.locator(".wide-share").waitFor({ timeout: 5_000 });
+      await close();
+      if (name !== "route") {
+        await page.waitForFunction(() => document.querySelectorAll(".wide-share").length === 0, null, { timeout: 4_000 });
+      }
+      await assertScrollsAfterClose(page, `share ${width} ${name}`);
+    }
+  }
+  await ctx.close();
+}
+
 await browser.close();
 if (failures.length) {
   console.error(`\n${failures.length} smoothness check(s) failed`);
