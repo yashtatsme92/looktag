@@ -39,9 +39,9 @@
   --radius-xl: 1.5rem;
   --radius: 0.75rem;
 
-  --font-sans: "Figtree", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Playfair Display", "Times New Roman", serif;
-  --font-serif: "Playfair Display", "Times New Roman", serif;
+  --font-sans: "Figtree", "Figtree Fallback", "Figtree Linux", "Figtree System", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Playfair Display", "Playfair Fallback", "Playfair Linux", "Times New Roman", serif;
+  --font-serif: "Playfair Display", "Playfair Fallback", "Playfair Linux", "Times New Roman", serif;
 
   --text-kicker: 0.6875rem;
   --text-caption: 0.8125rem;
@@ -117,6 +117,54 @@
   --toast-offset: calc(env(safe-area-inset-top, 0px) + 3.5rem);
 }
 
+/* Sized like the webfonts so the swap does not move the first screen.
+   Arial / Times cover macOS and Windows. Liberation and DejaVu cover Linux,
+   where local(Arial) and local(Times New Roman) do not resolve. */
+@font-face {
+  font-family: "Playfair Fallback";
+  src: local("Times New Roman");
+  size-adjust: 112%;
+  ascent-override: 95%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Playfair Linux";
+  src: local("Liberation Serif");
+  size-adjust: 107%;
+  ascent-override: 95%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Figtree Fallback";
+  src: local("Segoe UI"), local("Arial");
+  size-adjust: 100%;
+  ascent-override: 92%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Figtree Linux";
+  src: local("Liberation Sans");
+  size-adjust: 99%;
+  ascent-override: 92%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Figtree System";
+  src: local("DejaVu Sans");
+  size-adjust: 87%;
+  ascent-override: 92%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
 @keyframes skel-pulse {
   0%,
   100% {
@@ -166,6 +214,10 @@
 
 html.route-pending:not(.route-skeleton) .app-frame {
   opacity: var(--dim-loading);
+}
+
+html.overlay-lock {
+  overflow: hidden !important;
 }
 
 .is-loading-old {
@@ -2716,6 +2768,10 @@ input.look-studio-title:focus-visible {
   transform: translateZ(0);
 }
 
+html:not([data-chrome="phone"]) .native-screen {
+  transform: none;
+}
+
 html[data-chrome="phone"] .native-screen {
   position: fixed;
   top: var(--vv-offset, 0px);
@@ -4632,6 +4688,10 @@ html[data-chrome="phone"] [data-pin-nudge],
     padding: 2.25rem 2rem 5rem;
   }
 
+  html:not(.native-app) .native-main.native-main-flush {
+    padding: 0;
+  }
+
   html:not(.native-app) .look-feed-top,
   html:not(.native-app) .look-feed {
     padding-left: 2rem;
@@ -5655,12 +5715,17 @@ html:not(.native-app) .wide-plate .look-photo-cover {
 }
 
 .wide-share {
+  position: fixed;
+  top: 5rem;
+  right: 1.5rem;
+  z-index: 80;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   border-radius: 16px;
   background: #f4f4f4;
   padding: 1rem;
+  overscroll-behavior: contain;
 }
 
 .wide-echo {
@@ -8259,8 +8324,34 @@ html:not([data-chrome="phone"]) .house-profile-info {
   }
 }
 
-/* Tablet and desktop: the Shop sheet floats over the whole look page instead of inside a plate. */
-.wide-shop-sheet-host:not([hidden]) {
+/* Shop sheet is portaled to the body so fixed positioning is the viewport, not the transformed phone screen. On phone the host stops at the tab bar. */
+.look-sheet-host {
+  position: fixed;
+  z-index: 60;
+  top: var(--vv-offset, 0px);
+  right: 0;
+  left: 0;
+  height: var(--app-height, 100dvh);
+  pointer-events: none;
+}
+
+html[data-chrome="phone"] .look-sheet-host {
+  height: calc(var(--app-height, 100dvh) - 72px - env(safe-area-inset-bottom, 0px));
+}
+
+.look-sheet-host .look-sheet,
+.look-sheet-host .look-sheet-scrim {
+  pointer-events: auto;
+}
+
+.look-sheet,
+.look-sheet-scrim,
+.wide-share,
+.look-plate-piece {
+  overscroll-behavior: contain;
+}
+
+.wide-shop-sheet-host {
   position: fixed;
   inset: 0;
   z-index: 60;

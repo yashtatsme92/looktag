@@ -191,6 +191,7 @@ async function flowHomeActionRow(page) {
     }, null, { timeout: 10_000 })
     .then((handle) => handle.jsonValue());
   const { boxes, navTop } = measured;
+
   record(
     "flow.home.actions.boxes",
     boxes.every((b) => b && Math.round(b.width) === 44 && Math.round(b.height) === 44 && b.y + b.height <= navTop),

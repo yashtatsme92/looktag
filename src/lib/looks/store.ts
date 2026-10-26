@@ -1,3 +1,4 @@
+import { memoPromise } from "@/lib/loading/memo-promise";
 import { create } from "zustand";
 import { deleteLook as deleteLookOnServer, listPublicLooks, saveLook } from "./api";
 import { normalizeLookTags } from "./offers";
@@ -39,7 +40,7 @@ export const useLooksStore = create<LooksState>((set, get) => {
           : window.setTimeout(() => {
               if (!get().hydrated) set({ hydrated: true });
             }, 4000);
-      void listPublicLooks()
+      void memoPromise("looks", () => listPublicLooks())
         .then((looks) => {
           if (failSafe) window.clearTimeout(failSafe);
           if (id !== gen) return;
@@ -56,7 +57,7 @@ export const useLooksStore = create<LooksState>((set, get) => {
     },
     refresh: () => {
       const id = ++gen;
-      return listPublicLooks()
+      return memoPromise("looks", () => listPublicLooks())
         .then((looks) => {
           if (id !== gen) return;
           const next = looks.length

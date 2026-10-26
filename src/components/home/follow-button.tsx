@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { authEnabled } from "@/lib/auth/client";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { CREATOR_FOLLOWS_KEY, omitSelfFollow, readStoredIds, toggleStoredId, viewerCanFollow, writeStoredIds } from "@/lib/home/follows";
 
 export function FollowButton({
@@ -16,7 +16,8 @@ export function FollowButton({
   primary?: boolean;
   tone?: "photo" | "paper";
 }) {
-  const { user, isPending } = useCurrentUserState();
+  const { user } = useCurrentUserState();
+  const runSettled = useSettledSessionAction();
   const [ids, setIds] = useState<string[]>([]);
   const [sheet, setSheet] = useState(false);
   const self = !viewerCanFollow(user?.id, creatorId);
@@ -33,14 +34,17 @@ export function FollowButton({
   const on = ids.includes(creatorId);
   function click() {
     if (!viewerCanFollow(user?.id, creatorId)) return;
-    if (authEnabled && !isPending && !user) {
-      setSheet(true);
-      return;
-    }
-    const next = toggleStoredId(ids, creatorId);
-    writeStoredIds(CREATOR_FOLLOWS_KEY, next);
-    setIds(next);
-    toast.success(next.includes(creatorId) ? `Following ${name}` : `Unfollowed ${name}`);
+    runSettled((sessionUser) => {
+      if (!viewerCanFollow(sessionUser?.id, creatorId)) return;
+      if (authEnabled && !sessionUser) {
+        setSheet(true);
+        return;
+      }
+      const next = toggleStoredId(ids, creatorId);
+      writeStoredIds(CREATOR_FOLLOWS_KEY, next);
+      setIds(next);
+      toast.success(next.includes(creatorId) ? `Following ${name}` : `Unfollowed ${name}`);
+    });
   }
   return (
     <>

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { authClient, authEnabled } from "./client";
 
 /** Normalized user shape used across the app, auth on or off. */
@@ -80,4 +81,32 @@ export function useCurrentUserState(): CurrentUserState {
  */
 export function useCurrentUser(): AppUser | null {
   return useCurrentUserState().user;
+}
+
+/**
+ * Runs `action` with the settled session user. A click while Better Auth is
+ * still resolving must not be treated as signed-in — that path saves locally
+ * and never opens the guest sheet.
+ */
+export function useSettledSessionAction() {
+  const { user, isPending } = useCurrentUserState();
+  const userRef = useRef(user);
+  userRef.current = user;
+  const queued = useRef<((sessionUser: AppUser | null) => void) | null>(null);
+
+  useEffect(() => {
+    if (authEnabled && isPending) return;
+    const job = queued.current;
+    if (!job) return;
+    queued.current = null;
+    job(userRef.current);
+  }, [isPending, user?.id]);
+
+  return (action: (sessionUser: AppUser | null) => void) => {
+    if (authEnabled && isPending) {
+      queued.current = action;
+      return;
+    }
+    action(user);
+  };
 }

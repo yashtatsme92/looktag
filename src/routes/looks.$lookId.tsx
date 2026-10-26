@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { AppShell } from "@/components/layout/app-shell";
 import { LookPlate } from "@/components/looks/look-plate";
 import { WideLook } from "@/components/looks/wide-look";
@@ -43,6 +44,7 @@ function LookPage() {
   const { look: ssrLook } = Route.useLoaderData();
   const lookFromStore = useLook(lookId);
   const { user } = useCurrentUserState();
+  const chrome = useChromeLayout();
   const look = lookFromStore ?? (ssrLook && ssrLook.id === lookId ? ssrLook : undefined);
 
   if (!look) {
@@ -62,12 +64,11 @@ function LookPage() {
 
   return (
     <AppShell title={look.title} backTo="/" flush header="hidden">
-      <div className="lt-until-desk">
-        <LookPlate look={look} userState={state} canEdit={mine} />
-      </div>
-      <div className="lt-desk">
+      {chrome === "desktop" ? (
         <WideLook look={look} userState={state} canEdit={mine} />
-      </div>
+      ) : (
+        <LookPlate look={look} userState={state} canEdit={mine} />
+      )}
     </AppShell>
   );
 }

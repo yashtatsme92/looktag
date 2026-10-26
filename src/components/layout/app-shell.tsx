@@ -133,7 +133,7 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
               root={root}
             />
           )}
-          <main className={flush ? "native-main native-main-flush" : "native-main"}>{children}</main>
+          <main id="native-main" data-scroll-restoration-id="native-main" className={flush ? "native-main native-main-flush" : "native-main"}>{children}</main>
           {isFocusedRoute(pathname) ? null : <TabBar />}
           <InstallSheet />
         </div>

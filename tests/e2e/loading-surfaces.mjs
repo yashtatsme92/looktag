@@ -122,7 +122,7 @@ async function feedSurface(page, width) {
   const entered = skeletonEnter(log, at);
   check(`feed.skeleton-delay.${width}`, Boolean(entered) && entered.at - at >= 250, JSON.stringify({ entered, at }));
   const grid = await page.evaluate(() => {
-    const nodes = [...document.querySelectorAll(".lt-wide .skeleton-grid, .lt-phone .skeleton-grid")];
+    const nodes = [...document.querySelectorAll(".wide-grid > .skeleton-grid, .echo-skeleton-pad > .skeleton-grid")];
     const el = nodes.find((node) => node.getBoundingClientRect().width > 200) ?? nodes[0];
     if (!el) return { columns: 0, gap: "", tile: "", radius: "", lead: "", width: 0 };
     const style = getComputedStyle(el);
@@ -144,6 +144,38 @@ async function feedSurface(page, width) {
     grid.columns === expected && Math.abs(Number.parseFloat(grid.gap) - expectedGap) < 0.5 && grid.width > 200,
     JSON.stringify(grid),
   );
+  const aligned = await page.evaluate(() => {
+    const nodes = [...document.querySelectorAll(".wide-grid > .skeleton-grid, .echo-skeleton-pad > .skeleton-grid")];
+    const el = nodes.find((node) => node.getBoundingClientRect().width > 200) ?? nodes[0];
+    const wide = el?.closest(".wide-grid");
+    if (!el || !wide) return null;
+    const tile = getComputedStyle(el);
+    const host = getComputedStyle(wide);
+    const radius = el.firstElementChild ? getComputedStyle(el.firstElementChild).borderRadius : "";
+    const aspect = el.firstElementChild ? getComputedStyle(el.firstElementChild).aspectRatio : "";
+    const tileTracks = tile.gridTemplateColumns.split(" ").map((part) => Number.parseFloat(part));
+    const hostTracks = host.gridTemplateColumns.split(" ").map((part) => Number.parseFloat(part));
+    // Same repeat() tracks still differ by a fraction of a pixel (1194's 3-col leftover).
+    const columns =
+      tileTracks.length > 0 &&
+      tileTracks.length === hostTracks.length &&
+      tileTracks.every((value, index) => Number.isFinite(value) && Number.isFinite(hostTracks[index]) && Math.abs(value - hostTracks[index]) < 1);
+    return {
+      columns,
+      gap: tile.gap === host.gap,
+      radius,
+      aspect,
+      tile: tile.gridTemplateColumns,
+      host: host.gridTemplateColumns,
+    };
+  });
+  if (aligned) {
+    check(
+      `feed.skeleton-matches-grid.${width}`,
+      aligned.columns && aligned.gap && String(aligned.radius).startsWith("24") && ( /3\s*\/\s*4/.test(aligned.aspect) || Math.abs(Number(aligned.aspect) - 0.75) < 0.02 ),
+      JSON.stringify(aligned),
+    );
+  }
   if (width === 1194) {
     check("feed.tile-span.1194", !/span 2/.test(grid.lead || ""), grid.lead || "auto");
     check("feed.tile-radius.1194", ms(grid.radius) === 24 || String(grid.radius).startsWith("24"), grid.radius);
