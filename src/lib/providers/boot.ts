@@ -3,8 +3,9 @@ import { refuseEphemeralDatabase } from "./db/refuse-ephemeral.ts";
 
 /**
  * Validate provider env and the production database guard.
- * Call this before the process listens. A bad `*_PROVIDER` exits here,
- * not on the first request.
+ * The CLI (`node src/lib/providers/boot.ts`) exits on failure so a typo never
+ * listens. The server runtime logs the same message and stays up so the
+ * configuration page can explain which names are missing.
  */
 export function bootProviders(env: NodeJS.ProcessEnv = process.env): void {
   const event = env.npm_lifecycle_event ?? "";
@@ -14,7 +15,10 @@ export function bootProviders(env: NodeJS.ProcessEnv = process.env): void {
     refuseEphemeralDatabase(env);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
+    const entry = process.argv[1]?.replaceAll("\\", "/") ?? "";
+    if (entry.endsWith("src/lib/providers/boot.ts") || entry.endsWith("src/lib/providers/boot.js")) {
+      process.exit(1);
+    }
   }
 }
 

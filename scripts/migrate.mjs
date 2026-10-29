@@ -27,6 +27,11 @@ import { authEnabledFromEnv, runMigrate } from "./apply-migrations.mjs";
 import { migrationLockMode } from "../src/lib/providers/db/neon-pooler.ts";
 import { openDedicatedPool } from "../src/lib/providers/db/postgres.ts";
 
+if (process.env.LOOKTAG_SKIP_BUILD_MIGRATE === "1") {
+  console.log("[migrate] LOOKTAG_SKIP_BUILD_MIGRATE=1 — skipping image-build migrate. The container migrates on start.");
+  process.exit(0);
+}
+
 const databaseUrl = process.env.DATABASE_URL?.trim();
 if (!databaseUrl) {
   console.log(

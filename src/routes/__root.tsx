@@ -12,6 +12,8 @@ import { ViewportLock } from "@/components/layout/viewport-lock";
 import { parseThemeId, DEFAULT_THEME, readStoredTheme } from "@/lib/design/themes";
 import { withTimeout } from "@/lib/login-next";
 import { APP_VIEWPORT } from "@/lib/pwa/viewport";
+import { readRequestChrome } from "@/lib/providers/chrome-request";
+import type { PlatformChrome } from "@/lib/providers/chrome";
 import { DEFAULT_SPLASH, EARLY_CHROME_SCRIPT, parseSplashId, readStoredSplash } from "@/lib/pwa/splash";
 import appCss from "../styles.css?url";
 import phase1aCss from "../styles.phase1-a.css?url";
@@ -55,10 +57,13 @@ export const Route = createRootRoute({
           sessionCache = user ?? null;
         });
       }
+      const platformChrome: PlatformChrome =
+        document.documentElement.dataset.platform === "grok" ? "grok" : "none";
       return {
         sessionUser,
         splashId: readStoredSplash(),
         themeId: readStoredTheme(),
+        platformChrome,
       };
     }
     const sessionUser = await withTimeout(fetchSessionUser(), 2000, null);
@@ -67,13 +72,19 @@ export const Route = createRootRoute({
       splashId: DEFAULT_SPLASH,
       themeId: DEFAULT_THEME,
     });
+    const requestChrome = await withTimeout(readRequestChrome(), 800, {
+      platformChrome: "none" as const,
+      ogImage: "",
+    });
     return {
       sessionUser,
       splashId: parseSplashId(chrome?.splashId),
       themeId: parseThemeId(chrome?.themeId),
+      platformChrome: requestChrome?.platformChrome ?? "none",
+      ogImage: requestChrome?.ogImage ?? "",
     };
   },
-  head: () => ({
+  head: ({ match }) => ({
     meta: [
       { charSet: "utf-8" },
       {
@@ -92,6 +103,13 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-title", content: APP_NAME },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "format-detection", content: "telephone=no" },
+      ...(match.context.platformChrome === "none" && match.context.ogImage
+        ? [
+            { property: "og:title", content: APP_NAME },
+            { property: "og:image", content: match.context.ogImage },
+            { name: "twitter:card", content: "summary_large_image" },
+          ]
+        : []),
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -103,8 +121,14 @@ export const Route = createRootRoute({
       },
       { rel: "stylesheet", href: appCss },
       { rel: "stylesheet", href: phase1aCss },
-      { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
+      {
+        rel: "manifest",
+        href: match.context.platformChrome === "grok" ? "/__grok/manifest.webmanifest" : "/manifest.webmanifest",
+      },
+      {
+        rel: "apple-touch-icon",
+        href: match.context.platformChrome === "grok" ? "/__grok/icon-180.png" : "/icon-192.png",
+      },
       {
         rel: "apple-touch-startup-image",
         href: "/splash-1179x2556.png",
@@ -173,6 +197,7 @@ function RootDocument() {
       className="antialiased"
       data-splash={splashId}
       data-theme={themeId}
+      data-platform={ctx.platformChrome === "grok" ? "grok" : "none"}
       suppressHydrationWarning
     >
       <head>

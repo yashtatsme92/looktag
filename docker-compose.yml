@@ -1,0 +1,62 @@
+# Optional generic Docker host. Neon is the database. The "db" profile is a
+# local Postgres 16 for people who are not using Neon.
+services:
+  app:
+    image: ${LOOKTAG_IMAGE:-ghcr.io/yashtatsme92/looktag:latest}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: "8080"
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      AUTH_PROVIDER: better-auth
+      PLATFORM_CHROME: none
+      TRUSTED_PROXY_HEADER: x-forwarded-for
+    mem_limit: 512m
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+  postgres:
+    profiles: ["db"]
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: looktag
+      POSTGRES_PASSWORD: change-me-local-only
+      POSTGRES_DB: looktag
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pgdata:

@@ -13,6 +13,14 @@ import type { DbSource, Sql } from "./providers/db/types";
 
 export type { DbSource, Sql };
 
+/** Set when production refused in-memory PGLite. The process stays up. */
+let ephemeralRefusal: string | null = null;
+
+export function ephemeralRefusalMessage(): string | null {
+  return ephemeralRefusal;
+}
+
+
 // An empty/whitespace DATABASE_URL (an easy misconfig in deploy UIs) must mean
 // "unset" — otherwise production would silently run on the PGLite fallback.
 const rawDatabaseUrl =
@@ -201,6 +209,7 @@ async function createSql(): Promise<Sql> {
  * both backends — define tables there, never inline in server functions.
  */
 export function getSql(): Promise<Sql> {
+  if (ephemeralRefusal) return Promise.reject(new Error(ephemeralRefusal));
   sqlPromise ??= createSql().catch((err) => {
     sqlPromise = null; // don't memoize failures — let the next call retry
     throw err;
@@ -234,7 +243,7 @@ export async function getPglite(): Promise<EmbeddedDb> {
  * module kick it off immediately (see bottom of file).
  */
 export function ensureDbReady(): Promise<void> {
-  if (dbSource !== "pglite") return Promise.resolve();
+  if (ephemeralRefusal || dbSource !== "pglite") return Promise.resolve();
   return getSql().then(() => undefined);
 }
 
@@ -250,11 +259,12 @@ if (typeof window === "undefined") {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const event = process.env.npm_lifecycle_event ?? "";
+    // Builds and typecheck must not need DATABASE_URL. At runtime the process
+    // stays up and serves the configuration page instead of exiting.
     if (event !== "build" && event !== "typecheck") {
       console.error(message);
-      process.exit(1);
+      ephemeralRefusal = message;
     }
-    throw error;
   }
 }
 
@@ -264,7 +274,7 @@ const globalBoot = globalThis as typeof globalThis & {
   __pgBootstrapPromise__?: Promise<void>;
   __looktagAdminBootstrap__?: Promise<void>;
 };
-if (typeof window === "undefined" && dbSource === "pglite") {
+if (typeof window === "undefined" && dbSource === "pglite" && !ephemeralRefusal) {
   globalBoot.__pgBootstrapPromise__ ??= ensureDbReady().catch((err) => {
     globalBoot.__pgBootstrapPromise__ = undefined;
     captureException(err, { where: "[db] PGLite bootstrap failed:" });

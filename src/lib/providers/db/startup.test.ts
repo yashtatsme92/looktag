@@ -15,7 +15,7 @@ const CASES: Array<{ name: string; env: Record<string, string>; pattern: RegExp 
   { name: "STORAGE_PROVIDER", env: { STORAGE_PROVIDER: "s4" }, pattern: /Unknown STORAGE_PROVIDER "s4"\. Expected local\|s3\|r2\./ },
   { name: "TELEMETRY_PROVIDER", env: { TELEMETRY_PROVIDER: "jaeger" }, pattern: /Unknown TELEMETRY_PROVIDER "jaeger"\. Expected otlp\|none\./ },
   { name: "EMAIL_PROVIDER", env: { EMAIL_PROVIDER: "smtp" }, pattern: /Unknown EMAIL_PROVIDER "smtp"\. Expected console\./ },
-  { name: "AUTH_PROVIDER", env: { AUTH_PROVIDER: "auth0" }, pattern: /Unknown AUTH_PROVIDER "auth0"\. Expected better-auth\./ },
+  { name: "AUTH_PROVIDER", env: { AUTH_PROVIDER: "auth0" }, pattern: /Unknown AUTH_PROVIDER "auth0"\. Expected better-auth\|grok\./ },
   { name: "SUGGEST_PROVIDER", env: { SUGGEST_PROVIDER: "google" }, pattern: /Unknown SUGGEST_PROVIDER "google"\. Expected shop-search\./ },
 ];
 

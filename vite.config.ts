@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
@@ -178,7 +179,17 @@ export default defineConfig(({ command, isPreview }) => ({
     port: 8081,
     strictPort: true,
   },
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    tsconfigPaths: true,
+    alias:
+      process.env.LOOKTAG_BUNDLE_PGLITE === "0"
+        ? {
+            "@electric-sql/pglite": fileURLToPath(
+              new URL("./src/lib/providers/db/pglite-package-stub.ts", import.meta.url),
+            ),
+          }
+        : undefined,
+  },
   plugins: [
     pgliteBootstrapPlugin(),
     {

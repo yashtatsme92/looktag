@@ -31,7 +31,8 @@ function env(key: string): string | undefined {
 }
 
 export function gateIdentityEnabled(): boolean {
-  return env("VITE_AUTH_ENABLED") !== "false";
+  if (env("VITE_AUTH_ENABLED") === "false") return false;
+  return env("AUTH_PROVIDER")?.toLowerCase() === "grok";
 }
 
 export function gateTokenAudience(): string {

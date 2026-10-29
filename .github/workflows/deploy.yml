@@ -1,0 +1,247 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag (default is the git ref)
+        required: false
+        type: string
+      seed:
+        description: Run the one-off catalog seed. Never automatic.
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: looktag-deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+
+  build:
+    needs: test
+    if: github.event_name != 'workflow_dispatch' || inputs.seed != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      sha_tag: ${{ steps.meta.outputs.sha_tag }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.image_tag }}" ]; then
+            tag="${{ inputs.image_tag }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            tag="sha-${GITHUB_SHA::12}"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "build_started=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          provenance: true
+          tags: |
+            ghcr.io/yashtatsme92/looktag:${{ steps.meta.outputs.tag }}
+            ghcr.io/yashtatsme92/looktag:${{ steps.meta.outputs.sha_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Report build time
+        run: |
+          set -euo pipefail
+          now=$(date +%s)
+          echo "image_build_seconds=$((now - ${{ steps.meta.outputs.build_started }}))"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Require a known target
+        env:
+          DEPLOY_TARGET: ${{ vars.DEPLOY_TARGET }}
+        run: |
+          set -euo pipefail
+          target="${DEPLOY_TARGET:-render}"
+          case "$target" in
+            render|ssh-compose) echo "target=$target" >> "$GITHUB_ENV" ;;
+            *) echo "Unknown DEPLOY_TARGET. Expected render or ssh-compose." >&2; exit 1 ;;
+          esac
+      - name: Deploy on Render
+        if: env.target == 'render'
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          RENDER_PUBLIC_URL: ${{ vars.RENDER_PUBLIC_URL }}
+          IMAGE: ghcr.io/yashtatsme92/looktag:${{ needs.build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import json, os, urllib.parse, urllib.request
+          image = os.environ["IMAGE"]
+          hook = os.environ.get("RENDER_DEPLOY_HOOK_URL", "")
+          api = os.environ.get("RENDER_API_KEY", "")
+          service = os.environ.get("RENDER_SERVICE_ID", "")
+          if hook:
+              print("::add-mask::" + hook)
+          if api:
+              print("::add-mask::" + api)
+
+          def request(url, data=None, headers=None, method="POST"):
+              req = urllib.request.Request(url, data=data, method=method, headers=headers or {})
+              with urllib.request.urlopen(req, timeout=60) as res:
+                  body = res.read()
+                  if res.status >= 300:
+                      raise SystemExit("status %s" % res.status)
+                  return body
+
+          if hook:
+              url = hook + ("&" if "?" in hook else "?") + "imgURL=" + urllib.parse.quote(image, safe="")
+              request(url)
+          elif api and service:
+              request(
+                  "https://api.render.com/v1/services/%s/deploys" % urllib.parse.quote(service),
+                  data=json.dumps({"imageUrl": image}).encode(),
+                  headers={
+                      "Authorization": "Bearer " + api,
+                      "Accept": "application/json",
+                      "Content-Type": "application/json",
+                  },
+              )
+          else:
+              raise SystemExit("Set RENDER_DEPLOY_HOOK_URL, or RENDER_API_KEY and RENDER_SERVICE_ID")
+          public = os.environ.get("RENDER_PUBLIC_URL", "").rstrip("/")
+          if not public:
+              raise SystemExit("Set the RENDER_PUBLIC_URL repository variable")
+          open("/tmp/looktag-public-url", "w").write(public)
+          open("/tmp/looktag-render-rollback", "w").write("1" if api and service else "0")
+          PY
+          url=$(cat /tmp/looktag-public-url)
+          ok=0
+          for _ in $(seq 1 24); do
+            if curl --fail --silent --show-error "$url/healthz" | grep -q '"status":"ok"'; then
+              ok=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ok" != "1" ]; then
+            echo "healthz did not return ok" >&2
+            if [ "$(cat /tmp/looktag-render-rollback)" = "1" ]; then
+              python3 - << 'PY'
+          import json, os, urllib.parse, urllib.request
+          api = os.environ["RENDER_API_KEY"]
+          service = os.environ["RENDER_SERVICE_ID"]
+          print("::add-mask::" + api)
+          base = "https://api.render.com/v1/services/%s" % urllib.parse.quote(service)
+          req = urllib.request.Request(
+              base + "/deploys?limit=20",
+              headers={"Authorization": "Bearer " + api, "Accept": "application/json"},
+          )
+          with urllib.request.urlopen(req, timeout=60) as res:
+              payload = json.loads(res.read().decode() or "[]")
+          items = payload if isinstance(payload, list) else []
+          ids = []
+          for item in items:
+              deploy = item.get("deploy", item) if isinstance(item, dict) else {}
+              if deploy.get("status") in {"live", "deactivated"} and deploy.get("id"):
+                  ids.append(deploy["id"])
+          target = ids[1] if len(ids) > 1 else None
+          if not target:
+              print("No previous deploy to roll back to.")
+              raise SystemExit(0)
+          roll = urllib.request.Request(
+              base + "/rollback",
+              data=json.dumps({"deployId": target}).encode(),
+              method="POST",
+              headers={
+                  "Authorization": "Bearer " + api,
+                  "Accept": "application/json",
+                  "Content-Type": "application/json",
+              },
+          )
+          with urllib.request.urlopen(roll, timeout=60) as res:
+              if res.status >= 300:
+                  raise SystemExit("rollback status %s" % res.status)
+          print("Requested rollback to the previous deploy.")
+          PY
+            fi
+            exit 1
+          fi
+      - name: Deploy over SSH
+        if: env.target == 'ssh-compose'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          IMAGE: ghcr.io/yashtatsme92/looktag:${{ needs.build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_deploy"
+          chmod 600 "$HOME/.ssh/id_deploy"
+          ssh -i "$HOME/.ssh/id_deploy" -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST"             "DEPLOY_PATH=$(printf %q "$DEPLOY_PATH") IMAGE=$(printf %q "$IMAGE") bash -s" << 'EOS'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          prev="$(docker inspect -f '{{.Config.Image}}' "$(docker compose ps -q app)" 2>/dev/null || true)"
+          if ! LOOKTAG_IMAGE="$IMAGE" docker compose pull             || ! LOOKTAG_IMAGE="$IMAGE" docker compose up -d --wait             || ! docker compose exec -T app node -e "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+            if [ -n "$prev" ]; then
+              LOOKTAG_IMAGE="$prev" docker compose up -d --wait || true
+            fi
+            exit 1
+          fi
+          EOS
+          rm -f "$HOME/.ssh/id_deploy"
+
+  seed:
+    if: github.event_name == 'workflow_dispatch' && inputs.seed == true
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Seed from the published image
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "DATABASE_URL is not set on the production environment" >&2
+            exit 1
+          fi
+          tag="${IMAGE_TAG:-latest}"
+          docker run --rm -e DATABASE_URL "ghcr.io/yashtatsme92/looktag:${tag}" node scripts/seed.mjs

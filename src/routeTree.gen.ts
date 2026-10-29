@@ -13,10 +13,13 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as DesignRouteImport } from './routes/design'
+import { Route as HealthzRouteImport } from './routes/healthz'
 import { Route as HouseRouteImport } from './routes/house'
 import { Route as HousesRouteImport } from './routes/houses'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ManifestDotwebmanifestRouteImport } from './routes/manifest[.]webmanifest'
 import { Route as RankRouteImport } from './routes/rank'
+import { Route as ReadyzRouteImport } from './routes/readyz'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AdminFeedRouteImport } from './routes/admin_.feed'
@@ -55,6 +58,11 @@ const DesignRoute = DesignRouteImport.update({
   path: '/design',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HealthzRoute = HealthzRouteImport.update({
+  id: '/healthz',
+  path: '/healthz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HouseRoute = HouseRouteImport.update({
   id: '/house',
   path: '/house',
@@ -70,9 +78,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ManifestDotwebmanifestRoute = ManifestDotwebmanifestRouteImport.update({
+  id: '/manifest.webmanifest',
+  path: '/manifest.webmanifest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RankRoute = RankRouteImport.update({
   id: '/rank',
   path: '/rank',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReadyzRoute = ReadyzRouteImport.update({
+  id: '/readyz',
+  path: '/readyz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
@@ -168,10 +186,13 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/create': typeof CreateRoute
   '/design': typeof DesignRoute
+  '/healthz': typeof HealthzRoute
   '/house': typeof HouseRoute
   '/houses': typeof HousesRoute
   '/login': typeof LoginRoute
+  '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/rank': typeof RankRoute
+  '/readyz': typeof ReadyzRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/feed': typeof AdminFeedRoute
@@ -195,10 +216,13 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/create': typeof CreateRoute
   '/design': typeof DesignRoute
+  '/healthz': typeof HealthzRoute
   '/house': typeof HouseRoute
   '/houses': typeof HousesRoute
   '/login': typeof LoginRoute
+  '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/rank': typeof RankRoute
+  '/readyz': typeof ReadyzRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/feed': typeof AdminFeedRoute
@@ -223,10 +247,13 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/create': typeof CreateRoute
   '/design': typeof DesignRoute
+  '/healthz': typeof HealthzRoute
   '/house': typeof HouseRoute
   '/houses': typeof HousesRoute
   '/login': typeof LoginRoute
+  '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/rank': typeof RankRoute
+  '/readyz': typeof ReadyzRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin_/feed': typeof AdminFeedRoute
@@ -252,10 +279,13 @@ export interface FileRouteTypes {
     | '/admin'
     | '/create'
     | '/design'
+    | '/healthz'
     | '/house'
     | '/houses'
     | '/login'
+    | '/manifest.webmanifest'
     | '/rank'
+    | '/readyz'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/admin/feed'
@@ -279,10 +309,13 @@ export interface FileRouteTypes {
     | '/admin'
     | '/create'
     | '/design'
+    | '/healthz'
     | '/house'
     | '/houses'
     | '/login'
+    | '/manifest.webmanifest'
     | '/rank'
+    | '/readyz'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/admin/feed'
@@ -306,10 +339,13 @@ export interface FileRouteTypes {
     | '/admin'
     | '/create'
     | '/design'
+    | '/healthz'
     | '/house'
     | '/houses'
     | '/login'
+    | '/manifest.webmanifest'
     | '/rank'
+    | '/readyz'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/admin_/feed'
@@ -334,10 +370,13 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   CreateRoute: typeof CreateRoute
   DesignRoute: typeof DesignRoute
+  HealthzRoute: typeof HealthzRoute
   HouseRoute: typeof HouseRoute
   HousesRoute: typeof HousesRoute
   LoginRoute: typeof LoginRoute
+  ManifestDotwebmanifestRoute: typeof ManifestDotwebmanifestRoute
   RankRoute: typeof RankRoute
+  ReadyzRoute: typeof ReadyzRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AdminFeedRoute: typeof AdminFeedRoute
@@ -387,6 +426,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DesignRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/healthz': {
+      id: '/healthz'
+      path: '/healthz'
+      fullPath: '/healthz'
+      preLoaderRoute: typeof HealthzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/house': {
       id: '/house'
       path: '/house'
@@ -408,11 +454,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/manifest.webmanifest': {
+      id: '/manifest.webmanifest'
+      path: '/manifest.webmanifest'
+      fullPath: '/manifest.webmanifest'
+      preLoaderRoute: typeof ManifestDotwebmanifestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/rank': {
       id: '/rank'
       path: '/rank'
       fullPath: '/rank'
       preLoaderRoute: typeof RankRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/readyz': {
+      id: '/readyz'
+      path: '/readyz'
+      fullPath: '/readyz'
+      preLoaderRoute: typeof ReadyzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/robots.txt': {
@@ -542,10 +602,13 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   CreateRoute: CreateRoute,
   DesignRoute: DesignRoute,
+  HealthzRoute: HealthzRoute,
   HouseRoute: HouseRoute,
   HousesRoute: HousesRoute,
   LoginRoute: LoginRoute,
+  ManifestDotwebmanifestRoute: ManifestDotwebmanifestRoute,
   RankRoute: RankRoute,
+  ReadyzRoute: ReadyzRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   AdminFeedRoute: AdminFeedRoute,

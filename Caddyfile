@@ -1,0 +1,13 @@
+# Caddy is the edge on the generic Docker host. It overwrites client-supplied
+# X-Forwarded-* headers. Set TRUSTED_PROXY_HEADER=x-forwarded-for on the app.
+{$APP_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Content-Security-Policy "frame-ancestors 'self'"
+		-Server
+	}
+	reverse_proxy app:8080
+}

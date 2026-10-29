@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { normalizeLoginEmail, resolveYouSessionState, youSessionSignedIn } from "@/lib/admin/access";
-import { authClient, authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
+import { authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { getSignInMethods, type SignInMethodView } from "@/lib/auth/sign-in-methods";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { clearPendingSave } from "@/lib/looks/pending-save";
 import { captureSessionToken, postAuthPath, resumeCreateInsteadOfReplace, safeNext, withTimeout } from "@/lib/login-next";
 import { ensureMyProfile } from "@/lib/looks/api";
 import { parseHandle, suggestHandle } from "@/lib/looks/handle";
-import { signupMethodCount, visibleOauthProviders } from "@/lib/settings/model";
+import { signupMethodCount } from "@/lib/settings/model";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
@@ -83,9 +84,23 @@ function Login() {
   const { user, isPending } = useCurrentUserState();
   const sessionState = resolveYouSessionState({ user, isPending });
   const settings = useSettingsStore();
-  const oauth = visibleOauthProviders(settings, GROK_PROVIDERS);
-  const emailOn = settings.signupEmail;
-  const methodCount = signupMethodCount(settings);
+  const [methods, setMethods] = useState<SignInMethodView[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void getSignInMethods()
+      .then((list) => {
+        if (!cancelled) setMethods(list);
+      })
+      .catch(() => {
+        if (!cancelled) setMethods(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const oauth = (methods ?? []).filter((method) => method.kind !== "email");
+  const emailOn = methods ? methods.some((method) => method.kind === "email") : settings.signupEmail;
+  const methodCount = methods ? methods.length : signupMethodCount(settings);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
@@ -103,12 +118,12 @@ function Login() {
       <div className="flex flex-col gap-2">
         {oauth.map((provider) => (
           <Button
-            key={provider.providerId}
+            key={provider.id}
             type="button"
             variant="outline"
             className="w-full"
             disabled={busy}
-            onClick={() => handleOauth(provider.providerId)}
+            onClick={() => handleOauth(provider)}
           >
             Continue with {provider.label}
           </Button>
@@ -222,15 +237,29 @@ function Login() {
     }
   }
 
-  function handleOauth(providerId: string) {
+  function handleOauth(method: SignInMethodView) {
     setError("");
     setBusy(true);
     markStyleGuideDone({ coach: true });
+    const callbackURL = dest === "/login" && next !== "/login" ? "/" : dest;
+    if (method.kind === "social") {
+      void authClient.signIn
+        .social({ provider: method.id, callbackURL })
+        .then((result) => {
+          if (result?.error) throw new Error(result.error.message ?? "Sign-in did not complete.");
+          if (result?.data?.url) window.location.href = result.data.url;
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : "Sign-in did not complete.");
+          setBusy(false);
+        });
+      return;
+    }
     const unlock = window.setTimeout(() => {
       setBusy(false);
       setError("That sign-in did not complete. Use another method.");
     }, 7_000);
-    void signIn(providerId, { callbackURL: dest === "/login" && next !== "/login" ? "/" : dest })
+    void signIn(method.id, { callbackURL })
       .then(() => {
         window.clearTimeout(unlock);
         if (window.location.pathname.startsWith("/login")) {
@@ -353,7 +382,7 @@ function Login() {
                   : "Use the same email you signed up with."
                 : "Choose an enabled provider, or use the admin sign-in option."}
         </p>
-        {authEnabled && methodCount > 0 ? (
+        {authEnabled ? (
           <div className="flex flex-col gap-5">
             {!emailOn ? oauthButtons : null}
             {!emailOn && !adminEmailOpen && error ? (

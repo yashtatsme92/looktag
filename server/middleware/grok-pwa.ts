@@ -24,6 +24,7 @@ import {
   renderInstallPageHtml,
   renderWebManifest,
 } from "../../scripts/grok-pwa-shared.mjs";
+import { resolvePlatformChrome } from "../../src/lib/providers/chrome.ts";
 
 interface GrokPwaEvent {
   url: URL;
@@ -60,14 +61,37 @@ function injectHeadStreaming(response: Response, host: string): Response {
   });
 }
 
+function withOwnSecurity(result: unknown, https: boolean): unknown {
+  if (!(result instanceof Response)) return result;
+  const headers = new Headers(result.headers);
+  headers.set("x-content-type-options", "nosniff");
+  headers.set("referrer-policy", "strict-origin-when-cross-origin");
+  if (!headers.has("content-security-policy")) {
+    headers.set("content-security-policy", "frame-ancestors 'self'");
+  }
+  if (https) headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
+  return new Response(result.body, { status: result.status, statusText: result.statusText, headers });
+}
+
 export default async function grokPwaMiddleware(
   event: GrokPwaEvent,
   next: () => unknown | Promise<unknown>,
 ): Promise<unknown> {
+  const path = event.url.pathname;
+  if (resolvePlatformChrome(process.env, requestHost(event)) === "none") {
+    if (path.startsWith("/__grok/")) {
+      return new Response("Not found", {
+        status: 404,
+        headers: { "content-type": "text/plain; charset=utf-8" },
+      });
+    }
+    const https =
+      event.req.headers.get("x-forwarded-proto") === "https" || event.url.protocol === "https:";
+    return withOwnSecurity(await next(), https);
+  }
   const method = (event.req.method ?? "GET").toUpperCase();
   if (method !== "GET") return next();
 
-  const path = event.url.pathname;
   const urlWithQuery = path + event.url.search;
 
   if (path === "/__grok/manifest.webmanifest" || path === "/__grok/manifest.json") {

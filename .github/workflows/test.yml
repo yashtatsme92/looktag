@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 
 jobs:
   unit:
@@ -76,12 +77,14 @@ jobs:
           VITE_AUTH_ENABLED: "true"
           BETTER_AUTH_SECRET: ci-prod-secret-0123456789abcdef01
           BETTER_AUTH_URL: http://127.0.0.1:4173
+          APP_URL: http://127.0.0.1:4173
           LOOKTAG_ALLOW_EPHEMERAL_DB: "1"
       - name: Database-backed route returns 200
         env:
           VITE_AUTH_ENABLED: "true"
           BETTER_AUTH_SECRET: ci-prod-secret-0123456789abcdef01
           BETTER_AUTH_URL: http://127.0.0.1:4173
+          APP_URL: http://127.0.0.1:4173
           PORT: "4173"
           HOST: 127.0.0.1
           PROD_CHECK_URL: http://127.0.0.1:4173
@@ -143,6 +146,7 @@ jobs:
           VITE_AUTH_ENABLED: "true"
           BETTER_AUTH_SECRET: ci-neon-secret-0123456789abcdef01
           BETTER_AUTH_URL: http://127.0.0.1:4173
+          APP_URL: http://127.0.0.1:4173
           PORT: "4173"
           HOST: 127.0.0.1
           PROD_CHECK_URL: http://127.0.0.1:4173
@@ -171,3 +175,112 @@ jobs:
             cat /tmp/looktag-neon.log
             exit 1
           }
+
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/actionlint@03d0035246f3e81f36aed592ffb4bebf33a03106 # v1.7.7
+
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose and Caddy
+        run: |
+          set -euo pipefail
+          docker compose -f docker-compose.yml config >/tmp/looktag-compose.yml
+          docker run --rm -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" -e APP_DOMAIN=example.com caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: looktag
+          POSTGRES_PASSWORD: looktag-ci-only
+          POSTGRES_DB: looktag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U looktag"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image without a database
+        run: docker build -t looktag:ci .
+      - name: The image is not root and does not ship PGLite
+        run: |
+          set -euo pipefail
+          test "$(docker run --rm --entrypoint id looktag:ci -u)" = "10001"
+          docker run --rm --entrypoint sh looktag:ci -c 'find /app -name pglite.wasm | grep -q . && exit 1 || exit 0'
+      - name: Boot against Postgres
+        run: |
+          set -euo pipefail
+          docker run -d --name looktag-ci --add-host=host.docker.internal:host-gateway \
+            -e DATABASE_URL=postgres://looktag:looktag-ci-only@host.docker.internal:5432/looktag \
+            -e BETTER_AUTH_SECRET=ci-image-secret \
+            -e BETTER_AUTH_URL=http://127.0.0.1:18080 \
+            -e APP_URL=http://127.0.0.1:18080 \
+            -e AUTH_PROVIDER=better-auth \
+            -e PLATFORM_CHROME=none \
+            -p 18080:8080 looktag:ci
+          for _ in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz | grep -q '"status":"ok"'; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:18080/healthz | grep -q '"status":"ok"' || {
+            docker logs looktag-ci
+            exit 1
+          }
+          curl --fail --silent http://127.0.0.1:18080/ | grep -q Looktag
+          curl --fail --silent -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/manifest.webmanifest | grep -q 200
+          test "$(curl --silent -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/__grok/manifest.webmanifest)" = "404"
+          html=$(curl --fail --silent http://127.0.0.1:18080/)
+          printf '%s' "$html" | grep -q Looktag
+          if printf '%s' "$html" | grep -q 'grok.com/grok-app-builder/extensions.js'; then
+            echo "extensions.js leaked" >&2
+            exit 1
+          fi
+          if printf '%s' "$html" | grep -q 'og.grok.me'; then
+            echo "og.grok.me leaked" >&2
+            exit 1
+          fi
+          cookie=$(curl --silent -D - -o /dev/null -X POST http://127.0.0.1:18080/api/auth/sign-up/email \
+            -H 'content-type: application/json' \
+            -H 'origin: http://127.0.0.1:18080' \
+            --data '{"email":"image-ci@looktag.studio","password":"correct-horse-battery-1","name":"Image CI"}')
+          printf '%s' "$cookie" | grep -q '__Host-looktag.session_token='
+          printf '%s' "$cookie" | grep -q 'Secure'
+      - name: Missing database stays up and hides the canary
+        run: |
+          set -euo pipefail
+          docker run -d --name looktag-neg \
+            -e NODE_ENV=production \
+            -e BETTER_AUTH_SECRET=canary-do-not-leak-zz \
+            -e BETTER_AUTH_URL=https://looktag.example \
+            -e APP_URL=https://looktag.example \
+            -p 18081:8080 looktag:ci
+          sleep 3
+          test "$(docker inspect -f '{{.State.Running}}' looktag-neg)" = "true"
+          code=$(curl --silent -o /tmp/health.json -w "%{http_code}" http://127.0.0.1:18081/healthz)
+          test "$code" = "503"
+          grep -q DATABASE_URL /tmp/health.json
+          if grep -q canary-do-not-leak-zz /tmp/health.json; then
+            echo "secret leaked" >&2
+            exit 1
+          fi
+          curl --silent -H 'accept: text/html' http://127.0.0.1:18081/ > /tmp/config.html
+          grep -q 'Configuration error' /tmp/config.html
+          if grep -q canary-do-not-leak-zz /tmp/config.html; then
+            echo "secret leaked in html" >&2
+            exit 1
+          fi
