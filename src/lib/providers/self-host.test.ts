@@ -11,6 +11,7 @@ import { productionConfigProblems } from "./assert-env.ts";
 import { resolvePlatformChrome } from "./chrome.ts";
 import { configErrorHtml, configErrorJson } from "./config-error.ts";
 import { ENV_CATALOG } from "./env-catalog.ts";
+import { injectGrokPwaHead } from "../../../scripts/grok-pwa-shared.mjs";
 import { resolveNitroPreset } from "../../../scripts/nitro-preset.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -62,7 +63,17 @@ describe("platform chrome", () => {
     assert.equal(resolvePlatformChrome({}), "none");
     assert.equal(resolvePlatformChrome({ AUTH_PROVIDER: "grok" }), "grok");
     assert.equal(resolvePlatformChrome({ AUTH_PROVIDER: "grok", PLATFORM_CHROME: "none" }), "none");
-    assert.equal(resolvePlatformChrome({}, "preview.grok-sandbox.com"), "grok");
+    assert.equal(resolvePlatformChrome({}, "foo.grok-sandbox.com"), "none");
+    assert.equal(resolvePlatformChrome({ AUTH_PROVIDER: "grok" }, "foo.grok-sandbox.com"), "grok");
+  });
+
+  it("does not inject a grok.com script for a forged sandbox host", () => {
+    const page = "<!DOCTYPE html><html><head></head><body>/</body></html>";
+    const chrome = resolvePlatformChrome({}, "foo.grok-sandbox.com");
+    const html = chrome === "grok" ? injectGrokPwaHead(page, { host: "foo.grok-sandbox.com" }) : page;
+    assert.equal(chrome, "none");
+    assert.equal(html.includes("grok.com"), false);
+    assert.equal(html.includes("extensions.js"), false);
   });
 });
 
@@ -118,6 +129,13 @@ describe("env catalog", () => {
     const doc = readFileSync(join(root, "docs/SELF_HOSTING.md"), "utf8");
     for (const row of ENV_CATALOG) {
       assert.match(doc, new RegExp(`\\b${row.name}\\b`), row.name);
+    }
+  });
+
+  it("lists every catalog variable in .env.example", () => {
+    const example = readFileSync(join(root, ".env.example"), "utf8");
+    for (const row of ENV_CATALOG) {
+      assert.match(example, new RegExp(`^${row.name}=`, "m"), row.name);
     }
   });
 });

@@ -24,7 +24,7 @@ import {
   renderInstallPageHtml,
   renderWebManifest,
 } from "../../scripts/grok-pwa-shared.mjs";
-import { resolvePlatformChrome } from "../../src/lib/providers/chrome.ts";
+import { chromeHostFromRequest, resolvePlatformChrome } from "../../src/lib/providers/chrome.ts";
 
 interface GrokPwaEvent {
   url: URL;
@@ -78,7 +78,7 @@ export default async function grokPwaMiddleware(
   next: () => unknown | Promise<unknown>,
 ): Promise<unknown> {
   const path = event.url.pathname;
-  if (resolvePlatformChrome(process.env, requestHost(event)) === "none") {
+  if (resolvePlatformChrome(process.env, chromeHostFromRequest(process.env, event.req.headers.get("x-forwarded-host"))) === "none") {
     if (path.startsWith("/__grok/")) {
       return new Response("Not found", {
         status: 404,

@@ -17,7 +17,7 @@ import {
   renderWebManifest,
   snapshotOgIdentity,
 } from "./grok-pwa-shared.mjs";
-import { resolvePlatformChrome } from "../src/lib/providers/chrome.ts";
+import { chromeHostFromRequest, resolvePlatformChrome } from "../src/lib/providers/chrome.ts";
 
 export const GROK_OG_IDENTITY_ID = "virtual:grok-og-identity";
 
@@ -44,7 +44,9 @@ function sendHtml(res, html) {
 }
 
 function chromeFor(req) {
-  return resolvePlatformChrome(process.env, requestHost(req) ?? "");
+  const forwarded = req.headers["x-forwarded-host"];
+  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return resolvePlatformChrome(process.env, chromeHostFromRequest(process.env, value ?? ""));
 }
 
 function serveGrokPwa(middlewares) {

@@ -1,14 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
-import { resolvePlatformChrome, type PlatformChrome } from "./chrome";
+import { chromeHostFromRequest, resolvePlatformChrome, type PlatformChrome } from "./chrome";
 
-/** Request host decides chrome. The client reads data-platform instead. */
+/** Request host decides chrome only when AUTH_PROVIDER=grok. */
 export const readRequestChrome = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ platformChrome: PlatformChrome; ogImage: string }> => {
     let host = "";
     try {
       const { getRequest } = await import("@tanstack/react-start/server");
       const req = getRequest();
-      host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
+      host = chromeHostFromRequest(process.env, req.headers.get("x-forwarded-host"));
     } catch {
       host = "";
     }
