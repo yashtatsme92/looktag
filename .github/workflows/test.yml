@@ -243,8 +243,10 @@ jobs:
             exit 1
           }
           docker stats --no-stream --format 'rss_after_boot={{.MemUsage}}' looktag-ci
-          curl --fail --silent http://127.0.0.1:18080/ | grep -q Looktag
-          curl --fail --silent -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/manifest.webmanifest | grep -q 200
+          page=$(curl --fail --silent http://127.0.0.1:18080/)
+          printf '%s' "$page" | grep -q Looktag
+          manifest_code=$(curl --fail --silent -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/manifest.webmanifest)
+          test "$manifest_code" = "200"
           test "$(curl --silent -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/__grok/manifest.webmanifest)" = "404"
           html=$(curl --fail --silent http://127.0.0.1:18080/)
           printf '%s' "$html" | grep -q Looktag
