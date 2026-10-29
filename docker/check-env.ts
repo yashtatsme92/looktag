@@ -1,4 +1,4 @@
-import { productionConfigProblems } from "../src/lib/providers/assert-env.ts";
+import { productionConfigProblems } from "../src/lib/providers/config-problems.ts";
 
 const problems = productionConfigProblems(process.env);
 if (problems.length > 0) {

@@ -37,12 +37,13 @@ jobs:
         run: |
           export VITE_AUTH_ENABLED=true
           export ADMIN_EMAIL=admin@looktag.studio
-          export ADMIN_BOOTSTRAP_PASSWORD="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+          password="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+          export ADMIN_BOOTSTRAP_PASSWORD="$password"
           export BETTER_AUTH_URL=http://127.0.0.1:8080
           npm run dev > /tmp/looktag-e2e-dev.log 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:8080/ >/dev/null; then
               break
             fi
@@ -100,7 +101,7 @@ jobs:
           node .output/server/index.mjs > /tmp/looktag-prod.log 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:4173/api/auth/ok >/dev/null; then
               break
             fi
@@ -161,7 +162,7 @@ jobs:
           node .output/server/index.mjs > /tmp/looktag-neon.log 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:4173/api/auth/ok >/dev/null; then
               break
             fi
@@ -241,6 +242,7 @@ jobs:
             docker logs looktag-ci
             exit 1
           }
+          docker stats --no-stream --format 'rss_after_boot={{.MemUsage}}' looktag-ci
           curl --fail --silent http://127.0.0.1:18080/ | grep -q Looktag
           curl --fail --silent -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/manifest.webmanifest | grep -q 200
           test "$(curl --silent -o /dev/null -w "%{http_code}" http://127.0.0.1:18080/__grok/manifest.webmanifest)" = "404"
@@ -260,6 +262,7 @@ jobs:
             --data '{"email":"image-ci@looktag.studio","password":"correct-horse-battery-1","name":"Image CI"}')
           printf '%s' "$cookie" | grep -q '__Host-looktag.session_token='
           printf '%s' "$cookie" | grep -q 'Secure'
+          docker stats --no-stream --format 'rss_after_signup={{.MemUsage}}' looktag-ci
       - name: Missing database stays up and hides the canary
         run: |
           set -euo pipefail

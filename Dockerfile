@@ -49,7 +49,7 @@ COPY --from=build /app/scripts/centered-crop.mjs /app/scripts/centered-crop.mjs
 COPY --from=build /app/scripts/seed.mjs /app/scripts/seed.mjs
 COPY --from=build /app/src/lib/providers/db/postgres.ts /app/src/lib/providers/db/postgres.ts
 COPY --from=build /app/src/lib/providers/db/neon-pooler.ts /app/src/lib/providers/db/neon-pooler.ts
-COPY --from=build /app/src/lib/providers/assert-env.ts /app/src/lib/providers/assert-env.ts
+COPY --from=build /app/src/lib/providers/config-problems.ts /app/src/lib/providers/config-problems.ts
 COPY --from=build /app/docker/entrypoint.sh /app/docker/entrypoint.sh
 COPY --from=build /app/docker/check-env.ts /app/docker/check-env.ts
 RUN chown -R 10001:10001 /app && chmod 755 /app/docker/entrypoint.sh

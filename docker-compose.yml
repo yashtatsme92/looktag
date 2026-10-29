@@ -5,7 +5,8 @@ services:
     image: ${LOOKTAG_IMAGE:-ghcr.io/yashtatsme92/looktag:latest}
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       PORT: "8080"
       HOST: 0.0.0.0
