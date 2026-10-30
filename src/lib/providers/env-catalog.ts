@@ -11,7 +11,7 @@ export const ENV_CATALOG = [
   { name: 'AUTH_PROVIDER', when: 'optional', defaultValue: 'better-auth', adapter: 'auth' },
   { name: 'AUTH_COOKIE_PREFIX', when: 'optional', defaultValue: 'looktag (grok-auth when AUTH_PROVIDER=grok)', adapter: 'auth' },
   { name: 'TRUSTED_PROXY_HEADER', when: 'optional', defaultValue: 'unset (client IP headers are not trusted)', adapter: 'auth' },
-  { name: 'PLATFORM_CHROME', when: 'optional', defaultValue: 'none, or grok when AUTH_PROVIDER=grok or a Grok sandbox host', adapter: 'chrome' },
+  { name: 'PLATFORM_CHROME', when: 'optional', defaultValue: 'none unless AUTH_PROVIDER=grok or PLATFORM_CHROME=grok', adapter: 'chrome' },
   { name: 'GOOGLE_CLIENT_ID', when: 'optional', defaultValue: 'unset', adapter: 'auth' },
   { name: 'GOOGLE_CLIENT_SECRET', when: 'optional', defaultValue: 'unset', adapter: 'auth' },
   { name: 'APPLE_CLIENT_ID', when: 'optional', defaultValue: 'unset', adapter: 'auth' },

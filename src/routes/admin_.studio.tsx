@@ -97,26 +97,19 @@ function StudioAdmin() {
   }, [houseLoad.phase, houseLoad.data]);
 
   async function patch(next: Partial<AppSettings>) {
-    if (next.signupGoogle === true && !settings.signupApple && next.signupApple !== true) {
-      toast.error("Enable Apple sign-in before Google.");
-      return;
-    }
-    const changes = next.signupApple === false && settings.signupGoogle
-      ? { ...next, signupGoogle: false }
-      : next;
-    const merged = { ...settings, ...changes };
+    const merged = { ...settings, ...next };
     if (!hasSignupMethod(merged)) {
       toast.error("Leave at least one sign-up method on.");
       return;
     }
-    setPendingSettings(changes);
+    setPendingSettings(next);
     setSavePhase("saving");
     setSaveError(null);
     try {
-      const saved = await settings.save(changes);
-      if (typeof changes.labelsEnabled === "boolean") {
+      const saved = await settings.save(next);
+      if (typeof next.labelsEnabled === "boolean") {
         refreshLooks();
-        if (changes.labelsEnabled) {
+        if (next.labelsEnabled) {
           const [rows, nextCollections] = await Promise.all([
             listRankedLabels(),
             listFashionCollections(),
@@ -161,9 +154,8 @@ function StudioAdmin() {
       <section className="mb-6 rounded-xl bg-card p-5 shadow-[var(--shadow-border)]">
         <h2 className="ds-card-title">Sign up</h2>
         <p className="mt-2 mb-4 text-sm text-muted-foreground">
-          Choose which ways people can create an account. Apple must be on
-          before Google can be enabled. Disabled methods are also blocked on
-          the server.
+          Choose which ways people can create an account. Each method is
+          independent. Disabled methods are also blocked on the server.
         </p>
         <ul className="flex flex-col">
           <MethodRow
@@ -176,12 +168,11 @@ function StudioAdmin() {
             label="Google"
             hint="Opens a sign-in window."
             checked={typeof pendingSettings?.signupGoogle === "boolean" ? pendingSettings.signupGoogle : settings.signupGoogle}
-            disabled={!settings.signupApple && !settings.signupGoogle}
             onChange={(checked) => void patch({ signupGoogle: checked })}
           />
           <MethodRow
             label="Apple"
-            hint="Opens a sign-in window. Required to enable Google."
+            hint="Opens a sign-in window."
             checked={typeof pendingSettings?.signupApple === "boolean" ? pendingSettings.signupApple : settings.signupApple}
             onChange={(checked) => void patch({ signupApple: checked })}
           />

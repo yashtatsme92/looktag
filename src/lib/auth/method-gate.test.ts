@@ -66,6 +66,16 @@ describe("enforceSignInMethod", () => {
     });
   }
 
+  it("allows Google while Apple stays off", () => {
+    assert.doesNotThrow(() =>
+      enforceSignInMethod(
+        "/api/auth/sign-in/social",
+        { provider: "google" },
+        { ...DEFAULT_SETTINGS, signupGoogle: true, signupApple: false },
+      ),
+    );
+  });
+
   it("allows enabled methods and unrelated endpoints", () => {
     assert.doesNotThrow(() =>
       enforceSignInMethod("/sign-in/email", undefined, DEFAULT_SETTINGS),

@@ -149,7 +149,7 @@ LOOKTAG_IMAGE=ghcr.io/yashtatsme92/looktag:<tag> docker compose up -d --wait
 | `AUTH_PROVIDER` | optional | better-auth | auth |
 | `AUTH_COOKIE_PREFIX` | optional | looktag (grok-auth when AUTH_PROVIDER=grok) | auth |
 | `TRUSTED_PROXY_HEADER` | optional | unset (client IP headers are not trusted) | auth |
-| `PLATFORM_CHROME` | optional | none, or grok when AUTH_PROVIDER=grok or a Grok sandbox host | chrome |
+| `PLATFORM_CHROME` | optional | none unless AUTH_PROVIDER=grok or PLATFORM_CHROME=grok | chrome |
 | `GOOGLE_CLIENT_ID` | optional | unset | auth |
 | `GOOGLE_CLIENT_SECRET` | optional | unset | auth |
 | `APPLE_CLIENT_ID` | optional | unset | auth |

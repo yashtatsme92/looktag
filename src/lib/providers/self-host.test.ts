@@ -8,7 +8,7 @@ import { identityFromRequest } from "./auth/identity.ts";
 import { trustedAuthOrigins } from "./auth/origins.ts";
 import { resolveAuthProvider } from "./auth/resolve.ts";
 import { productionConfigProblems } from "./assert-env.ts";
-import { resolvePlatformChrome } from "./chrome.ts";
+import { chromeHostFromRequest, resolvePlatformChrome } from "./chrome.ts";
 import { configErrorHtml, configErrorJson } from "./config-error.ts";
 import { ENV_CATALOG } from "./env-catalog.ts";
 import { injectGrokPwaHead } from "../../../scripts/grok-pwa-shared.mjs";
@@ -69,11 +69,16 @@ describe("platform chrome", () => {
 
   it("does not inject a grok.com script for a forged sandbox host", () => {
     const page = "<!DOCTYPE html><html><head></head><body>/</body></html>";
-    const chrome = resolvePlatformChrome({}, "foo.grok-sandbox.com");
-    const html = chrome === "grok" ? injectGrokPwaHead(page, { host: "foo.grok-sandbox.com" }) : page;
-    assert.equal(chrome, "none");
+    const forwarded = "foo.grok-sandbox.com";
+    const open = resolvePlatformChrome({}, chromeHostFromRequest({}, forwarded));
+    const html = open === "grok" ? injectGrokPwaHead(page, { host: forwarded }) : page;
+    assert.equal(open, "none");
     assert.equal(html.includes("grok.com"), false);
     assert.equal(html.includes("extensions.js"), false);
+    const grokEnv = { AUTH_PROVIDER: "grok" };
+    const grok = resolvePlatformChrome(grokEnv, chromeHostFromRequest(grokEnv, forwarded));
+    const grokHtml = grok === "grok" ? injectGrokPwaHead(page, { host: forwarded }) : page;
+    assert.match(grokHtml, /https:\/\/grok\.com\/grok-app-builder\/extensions\.js/);
   });
 });
 
