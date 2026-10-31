@@ -163,12 +163,29 @@ try {
         await setSwitch(google, false);
         await setSwitch(email, true);
         await setSwitch(x, false);
-        assert.equal(await google.isDisabled(), true, "Google disabled while Apple is off");
-        assert.equal(await isSwitchOn(google), false);
+        assert.equal(await google.isDisabled(), false, "Google can be enabled while Apple is off");
 
-        await setSwitch(apple, true);
-        assert.equal(await google.isDisabled(), false, "Google enabled after Apple is on");
         await setSwitch(google, true);
+        assert.equal(await isSwitchOn(google), true, "Google turns on while Apple is off");
+        await assertRouteStatuses(
+          page,
+          [
+            {
+              path: "/api/auth/sign-in/social",
+              method: "POST",
+              body: { provider: "google", callbackURL: "/" },
+            },
+          ],
+          viewport,
+        );
+        await page.reload({ waitUntil: "domcontentloaded", timeout: 20_000 });
+        await page.locator('[data-hydrated="true"]').waitFor({ timeout: 10_000 });
+        assert.equal(await isSwitchOn(google), true, "Google stays on after reload with Apple off");
+        await setSwitch(apple, true);
+        await setSwitch(apple, false);
+        assert.equal(await isSwitchOn(google), true, "Turning Apple off leaves Google unchanged");
+        await setSwitch(apple, true);
+        await setSwitch(google, false);
         await setSwitch(x, true);
         // Default AUTH_PROVIDER is better-auth. Google and Apple buttons appear
         // only when their client credentials are set. X is a Grok broker id and
@@ -241,7 +258,7 @@ try {
         await setSwitch(email, true);
 
         await setSwitch(apple, false);
-        assert.equal(await isSwitchOn(google), false, "Turning Apple off also disables Google");
+        assert.equal(await isSwitchOn(google), false, "Turning Apple off leaves Google unchanged");
         await assertForbiddenRoutes(
           page,
           [

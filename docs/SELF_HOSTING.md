@@ -2,6 +2,8 @@
 
 Looktag ships as one OCI image, `ghcr.io/yashtatsme92/looktag`. The image reads environment variables only. It does not contain Render, Fly, Koyeb, or VM-specific code. Render Free is the primary documented target. `docker compose` with Caddy is the optional generic Docker host (`DEPLOY_TARGET=ssh-compose`).
 
+Any existing Grok-hosted deployment must set `AUTH_PROVIDER=grok` (or `PLATFORM_CHROME=grok`). A `*.grok-sandbox.com` host does not turn Grok chrome on by itself. Without one of those variables the app serves the self-hosted shell and does not load Grok scripts.
+
 Checked against Render's free plan docs on 29 October 2026: <https://render.com/docs/free>.
 
 ## Prerequisites
