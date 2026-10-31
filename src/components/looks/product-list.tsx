@@ -2,7 +2,7 @@ import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { ShopOffers } from "@/components/looks/shop-offers";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import type { FunnelUserState } from "@/lib/looks/funnel";
-import { shopTarget, cheapestOffer, tagOffers } from "@/lib/looks/offers";
+import { shopTarget, primaryOffer, tagOffers } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
@@ -78,7 +78,7 @@ function ProductRow({
       ].filter(Boolean),
     ),
   ];
-  const cheap = cheapestOffer(tag);
+  const primary = primaryOffer(tag);
   return (
     <li key={tag.id}>
       <div
@@ -100,7 +100,7 @@ function ProductRow({
             lookSrc={lookSrc}
             x={tag.x}
             y={tag.y}
-            productSrc={cheap?.imageUrl}
+            productSrc={primary?.imageUrl}
             size="sm"
           />
           <span className="min-w-0 flex-1">

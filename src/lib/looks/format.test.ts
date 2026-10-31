@@ -18,19 +18,20 @@ describe("formatMoney", () => {
 });
 
 describe("look totals", () => {
-  it("sums the cheapest live offer on each pin", () => {
+  it("sums the as-worn or first offer on each pin", () => {
     const tags = [
       {
         price: "200",
         currency: "EUR",
+        wornUrl: "https://worn.example/coat",
         offers: [
-          { price: "180", currency: "EUR" },
-          { price: "90", currency: "EUR" },
+          { price: "90", currency: "EUR", url: "https://shop.example/low" },
+          { price: "180", currency: "EUR", url: "https://worn.example/coat" },
         ],
       },
       { price: "40", currency: "EUR", offers: [{ price: "40", currency: "EUR" }] },
     ];
-    assert.equal(lookTotal(tags), 130);
+    assert.equal(lookTotal(tags), 220);
     assert.equal(lookCurrency(tags), "EUR");
     assert.equal(lookPriceBand(tags), "€100–€250");
   });

@@ -5,7 +5,7 @@ import { PieceThumb } from "@/components/looks/piece-thumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
-import { cheapestOffer, removeOffer, sortedOffers, wornLink } from "@/lib/looks/offers";
+import { primaryOffer, removeOffer, sortOffers, tagOffers, wornLink } from "@/lib/looks/offers";
 import { detectRetailer, retailerLabel } from "@/lib/looks/retailers";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import type { ProductTag } from "@/lib/looks/types";
@@ -37,8 +37,8 @@ export function TagForm({
   userState,
 }: TagFormProps) {
   const [manualOpen, setManualOpen] = useState(Boolean(tag.wornUrl));
-  const offers = sortedOffers(tag);
-  const cheap = cheapestOffer(tag);
+  const offers = sortOffers(tagOffers(tag), "default", tag.wornUrl);
+  const primary = primaryOffer(tag);
   const worn = wornLink(tag);
 
   function patch(partial: Partial<ProductTag>) {
@@ -174,7 +174,6 @@ export function TagForm({
                     className="flex min-w-0 flex-1 items-center gap-2 text-sm"
                     onClick={() =>
                       recordOutboundShopClick({
-                        cheapest: false,
                         chrome: chromeLayout(),
                         offerCount: offers.length,
                         retailerId: offer.retailerId,
@@ -274,7 +273,7 @@ export function TagForm({
                   });
                 }}
               />
-              {worn?.url && cheap?.url && worn.url !== cheap.url ? (
+              {worn?.url && primary?.url && worn.url !== primary.url ? (
                 <p className="text-caption text-muted-foreground">
                   As worn: {retailerLabel({ retailerId: worn.retailerId, url: worn.url })}
                 </p>

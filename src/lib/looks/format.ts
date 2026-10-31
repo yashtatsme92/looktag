@@ -29,19 +29,22 @@ export function parsePrice(price: string): number {
   return numericPrice(price) ?? 0;
 }
 
-type SystemPriced = { price: string; currency?: string };
+type SystemPriced = { price: string; currency?: string; url?: string };
 
-function cheapestSystem(tag: { price: string; currency?: string; offers?: SystemPriced[] }): SystemPriced {
+function representativePrice(tag: {
+  price: string;
+  currency?: string;
+  wornUrl?: string;
+  offers?: SystemPriced[];
+}): SystemPriced {
   const offers = tag.offers ?? [];
-  const priced = offers.filter((offer) => parsePrice(offer.price) > 0);
-  if (priced.length === 0) return { price: "", currency: tag.currency };
-  const eur = priced.filter((offer) => (offer.currency || "EUR") === "EUR");
-  const pool = eur.length > 0 ? eur : priced;
-  return pool.reduce((best, offer) => (parsePrice(offer.price) < parsePrice(best.price) ? offer : best));
+  const worn = (tag.wornUrl || "").trim();
+  const asWorn = worn ? offers.find((offer) => (offer.url || "").trim() === worn) : undefined;
+  return asWorn ?? offers[0] ?? { price: "", currency: tag.currency };
 }
 
-export function lookTotal(tags: { price: string; currency?: string; offers?: SystemPriced[] }[]): number {
-  return tags.reduce((sum, tag) => sum + parsePrice(cheapestSystem(tag).price), 0);
+export function lookTotal(tags: { price: string; currency?: string; wornUrl?: string; offers?: SystemPriced[] }[]): number {
+  return tags.reduce((sum, tag) => sum + parsePrice(representativePrice(tag).price), 0);
 }
 
 export function lookCurrency(tags: { currency: string; offers?: SystemPriced[] }[]): string {

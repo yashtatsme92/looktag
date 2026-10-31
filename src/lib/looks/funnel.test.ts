@@ -88,7 +88,6 @@ describe("outboundShopClickAttributes", () => {
   it("captures source and retailer context for outbound shop clicks", () => {
     assert.deepEqual(
       outboundShopClickAttributes({
-        cheapest: true,
         chrome: "desktop",
         lookId: "look_4",
         offerCount: 2,
@@ -102,7 +101,6 @@ describe("outboundShopClickAttributes", () => {
         "looktag.ui.chrome": "desktop",
         "looktag.look.id": "look_4",
         "looktag.funnel.user_state": "guest",
-        "looktag.funnel.cheapest": true,
         "looktag.funnel.offer_count": 2,
         "looktag.funnel.retailer_id": "zalando",
         "looktag.funnel.source": "piece_shop",
