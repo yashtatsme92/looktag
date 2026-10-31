@@ -22,7 +22,7 @@ Ink-palette schematics (SVG). Playwright captures verified locally on branch (ph
 | --- | --- |
 | Sticky bar Shop = sole piece primary | Yes (#34 + C) |
 | Expanded card = Compare/retailers only | Yes |
-| Look strip: Shop look · cheapest; Compare outfit `(later)` stub | Yes |
+| Look strip: Shop the look; Compare outfit `(later)` stub | Yes |
 | Desktop sticky photo + sticky dock | Yes |
 | Phone pin tap → shop sheet; dismiss keeps pin | Yes (slice C) |
 | Guest Shop / anonymous share | Yes — never gated (`data-guest-shop`) |

@@ -72,7 +72,7 @@ export function outboundShopClickAttributes(
   context: FunnelContext & {
     retailerId?: string;
     source: "editor_offer" | "piece_shop" | "compare_offer" | "shop_look";
-    cheapest?: boolean;
+    sortMode?: "default" | "price-asc" | "price-desc";
     offerCount?: number;
     tagId?: string;
     urlHost?: string;
@@ -80,7 +80,7 @@ export function outboundShopClickAttributes(
 ): FunnelAttrs {
   return {
     ...baseAttrs(context),
-    "looktag.funnel.cheapest": context.cheapest,
+    ...(context.sortMode ? { "looktag.funnel.sort_mode": context.sortMode } : {}),
     "looktag.funnel.offer_count": context.offerCount,
     "looktag.funnel.retailer_id": context.retailerId,
     "looktag.funnel.source": context.source,

@@ -46,7 +46,7 @@ export function SuggestDialog({ open, onOpenChange, pieces, lookSrc, onAccept }:
           <ul className="flex flex-col gap-2">
             {pieces.map((piece, index) => {
               const on = picked[index] !== false;
-              const cheap = piece.offers[0];
+              const primary = piece.offers[0];
               return (
                 <li key={`${piece.name}-${index}`}>
                   <button
@@ -61,7 +61,7 @@ export function SuggestDialog({ open, onOpenChange, pieces, lookSrc, onAccept }:
                       lookSrc={lookSrc}
                       x={piece.x}
                       y={piece.y}
-                      productSrc={cheap?.imageUrl}
+                      productSrc={primary?.imageUrl}
                       alt={piece.name}
                     />
                     <span className="min-w-0 flex-1">

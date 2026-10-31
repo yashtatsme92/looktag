@@ -115,7 +115,6 @@ export function ShopDock({
                 rel="noreferrer"
                 onClick={() =>
              recordOutboundShopClick({
-               cheapest: Boolean(target.cheapest),
                chrome: chromeLayout(),
                lookId,
                offerCount,
@@ -181,7 +180,6 @@ export function ShopDock({
                             rel="noreferrer"
                             onClick={() =>
                               recordOutboundShopClick({
-                                cheapest: Boolean(target.cheapest),
                                 chrome: chromeLayout(),
                                 lookId,
                                 offerCount,

@@ -15,11 +15,7 @@ function piece(
   brand: string,
   offers: ProductOffer[],
 ): ProductTag {
-  const priced = offers.filter((item) => Number.parseFloat(item.price) > 0);
-  const lowest = priced.reduce(
-    (best, item) => (Number.parseFloat(item.price) < Number.parseFloat(best.price) ? item : best),
-    priced[0] ?? offers[0],
-  );
+  const primary = offers[0];
   return {
     id,
     x,
@@ -27,9 +23,9 @@ function piece(
     name,
     brand,
     currency: EUR,
-    url: lowest?.url ?? "",
-    price: lowest?.price ?? "",
-    retailerId: lowest?.retailerId ?? "",
+    url: primary?.url ?? "",
+    price: primary?.price ?? "",
+    retailerId: primary?.retailerId ?? "",
     offers,
     wornUrl: offers[0]?.url ?? "",
     wornRetailerId: offers[0]?.retailerId ?? "",

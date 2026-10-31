@@ -16,7 +16,7 @@
   <rect x="288" y="444" width="72" height="36" rx="12" fill="#111"/>
   <text x="324" y="467" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="600" fill="#fff">Shop</text>
   <rect x="16" y="502" width="358" height="48" rx="12" fill="#111"/>
-  <text x="195" y="532" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#fff">Shop look · cheapest per piece</text>
+  <text x="195" y="532" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#fff">Shop the look</text>
   <rect x="16" y="562" width="358" height="44" rx="12" fill="#ECECEC"/>
   <text x="195" y="590" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#111">Compare 4 shops</text>
   <text x="16" y="630" font-family="system-ui" font-size="11" fill="#6B6B6B">Dismiss keeps pin · Guest Shop OK · no account gate</text>

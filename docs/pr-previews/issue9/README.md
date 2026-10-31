@@ -6,7 +6,7 @@ Fixes #9.
 
 | Surface | Guest | Signed-in |
 | --- | --- | --- |
-| Phone | Open **Create** → add photo → add/select pins → tap **Search item** to hit the sign-in gate → after account creation return to the draft, resolve live shop offers, publish, then tap **Shop** to open the retailer page in a new tab. | Open **Create** → add photo → pin pieces → resolve live shop offers → **Publish look** → from the saved look tap **Shop** (piece) or **Shop look** (cheapest per piece) to open retailer pages. |
+| Phone | Open **Create** → add photo → add/select pins → tap **Search item** to hit the sign-in gate → after account creation return to the draft, resolve live shop offers, publish, then tap **Shop** to open the retailer page in a new tab. | Open **Create** → add photo → pin pieces → resolve live shop offers → **Publish look** → from the saved look tap **Shop** (piece) or **Shop the look** to open retailer pages. |
 | Desktop | Same sequence, but shopping stays in the right-hand dock and expanded cards show compare rows while **Shop** remains the primary CTA. | Same as guest after sign-in, with the sticky photo + sticky dock layout on `/looks/:id`. |
 
 ## Funnel signals

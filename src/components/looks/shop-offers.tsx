@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
-import { cheapestOffer, shopTarget, sortedOffers, wornLink } from "@/lib/looks/offers";
+import { shopTarget, sortOffers, tagOffers, wornLink, type OfferSortMode } from "@/lib/looks/offers";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { ProductTag } from "@/lib/looks/types";
@@ -16,8 +16,8 @@ type ShopOffersProps = {
 };
 
 export function ShopOffers({ tag, lookId, mode = "shop", userState }: ShopOffersProps) {
-  const offers = sortedOffers(tag).filter((offer) => offer.url);
-  const cheap = cheapestOffer(tag);
+  const [sortMode, setSortMode] = useState<OfferSortMode>("default");
+  const offers = sortOffers(tagOffers(tag), sortMode, tag.wornUrl).filter((offer) => offer.url);
   const target = shopTarget(tag);
   const worn = wornLink(tag);
   const compareOnly = mode === "compare";
@@ -37,11 +37,11 @@ export function ShopOffers({ tag, lookId, mode = "shop", userState }: ShopOffers
           className="flex h-11 items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           onClick={() =>
             recordOutboundShopClick({
-              cheapest: Boolean(target.cheapest),
               chrome: chromeLayout(),
               lookId,
               offerCount: offers.length,
               retailerId: target.retailerId,
+              sortMode,
               source: "piece_shop",
               tagId: tag.id,
               urlHost: hostFromUrl(target.url),
@@ -70,8 +70,24 @@ export function ShopOffers({ tag, lookId, mode = "shop", userState }: ShopOffers
           </button>
           {open ? (
             <ul className="flex flex-col gap-1.5">
+              {multi ? (
+                <li>
+                  <label className="flex h-11 items-center justify-between gap-3 text-sm">
+                    <span className="text-muted-foreground">Sort</span>
+                    <select
+                      aria-label="Sort"
+                      value={sortMode}
+                      onChange={(event) => setSortMode(event.target.value as OfferSortMode)}
+                      className="h-11 min-w-0 rounded-md border border-border bg-transparent px-2 text-foreground"
+                    >
+                      <option value="default">Featured</option>
+                      <option value="price-asc">Price ↑</option>
+                      <option value="price-desc">Price ↓</option>
+                    </select>
+                  </label>
+                </li>
+              ) : null}
               {offers.map((offer) => {
-                const cheapest = Boolean(cheap && offer.id === cheap.id && multi);
                 return (
                   <li key={offer.id}>
                     <a
@@ -81,11 +97,11 @@ export function ShopOffers({ tag, lookId, mode = "shop", userState }: ShopOffers
                       className="flex h-11 items-center gap-3 rounded-md border border-border px-3 text-sm transition-colors hover:bg-muted/60"
                       onClick={() =>
                         recordOutboundShopClick({
-                          cheapest,
                           chrome: chromeLayout(),
                           lookId,
                           offerCount: offers.length,
                           retailerId: offer.retailerId,
+                          sortMode,
                           source: "compare_offer",
                           tagId: tag.id,
                           urlHost: hostFromUrl(offer.url),

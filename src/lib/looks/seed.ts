@@ -18,17 +18,13 @@ function tag(
     wornRetailerId: string;
   },
 ): ProductTag {
-  const priced = base.offers.filter((item) => Number.parseFloat(item.price) > 0);
-  const lowest = priced.reduce(
-    (best, item) => (Number.parseFloat(item.price) < Number.parseFloat(best.price) ? item : best),
-    priced[0] ?? base.offers[0],
-  );
+  const worn = base.offers.find((item) => item.url === base.wornUrl) ?? base.offers[0];
   return {
     ...base,
     currency: EUR,
-    url: lowest?.url ?? base.url,
-    price: lowest?.price ?? "",
-    retailerId: lowest?.retailerId ?? base.wornRetailerId,
+    url: worn?.url ?? base.wornUrl ?? base.url,
+    price: worn?.price ?? base.price,
+    retailerId: worn?.retailerId ?? base.wornRetailerId,
     offers: base.offers,
     wornUrl: base.wornUrl,
     wornRetailerId: base.wornRetailerId,

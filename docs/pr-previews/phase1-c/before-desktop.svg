@@ -17,7 +17,7 @@
   <text x="860" y="195" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#fff">Shop</text>
   <rect x="500" y="232" width="420" height="100" rx="16" fill="#fff"/>
   <rect x="516" y="248" width="388" height="40" rx="12" fill="#111"/>
-  <text x="710" y="274" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#fff">Shop look · cheapest per piece</text>
+  <text x="710" y="274" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="600" fill="#fff">Shop the look</text>
   <text x="516" y="312" font-family="system-ui" font-size="12" fill="#6B6B6B">Compare outfit stub · From €130 · 3 shops</text>
   <text x="500" y="370" font-family="Georgia,serif" font-size="22" fill="#111">Pieces</text>
   <rect x="500" y="390" width="420" height="90" rx="16" fill="#fff" stroke="#111" stroke-width="1.5"/>
