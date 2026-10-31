@@ -20,7 +20,7 @@ Env: `DB_PROVIDER=postgres|pglite`. `neon` is a legacy alias of `postgres`. Unse
 
 Neon pooler detection is an optional hint in `providers/db/neon-pooler.ts`. Migrate uses it to pick a transaction lock on a `-pooler` host.
 
-Production on in-memory PGLite exits when the server boots unless `LOOKTAG_ALLOW_EPHEMERAL_DB=1` (or `ALLOW_EPHEMERAL_DB=1`) is set. That includes an unset database and `DB_PROVIDER=pglite` (the URL does not waive the guard). `server/plugins/refuse-ephemeral.ts` imports `providers/db/refuse-ephemeral.ts` so Nitro evaluates that guard before listen, not on the first request. CI production builds set `LOOKTAG_ALLOW_EPHEMERAL_DB=1`.
+Production on in-memory PGLite is refused unless `LOOKTAG_ALLOW_EPHEMERAL_DB=1` (or `ALLOW_EPHEMERAL_DB=1`) is set. That includes an unset database and `DB_PROVIDER=pglite` (the URL does not waive the guard). The boot CLI still exits. The server process stays up and serves a names-only configuration page; `/healthz` is 503. It does not open PGLite. CI production builds set `LOOKTAG_ALLOW_EPHEMERAL_DB=1`.
 
 ## storage
 
@@ -66,7 +66,7 @@ Env: `SHOP_SEARCH_PROVIDER=brave|google-cse|duckduckgo` (default `brave`). `goog
 
 `providers/auth/social.ts` returns the Google and Apple credential block. `providers/auth/password.ts` is the only `better-auth/crypto` import (`hashPassword`, `verifyPassword`). App account and bootstrap code call that adapter.
 
-Better Auth stays the framework. `AUTH_PROVIDER` is unset or `better-auth`. Any other value throws at boot. Its other imports are confined to:
+`AUTH_PROVIDER=better-auth` (the default) is email/password plus Google and Apple when their credentials are set. `AUTH_PROVIDER=grok` is the only mode that enables the Grok broker, the preview client, and gate identity. Any other value throws at boot (`Unknown AUTH_PROVIDER`). Better Auth imports stay confined to:
 
 - `src/lib/auth/server.ts`
 - `src/lib/auth/gate-session.server.ts`

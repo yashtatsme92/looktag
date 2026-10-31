@@ -1,5 +1,5 @@
 import { resolveAiProvider } from "./ai/index.ts";
-import { resolveAuthProvider } from "./auth/index.ts";
+import { resolveAuthProvider } from "./auth/resolve.ts";
 import { resolveDbProvider } from "./db/index.ts";
 import { resolveEmailProvider } from "./email/index.ts";
 import { resolveErrorProvider } from "./errors/index.ts";
@@ -7,6 +7,8 @@ import { resolveShopSearchProvider } from "./shop-search/index.ts";
 import { resolveStorageProvider } from "./storage/index.ts";
 import { resolveSuggestProvider } from "./suggest/index.ts";
 import { resolveTelemetryProvider } from "./telemetry/index.ts";
+
+export { problemNames, productionConfigProblems, type EnvProblem } from "./config-problems.ts";
 
 type ProviderEnv = {
   DB_PROVIDER?: string;

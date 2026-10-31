@@ -1,0 +1,46 @@
+# Render Blueprint. Existing Image, Free, Frankfurt.
+# Secrets use sync: false. Values are entered in the Dashboard, never here.
+# If GHCR is private, create a credential named ghcr with read:packages.
+services:
+  - type: web
+    name: looktag
+    runtime: image
+    plan: free
+    region: frankfurt
+    healthCheckPath: /healthz
+    image:
+      url: ghcr.io/yashtatsme92/looktag:latest
+      creds:
+        fromRegistryCreds:
+          name: ghcr
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_PROVIDER
+        value: better-auth
+      - key: PLATFORM_CHROME
+        value: none
+      - key: TRUSTED_PROXY_HEADER
+        value: x-forwarded-for
+      - key: DATABASE_URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_BOOTSTRAP
+        sync: false
+      - key: ADMIN_BOOTSTRAP_PASSWORD
+        sync: false

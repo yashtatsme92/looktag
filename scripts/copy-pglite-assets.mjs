@@ -97,8 +97,12 @@ export function copySsrCssAssets(root) {
   return copied;
 }
 
-export function copyPgliteAssets(root = rootFromScript) {
+export function copyPgliteAssets(root = rootFromScript, env = process.env) {
   copySsrCssAssets(root);
+  if (String(env.LOOKTAG_BUNDLE_PGLITE ?? "") === "0") {
+    console.log("[pglite] LOOKTAG_BUNDLE_PGLITE=0 — wasm is not shipped");
+    return 0;
+  }
   const srcDir = join(root, "node_modules/@electric-sql/pglite/dist");
   const targets = resolvePgliteCopyTargets(root);
   if (targets.length === 0) {

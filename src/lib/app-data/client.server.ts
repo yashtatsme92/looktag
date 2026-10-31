@@ -36,6 +36,7 @@ type InboundContext = {
 function connectorsBaseFor(publicHost: string | null): string | null {
   const explicit = env("GROK_CONNECTORS_URL");
   if (explicit) return explicit.replace(/\/+$/, "");
+  if ((process.env.AUTH_PROVIDER ?? "").trim().toLowerCase() !== "grok") return null;
 
   const host = publicHost?.toLowerCase();
   if (!host || isLoopbackHost(host)) return null;
@@ -98,6 +99,9 @@ async function gatePost(
 ): Promise<{ status: number; json: GateJson }> {
   const base = ctx.connectorsBase;
   if (!base) {
+    if ((process.env.AUTH_PROVIDER ?? "").trim().toLowerCase() !== "grok" && !env("GROK_CONNECTORS_URL")) {
+      return { status: 501, json: { ok: false, errorMessage: "not configured" } };
+    }
     throw new Error(
       "cannot resolve gate host (missing x-forwarded-host/host on the server request); " +
         "open the app through the gated public URL so the gate can proxy and inject credentials",
@@ -211,7 +215,9 @@ function tokenIdentityKey(token: string): string {
             .digest("base64url");
         }
       }
-    } catch {}
+    } catch {
+      /* token is not a decodable JWT */
+    }
   }
   return createHash("sha256").update(token).digest("base64url");
 }

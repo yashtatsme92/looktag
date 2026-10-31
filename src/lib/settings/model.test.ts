@@ -136,20 +136,18 @@ describe("mergeSettings", () => {
     assert.equal(hasSignupMethod(blocked), true);
   });
 
-  it("requires Apple before enabling Google and disables Google with Apple", () => {
-    const rejected = mergeSettings(DEFAULT_SETTINGS, { signupGoogle: true });
-    assert.equal(rejected.signupGoogle, false);
+  it("allows Google with Apple off", () => {
+    const next = mergeSettings(DEFAULT_SETTINGS, { signupGoogle: true });
+    assert.equal(next.signupEmail, true);
+    assert.equal(next.signupGoogle, true);
+    assert.equal(next.signupApple, false);
 
-    const enabled = mergeSettings(DEFAULT_SETTINGS, {
-      signupApple: true,
-      signupGoogle: true,
-    });
-    assert.equal(enabled.signupApple, true);
-    assert.equal(enabled.signupGoogle, true);
-
-    const disabled = mergeSettings(enabled, { signupApple: false });
-    assert.equal(disabled.signupApple, false);
-    assert.equal(disabled.signupGoogle, false);
+    const appleOff = mergeSettings(
+      { ...next, signupApple: true },
+      { signupApple: false },
+    );
+    assert.equal(appleOff.signupApple, false);
+    assert.equal(appleOff.signupGoogle, true);
   });
 
   it("allows turning Houses off independently", () => {

@@ -207,7 +207,7 @@ describe("native-ready auth server", () => {
     assert.equal(me.status, 200);
     assert.equal((await me.json()).user.email, email);
 
-    const session = signedIn.rawCookies.find((c) => c.startsWith("__Host-grok-auth.session_token="));
+    const session = signedIn.rawCookies.find((c) => c.startsWith("__Host-looktag.session_token="));
     assert.ok(session);
     assert.match(session, /Max-Age=604800/);
     assert.match(session, /Path=\//);
@@ -215,7 +215,7 @@ describe("native-ready auth server", () => {
     assert.match(session, /Secure/);
     assert.match(session, /SameSite=Lax/);
     assert.doesNotMatch(session, /Domain=/);
-    const sessionData = signedIn.rawCookies.find((c) => c.startsWith("__Host-grok-auth.session_data="));
+    const sessionData = signedIn.rawCookies.find((c) => c.startsWith("__Host-looktag.session_data="));
     assert.match(sessionData ?? "", /Max-Age=300/);
 
     assert.equal((await call("/api/v1/me")).status, 401);

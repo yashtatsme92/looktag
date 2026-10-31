@@ -23,7 +23,8 @@
  *
  * No DATABASE_URL -> skip. PGLite seeds itself on first request.
  */
-import { createServer } from "vite";
+import { existsSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { backfillLookCrops } from "./backfill-look-crops.mjs";
 import { openDedicatedPool } from "../src/lib/providers/db/postgres.ts";
 
@@ -32,6 +33,7 @@ let loader;
 
 async function loadSeedCatalog() {
   loader ??= (async () => {
+    const { createServer } = await import("vite");
     const vite = await createServer({
       configFile: false,
       root: process.cwd(),
@@ -113,7 +115,13 @@ async function main() {
 
 // Only the CLI connects. Tests import seedDatabase and pass their own SQL.
 const isCli = process.argv[1]?.endsWith("seed.mjs") || process.argv[1]?.endsWith("seed.mjs/");
-if (isCli) {
+const bundledSeed = new URL("../.output/seed-cli.mjs", import.meta.url);
+if (isCli && existsSync(bundledSeed)) {
+  import(pathToFileURL(bundledSeed.pathname).href).catch((err) => {
+    console.error("[seed] failed:", err?.message || err);
+    process.exit(1);
+  });
+} else if (isCli) {
   main().catch((err) => {
     console.error("[seed] failed:", err?.message || err);
     process.exit(1);

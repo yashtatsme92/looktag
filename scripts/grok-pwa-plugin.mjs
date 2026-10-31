@@ -17,6 +17,7 @@ import {
   renderWebManifest,
   snapshotOgIdentity,
 } from "./grok-pwa-shared.mjs";
+import { chromeHostFromRequest, resolvePlatformChrome } from "../src/lib/providers/chrome.ts";
 
 export const GROK_OG_IDENTITY_ID = "virtual:grok-og-identity";
 
@@ -42,11 +43,27 @@ function sendHtml(res, html) {
   res.end(body);
 }
 
+function chromeFor(req) {
+  const forwarded = req.headers["x-forwarded-host"];
+  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return resolvePlatformChrome(process.env, chromeHostFromRequest(process.env, value ?? ""));
+}
+
 function serveGrokPwa(middlewares) {
   middlewares.use((req, res, next) => {
     const rawUrl = req.url ?? "";
     const pathOnly = rawUrl.split("?", 1)[0] ?? "";
     const method = (req.method ?? "GET").toUpperCase();
+    if (chromeFor(req) === "none") {
+      if (pathOnly.startsWith("/__grok/")) {
+        res.statusCode = 404;
+        res.setHeader("content-type", "text/plain; charset=utf-8");
+        res.end("Not found");
+        return;
+      }
+      next();
+      return;
+    }
     if (method !== "GET") {
       next();
       return;
@@ -86,6 +103,13 @@ function serveGrokPwa(middlewares) {
  */
 function wrapHtmlResponses(middlewares, cwd) {
   middlewares.use((req, res, next) => {
+    if (chromeFor(req) === "none") {
+      res.setHeader("x-content-type-options", "nosniff");
+      res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
+      res.setHeader("content-security-policy", "frame-ancestors 'self'");
+      next();
+      return;
+    }
     const rawUrl = req.url ?? "";
     const pathOnly = rawUrl.split("?", 1)[0] ?? "";
     const method = (req.method ?? "GET").toUpperCase();
@@ -166,6 +190,7 @@ export function grokPwaPlugin() {
       return `export const grokOgIdentity = ${JSON.stringify(snapshotOgIdentity(root))};`;
     },
     transformIndexHtml(html) {
+      if (resolvePlatformChrome(process.env) !== "grok") return html;
       return injectGrokPwaHead(html, {
         host: process.env.VITE_PUBLIC_HOSTNAME ?? "",
         cwd: root,

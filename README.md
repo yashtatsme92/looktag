@@ -86,6 +86,12 @@ Prefer host-injected secrets in deploy. For local reference, copy
 [`.env.example`](.env.example) to a private `.env` that is **never committed**.
 `DATABASE_URL` in the environment is enough to switch backends — no code change.
 
+## Hosting
+
+The app is a Node server in one container image. Render Free (Frankfurt, existing GHCR image) is the primary documented target. Any other Docker host can use `docker-compose.yml` and `Caddyfile`. Step by step: [`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md).
+
+`startup.sh`, `scripts/dev.sh`, and `.grok/` are Grok-sandbox dev tooling. They are not required to run the image.
+
 ## Configuration
 
 Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
@@ -94,12 +100,13 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 
 | Variable | Role | Required for deploy | If unset |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | Neon pooled Postgres (`-pooler` host, `sslmode=require`) | Recommended for production data | Embedded PGLite |
+| `DATABASE_URL` | Neon pooled Postgres (`-pooler` host, `sslmode=require`) | **Yes** in production | Refused. The server stays up and shows a configuration page |
 | `BETTER_AUTH_SECRET` | Better Auth signing secret | **Yes** | Ephemeral preview secret (sessions reset on restart) |
 | `BETTER_AUTH_URL` | Public auth origin (OAuth / CSRF) | **Yes** | Dynamic preview host / localhost |
-| `GROK_AUTH_ISSUER` | Grok auth broker issuer | Recommended | `https://auth.grok.me` |
-| `GROK_AUTH_CLIENT_ID` | Per-app broker client id | **Yes** outside sandbox | Shared preview client |
-| `GROK_AUTH_CLIENT_SECRET` | Per-app broker client secret | **Yes** outside sandbox | Shared preview client |
+| `AUTH_PROVIDER` | `better-auth` (default) or `grok` | Optional | `better-auth` |
+| `GROK_AUTH_ISSUER` | Grok broker, only when `AUTH_PROVIDER=grok` | Only for the grok adapter | `https://auth.grok.me` |
+| `GROK_AUTH_CLIENT_ID` | Grok broker client id | Only for the grok adapter | unset |
+| `GROK_AUTH_CLIENT_SECRET` | Grok broker client secret | Only for the grok adapter | unset |
 | `ADMIN_EMAIL` | Admin mailbox for bootstrap / checks | Optional | `admin@looktag.studio` |
 | `ADMIN_BOOTSTRAP_PASSWORD` | One-time admin bootstrap password | Only when bootstrapping | No admin user is seeded |
 | `ADMIN_BOOTSTRAP` | Explicit bootstrap flag | **Required with password in production** | Bootstrap disabled in production |
@@ -140,8 +147,8 @@ Local / e2e notes: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 - [ ] Set a strong unique `BETTER_AUTH_SECRET` (do not reuse preview/ephemeral).
 - [ ] Set `BETTER_AUTH_URL` to the public HTTPS origin.
-- [ ] Inject per-app `GROK_AUTH_CLIENT_ID` / `GROK_AUTH_CLIENT_SECRET` (do not
-      rely on the shared preview OAuth client outside `*.grok-sandbox.com`).
+- [ ] Leave `AUTH_PROVIDER` unset (or `better-auth`) outside the Grok sandbox.
+      Do not inject `GROK_AUTH_*` on the default path.
 - [ ] Bootstrap admin once with `ADMIN_BOOTSTRAP=1` +
       `ADMIN_BOOTSTRAP_PASSWORD`, then **remove** those vars.
 - [ ] Rotate any legacy `admin@looktag.studio` credential that may still use the

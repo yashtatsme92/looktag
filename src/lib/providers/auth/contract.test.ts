@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { appleOriginNeeded, socialProviders } from "./index.ts";
+import { appleOriginNeeded, socialProviders } from "./social.ts";
 
 describe("auth social provider", () => {
   it("includes a vendor only when both credentials are set", () => {

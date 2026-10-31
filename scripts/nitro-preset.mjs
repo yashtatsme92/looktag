@@ -9,7 +9,10 @@
  */
 export function resolveNitroPreset(env = process.env) {
   const explicit = String(env.NITRO_PRESET ?? "").trim();
-  if (explicit) return explicit;
-  if (env.VERCEL) return "vercel";
-  return "node-server";
+  const preset = explicit || (env.VERCEL ? "vercel" : "node-server");
+  const event = String(env.npm_lifecycle_event ?? "");
+  if (env.LOOKTAG_LOG_NITRO_PRESET === "1" || event === "build") {
+    console.log(`[nitro] preset ${preset}`);
+  }
+  return preset;
 }
