@@ -12,6 +12,7 @@ const SKIP_DIRS = new Set([
   "dist",
   ".output",
   ".vercel",
+  ".netlify",
   ".nitro",
   ".git",
   "coverage",

@@ -14,6 +14,7 @@ import { copyPgliteAssets } from "./scripts/copy-pglite-assets.mjs";
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 import { resolveNitroPreset, shouldCopyPgliteAssets } from "./scripts/nitro-preset.mjs";
+import { rewriteBakedPreviewEnvModule } from "./src/lib/auth/preview.ts";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -43,6 +44,31 @@ function pgliteAssetsPlugin(): Plugin {
       }
       const code = copyPgliteAssets();
       if (code !== 0) this.error("[pglite] production build is missing wasm/data assets");
+    },
+  };
+}
+
+/**
+ * Inline preview env into the server bundle only. Netlify functions never see
+ * build-time NETLIFY / CONTEXT / DEPLOY_PRIME_URL or netlify.toml variables.
+ * The client environment is skipped so secrets stay out of `dist`.
+ */
+function bakePreviewEnvPlugin(): Plugin {
+  return {
+    name: "looktag:bake-preview-env",
+    apply: "build",
+    enforce: "pre",
+    applyToEnvironment(environment) {
+      return environment.name !== "client" && environment.config.consumer !== "client";
+    },
+    transform(code, id) {
+      const path = id.split("?")[0]?.replaceAll("\\", "/");
+      if (!path?.endsWith("/src/lib/baked-preview-env.ts")) return null;
+      const name = this.environment?.name;
+      if (!name || name === "client" || this.environment?.config.consumer === "client") {
+        return null;
+      }
+      return rewriteBakedPreviewEnvModule(code, name, process.env);
     },
   };
 }
@@ -198,6 +224,7 @@ export default defineConfig(({ command, isPreview }) => ({
     authPopupPlugin(),
     // Dev-only /__app-env, read by scripts/check-auth-invariant.mjs.
     appEnvPlugin(),
+    bakePreviewEnvPlugin(),
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin(),
     tailwindcss(),

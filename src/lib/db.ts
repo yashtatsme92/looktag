@@ -10,13 +10,20 @@ import {
   type EmbeddedDb,
 } from "./providers/db";
 import type { DbSource, Sql } from "./providers/db/types";
+import { bakedPreviewEnv, installBakedPreviewEnv } from "./baked-preview-env.ts";
 
 export type { DbSource, Sql };
 
+// Preview builds inline BETTER_AUTH_URL / DATABASE_URL / BETTER_AUTH_SECRET for
+// the server only. Install before DATABASE_URL is captured. A Render build
+// leaves `bakedPreviewEnv` null, so process.env is unchanged.
+if (typeof process !== "undefined") {
+  installBakedPreviewEnv(process.env, bakedPreviewEnv);
+}
+
 // An empty/whitespace DATABASE_URL (an easy misconfig in deploy UIs) must mean
 // "unset" — otherwise production would silently run on the PGLite fallback.
-const rawDatabaseUrl =
-  typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
+const rawDatabaseUrl = typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
 
 function readDbProvider(): "postgres" | "pglite" {
   if (typeof process === "undefined") return "pglite";
@@ -150,9 +157,7 @@ async function createPgliteSql(): Promise<Sql> {
       import: "default",
       eager: true,
     }) as Record<string, string>;
-    const doneRows = await pg.query<{ name: string }>(
-      "select name from _migrations",
-    );
+    const doneRows = await pg.query<{ name: string }>("select name from _migrations");
     const done = doneRows.rows.map((r) => r.name);
     for (const { name, path } of pendingMigrations(Object.keys(migrations), done)) {
       // Apply + record atomically (parity with scripts/migrate.mjs) so a failed

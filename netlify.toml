@@ -1,7 +1,10 @@
 # Render does not read this file. Production stays `npm run build` / `npm start`
-# on the Node server. Set this Netlify site's production branch to an unused
-# branch such as `netlify-prod-unused` so Netlify never publishes production.
+# on the Node server. Netlify production builds fail closed below.
+# The preview workflow deploys with
+# `netlify deploy --alias pr-<n> --context deploy-preview`.
 # Publish dir is Nitro's Netlify preset public output (`dist`).
+# Context environment variables are build-time only. They do not reach functions.
+# The workflow bakes BETTER_AUTH_URL, APP_URL, and the database URL into the server.
 
 [build]
   command = "npm run build:preview"
@@ -10,6 +13,10 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Fail closed so a Git-linked production build cannot publish this site.
+[context.production]
+  command = 'echo "Netlify production deploys disabled" && exit 1'
+
 [context.deploy-preview]
   command = "npm run build:preview"
 
@@ -17,8 +24,8 @@
   APP_ENV = "preview"
   VITE_AUTH_ENABLED = "true"
 
-# `netlify deploy --alias` is a branch deploy, not a deploy-preview context.
-# Same flags so alias previews stay email/password and off local disk.
+# Same flags if a deploy uses the branch-deploy context. The workflow itself
+# passes --context deploy-preview together with --alias pr-<n>.
 [context.branch-deploy]
   command = "npm run build:preview"
 
