@@ -13,7 +13,7 @@ import { copyPgliteAssets } from "./scripts/copy-pglite-assets.mjs";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
-import { resolveNitroPreset } from "./scripts/nitro-preset.mjs";
+import { resolveNitroPreset, shouldCopyPgliteAssets } from "./scripts/nitro-preset.mjs";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -37,6 +37,10 @@ function pgliteAssetsPlugin(): Plugin {
     apply: "build",
     closeBundle() {
       if (this.environment.name !== "nitro") return;
+      if (!shouldCopyPgliteAssets()) {
+        console.log(`[pglite] skip asset copy for preset ${resolveNitroPreset()}`);
+        return;
+      }
       const code = copyPgliteAssets();
       if (code !== 0) this.error("[pglite] production build is missing wasm/data assets");
     },

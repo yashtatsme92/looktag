@@ -57,7 +57,7 @@ describe("admin same-site isolation (#4)", () => {
   });
 
   it("labels admin createServerFns use adminMiddleware", () => {
-    assert.match(labelsApi, /from \"\.\/labels-admin\"/);
+    assert.match(labelsApi, /from "\.\/labels-admin"/);
     for (const name of ["setLabelScouted", "listAdminHouses", "setHouseStatus"] as const) {
       const body = handlerBody(labelsAdminApi, name);
       assert.match(body, /\.middleware\(\[adminMiddleware\]\)/, `${name} must use adminMiddleware`);

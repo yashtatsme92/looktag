@@ -30,3 +30,64 @@ export const GROK_ISSUER_DEFAULT = "https://auth.grok.me";
  * `https://<preview-host>/api/auth/oauth2/callback/...` the broker allows.
  */
 export const PREVIEW_ALLOWED_HOSTS = ["*.grok-sandbox.com"] as const;
+
+const NETLIFY_PREVIEW_CONTEXTS = new Set(["deploy-preview", "branch-deploy"]);
+
+export type PreviewDeployEnv = {
+  APP_ENV?: string;
+  BETTER_AUTH_URL?: string;
+  NETLIFY?: string;
+  CONTEXT?: string;
+  DEPLOY_PRIME_URL?: string;
+  DEPLOY_URL?: string;
+  PREVIEW_TRUSTED_HOSTS?: string;
+};
+
+/** Host patterns for preview origins. A bare `*` is rejected; `*.example` is allowed. */
+export function parsePreviewTrustedHosts(raw: string | undefined): string[] {
+  if (!raw?.trim()) return [];
+  const hosts = raw.split(",").map((host) => host.trim()).filter(Boolean);
+  if (hosts.some((host) => host === "*")) {
+    throw new Error('PREVIEW_TRUSTED_HOSTS must not contain a bare "*"');
+  }
+  return hosts;
+}
+
+/**
+ * Concrete preview origin when Better Auth has no fixed URL.
+ * Only Netlify deploy previews and branch deploys qualify.
+ */
+export function netlifyPreviewBaseURL(env: PreviewDeployEnv): string | undefined {
+  if (env.BETTER_AUTH_URL?.trim()) return undefined;
+  if (env.NETLIFY !== "true") return undefined;
+  if (!NETLIFY_PREVIEW_CONTEXTS.has((env.CONTEXT ?? "").trim())) return undefined;
+  const raw = env.DEPLOY_PRIME_URL?.trim() || env.DEPLOY_URL?.trim();
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return undefined;
+    return url.origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/** True on Netlify (and any host) when APP_ENV=preview. Social brokers stay off. */
+export function previewDisablesSocial(env: PreviewDeployEnv): boolean {
+  return (env.APP_ENV ?? "").trim() === "preview";
+}
+
+/**
+ * Register the Grok broker only off preview. Email/password sessions stay on
+ * either way — this flag must not flip `authConfigured`.
+ */
+export function shouldRegisterGrokBroker(env: PreviewDeployEnv): boolean {
+  return !previewDisablesSocial(env);
+}
+
+/** Fixed base URL for Render, or the Netlify preview origin. Undefined keeps the sandbox dynamic URL. */
+export function resolveDeployedBaseURL(env: PreviewDeployEnv): string | undefined {
+  const explicit = env.BETTER_AUTH_URL?.trim();
+  if (explicit) return explicit;
+  return netlifyPreviewBaseURL(env);
+}

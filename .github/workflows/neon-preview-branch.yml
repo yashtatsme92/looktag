@@ -1,0 +1,99 @@
+name: neon-preview-branch
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+# One Netlify site, one Neon project that is NOT production. Neon Free allows
+# 10 branches. Closing the PR deletes `preview/pr-<n>`. Forks have no secrets
+# and this workflow skips instead of failing.
+
+jobs:
+  deploy:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip when preview secrets are missing
+        id: gate
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ] || [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Preview secrets are unset. Skipping (forks and unconfigured repos)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Create Neon preview branch
+        if: steps.gate.outputs.skip != 'true'
+        id: neon
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.pull_request.number }}
+          # Neon Free's default role. Override with the repository variable
+          # NEON_DATABASE_USERNAME if the preview project uses another role.
+          username: ${{ vars.NEON_DATABASE_USERNAME || 'neondb_owner' }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        if: steps.gate.outputs.skip != 'true'
+        run: npm ci
+      - name: Deploy the Netlify preview
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_with_pooler }}
+          APP_ENV: preview
+          VITE_AUTH_ENABLED: "true"
+          NETLIFY: "true"
+          CONTEXT: deploy-preview
+        run: |
+          npx --yes netlify-cli@23 env:set DATABASE_URL "$DATABASE_URL" --context deploy-preview --force
+          npx --yes netlify-cli@23 env:set DATABASE_URL "$DATABASE_URL" --context branch-deploy --force
+          npx --yes netlify-cli@23 env:set APP_ENV preview --context deploy-preview --force
+          npx --yes netlify-cli@23 env:set APP_ENV preview --context branch-deploy --force
+          npx --yes netlify-cli@23 env:set VITE_AUTH_ENABLED true --context deploy-preview --force
+          npx --yes netlify-cli@23 env:set VITE_AUTH_ENABLED true --context branch-deploy --force
+          npx --yes netlify-cli@23 deploy --alias "pr-${{ github.event.pull_request.number }}" --context deploy-preview --build
+      - name: Seed the preview branch
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_with_pooler }}
+          APP_ENV: preview
+        run: npm run db:seed
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Skip when preview secrets are missing
+        id: gate
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: |
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Preview secrets are unset. Skipping branch delete."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Delete the Neon preview branch
+        if: steps.gate.outputs.skip != 'true'
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.pull_request.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}

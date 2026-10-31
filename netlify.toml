@@ -1,0 +1,27 @@
+# Render does not read this file. Production stays `npm run build` / `npm start`
+# on the Node server. Set this Netlify site's production branch to an unused
+# branch such as `netlify-prod-unused` so Netlify never publishes production.
+# Publish dir is Nitro's Netlify preset public output (`dist`).
+
+[build]
+  command = "npm run build:preview"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[context.deploy-preview]
+  command = "npm run build:preview"
+
+[context.deploy-preview.environment]
+  APP_ENV = "preview"
+  VITE_AUTH_ENABLED = "true"
+
+# `netlify deploy --alias` is a branch deploy, not a deploy-preview context.
+# Same flags so alias previews stay email/password and off local disk.
+[context.branch-deploy]
+  command = "npm run build:preview"
+
+[context.branch-deploy.environment]
+  APP_ENV = "preview"
+  VITE_AUTH_ENABLED = "true"
