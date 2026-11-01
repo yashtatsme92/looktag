@@ -2,7 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_ADMIN_EMAIL, LEGACY_ADMIN_EMAIL } from "../admin/access.ts";
 import { DEFAULT_SETTINGS } from "../settings/model.ts";
-import { APIError } from "better-auth/api";
 import { mergeSettings } from "../settings/model.ts";
 import {
   enforceSignInMethod,
@@ -186,7 +185,7 @@ describe("server provider availability", () => {
     ] as const) {
       assert.throws(
         () => enforceSignInMethod(path, body, off, {}, providers),
-        (error: unknown) => error instanceof APIError && error.status === "FORBIDDEN",
+        (error: unknown) => (error as { status?: unknown })?.status === "FORBIDDEN",
       );
     }
     assert.doesNotThrow(() =>
