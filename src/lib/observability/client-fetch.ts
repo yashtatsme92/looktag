@@ -1,6 +1,8 @@
 /** Marks a browser telemetry upload. The production server-fn URL is `/_serverFn/<id>` and does not contain the function name. */
 export const TELEMETRY_REQUEST_HEADER = "x-looktag-telemetry";
 
+let ingestPathname: string | null = null;
+
 export function telemetryFunctionPath(serverFnUrl: string | null | undefined, base: string): string | null {
   if (!serverFnUrl) return null;
   try {
@@ -8,6 +10,31 @@ export function telemetryFunctionPath(serverFnUrl: string | null | undefined, ba
   } catch {
     return null;
   }
+}
+
+/** Remember the ingest server-fn path. The header alone must not match other routes. */
+export function registerIngestServerFn(serverFnUrl: string | null | undefined): void {
+  ingestPathname = telemetryFunctionPath(serverFnUrl, "http://127.0.0.1");
+}
+
+function decodeServerFnId(id: string): string {
+  try {
+    const padded = id.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
+    return atob(padded + pad);
+  } catch {
+    return "";
+  }
+}
+
+/** True only for the ingest server function, never for an arbitrary request that copied the header. */
+export function isIngestServerFnPath(path: string): boolean {
+  const pathname = (path.split("?")[0] || "/").replace(/\/+$/, "") || "/";
+  if (ingestPathname && pathname === ingestPathname) return true;
+  const id = pathname.split("/_serverFn/")[1];
+  if (!id) return false;
+  const decoded = decodeServerFnId(id);
+  return decoded.includes("ingestClientSignals");
 }
 
 type HeaderLookup = { get(name: string): string | null };

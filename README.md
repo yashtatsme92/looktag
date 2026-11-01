@@ -106,6 +106,7 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 | `XAI_API_KEY` | Grok shop search and look suggestions | Optional | Engines that do not need a key |
 | `APP_URL` | Public origin for share links | Recommended | Request origin |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Traces / metrics / logs | Optional | Signals page only |
+| `TRUST_PROXY` | Trust the first `X-Forwarded-For` hop for ingest limits | Set `1` on Render | Socket IP |
 | `LOOKTAG_NATIVE_URL` | Hosted origin for the Capacitor shell | Optional | Local `public/` |
 | `VITE_AUTH_ENABLED` | Account sign-in (via `.grok/app-env.json`) | Optional | `true` |
 

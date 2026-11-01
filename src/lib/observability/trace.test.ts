@@ -4,14 +4,16 @@ import { appSpanAttributes, authStateFromCookie, featureFromRoute, routeTemplate
 import { deliverOtlp, otlpExportErrorCount, recordOtlpExportError } from "./export-error.ts";
 import { configFromEnv, sanitizeAttributes } from "./model.ts";
 import { encodeOtlpLogs, encodeOtlpMetrics, encodeOtlpTraces } from "./otlp.ts";
+import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildResourceAttributes, browserFamily, browserResourceFromClient, deploymentEnvironmentName } from "./resource.ts";
-import { effectiveSampleRatio, headSampleDecision, TraceGate } from "./sampling.ts";
+import { attachTraceGate, effectiveSampleRatio, headSampleDecision, TraceGate } from "./sampling.ts";
 import { stripSqlValues } from "./sql-statement.ts";
 import { flagsForSampled, formatTraceparent, parseTraceparent } from "./traceparent.ts";
-import { TELEMETRY_REQUEST_HEADER, applyClientHttpStatus, isTelemetryTransport, telemetryFunctionPath } from "./client-fetch.ts";
+import { TELEMETRY_REQUEST_HEADER, applyClientHttpStatus, isIngestServerFnPath, isTelemetryTransport, registerIngestServerFn, telemetryFunctionPath } from "./client-fetch.ts";
+import { parseClientSignals } from "./client-signals.ts";
 import { flushSignals, setTelemetrySink, startSpan } from "./runtime.ts";
 import { traceDbQuery } from "./db-span.ts";
 import { runRequestTrace } from "./request-trace.ts";
@@ -242,7 +244,7 @@ describe("trace continuity", () => {
     setTelemetrySink(null);
   });
 
-  it("honors an unsampled parent and a ratio decision on the response flag", async () => {
+  it("keeps the trace id and applies the server ratio for an untrusted browser parent", async () => {
     const seen: TelemetrySignal[] = [];
     setTelemetrySink((signals) => {
       seen.push(...signals);
@@ -260,7 +262,8 @@ describe("trace continuity", () => {
       async () => new Response("ok", { status: 200 }),
     );
     assert.ok(unsampled instanceof Response);
-    assert.equal(unsampled.headers.get("traceparent")?.endsWith("-00"), true);
+    assert.ok(unsampled.headers.get("traceparent")?.startsWith(`00-${traceId}-`));
+    assert.equal(unsampled.headers.get("traceparent")?.endsWith("-01"), true);
     const keptError = await runRequestTrace(
       {
         method: "GET",
@@ -297,15 +300,31 @@ describe("trace continuity", () => {
       async () => new Response("ok", { status: 200 }),
     );
     assert.ok(forced instanceof Response);
-    assert.equal(forced.headers.get("traceparent")?.endsWith("-01"), true);
+    assert.ok(forced.headers.get("traceparent")?.startsWith(`00-${traceId}-`));
+    assert.equal(forced.headers.get("traceparent")?.endsWith("-00"), true);
+    const trusted = await runRequestTrace(
+      {
+        method: "GET",
+        path: "/houses",
+        skipFlags: true,
+        trustParent: true,
+        env: { OTEL_TRACES_SAMPLER_ARG: "0" },
+        headers: { get: (name) => (name === "traceparent" ? parent.replace(/-00$/, "-01") : null) },
+      },
+      async () => new Response("ok", { status: 200 }),
+    );
+    assert.ok(trusted instanceof Response);
+    assert.equal(trusted.headers.get("traceparent")?.endsWith("-01"), true);
     await flushSignals();
     const roots = seen.filter((signal): signal is CompletedSpan => signal.kind === "span" && signal.traceRoot === true);
-    assert.equal(roots[0]?.sampled, false);
+    assert.equal(roots[0]?.sampled, true);
     assert.equal(roots[1]?.sampled, true);
     assert.equal(roots[2]?.sampled, false);
-    assert.equal(roots[3]?.sampled, true);
-    assert.equal(headSampleDecision({ incomingFlags: "00", ratio: 1 }), false);
-    assert.equal(headSampleDecision({ incomingFlags: "01", ratio: 0 }), true);
+    assert.equal(roots[3]?.sampled, false);
+    assert.equal(roots[4]?.sampled, true);
+    assert.equal(headSampleDecision({ incomingFlags: "00", ratio: 1 }), true);
+    assert.equal(headSampleDecision({ incomingFlags: "01", ratio: 0 }), false);
+    assert.equal(headSampleDecision({ incomingFlags: "01", ratio: 0, trustParent: true }), true);
     assert.equal(flagsForSampled(false), "00");
     assert.equal(flagsForSampled(true, "00"), "01");
     setTelemetrySink(null);
@@ -368,8 +387,41 @@ describe("trace continuity", () => {
     );
     await flushSignals();
     assert.ok(response instanceof Response);
-    assert.equal(response.headers.get("traceparent"), null);
-    assert.equal(seen.length, 0);
+    assert.ok(response.headers.get("traceparent"), "a copied telemetry header must not skip tracing");
+    registerIngestServerFn(`/_serverFn/${prodId}`);
+    const skipped = await runRequestTrace(
+      {
+        method: "POST",
+        path: `/_serverFn/${prodId}`,
+        skipFlags: true,
+        headers: {
+          get: (name) => (name === TELEMETRY_REQUEST_HEADER ? "1" : null),
+        },
+      },
+      async () => new Response("ok", { status: 200 }),
+    );
+    await flushSignals();
+    assert.ok(skipped instanceof Response);
+    assert.equal(skipped.headers.get("traceparent"), null);
+    assert.equal(isIngestServerFnPath(`/_serverFn/${prodId}`), true);
+    assert.equal(isIngestServerFnPath("/houses"), false);
+    const before = seen.length;
+    const other = await runRequestTrace(
+      {
+        method: "POST",
+        path: "/api/auth/get-session",
+        skipFlags: true,
+        headers: {
+          get: (name) => (name === TELEMETRY_REQUEST_HEADER ? "1" : null),
+        },
+      },
+      async () => new Response("ok", { status: 200 }),
+    );
+    await flushSignals();
+    assert.ok(other instanceof Response);
+    assert.ok(other.headers.get("traceparent"));
+    assert.ok(seen.length > before);
+    registerIngestServerFn(null);
     const clientSource = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "client.tsx"), "utf8");
     assert.equal(clientSource.includes('includes("ingestClientSignals")'), false);
     assert.equal(clientSource.includes("includes('ingestClientSignals')"), false);
@@ -431,6 +483,178 @@ describe("sampling", () => {
     assert.deepEqual(gate.push(rootSpan(traceId, "OK", undefined, false)), []);
     const kept = gate.push(rootSpan("f".repeat(32), "OK", undefined, true));
     assert.equal(kept.length, 1);
+  });
+
+  it("decides browser HTTP spans from the recorded trace instead of holding them", () => {
+    const gate = new TraceGate(0, () => 0.99);
+    const traceId = "a".repeat(32);
+    const browser = httpClientSpan(traceId, "OK");
+    assert.equal(gate.push(browser).length, 0);
+    gate.record(traceId, true);
+    const kept = gate.push(httpClientSpan(traceId, "OK", "b".repeat(16)));
+    assert.equal(kept.length, 1);
+    const server = rootSpan(traceId, "OK", 200, true);
+    server.parentSpanId = "b".repeat(16);
+    const released = gate.push(server);
+    assert.equal(released.some((span) => span.kind === "span" && span.spanKind === "SERVER"), true);
+    const ids = new Set(released.filter((span) => span.kind === "span").map((span) => (span.kind === "span" ? span.spanId : "")));
+    for (const span of released) {
+      if (span.kind === "span" && span.parentSpanId) assert.equal(ids.has(span.parentSpanId) || span.parentSpanId === "b".repeat(16), true);
+    }
+  });
+
+  it("posts one ingest batch per flush and leaves the rest queued", async () => {
+    const batches: number[] = [];
+    setTelemetrySink((signals) => {
+      batches.push(signals.length);
+    });
+    for (let i = 0; i < 25; i += 1) startSpan(`nav.${i}`, { root: true }).end();
+    await flushSignals();
+    assert.equal(batches.length, 1);
+    assert.ok((batches[0] ?? 0) <= 40);
+    assert.ok((batches[0] ?? 0) > 0);
+    setTelemetrySink(() => undefined);
+    await flushSignals();
+    await flushSignals();
+    setTelemetrySink(null);
+  });
+});
+
+describe("browser to database trace", () => {
+  it("posts one trace whose browser, server, and pg spans parent each other", async () => {
+    const gate = new TraceGate(1, () => 0);
+    attachTraceGate(gate);
+    const kept: CompletedSpan[] = [];
+    setTelemetrySink((signals) => {
+      for (const signal of signals) {
+        for (const next of gate.push(signal)) {
+          if (next.kind === "span") kept.push(next);
+        }
+      }
+    });
+    const browser = startSpan("HTTP GET", {
+      kind: "CLIENT",
+      root: true,
+      attributes: { "http.method": "GET", "http.route": "/looks/$lookId" },
+    });
+    const header = formatTraceparent({ traceId: browser.traceId, spanId: browser.spanId, flags: "01" });
+    try {
+      const response = await runRequestTrace(
+        {
+          method: "GET",
+          path: "/looks/abc",
+          skipFlags: true,
+          env: { OTEL_TRACES_SAMPLER_ARG: "0" },
+          headers: { get: (name) => (name === "traceparent" ? header : null) },
+        },
+        async () => {
+          await traceDbQuery("select id from looks where id = $1", async () => [{ id: "abc" }]);
+          return new Response("ok", { status: 200 });
+        },
+      );
+      assert.ok(response instanceof Response);
+      assert.ok(response.headers.get("traceparent")?.startsWith(`00-${browser.traceId}-`));
+      assert.equal(response.headers.get("traceparent")?.endsWith("-00"), true);
+      browser.end();
+      await flushSignals();
+      const exported = kept.filter((span) => span.traceId === browser.traceId);
+      assert.equal(exported.length, 0);
+
+      const keptAll = new TraceGate(1, () => 0);
+      attachTraceGate(keptAll);
+      const sampled: CompletedSpan[] = [];
+      setTelemetrySink((signals) => {
+        for (const signal of signals) {
+          for (const next of keptAll.push(signal)) {
+            if (next.kind === "span") sampled.push(next);
+          }
+        }
+      });
+      const again = startSpan("HTTP GET", {
+        kind: "CLIENT",
+        root: true,
+        attributes: { "http.method": "GET", "http.route": "/looks/$lookId" },
+      });
+      const againHeader = formatTraceparent({ traceId: again.traceId, spanId: again.spanId, flags: "01" });
+      const ok = await runRequestTrace(
+        {
+          method: "GET",
+          path: "/looks/abc",
+          skipFlags: true,
+          env: { OTEL_TRACES_SAMPLER_ARG: "1" },
+          headers: { get: (name) => (name === "traceparent" ? againHeader : null) },
+        },
+        async () => {
+          await traceDbQuery("select id from looks where id = $1", async () => [{ id: "abc" }]);
+          return new Response("ok", { status: 200 });
+        },
+      );
+      assert.ok(ok instanceof Response);
+      assert.equal(ok.headers.get("traceparent")?.endsWith("-01"), true);
+      again.end();
+      await flushSignals();
+      const clientRaw = sampled.filter((span) => span.spanKind === "CLIENT" && span.name.startsWith("HTTP "));
+      const bodySpans = sampled.filter((span) => !(span.spanKind === "CLIENT" && span.name.startsWith("HTTP ")));
+      const reparsed = parseClientSignals(clientRaw);
+      assert.ok(reparsed && reparsed.length >= 1);
+      for (const signal of reparsed) {
+        for (const next of keptAll.push(signal)) {
+          if (next.kind === "span") bodySpans.push(next);
+        }
+      }
+      const http = bodySpans.find((span) => span.spanKind === "SERVER");
+      const query = bodySpans.find((span) => span.name === "pg.query");
+      const web = bodySpans.find((span) => span.spanKind === "CLIENT" && span.name === "HTTP GET");
+      assert.ok(http);
+      assert.ok(query);
+      assert.ok(web);
+      assert.equal(http.traceId, again.traceId);
+      assert.equal(query.traceId, again.traceId);
+      assert.equal(web.traceId, again.traceId);
+      assert.equal(http.parentSpanId, web.spanId);
+      assert.equal(query.parentSpanId, http.spanId);
+      const ids = new Set(bodySpans.map((span) => span.spanId));
+      for (const span of bodySpans) {
+        if (span.parentSpanId) assert.equal(ids.has(span.parentSpanId), true, span.name);
+      }
+      const received: Array<{ resourceSpans?: Array<{ scopeSpans?: Array<{ spans?: Array<{ traceId: string; spanId: string; parentSpanId?: string; name: string }> }> }> }> = [];
+      const collector = createServer((req, res) => {
+        const chunks: Buffer[] = [];
+        req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        req.on("end", () => {
+          received.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end("{}");
+        });
+      });
+      await new Promise<void>((resolve) => collector.listen(0, "127.0.0.1", () => resolve()));
+      const address = collector.address();
+      assert.ok(address && typeof address === "object");
+      try {
+        const payload = encodeOtlpTraces(bodySpans, "looktag");
+        const posted = await fetch(`http://127.0.0.1:${address.port}/v1/traces`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        assert.equal(posted.status, 200);
+      } finally {
+        await new Promise<void>((resolve) => collector.close(() => resolve()));
+      }
+      const remote = received[0]?.resourceSpans?.[0]?.scopeSpans?.[0]?.spans ?? [];
+      const remoteServer = remote.find((span) => span.name === "HTTP GET" && span.parentSpanId);
+      const remoteQuery = remote.find((span) => span.name === "pg.query");
+      const remoteWeb = remote.find((span) => span.name === "HTTP GET" && !span.parentSpanId);
+      assert.ok(remoteServer);
+      assert.ok(remoteQuery);
+      assert.ok(remoteWeb);
+      assert.equal(remoteServer.traceId, remoteWeb.traceId);
+      assert.equal(remoteServer.parentSpanId, remoteWeb.spanId);
+      assert.equal(remoteQuery.parentSpanId, remoteServer.spanId);
+    } finally {
+      attachTraceGate(null);
+      setTelemetrySink(null);
+    }
   });
 });
 
@@ -565,6 +789,23 @@ function rootSpan(
     attributes: httpStatus ? { "http.status_code": httpStatus } : {},
     events: [],
     sampled,
+  };
+}
+
+function httpClientSpan(traceId: string, status: "OK" | "ERROR", spanId = "c".repeat(16)): CompletedSpan {
+  return {
+    kind: "span",
+    id: spanId,
+    traceId,
+    spanId,
+    name: "HTTP GET",
+    spanKind: "CLIENT",
+    status,
+    startTimeUnixNano: "1",
+    endTimeUnixNano: "2",
+    durationMs: 1,
+    attributes: { "http.status_code": status === "ERROR" ? 500 : 200 },
+    events: [],
   };
 }
 

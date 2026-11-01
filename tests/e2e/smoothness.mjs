@@ -27,9 +27,7 @@ function decodeServerFn(url) {
 }
 
 function trackName(url) {
-  const name = decodeServerFn(url);
-  if (name.includes("ingestClientSignals")) return "";
-  return name;
+  return decodeServerFn(url);
 }
 
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-GB" });

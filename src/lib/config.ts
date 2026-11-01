@@ -103,6 +103,12 @@ export const INTEGRATIONS = [
     fallback: "Signals page only",
   },
   {
+    env: "TRUST_PROXY",
+    role: "Trust the first X-Forwarded-For hop for ingest rate limits. Set 1 on Render.",
+    required: false,
+    fallback: "socket IP",
+  },
+  {
     env: "LOOKTAG_NATIVE_URL",
     role: "Hosted origin wrapped by the Capacitor shell.",
     required: false,

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { maskOtlpHeaders, parseOtlpHeaders } from "./model.ts";
 import { parseClientSignals, ingestPayloadTooLarge, INGEST_MAX_BYTES } from "./client-signals.ts";
-import { IngestRateLimiter } from "./ingest-limit.ts";
+import { IngestRateLimiter, resolveClientIp } from "./ingest-limit.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const apiSource = readFileSync(join(here, "api.ts"), "utf8");
@@ -129,5 +129,15 @@ describe("anonymous client ingest", () => {
     assert.equal(limiter.allow("203.0.113.5"), true);
     now += 60_001;
     assert.equal(limiter.allow("203.0.113.4"), true);
+  });
+
+  it("uses the socket IP unless TRUST_PROXY trusts the first forwarded hop", () => {
+    const forwarded = "203.0.113.9, 10.0.0.4";
+    assert.equal(resolveClientIp({ trustProxy: false, forwardedFor: forwarded, socketIp: "10.0.0.4" }), "10.0.0.4");
+    assert.equal(resolveClientIp({ trustProxy: false, forwardedFor: "198.51.100.2", socketIp: "10.0.0.4" }), "10.0.0.4");
+    assert.equal(resolveClientIp({ trustProxy: true, forwardedFor: forwarded, socketIp: "10.0.0.4" }), "203.0.113.9");
+    assert.equal(resolveClientIp({ trustProxy: true, forwardedFor: " 198.51.100.8 , 10.0.0.4", socketIp: "10.0.0.4" }), "198.51.100.8");
+    assert.equal(resolveClientIp({ trustProxy: true, forwardedFor: "", socketIp: "10.0.0.4" }), "10.0.0.4");
+    assert.equal(resolveClientIp({ trustProxy: false, socketIp: "" }), "unknown");
   });
 });

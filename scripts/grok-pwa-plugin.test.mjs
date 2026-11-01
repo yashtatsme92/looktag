@@ -503,6 +503,8 @@ test("vite plugin bakes og identity as a virtual module", () => {
   const plugin = readFileSync(join(TEMPLATE_ROOT, "scripts/grok-pwa-plugin.mjs"), "utf8");
   assert.match(plugin, /virtual:grok-og-identity/);
   assert.match(plugin, /snapshotOgIdentity/);
+  assert.match(plugin, /trackProductPressure/);
+  assert.match(plugin, /x-looktag-telemetry/);
 });
 
 test("look and house paths are share documents", () => {

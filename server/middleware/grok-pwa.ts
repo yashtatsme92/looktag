@@ -16,6 +16,7 @@
  */
 import { appVersionHeader } from "../../src/lib/build-info";
 import { runRequestTrace } from "../../src/lib/observability/request-trace";
+import { registerIngestServerFn } from "../../src/lib/observability/client-fetch";
 import installPageTemplate from "../../scripts/install-page.html?raw";
 import { grokOgIdentity } from "virtual:grok-og-identity";
 import {
@@ -92,6 +93,8 @@ export default async function grokPwaMiddleware(
   try {
     const { ensureTelemetrySink } = await import("../../src/lib/observability/store.server");
     ensureTelemetrySink();
+    const { ingestClientSignals } = await import("../../src/lib/observability/api");
+    registerIngestServerFn((ingestClientSignals as { url?: string }).url);
   } catch {
     // A telemetry setup failure must not fail the request.
   }

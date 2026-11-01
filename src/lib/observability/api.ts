@@ -4,7 +4,8 @@ import type { ObservabilityConfig, SignalKind } from "./model";
 import { browserResourceFromClient } from "./resource";
 import { createTraceFilter, parseTraceFilter, type TraceFilter } from "./graph";
 import { parseClientSignals, ingestPayloadTooLarge } from "./client-signals";
-import { clientIngestLimiter } from "./ingest-limit";
+import { registerIngestServerFn } from "./client-fetch";
+import { clientIngestLimiter, resolveClientIp, trustProxyFromEnv } from "./ingest-limit";
 import {
   ensureTelemetrySink,
   ingestSignals,
@@ -103,14 +104,14 @@ async function contentLengthTooLarge(): Promise<boolean> {
 async function clientIp(): Promise<string> {
   try {
     const { getRequestIP, getRequestHeader } = await import("@tanstack/react-start/server");
-    const ip = getRequestIP();
-    if (ip?.trim()) return ip.trim();
-    const hop = getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim();
-    if (hop) return hop;
+    return resolveClientIp({
+      trustProxy: trustProxyFromEnv(),
+      forwardedFor: getRequestHeader("x-forwarded-for"),
+      socketIp: getRequestIP(),
+    });
   } catch {
-    // Called outside a request.
+    return "unknown";
   }
-  return "unknown";
 }
 
 async function respond(status: number): Promise<void> {
@@ -123,3 +124,5 @@ async function respond(status: number): Promise<void> {
 }
 
 export const HEADER_KEEP_VALUE = HEADER_KEEP;
+
+registerIngestServerFn((ingestClientSignals as { url?: string }).url);

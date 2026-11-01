@@ -26,10 +26,11 @@ import {
   type TraceGraph,
 } from "./graph";
 import { encodeOtlpLogs, encodeOtlpMetrics, encodeOtlpTraces, encodeProbe } from "./otlp";
-import { setTelemetrySink } from "./runtime";
+import { setFlushDeferred, setTelemetrySink } from "./runtime";
 import { deliverOtlp } from "./export-error";
-import { effectiveSampleRatio, TraceGate } from "./sampling";
+import { effectiveSampleRatio, TraceGate, attachTraceGate } from "./sampling";
 import { serverResourceAttributes } from "./identity.server";
+import { productRequestsActive, whenProductIdle } from "./request-pressure";
 
 const SETTINGS_ID = "default";
 const MAX_SIGNALS = 400;
@@ -64,13 +65,18 @@ type SignalRow = {
 };
 
 let sinkReady = false;
+const deferredWrites: TelemetrySignal[] = [];
+let draining = false;
 
 export function ensureTelemetrySink() {
-  if (sinkReady) return;
-  sinkReady = true;
-  setTelemetrySink(async (signals) => {
-    await ingestSignals(signals);
-  });
+  if (!sinkReady) {
+    sinkReady = true;
+    setFlushDeferred(() => productRequestsActive());
+    setTelemetrySink(async (signals) => {
+      await ingestSignals(signals);
+    });
+  }
+  traceGate(effectiveSampleRatio(1, process.env));
 }
 
 function parseExtrasRecord(raw: unknown): Record<string, unknown> {
@@ -173,8 +179,14 @@ let gate: TraceGate | null = null;
 let gateRatio = Number.NaN;
 
 function traceGate(ratio: number): TraceGate {
-  if (!gate || gateRatio !== ratio) {
+  if (!gate) {
     gate = new TraceGate(ratio);
+    gateRatio = ratio;
+    attachTraceGate(gate);
+    return gate;
+  }
+  if (gateRatio !== ratio) {
+    gate.setRatio(ratio);
     gateRatio = ratio;
   }
   return gate;
@@ -187,8 +199,49 @@ export async function ingestSignals(signals: TelemetrySignal[]): Promise<number>
   const sampled = signals.flatMap((signal) => (allows(config, signal) ? traceGate(ratio).push(signal) : []));
   const accepted = sampled.slice(0, 60);
   if (accepted.length === 0) return 0;
+  void exportSignals(accepted, config);
+  // Persistence is off the request. PGLite queries are synchronous, so a batch
+  // written inline stalls every other request (including publish) for the whole batch.
+  deferredWrites.push(...accepted);
+  if (deferredWrites.length > MAX_SIGNALS) deferredWrites.splice(0, deferredWrites.length - MAX_SIGNALS);
+  void drainWrites();
+  return accepted.length;
+}
+
+async function drainWrites() {
+  if (draining) return;
+  draining = true;
+  let sinceTrim = 0;
+  try {
+    while (deferredWrites.length > 0) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      if (productRequestsActive()) break;
+      const signal = deferredWrites.shift();
+      if (!signal) break;
+      await writeSignals([signal]);
+      sinceTrim += 1;
+      if (sinceTrim >= 40) {
+        await trimSignals();
+        sinceTrim = 0;
+      }
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    if (sinceTrim > 0 && !productRequestsActive()) await trimSignals();
+  } catch {
+    // A full buffer must not take down the next request. Export already ran.
+  } finally {
+    draining = false;
+  }
+  if (deferredWrites.length > 0) {
+    if (productRequestsActive()) void whenProductIdle().then(() => drainWrites());
+    else void drainWrites();
+  }
+}
+
+async function writeSignals(signals: TelemetrySignal[]) {
+  if (signals.length === 0) return;
   const sql = await getSql();
-  for (const signal of accepted) {
+  for (const signal of signals) {
     const startTime = startMs(signal);
     const parentSpanId = signal.kind === "span" ? signal.parentSpanId ?? null : null;
     await sql`
@@ -211,6 +264,10 @@ export async function ingestSignals(signals: TelemetrySignal[]): Promise<number>
       on conflict (id) do nothing
     `;
   }
+}
+
+async function trimSignals() {
+  const sql = await getSql();
   await sql`
     delete from telemetry_signals
     where id in (
@@ -219,8 +276,6 @@ export async function ingestSignals(signals: TelemetrySignal[]): Promise<number>
       offset ${MAX_SIGNALS}
     )
   `;
-  void exportSignals(accepted, config);
-  return accepted.length;
 }
 
 function signalName(signal: TelemetrySignal): string {

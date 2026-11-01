@@ -5,13 +5,14 @@ import { isSharePath } from "@/lib/pwa/boot";
 import { chromeLayout, layoutSurface } from "@/lib/pwa/use-wide-layout";
 import { shareKindFromPath } from "@/lib/share-meta";
 import { ingestClientSignals } from "./api";
-import { emitLog, flushSignals, recordMetric, setTelemetrySink, startSpan } from "./runtime";
+import { emitLog, flushSignals, recordMetric, setFlushDeferred, setTelemetrySink, startSpan } from "./runtime";
 import { featureFromRoute, routeTemplate } from "./app-span";
 import { formatTraceparent } from "./traceparent";
 import { buildResourceAttributes } from "./resource";
 import { TELEMETRY_REQUEST_HEADER, applyClientHttpStatus, isTelemetryTransport, telemetryFunctionPath } from "./client-fetch";
 
 let insideTelemetryFlush = 0;
+let inflightTraces = 0;
 
 export function TelemetryProvider({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -33,6 +34,7 @@ export function TelemetryProvider({ children }: { children: ReactNode }) {
         insideTelemetryFlush -= 1;
       }
     });
+    setFlushDeferred(() => inflightTraces > 0);
     window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       if (insideTelemetryFlush > 0 || isTelemetryRequest(input, init)) return original(input, init);
       return tracedFetch(original, input, init);
@@ -40,7 +42,10 @@ export function TelemetryProvider({ children }: { children: ReactNode }) {
     const flush = () => {
       void flushSignals();
     };
-    const interval = window.setInterval(flush, 4000);
+    const interval = window.setInterval(() => {
+      if (inflightTraces > 0) return;
+      flush();
+    }, 8_000);
     window.addEventListener("visibilitychange", flush);
     window.addEventListener("pagehide", flush);
     return () => {
@@ -49,6 +54,7 @@ export function TelemetryProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("visibilitychange", flush);
       window.removeEventListener("pagehide", flush);
       setTelemetrySink(null);
+      setFlushDeferred(null);
     };
   }, []);
 
@@ -159,13 +165,20 @@ function isTelemetryRequest(input: RequestInfo | URL, init?: RequestInit): boole
   });
 }
 
+function isAppFetch(url: URL): boolean {
+  const path = url.pathname;
+  if (path.startsWith("/@") || path.startsWith("/src/") || path.startsWith("/node_modules/")) return false;
+  if (/\.(?:tsx?|jsx?|mjs|css|map|svg|png|jpe?g|webp|gif|woff2?|ico)$/i.test(path)) return false;
+  return true;
+}
+
 function tracedFetch(
   original: typeof window.fetch,
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
   const url = sameOriginUrl(input);
-  if (!url || isTelemetryRequest(input, init)) return original(input, init);
+  if (!url || !isAppFetch(url) || isTelemetryRequest(input, init)) return original(input, init);
   const method = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
   const route = routeTemplate(url.pathname);
   const span = startSpan(`HTTP ${method}`, {
@@ -180,6 +193,7 @@ function tracedFetch(
   });
   const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
   headers.set("traceparent", formatTraceparent({ traceId: span.traceId, spanId: span.spanId }));
+  inflightTraces += 1;
   return original(input, { ...init, headers })
     .then((response) => {
       applyClientHttpStatus(response.status, span);
@@ -189,6 +203,9 @@ function tracedFetch(
     .catch((error: unknown) => {
       span.end(error);
       throw error;
+    })
+    .finally(() => {
+      inflightTraces = Math.max(0, inflightTraces - 1);
     });
 }
 

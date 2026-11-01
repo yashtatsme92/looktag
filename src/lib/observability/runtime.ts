@@ -35,31 +35,65 @@ type SpanRef = { traceId: string; spanId: string };
 let sink: Sink | null = null;
 const queue: TelemetrySignal[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let flushing = false;
+let flushDeadline = 0;
+let flushDeferred: () => boolean = () => false;
+const FLUSH_QUIET_MS = 1_500;
+const FLUSH_MAX_MS = 8_000;
+/** One ingest call carries at most this many signals (the server keeps 40). */
+const FLUSH_BATCH = 40;
 const clientStack: SpanRef[] = [];
 
 export function setTelemetrySink(next: Sink | null) {
   sink = next;
 }
 
+/** When this returns true, the flush waits. The browser sets it while a traced fetch is in flight. */
+export function setFlushDeferred(next: (() => boolean) | null) {
+  flushDeferred = next ?? (() => false);
+}
+
 export function enqueueSignals(signals: TelemetrySignal[]) {
   if (signals.length === 0) return;
+  const now = Date.now();
+  if (queue.length === 0) flushDeadline = now + FLUSH_MAX_MS;
   queue.push(...signals);
-  if (flushTimer) return;
+  scheduleFlush(now);
+}
+
+function scheduleFlush(now = Date.now()) {
+  if (flushTimer) clearTimeout(flushTimer);
+  const wait = Math.max(0, Math.min(FLUSH_QUIET_MS, flushDeadline - now));
   flushTimer = setTimeout(() => {
     flushTimer = null;
     void flushSignals();
-  }, 40);
+  }, wait);
 }
 
 export async function flushSignals(): Promise<void> {
-  if (queue.length === 0 || !sink) return;
-  const batch = queue.splice(0, 60);
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  if (flushDeferred()) {
+    scheduleFlush(Date.now());
+    return;
+  }
+  if (queue.length === 0 || !sink || flushing) {
+    if (flushing && queue.length > 0) scheduleFlush(Date.now());
+    return;
+  }
+  flushing = true;
+  const batch = queue.splice(0, FLUSH_BATCH);
+  flushDeadline = 0;
   try {
     await sink(batch);
   } catch {
     // Never fail the product path because a collector is down.
+  } finally {
+    flushing = false;
   }
-  if (queue.length > 0) await flushSignals();
+  if (queue.length > 0) scheduleFlush(Date.now());
 }
 
 function emit(signal: TelemetrySignal) {

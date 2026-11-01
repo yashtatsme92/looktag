@@ -16,9 +16,11 @@ OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64 of instanceId:token>
 
 Generate the basic-auth value in Grafana Cloud: Connections → OpenTelemetry. Use the instance id as the username and the token as the password. Do not commit the token.
 
-Production keeps about 1 in 10 successful traces. Traces that end in a 5xx or a thrown error are always kept. Set `OTEL_TRACES_SAMPLER_ARG` (`0`–`1`) to override that ratio. The response `traceparent` uses the parent's sampled flag when the request sent one (parent-based). With no parent, the flag is the head decision. A kept error forces the flag to sampled.
+Production keeps about 1 in 10 successful traces. Traces that end in a 5xx or a thrown error are always kept. Set `OTEL_TRACES_SAMPLER_ARG` (`0`–`1`) to override that ratio. A browser `traceparent` continues the trace id, but the client cannot force sampling: an untrusted `-01` does not win, and the server applies its own ratio. A trusted internal parent may still honor the sampled flag. The response `traceparent` matches that decision. A kept error forces the flag to sampled. The server records the decision under the trace id as it handles the request, so a browser HTTP span exported later follows that decision instead of waiting for the server span.
 
 `deployment.environment.name` is `DEPLOYMENT_ENV` when that is `production`, `preview`, or `development`. Otherwise it is `APP_ENV`, then the host (`RENDER`, Netlify `CONTEXT` / `REVIEW_ID`), then `NODE_ENV=production`.
+
+On Render set `TRUST_PROXY=1`. Anonymous ingest then rate-limits on the first `X-Forwarded-For` hop. Leave it unset anywhere else: the socket address is used, and a spoofed forwarding header cannot split the bucket.
 
 ## What a request looks like
 
@@ -27,7 +29,7 @@ One trace id links the browser fetch, the server HTTP span, application `withSpa
 1. The browser starts a client span and sends `traceparent`.
 2. The server continues that trace. Its HTTP span is the parent of app spans and of `pg.query`.
 3. The response sets `traceparent` and `X-Request-Id`.
-4. Browser spans posted through `ingestClientSignals` keep the same `trace_id`. The upload itself is not a span. Any visitor can post signals: 60 requests per minute per IP, 64 KB per body, and a strict span/metric/log schema. Admin auth stays on the observability page reads. Email/password is not required.
+4. Browser spans posted through `ingestClientSignals` keep the same `trace_id` and parent the server span. The client sends one batch per flush. The upload itself is not a span: `x-looktag-telemetry: 1` skips server tracing only for that server function, not for any other route. Any visitor can post signals: 60 requests per minute per client IP, 64 KB per body, and a strict span/metric/log schema. Admin auth stays on the observability page reads. Email/password is not required.
 
 Span attributes are `http.method`, `http.route` (the route pattern, not the raw id), `http.status_code`, and `app.*` (`app.route`, `app.feature`, `app.server_fn`, `app.auth.state` of `anonymous` or `signed_in`, `app.locale`, `app.flag.*`, `app.request_id`). Browser fetch spans mark 4xx and 5xx with `error.type` set to the status code. There is no user id, cookie, authorization header, or request body. `pg.query` records `db.system=postgresql` and `db.statement` with string and numeric literals stripped. Placeholders such as `$1` stay. Bound values are not attached.
 

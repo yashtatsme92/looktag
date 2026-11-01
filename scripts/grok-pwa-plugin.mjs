@@ -42,6 +42,32 @@ function sendHtml(res, html) {
   res.end(body);
 }
 
+function trackProductPressure(middlewares) {
+  middlewares.use((req, res, next) => {
+    const header = req.headers["x-looktag-telemetry"];
+    const marked = header === "1" || (Array.isArray(header) && header.includes("1"));
+    if (marked) {
+      next();
+      return;
+    }
+    const state = (globalThis.__looktagRequestPressure ??= { active: 0, waiters: [] });
+    state.active += 1;
+    let ended = false;
+    const end = () => {
+      if (ended) return;
+      ended = true;
+      state.active = Math.max(0, state.active - 1);
+      if (state.active === 0) {
+        const pending = state.waiters.splice(0, state.waiters.length);
+        for (const wake of pending) wake();
+      }
+    };
+    res.on("finish", end);
+    res.on("close", end);
+    next();
+  });
+}
+
 function serveGrokPwa(middlewares) {
   middlewares.use((req, res, next) => {
     const rawUrl = req.url ?? "";
@@ -174,10 +200,14 @@ export function grokPwaPlugin() {
     configureServer(server) {
       // Registered directly (not in a returned post-hook) so both run BEFORE
       // TanStack Start's SSR middleware, like the auth-popup plugin.
+      // Vite dev has no Nitro middleware. This keeps telemetry writes off
+      // PGLite while a document or publish request is still in flight.
+      trackProductPressure(server.middlewares);
       serveGrokPwa(server.middlewares);
       wrapHtmlResponses(server.middlewares, root);
     },
     configurePreviewServer(server) {
+      trackProductPressure(server.middlewares);
       serveGrokPwa(server.middlewares);
       // Post-hook: preview registers compression between the direct hooks and
       // the post-hooks, and the injector must wrap AFTER compression so it

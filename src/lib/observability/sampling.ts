@@ -19,16 +19,17 @@ export function effectiveSampleRatio(stored: number, env: ResourceEnv = {}): num
 }
 
 /**
- * Parent-based head decision. An incoming traceparent's sampled flag wins.
- * With no parent, the ratio applies. Errors are upgraded by the caller so the
- * response flag still matches what is exported.
+ * Head decision. A trusted parent (another service we run) keeps its sampled
+ * flag. Browser parents are not trusted: the server's own ratio decides, and
+ * the trace id is still continued. Errors are upgraded by the caller.
  */
 export function headSampleDecision(input: {
   incomingFlags?: string;
   ratio: number;
   random?: () => number;
+  trustParent?: boolean;
 }): boolean {
-  if (input.incomingFlags !== undefined) return traceFlagsSampled(input.incomingFlags);
+  if (input.trustParent && input.incomingFlags !== undefined) return traceFlagsSampled(input.incomingFlags);
   const ratio = clampSampleRatio(input.ratio);
   if (ratio >= 1) return true;
   if (ratio <= 0) return false;
@@ -58,7 +59,7 @@ export class TraceGate {
   private readonly keep = new Map<string, boolean>();
   private readonly held = new Map<string, CompletedSpan[]>();
   private readonly seen = new Map<string, number>();
-  private readonly ratio: number;
+  private ratio: number;
   private readonly random: () => number;
   private readonly ttlMs: number;
   private readonly maxSize: number;
@@ -80,25 +81,42 @@ export class TraceGate {
     return this.seen.size;
   }
 
+  /** The server calls this when it handles a request, before the span is flushed. */
+  record(traceId: string, sampled: boolean): void {
+    this.touch(traceId);
+    if (this.keep.get(traceId) === true) return;
+    this.keep.set(traceId, sampled);
+  }
+
+  setRatio(ratio: number): void {
+    this.ratio = ratio;
+  }
+
   push(signal: TelemetrySignal): TelemetrySignal[] {
     if (signal.kind !== "span") return [signal];
-    this.note(signal.traceId);
+    this.touch(signal.traceId);
     return this.consider(signal);
   }
 
-  private note(traceId: string) {
+  /** LRU map: the front is the oldest trace. Expiry and the cap are O(1) per span. */
+  private touch(traceId: string) {
     const now = this.now();
-    for (const [id, at] of [...this.seen]) {
-      if (id === traceId) continue;
-      if (now - at >= this.ttlMs) this.forget(id);
-    }
-    const previous = this.seen.get(traceId);
-    if (previous !== undefined && now - previous >= this.ttlMs) this.forget(traceId);
+    this.expireFront(now);
     this.seen.delete(traceId);
     this.seen.set(traceId, now);
     while (this.seen.size > this.maxSize) {
       const oldest = this.seen.keys().next().value;
       if (oldest === undefined || oldest === traceId) break;
+      this.forget(oldest);
+    }
+  }
+
+  private expireFront(now: number) {
+    while (this.seen.size > 0) {
+      const oldest = this.seen.keys().next().value;
+      if (oldest === undefined) break;
+      const at = this.seen.get(oldest);
+      if (at === undefined || now - at < this.ttlMs) break;
       this.forget(oldest);
     }
   }
@@ -119,22 +137,44 @@ export class TraceGate {
   private consider(span: CompletedSpan): CompletedSpan[] {
     if (failed(span)) return this.decide(span, true);
     const prior = this.keep.get(span.traceId);
-    if (prior === true) return [span];
-    if (prior === false) return [];
-    // Children and the browser HTTP span wait for the request span so a 5xx
-    // can still keep them. Other roots (navigation, funnel) are decided now.
-    const child = Boolean(span.parentSpanId) && !span.traceRoot;
-    const browserHttp = span.spanKind === "CLIENT" && span.name.startsWith("HTTP ") && !span.traceRoot;
-    if (!child && !browserHttp) {
-      const sampled =
-        typeof span.sampled === "boolean"
-          ? span.sampled
-          : clampSampleRatio(this.ratio) >= 1 || (this.ratio > 0 && this.random() < clampSampleRatio(this.ratio));
-      return this.decide(span, sampled);
+    const browserHttp = span.spanKind === "CLIENT" && span.name.startsWith("HTTP ");
+    // The browser span is the parent. It does not wait for a server span that
+    // may already have been sampled on the request path. A recorded decision
+    // (set when the server handled that trace id) wins. Otherwise the ratio
+    // decides now — a client `sampled` bit is not trusted.
+    if (browserHttp) {
+      if (prior === true) return [span];
+      if (prior === false) return [];
+      return this.decide(span, this.ratioKeeps());
     }
-    const list = this.held.get(span.traceId) ?? [];
-    list.push(span);
-    this.held.set(span.traceId, list);
-    return [];
+    const child = Boolean(span.parentSpanId) && !span.traceRoot;
+    if (child) {
+      if (prior === true) return [span];
+      const list = this.held.get(span.traceId) ?? [];
+      list.push(span);
+      this.held.set(span.traceId, list);
+      return [];
+    }
+    if (prior === true) return this.decide(span, true);
+    const sampled = typeof span.sampled === "boolean" ? span.sampled : this.ratioKeeps();
+    return this.decide(span, sampled);
   }
+
+  private ratioKeeps(): boolean {
+    const ratio = clampSampleRatio(this.ratio);
+    if (ratio >= 1) return true;
+    if (ratio <= 0) return false;
+    return this.random() < ratio;
+  }
+}
+
+let attachedGate: TraceGate | null = null;
+
+/** Store binds the process gate so a request can record its decision before the span is flushed. */
+export function attachTraceGate(gate: TraceGate | null): void {
+  attachedGate = gate;
+}
+
+export function recordTraceDecision(traceId: string, sampled: boolean): void {
+  attachedGate?.record(traceId, sampled);
 }

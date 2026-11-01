@@ -44,7 +44,7 @@ The route error screen and the server catch sites call this reporter.
 
 `@opentelemetry/*` is imported only from `providers/telemetry/otlp.ts`. Callers outside that folder import `@/lib/providers/telemetry` (the index), not the `otlp` adapter. The import scan rejects a direct `providers/telemetry/otlp` import. The OTLP HTTP POST lives in `postOtlp`. `src/lib/observability/store.server.ts` calls `postOtlp`; it does not call `fetch` itself.
 
-Env: `TELEMETRY_PROVIDER=otlp|none` (default `otlp`). `deployment.environment.name` is `DEPLOYMENT_ENV` when set to `production`, `preview`, or `development`, then `APP_ENV`, then the host (`RENDER`, Netlify `CONTEXT`), then `NODE_ENV`. Traces export when `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` or `OTEL_EXPORTER_OTLP_ENDPOINT` is set. See [OBSERVABILITY.md](./OBSERVABILITY.md) for Grafana Cloud Tempo.
+Env: `TELEMETRY_PROVIDER=otlp|none` (default `otlp`). `deployment.environment.name` is `DEPLOYMENT_ENV` when set to `production`, `preview`, or `development`, then `APP_ENV`, then the host (`RENDER`, Netlify `CONTEXT`), then `NODE_ENV`. Traces export when `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` or `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Browser parents do not force sampling; set `TRUST_PROXY=1` on Render so ingest rate limits use the first `X-Forwarded-For` hop (otherwise the socket IP). See [OBSERVABILITY.md](./OBSERVABILITY.md) for Grafana Cloud Tempo.
 
 ## ai
 
