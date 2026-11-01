@@ -58,7 +58,8 @@ jobs:
           npm run test:ui
           BASE_URL=http://127.0.0.1:8080 npm run test:e2e:domain
           # Links ON: wheel-scroll + footer hit-test at phone/tablet/desktop (#188 r2).
-          kill "$app_pid" 2>/dev/null || true; sleep 2
+          kill "$app_pid" 2>/dev/null || true; pkill -f "vite dev" || true
+          for attempt in $(seq 1 30); do curl --silent http://127.0.0.1:8080/ >/dev/null || break; sleep 1; done
           FOOTER_INSTAGRAM_URL=https://instagram.com/thelooktag FOOTER_LINKS_ENABLED=about,privacy,terms,contact,impressum,instagram npm run dev > /tmp/looktag-e2e-dev-links.log 2>&1 &
           app_pid=$!
           for attempt in $(seq 1 60); do curl --fail --silent http://127.0.0.1:8080/ >/dev/null && break; sleep 2; done
