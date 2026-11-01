@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { findPgliteAssetDirs, pgliteDestinations, resolvePgliteCopyTargets } from "./copy-pglite-assets.mjs";
+import { findPgliteAssetDirs, pgliteDestinations, resolvePgliteCopyTargets, copyPgliteAssets } from "./copy-pglite-assets.mjs";
 
 test("lists Node server and Vercel destinations without preferring either", () => {
   const dests = pgliteDestinations("/app");
@@ -48,4 +48,16 @@ test("copies into a traced @electric-sql/pglite package directory", () => {
   writeFileSync(join(dist, "index.js"), "export {}\n");
   const dirs = findPgliteAssetDirs(root);
   assert.ok(dirs.includes(dist));
+});
+
+test("node-server preset still fails when the wasm blobs are not in the output root", () => {
+  const root = mkdtempSync(join(tmpdir(), "pglite-node-"));
+  mkdirSync(join(root, ".output/server"), { recursive: true });
+  assert.equal(copyPgliteAssets(root, {}), 1);
+});
+
+test("netlify preset skips the mandatory node-server wasm copy", () => {
+  const root = mkdtempSync(join(tmpdir(), "pglite-netlify-"));
+  mkdirSync(join(root, ".output/server"), { recursive: true });
+  assert.equal(copyPgliteAssets(root, { NETLIFY: "true" }), 0);
 });

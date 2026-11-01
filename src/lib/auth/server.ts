@@ -41,7 +41,7 @@ import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { enforceSignInMethod, methodForAuthRequest } from "./method-gate";
 import { nativeTrustedOrigins } from "./native";
-import { appleOriginNeeded, socialProviders as buildSocialProviders } from "@/lib/providers/auth/social";
+import { appleOriginNeeded, socialProvidersForDeploy } from "@/lib/providers/auth/social";
 import { GROK_PROVIDERS } from "./providers";
 import { readSettings } from "../settings/store.server";
 import {
@@ -49,6 +49,10 @@ import {
   PREVIEW_ALLOWED_HOSTS,
   PREVIEW_CLIENT_ID,
   PREVIEW_CLIENT_SECRET,
+  parsePreviewTrustedHosts,
+  resolveAuthSecret,
+  resolveDeployedBaseURL,
+  shouldRegisterGrokBroker,
 } from "./preview";
 
 // Kick (and share) PGLite bootstrap as soon as the auth server module loads.
@@ -68,9 +72,9 @@ function previewAuthSecret(): string {
   return globalAuthRef.__grokAuthPreviewSecret__;
 }
 
-/** The signing secret. Preview stays process-stable so HMR does not drop sessions. */
+/** Signing secret. Sandbox previews stay process-stable across HMR. APP_ENV=preview must set BETTER_AUTH_SECRET. */
 export function authSecret(): string {
-  return env("BETTER_AUTH_SECRET") ?? previewAuthSecret();
+  return resolveAuthSecret(process.env, previewAuthSecret);
 }
 
 /** Read an env var, treating empty/whitespace as unset. */
@@ -86,13 +90,15 @@ const authDisabled = env("VITE_AUTH_ENABLED") === "false";
 // Broker federation creds: the deployer injects a per-app client when deployed;
 // otherwise fall back to the shared live-preview client, which the broker accepts
 // for any `*.grok-sandbox.com` callback (see `./preview`).
+const previewDeploy = !shouldRegisterGrokBroker(process.env);
 const grokIssuer = env("GROK_AUTH_ISSUER") ?? GROK_ISSUER_DEFAULT;
+// Keep the broker client ids even on previews. `authConfigured` must stay true
+// so email/password sessions resolve. The broker plugin itself is omitted below.
 const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
 const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? PREVIEW_CLIENT_SECRET;
 
 /** True when federated sign-in is active (real auth is enforced). */
-export const authConfigured =
-  !authDisabled && Boolean(grokClientId && grokClientSecret);
+export const authConfigured = !authDisabled && Boolean(grokClientId && grokClientSecret);
 
 // This app's own Better Auth origin. When deployed the deployer injects the
 // public URL. In the sandbox live preview there's no fixed URL (each preview gets
@@ -100,7 +106,7 @@ export const authConfigured =
 // it derives the origin per-request from the (proxied) host, validated against the
 // preview allowlist, which makes the OAuth `redirect_uri` the concrete preview URL
 // the broker's preview client accepts.
-const explicitBaseURL = env("BETTER_AUTH_URL");
+const explicitBaseURL = resolveDeployedBaseURL(process.env);
 // Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
 // requires a mutable `allowedHosts: string[]`.
 const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];
@@ -137,12 +143,18 @@ const trustedOrigins: string[] = explicitBaseURL
 // Native app (Expo) deep-link origins for OAuth callbacks.
 trustedOrigins.push(...nativeTrustedOrigins);
 
+for (const host of parsePreviewTrustedHosts(process.env.PREVIEW_TRUSTED_HOSTS)) {
+  trustedOrigins.push(host);
+  if (!host.includes("://")) trustedOrigins.push(`https://${host}`);
+}
+
 // Direct Google / Apple sign-in for the native app, enabled only when their
 // credentials are configured (the web app keeps using the broker providers).
-if (appleOriginNeeded()) {
+// Previews (APP_ENV=preview) are email/password only.
+if (!previewDeploy && appleOriginNeeded()) {
   trustedOrigins.push("https://appleid.apple.com");
 }
-const socialProviders = buildSocialProviders();
+const socialProviders = socialProvidersForDeploy(process.env);
 
 // Static broker OAuth endpoints (skip OIDC discovery on every sign-in / callback).
 // Discovery would cost an extra network hop to the broker before the popup can
@@ -164,32 +176,34 @@ export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
 
 // Built separately so the `betterAuth({...})` call stays easy to edit without
 // breaking brackets (models often trip on the conditional plugin spread).
-const grokOAuthPlugin = authConfigured
-  ? genericOAuth({
-      config: GROK_PROVIDERS.map(({ providerId, idp }) => ({
-        providerId,
-        clientId: grokClientId as string,
-        clientSecret: grokClientSecret as string,
-        // Prefer static endpoints over `discoveryUrl` so initiating (and
-        // completing) OAuth does not wait on a broker discovery fetch.
-        authorizationUrl: grokAuthorizationUrl,
-        tokenUrl: grokTokenUrl,
-        userInfoUrl: grokUserInfoUrl,
-        scopes: ["openid", "profile", "email"],
-        // `prompt: "login"` forces the broker to re-authenticate against the
-        // upstream on every sign-in instead of silently reusing an existing
-        // broker session. Combined with the broker sending Google
-        // `prompt=select_account`, the user always gets the account chooser
-        // and can pick (or switch) which account to sign in with.
-        authorizationUrlParams: { idp, prompt: "login" },
-      })),
-    })
-  : null;
+const grokOAuthPlugin =
+  authConfigured && !previewDeploy
+    ? genericOAuth({
+        config: GROK_PROVIDERS.map(({ providerId, idp }) => ({
+          providerId,
+          clientId: grokClientId as string,
+          clientSecret: grokClientSecret as string,
+          // Prefer static endpoints over `discoveryUrl` so initiating (and
+          // completing) OAuth does not wait on a broker discovery fetch.
+          authorizationUrl: grokAuthorizationUrl,
+          tokenUrl: grokTokenUrl,
+          userInfoUrl: grokUserInfoUrl,
+          scopes: ["openid", "profile", "email"],
+          // `prompt: "login"` forces the broker to re-authenticate against the
+          // upstream on every sign-in instead of silently reusing an existing
+          // broker session. Combined with the broker sending Google
+          // `prompt=select_account`, the user always gets the account chooser
+          // and can pick (or switch) which account to sign in with.
+          authorizationUrlParams: { idp, prompt: "login" },
+        })),
+      })
+    : null;
 
 export const auth = betterAuth({
   baseURL,
-  // Deployed apps inject BETTER_AUTH_SECRET. Preview: process-stable secret on
-  // globalThis so HMR doesn't invalidate PGLite-backed sessions (see above).
+  // Sandbox: process-stable secret so HMR doesn't drop PGLite sessions.
+  // APP_ENV=preview throws here when BETTER_AUTH_SECRET is missing — a random
+  // per-instance secret would invalidate sessions across Netlify functions.
   secret: authSecret(),
   database,
 
@@ -225,10 +239,7 @@ export const auth = betterAuth({
     encryptOAuthTokens: true,
     accountLinking: {
       enabled: true,
-      trustedProviders: [
-        ...GROK_PROVIDERS.map((p) => p.providerId),
-        GATE_PROVIDER_ID,
-      ],
+      trustedProviders: [...GROK_PROVIDERS.map((p) => p.providerId), GATE_PROVIDER_ID],
       // X's synthetic email is never "verified", so don't gate linking on the
       // local user's email-verified state.
       requireLocalEmailVerified: false,

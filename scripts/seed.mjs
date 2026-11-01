@@ -92,6 +92,10 @@ export async function closeSeedLoader() {
 const databaseUrl = process.env.DATABASE_URL?.trim();
 
 async function main() {
+  const appEnv = (process.env.APP_ENV || "").trim();
+  if (process.env.RENDER === "true" || appEnv === "production") {
+    throw new Error("[seed] refused on production. Seed preview branches only (APP_ENV=preview).");
+  }
   if (!databaseUrl) {
     console.log(
       "[seed] DATABASE_URL not set — skipping. PGLite runs seedCatalog on first request.",

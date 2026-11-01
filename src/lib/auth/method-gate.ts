@@ -52,7 +52,20 @@ export function methodForAuthRequest(
   return null;
 }
 
+export function previewHidesSocial(env: { APP_ENV?: string } = process.env): boolean {
+  return (env.APP_ENV ?? "").trim() === "preview";
+}
+
+export function settingsForSignIn<T extends Pick<AppSettings, "signupGoogle" | "signupApple" | "signupX">>(
+  settings: T,
+  env: { APP_ENV?: string } = process.env,
+): T {
+  if (!previewHidesSocial(env)) return settings;
+  return { ...settings, signupGoogle: false, signupApple: false, signupX: false };
+}
+
 export function isSignInMethodEnabled(settings: AppSettings, method: SignInMethod): boolean {
+  if (method !== "email" && previewHidesSocial()) return false;
   if (method === "email") return settings.signupEmail;
   if (method === "google") return settings.signupGoogle;
   if (method === "apple") return settings.signupApple;

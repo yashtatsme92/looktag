@@ -2,11 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { adminMiddleware } from "@/lib/auth/middleware";
 import { withSpan } from "@/lib/observability/instrument";
 import { pickSettingsPatch, type AppSettings } from "./model";
+import { settingsForSignIn } from "@/lib/auth/method-gate";
 import { readSettings, writeSettings } from "./store.server";
 
 export const getAppSettings = createServerFn({ method: "GET" }).handler(async () => {
   return withSpan("looktag.settings.get", async (span) => {
-    const settings = await readSettings();
+    const settings = settingsForSignIn(await readSettings());
     span.setAttribute("looktag.houses.enabled", settings.labelsEnabled);
     span.setAttribute("looktag.signup.email", settings.signupEmail);
     span.setAttribute("looktag.signup.google", settings.signupGoogle);

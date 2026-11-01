@@ -211,7 +211,9 @@ function tokenIdentityKey(token: string): string {
             .digest("base64url");
         }
       }
-    } catch {}
+    } catch {
+      /* Gate claims are optional. A bad token falls through to the hash. */
+    }
   }
   return createHash("sha256").update(token).digest("base64url");
 }

@@ -26,3 +26,9 @@ export function socialProviders(env: Env = process.env) {
 export function appleOriginNeeded(env: Env = process.env): boolean {
   return Boolean(env.APPLE_CLIENT_ID?.trim() && env.APPLE_CLIENT_SECRET?.trim());
 }
+
+/** Previews are email/password only, even when Google or Apple credentials are present. */
+export function socialProvidersForDeploy(env: Env & { APP_ENV?: string } = process.env) {
+  if ((env.APP_ENV ?? "").trim() === "preview") return {};
+  return socialProviders(env);
+}

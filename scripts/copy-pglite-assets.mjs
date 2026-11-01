@@ -7,6 +7,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveNitroPreset, shouldCopyPgliteAssets } from "./nitro-preset.mjs";
 
 export const PGLITE_ASSET_FILES = ["pglite.data", "pglite.wasm", "initdb.wasm"];
 
@@ -97,7 +98,11 @@ export function copySsrCssAssets(root) {
   return copied;
 }
 
-export function copyPgliteAssets(root = rootFromScript) {
+export function copyPgliteAssets(root = rootFromScript, env = process.env) {
+  if (!shouldCopyPgliteAssets(env)) {
+    console.log(`[pglite] skip asset copy for preset ${resolveNitroPreset(env)}`);
+    return 0;
+  }
   copySsrCssAssets(root);
   const srcDir = join(root, "node_modules/@electric-sql/pglite/dist");
   const targets = resolvePgliteCopyTargets(root);

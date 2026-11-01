@@ -1,6 +1,7 @@
 node_modules
 .output
 .vercel
+.netlify
 .tanstack
 .grok
 .project_id

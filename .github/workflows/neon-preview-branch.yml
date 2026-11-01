@@ -1,0 +1,159 @@
+name: neon-preview-branch
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+
+# A new push or a close cancels an in-flight preview for the same PR.
+concurrency:
+  group: preview-pr-${{ github.event.number }}
+  cancel-in-progress: true
+
+# One Netlify site, one Neon project that is NOT production. Neon Free allows
+# 10 branches. Closing the PR deletes `preview/pr-<n>`. Forks have no secrets
+# and this workflow skips instead of failing.
+
+jobs:
+  deploy:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip when preview secrets are missing
+        id: gate
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ] || [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Preview secrets are unset. Skipping (forks and unconfigured repos)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Create Neon preview branch
+        if: steps.gate.outputs.skip != 'true'
+        id: neon
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.pull_request.number }}
+          # Neon Free's default role. Override with the repository variable
+          # NEON_DATABASE_USERNAME if the preview project uses another role.
+          username: ${{ vars.NEON_DATABASE_USERNAME || 'neondb_owner' }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        if: steps.gate.outputs.skip != 'true'
+        run: npm ci
+      - name: Resolve the preview origin
+        if: steps.gate.outputs.skip != 'true'
+        id: origin
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          site_json=$(curl -fsS \
+            -H "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}")
+          SITE_NAME=$(printf '%s' "$site_json" | node -e '
+            let raw = "";
+            process.stdin.on("data", (chunk) => { raw += chunk; });
+            process.stdin.on("end", () => {
+              const name = JSON.parse(raw).name;
+              if (typeof name !== "string" || !name) process.exit(1);
+              process.stdout.write(name);
+            });
+          ')
+          export SITE_NAME
+          origin=$(node --experimental-strip-types --input-type=module -e '
+            import { previewAliasOrigin } from "./src/lib/auth/preview.ts";
+            process.stdout.write(previewAliasOrigin(process.env.PR_NUMBER, process.env.SITE_NAME));
+          ')
+          echo "origin=${origin}" >> "$GITHUB_OUTPUT"
+          echo "Preview origin ${origin}"
+      - name: Deploy the Netlify preview
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_with_pooler }}
+          APP_ENV: preview
+          APP_URL: ${{ steps.origin.outputs.origin }}
+          BETTER_AUTH_URL: ${{ steps.origin.outputs.origin }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          VITE_AUTH_ENABLED: "true"
+          # Preset selection during this build only. Functions do not see it;
+          # the bake plugin freezes BETTER_AUTH_URL into the server bundle.
+          NETLIFY: "true"
+        run: |
+          set -euo pipefail
+          if [ -z "${BETTER_AUTH_SECRET}" ]; then
+            echo "BETTER_AUTH_SECRET is required. Add it as a GitHub Actions secret."
+            echo "It is baked into this deploy's server bundle, not stored with env:set."
+            exit 1
+          fi
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "Neon did not return a pooled DATABASE_URL for this preview."
+            exit 1
+          fi
+          if [ -z "${BETTER_AUTH_URL}" ]; then
+            echo "Preview origin was not resolved."
+            exit 1
+          fi
+          # Drop leftover site-wide values from older runs. env:set is shared by
+          # every PR; a concurrent deploy could otherwise swap databases. These
+          # keys are passed only as this step's environment and baked at build.
+          for key in DATABASE_URL APP_ENV APP_URL BETTER_AUTH_URL VITE_AUTH_ENABLED; do
+            npx --yes netlify-cli@23 env:unset "$key" --context deploy-preview || true
+            npx --yes netlify-cli@23 env:unset "$key" --context branch-deploy || true
+          done
+          # --alias pr-<n> publishes https://pr-<n>--<site>.netlify.app.
+          # --context deploy-preview matches [context.deploy-preview] in netlify.toml.
+          npx --yes netlify-cli@23 deploy \
+            --alias "pr-${{ github.event.pull_request.number }}" \
+            --context deploy-preview \
+            --build
+      - name: Seed the preview branch
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_with_pooler }}
+          APP_ENV: preview
+        run: npm run db:seed
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Skip when preview secrets are missing
+        id: gate
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: |
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Preview secrets are unset. Skipping branch delete."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Delete the Neon preview branch
+        if: steps.gate.outputs.skip != 'true'
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.pull_request.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
