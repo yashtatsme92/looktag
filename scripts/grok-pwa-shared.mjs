@@ -432,7 +432,10 @@ export function injectGrokPwaHead(html, ctx = {}) {
     host,
     documentTitle,
   );
-  let next = stripShareMetaTags(html);
+  // Pages that render their own share meta (looks, houses, collections mark it
+  // with <meta name="looktag:share">) keep it: per-page og:title/og:url/og:image.
+  const ownShareMeta = /<meta\b[^>]*name=["']looktag:share["']/i.test(html);
+  let next = ownShareMeta ? html : stripShareMetaTags(html);
 
   const missing = grokPwaHeadTags(appName)
     .filter(([key]) => {
@@ -442,10 +445,12 @@ export function injectGrokPwaHead(html, ctx = {}) {
     })
     .map(([, tag]) => tag);
 
-  next = insertAfterHeadOpen(
-    next,
-    grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
-  );
+  if (!ownShareMeta) {
+    next = insertAfterHeadOpen(
+      next,
+      grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
+    );
+  }
 
   if (!next.includes("/grok-app-builder/extensions.js")) {
     missing.push(...grokExtensionsHeadTags(projectId));

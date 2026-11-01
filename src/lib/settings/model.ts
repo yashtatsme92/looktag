@@ -1,6 +1,7 @@
 import { DEFAULT_THEME, parseThemeId, type ThemeId } from "../design/themes.ts";
 import { clampCadence, type FeedCadence, type FreshWindow } from "../home/engagement.ts";
 import { DEFAULT_SPLASH, parseSplashId, type SplashId } from "../pwa/splash.ts";
+import { FOOTER_LINK_IDS, parseFooterIds } from "../../config/footer.ts";
 
 export const SETTINGS_ID = "default";
 
@@ -42,6 +43,8 @@ export type AppSettings = {
   feedRunTitle: string;
   feedRunIds: string;
   feedAuditJson: string;
+  /** Footer link ids switched on in Admin (comma-separated). Empty = every link off. */
+  footerLinks: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -73,6 +76,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   feedRunTitle: "",
   feedRunIds: "",
   feedAuditJson: "",
+  footerLinks: "",
 };
 
 export type OauthProvider = {
@@ -124,6 +128,12 @@ function asLine(value: unknown, max: number): string {
   return value.replace(/[^\w\s,.'-]/g, "").trim().slice(0, max);
 }
 
+function asFooterLinks(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const ids = parseFooterIds(value, () => {});
+  return FOOTER_LINK_IDS.filter((id) => ids.includes(id)).join(",");
+}
+
 export function parseSettings(raw: unknown): AppSettings {
   const row = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const extras =
@@ -164,6 +174,7 @@ export function parseSettings(raw: unknown): AppSettings {
       ? String(extras.feedAuditJson ?? row.feedAuditJson).slice(0, 4000)
       : "",
     signupApple: asBoolean(extras.signupApple ?? row.signupApple, false),
+    footerLinks: asFooterLinks(extras.footerLinks ?? row.footerLinks),
   };
 }
 
@@ -193,6 +204,7 @@ export function extrasFromSettings(settings: AppSettings): Record<string, unknow
     feedRunIds: settings.feedRunIds,
     feedAuditJson: settings.feedAuditJson,
     signupApple: settings.signupApple,
+    footerLinks: settings.footerLinks,
   };
 }
 
@@ -222,6 +234,7 @@ export const EXTRAS_KEYS = [
   "feedRunIds",
   "feedAuditJson",
   "signupApple",
+  "footerLinks",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 export function parseExtrasRecord(raw: unknown): Record<string, unknown> {

@@ -7,7 +7,8 @@ import { SkeletonGrid } from "@/components/ds/skeleton";
 import { HouseStylePending } from "@/components/ds/route-pending";
 import { Button } from "@/components/ui/button";
 import { getFashionCollection, getHousesAvailability } from "@/lib/labels/api";
-import { clientDeferred, useRouteLoad } from "@/lib/loading/route-load";
+import { clientDeferred, isDeferred, useRouteLoad } from "@/lib/loading/route-load";
+import { shareCacheHeaders } from "@/lib/share-meta";
 
 type StyleData = {
   open: boolean;
@@ -53,6 +54,14 @@ export const Route = createFileRoute("/houses_/$labelId_/$collectionId_/$styleId
       () => loadStyle(params.labelId, params.collectionId, params.styleId),
       `house:${params.labelId}:style:${params.styleId}`,
     ),
+  headers: ({ loaderData }) => {
+    if (!loaderData || isDeferred(loaderData)) return {};
+    return shareCacheHeaders(Boolean(loaderData.page) || !loaderData.open);
+  },
+  head: ({ loaderData }) => {
+    if (!loaderData || isDeferred(loaderData) || loaderData.page || !loaderData.open) return {};
+    return { meta: [{ title: "Style not found — Looktag" }, { name: "robots", content: "noindex" }] };
+  },
   pendingMs: 300,
   pendingMinMs: 420,
   pendingComponent: HouseStylePending,

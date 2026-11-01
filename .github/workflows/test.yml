@@ -18,7 +18,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: node scripts/check-provider-imports.mjs
-      - run: node --experimental-strip-types --test 'src/lib/**/*.test.ts'
+      - run: node --experimental-strip-types --test 'src/lib/**/*.test.ts' 'src/config/**/*.test.ts'
       - run: npm run test:integration
 
   e2e-guest:
@@ -56,6 +56,14 @@ jobs:
           npm run test:e2e:create-phone
           npm run test:e2e:auth-methods
           npm run test:ui
+          BASE_URL=http://127.0.0.1:8080 npm run test:e2e:domain
+          # Links ON: wheel-scroll + footer hit-test at phone/tablet/desktop (#188 r2).
+          kill "$app_pid" 2>/dev/null || true; pkill -f "vite dev" || true
+          for attempt in $(seq 1 30); do curl --silent http://127.0.0.1:8080/ >/dev/null || break; sleep 1; done
+          FOOTER_INSTAGRAM_URL=https://instagram.com/thelooktag FOOTER_LINKS_ENABLED=about,privacy,terms,contact,impressum,instagram npm run dev > /tmp/looktag-e2e-dev-links.log 2>&1 &
+          app_pid=$!
+          for attempt in $(seq 1 60); do curl --fail --silent http://127.0.0.1:8080/ >/dev/null && break; sleep 2; done
+          FOOTER_EXPECT=all BASE_URL=http://127.0.0.1:8080 npm run test:e2e:domain
 
   prod-server:
     runs-on: ubuntu-latest
@@ -109,6 +117,31 @@ jobs:
           }
           node scripts/check-prod-db.mjs || {
             cat /tmp/looktag-prod.log
+            exit 1
+          }
+      - name: Domain auth, 404s and HSTS on thelooktag.com env (#183)
+        env:
+          VITE_AUTH_ENABLED: "true"
+          BETTER_AUTH_SECRET: ci-prod-secret-0123456789abcdef01
+          BETTER_AUTH_URL: https://thelooktag.com
+          APP_URL: https://thelooktag.com
+          TRUSTED_ORIGINS: https://looktag.onrender.com
+          PORT: "4174"
+          HOST: 127.0.0.1
+          LOOKTAG_ALLOW_EPHEMERAL_DB: "1"
+          DOMAIN_AUTH_URL: http://127.0.0.1:4174
+        run: |
+          node .output/server/index.mjs > /tmp/looktag-domain.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4174/api/auth/ok >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          node --test tests/integration/domain-auth.test.mjs || {
+            cat /tmp/looktag-domain.log
             exit 1
           }
 

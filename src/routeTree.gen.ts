@@ -10,15 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as DesignRouteImport } from './routes/design'
 import { Route as HouseRouteImport } from './routes/house'
 import { Route as HousesRouteImport } from './routes/houses'
+import { Route as ImpressumRouteImport } from './routes/impressum'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RankRouteImport } from './routes/rank'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminFeedRouteImport } from './routes/admin_.feed'
 import { Route as AdminHousesRouteImport } from './routes/admin_.houses'
 import { Route as AdminLookRouteImport } from './routes/admin_.look'
@@ -38,6 +42,11 @@ import { Route as HousesLabelIdCollectionIdStyleIdRouteImport } from './routes/h
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -65,9 +74,19 @@ const HousesRoute = HousesRouteImport.update({
   path: '/houses',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ImpressumRoute = ImpressumRouteImport.update({
+  id: '/impressum',
+  path: '/impressum',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RankRoute = RankRouteImport.update({
@@ -83,6 +102,11 @@ const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminFeedRoute = AdminFeedRouteImport.update({
@@ -165,15 +189,19 @@ const HousesLabelIdCollectionIdStyleIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/create': typeof CreateRoute
   '/design': typeof DesignRoute
   '/house': typeof HouseRoute
   '/houses': typeof HousesRoute
+  '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/rank': typeof RankRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/admin/feed': typeof AdminFeedRoute
   '/admin/houses': typeof AdminHousesRoute
   '/admin/look': typeof AdminLookRoute
@@ -192,15 +220,19 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/create': typeof CreateRoute
   '/design': typeof DesignRoute
   '/house': typeof HouseRoute
   '/houses': typeof HousesRoute
+  '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/rank': typeof RankRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/admin/feed': typeof AdminFeedRoute
   '/admin/houses': typeof AdminHousesRoute
   '/admin/look': typeof AdminLookRoute
@@ -220,15 +252,19 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/create': typeof CreateRoute
   '/design': typeof DesignRoute
   '/house': typeof HouseRoute
   '/houses': typeof HousesRoute
+  '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/rank': typeof RankRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/admin_/feed': typeof AdminFeedRoute
   '/admin_/houses': typeof AdminHousesRoute
   '/admin_/look': typeof AdminLookRoute
@@ -249,15 +285,19 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/admin'
     | '/create'
     | '/design'
     | '/house'
     | '/houses'
+    | '/impressum'
     | '/login'
+    | '/privacy'
     | '/rank'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/terms'
     | '/admin/feed'
     | '/admin/houses'
     | '/admin/look'
@@ -276,15 +316,19 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/admin'
     | '/create'
     | '/design'
     | '/house'
     | '/houses'
+    | '/impressum'
     | '/login'
+    | '/privacy'
     | '/rank'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/terms'
     | '/admin/feed'
     | '/admin/houses'
     | '/admin/look'
@@ -303,15 +347,19 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/admin'
     | '/create'
     | '/design'
     | '/house'
     | '/houses'
+    | '/impressum'
     | '/login'
+    | '/privacy'
     | '/rank'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/terms'
     | '/admin_/feed'
     | '/admin_/houses'
     | '/admin_/look'
@@ -331,15 +379,19 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   CreateRoute: typeof CreateRoute
   DesignRoute: typeof DesignRoute
   HouseRoute: typeof HouseRoute
   HousesRoute: typeof HousesRoute
+  ImpressumRoute: typeof ImpressumRoute
   LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
   RankRoute: typeof RankRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsRoute: typeof TermsRoute
   AdminFeedRoute: typeof AdminFeedRoute
   AdminHousesRoute: typeof AdminHousesRoute
   AdminLookRoute: typeof AdminLookRoute
@@ -364,6 +416,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -401,11 +460,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HousesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/impressum': {
+      id: '/impressum'
+      path: '/impressum'
+      fullPath: '/impressum'
+      preLoaderRoute: typeof ImpressumRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rank': {
@@ -427,6 +500,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin_/feed': {
@@ -539,15 +619,19 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   CreateRoute: CreateRoute,
   DesignRoute: DesignRoute,
   HouseRoute: HouseRoute,
   HousesRoute: HousesRoute,
+  ImpressumRoute: ImpressumRoute,
   LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
   RankRoute: RankRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsRoute: TermsRoute,
   AdminFeedRoute: AdminFeedRoute,
   AdminHousesRoute: AdminHousesRoute,
   AdminLookRoute: AdminLookRoute,

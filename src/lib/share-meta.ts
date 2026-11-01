@@ -22,8 +22,14 @@ type HeaderReader = {
 
 export function configuredOrigin(): string {
   if (typeof process === "undefined") return "";
-  const env = process.env.APP_URL || process.env.PUBLIC_ORIGIN || process.env.VITE_APP_URL || "";
-  return String(env).replace(/\/$/, "");
+  const env = (process.env.APP_URL || process.env.PUBLIC_ORIGIN || process.env.VITE_APP_URL || "").trim();
+  if (!env) return "";
+  try {
+    const url = new URL(env);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : "";
+  } catch {
+    return "";
+  }
 }
 
 export function originFromRequestLike(input: HeaderReader): string {
@@ -52,6 +58,18 @@ export function originFromRequestLike(input: HeaderReader): string {
     }
   }
   return "";
+}
+
+/**
+ * Public origin for absolute URLs (canonical, og:url/og:image, sitemap, robots,
+ * share links, email links). Always APP_URL when set — never the request
+ * Host / X-Forwarded-Host, so one page has one canonical host. The request is
+ * only a fallback for local dev and previews with no APP_URL.
+ */
+export function canonicalOrigin(input?: HeaderReader): string {
+  const configured = configuredOrigin();
+  if (configured) return configured;
+  return input ? originFromRequestLike(input) : "";
 }
 
 export function resolveOrigin(fallback = ""): string {
@@ -86,11 +104,15 @@ export function surfaceFromUserAgent(userAgent: string): ShareSurface {
   return "web";
 }
 
+/** Route `headers` marker; server/middleware/site-edge.ts turns it into HTTP 404 and strips it. */
+export const NOT_FOUND_HEADER = "X-Looktag-Status";
+
 export function shareCacheHeaders(found: boolean): Record<string, string> {
   if (!found) {
     return {
       "Cache-Control": "private, no-store",
       "X-Robots-Tag": "noindex",
+      [NOT_FOUND_HEADER]: "404",
     };
   }
   return {

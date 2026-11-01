@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { publicUrl } from "@/lib/site/public-url";
 import { createPortal } from "react-dom";
 import { useNavigate, useRouter, Link } from "@tanstack/react-router";
 import { ChevronLeft, ExternalLink, Pencil, Radio, Share2, X } from "lucide-react";
@@ -202,7 +203,7 @@ export function LookPlate({
   }
 
   async function share() {
-    const url = `${window.location.origin}/looks/${look.id}`;
+    const url = publicUrl(`/looks/${look.id}`);
     const result = await shareOrCopy({
       title: look.title,
       text: look.caption || `${look.title} on Looktag`,

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { publicUrl } from "@/lib/site/public-url";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -102,7 +103,7 @@ function LinePage() {
   async function shareLine() {
     if (!label || !collection) return;
     setSharing(true);
-    const url = `${window.location.origin}/houses/${labelId}/${collection.slug || collectionId}`;
+    const url = publicUrl(`/houses/${labelId}/${collection.slug || collectionId}`);
     const result = await shareOrCopy({
       title: `${collection.name} — ${label.name}`,
       text: collection.caption || `${collection.name} by ${label.name}`,

@@ -49,6 +49,36 @@ export const INTEGRATIONS = [
     fallback: "dynamic preview / localhost",
   },
   {
+    env: "APP_URL",
+    role: "Canonical public origin, e.g. https://thelooktag.com. Every absolute URL (canonical, OG, sitemap, robots, share links, email links) is built from it, never from the request host.",
+    required: false,
+    fallback: "request origin (local dev / previews only)",
+  },
+  {
+    env: "TRUSTED_ORIGINS",
+    role: "Extra comma-separated origins Better Auth accepts (e.g. the previous host during a domain move). Invalid entries fail boot.",
+    required: false,
+    fallback: "none",
+  },
+  {
+    env: "CONTACT_EMAIL",
+    role: "Public contact mailbox for the footer Contact link and legal pages.",
+    required: false,
+    fallback: "hello@thelooktag.com",
+  },
+  {
+    env: "FOOTER_LINKS_ENABLED",
+    role: "Comma-separated footer link ids to force on (impressum, privacy, terms, contact, about, instagram, tiktok, x, domain). Empty = only Admin toggles, all off by default.",
+    required: false,
+    fallback: "empty (every link off)",
+  },
+  {
+    env: "SITE_REDIRECT_TO_CANONICAL",
+    role: "Set to 1 to 301 any non-APP_URL host to APP_URL (auth routes on TRUSTED_ORIGINS hosts are exempt).",
+    required: false,
+    fallback: "off",
+  },
+  {
     env: "GROK_AUTH_ISSUER",
     role: "Grok auth broker issuer URL.",
     required: false,
@@ -95,12 +125,6 @@ export const INTEGRATIONS = [
     role: "Grok shop search and look suggestions from a photo.",
     required: false,
     fallback: "search engines that do not need a key",
-  },
-  {
-    env: "APP_URL",
-    role: "Public origin for share links and canonical URLs.",
-    required: false,
-    fallback: "request origin",
   },
   {
     env: "OTEL_EXPORTER_OTLP_ENDPOINT",

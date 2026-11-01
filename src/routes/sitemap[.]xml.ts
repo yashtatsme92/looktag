@@ -3,7 +3,7 @@ import { listFashionCollections, listFashionLabels } from "@/lib/labels/api";
 import { collectionPath } from "@/lib/labels/model";
 import { listPublicLooks } from "@/lib/looks/api";
 import { withSpan } from "@/lib/observability/instrument";
-import { absoluteUrl, originFromRequestLike } from "@/lib/share-meta";
+import { absoluteUrl, canonicalOrigin } from "@/lib/share-meta";
 
 function urlEntry(loc: string, changefreq: string) {
   return `<url><loc>${loc}</loc><changefreq>${changefreq}</changefreq></url>`;
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/sitemap.xml")({
     handlers: {
       GET: async ({ request }) => {
         const xml = await withSpan("looktag.sitemap", async (span) => {
-          const origin = originFromRequestLike(request);
+          const origin = canonicalOrigin(request);
           const [looks, labels, collections] = await Promise.all([
             listPublicLooks(),
             listFashionLabels(),

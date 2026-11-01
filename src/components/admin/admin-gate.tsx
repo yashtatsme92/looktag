@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAdminStatus } from "@/lib/admin/admin-status";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { FEED_FEATURES, feedModulesNote } from "@/lib/home/engagement";
+import { FooterLinksSection } from "@/components/admin/footer-links-section";
 import { FEATURE_FLAGS, flagStatus } from "@/lib/settings/flags";
 import { housesSwitchCopy } from "@/lib/labels/model";
 import { useSettingsStore } from "@/lib/settings/store";
@@ -157,6 +158,7 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
           </div>
         </section>
       ) : null}
+      {linked ? <FooterLinksSection /> : null}
       </FadeLayer>
       <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
         <DialogContent className="max-w-[480px]">

@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { InstallSheet } from "@/components/layout/install-sheet";
 import { NativeHeader } from "@/components/layout/native-header";
 import { NativePortalProvider } from "@/components/layout/native-portal";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { StatusBar } from "@/components/layout/status-bar";
 import { TabBar } from "@/components/layout/tab-bar";
 import { WebHeader } from "@/components/layout/web-header";
@@ -133,7 +134,7 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
               root={root}
             />
           )}
-          <main id="native-main" data-scroll-restoration-id="native-main" className={flush ? "native-main native-main-flush" : "native-main"}>{children}</main>
+          <main id="native-main" data-scroll-restoration-id="native-main" className={flush ? "native-main native-main-flush" : "native-main"}>{children}<SiteFooter /></main>
           {isFocusedRoute(pathname) ? null : <TabBar />}
           <InstallSheet />
         </div>
