@@ -372,7 +372,7 @@ export async function fillAdminLogin(page, origin) {
     await signInTab.click().catch(() => {});
   }
   const alias =
-    adminEmail.toLowerCase() === "admin@looktag.studio" ? "admin" : adminEmail;
+    adminEmail.toLowerCase() === "hello@thelooktag.com" ? "admin" : adminEmail;
   await page.locator("#creator-email").fill(alias);
   await page.locator("#creator-password").fill(adminPassword);
   await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();

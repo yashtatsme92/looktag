@@ -406,7 +406,7 @@ async function signInAdmin(page) {
   const { email, password } = resolveAdminCredentials();
   await page.goto(`${origin}/login?next=${encodeURIComponent("/admin")}`, { waitUntil: "domcontentloaded" });
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
-  await page.locator("#creator-email").fill(email.toLowerCase() === "admin@looktag.studio" ? "admin" : email);
+  await page.locator("#creator-email").fill(email.toLowerCase() === "hello@thelooktag.com" ? "admin" : email);
   await page.locator("#creator-password").fill(password);
   await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/admin"), { timeout: 20_000 });
