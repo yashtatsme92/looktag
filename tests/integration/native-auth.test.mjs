@@ -6,8 +6,8 @@
  *   node --test tests/integration/native-auth.test.mjs
  *
  * Boots `vite dev` on a free loopback port with fake Google/Apple credentials
- * and an admin bootstrap password (used only to switch the Google/Apple
- * sign-in methods on, as the method gate requires).
+ * and an admin bootstrap password. Google/Apple are on by default because their
+ * credentials are set; the admin switches Google off to check the server gate.
  */
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -29,6 +29,17 @@ const SETTINGS_FN = Buffer.from(
 
 let server;
 let base;
+
+async function saveSettings(data) {
+  const admin = await signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+  assert.equal(admin.status, 200);
+  const save = await call(`/_serverFn/${SETTINGS_FN}`, {
+    method: "POST",
+    headers: { ...bearerHeader(admin.token), "x-tsr-serverfn": "true" },
+    body: toJSON({ data, context: {} }),
+  });
+  assert.equal(save.status, 200, await save.clone().text());
+}
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -179,15 +190,7 @@ describe("native-ready auth server", () => {
     );
     await waitForServer(base, server);
 
-    // The method gate keeps Google/Apple off by default; an admin switches them on.
-    const admin = await signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
-    assert.equal(admin.status, 200);
-    const save = await call(`/_serverFn/${SETTINGS_FN}`, {
-      method: "POST",
-      headers: { ...bearerHeader(admin.token), "x-tsr-serverfn": "true" },
-      body: toJSON({ data: { signupGoogle: true, signupApple: true }, context: {} }),
-    });
-    assert.equal(save.status, 200, await save.clone().text());
+    // No admin switch needed: configured providers are on until switched off.
   });
 
   after(() => {
@@ -473,5 +476,19 @@ describe("native-ready auth server", () => {
       body: { provider: "google", callbackURL: "looktag://", disableRedirect: true, nonce: strongNonce() },
     });
     assert.equal(cross.status, 403);
+  });
+
+  it("blocks Google on the server after an admin switches it off, leaving Apple alone", async () => {
+    const before = await nativeSignIn(cookieJar(), "google", strongNonce());
+    assert.notEqual(before.status, 403, "Google is on by default when configured");
+    await saveSettings({ signupGoogle: false });
+    try {
+      const blocked = await nativeSignIn(cookieJar(), "google", strongNonce());
+      assert.equal(blocked.status, 403);
+      const apple = await nativeSignIn(cookieJar(), "apple", strongNonce());
+      assert.notEqual(apple.status, 403, "Apple does not depend on Google");
+    } finally {
+      await saveSettings({ signupGoogle: true });
+    }
   });
 });

@@ -51,6 +51,8 @@ jobs:
             cat /tmp/looktag-e2e-dev.log
             exit 1
           }
+          # No Google credentials on this server: no Google button (before any admin toggles).
+          GOOGLE_EXPECT=off BASE_URL=http://127.0.0.1:8080 npm run test:e2e:google
           npm run test:e2e:guest
           npm run test:e2e:aspect
           npm run test:e2e:create-phone
@@ -64,6 +66,13 @@ jobs:
           app_pid=$!
           for attempt in $(seq 1 60); do curl --fail --silent http://127.0.0.1:8080/ >/dev/null && break; sleep 2; done
           FOOTER_EXPECT=all BASE_URL=http://127.0.0.1:8080 npm run test:e2e:domain
+          # Dummy Google credentials: the Google button shows with no admin switch.
+          kill "$app_pid" 2>/dev/null || true; pkill -f "vite dev" || true
+          for attempt in $(seq 1 30); do curl --silent http://127.0.0.1:8080/ >/dev/null || break; sleep 1; done
+          GOOGLE_CLIENT_ID=ci-dummy-google-client-id GOOGLE_CLIENT_SECRET=ci-dummy-google-client-secret npm run dev > /tmp/looktag-e2e-dev-google.log 2>&1 &
+          app_pid=$!
+          for attempt in $(seq 1 60); do curl --fail --silent http://127.0.0.1:8080/ >/dev/null && break; sleep 2; done
+          GOOGLE_EXPECT=on BASE_URL=http://127.0.0.1:8080 npm run test:e2e:google
 
   prod-server:
     runs-on: ubuntu-latest
