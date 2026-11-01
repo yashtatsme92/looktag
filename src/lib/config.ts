@@ -68,9 +68,15 @@ export const INTEGRATIONS = [
   },
   {
     env: "ADMIN_EMAIL",
-    role: "Admin mailbox for bootstrap and identity checks.",
+    role: "Single admin mailbox. Included in the allowlist and used for bootstrap.",
     required: false,
-    fallback: "admin@looktag.studio",
+    fallback: "hello@thelooktag.com",
+  },
+  {
+    env: "ADMIN_EMAILS",
+    role: "Comma-separated admin allowlist. Google sign-in only; email/password sign-ups are never admin.",
+    required: false,
+    fallback: "hello@thelooktag.com",
   },
   {
     env: "ADMIN_BOOTSTRAP_PASSWORD",

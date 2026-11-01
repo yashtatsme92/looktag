@@ -1,12 +1,14 @@
-import { hashPassword } from "@/lib/providers/auth";
+import { hashPassword } from "../providers/auth/password.ts";
 import type { Sql } from "@/lib/db";
 import {
   ADMIN_NAME,
   ADMIN_USER_ID,
+  adminConfigStatus,
+  adminEmailAllowlist,
   resolveAdminEmail,
   resolveBootstrapPassword,
   shouldBootstrapAdmin,
-} from "./access";
+} from "./access.ts";
 
 const globalRef = globalThis as typeof globalThis & {
   __looktagAdminEnsured__?: Promise<void>;
@@ -65,4 +67,38 @@ export async function ensureAdminUser(sql: Sql): Promise<void> {
     throw error;
   });
   await globalRef.__looktagAdminEnsured__;
+}
+
+const NO_ADMIN_WARNING =
+  "[looktag] No verified admin. Set ADMIN_EMAILS to a comma-separated list of Google accounts. Email/password sign-ups are never admin.";
+
+/**
+ * Startup hint when nobody has configured an admin and no verified allowlisted
+ * user exists. Never throws. Never logs passwords or mailbox values.
+ */
+export async function warnIfNoAdminConfigured(
+  sql: Sql,
+  env: Record<string, string | undefined> = typeof process !== "undefined" ? process.env : {},
+  log: (message: string) => void = console.warn,
+): Promise<void> {
+  try {
+    const status = adminConfigStatus(env);
+    if (status.explicit || status.bootstrap) return;
+    const allowlist = new Set(adminEmailAllowlist(env));
+    const rows = await sql<{ email: string | null; emailVerified: boolean | null }>`
+      select email, "emailVerified" from "user"
+    `;
+    const verified = rows.some((row) => {
+      const email = (row.email ?? "").trim().toLowerCase();
+      return row.emailVerified === true && allowlist.has(email);
+    });
+    if (verified) return;
+    log(NO_ADMIN_WARNING);
+  } catch {
+    try {
+      log(NO_ADMIN_WARNING);
+    } catch {
+      /* a broken logger must not take down startup */
+    }
+  }
 }

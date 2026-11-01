@@ -282,8 +282,10 @@ if (typeof window === "undefined" && dbSource === "pglite") {
 if (typeof window === "undefined") {
   globalBoot.__looktagAdminBootstrap__ ??= (async () => {
     try {
-      const { ensureAdminUser } = await import("./admin/ensure.server");
-      await ensureAdminUser(await getSql());
+      const { ensureAdminUser, warnIfNoAdminConfigured } = await import("./admin/ensure.server");
+      const sql = await getSql();
+      await ensureAdminUser(sql);
+      await warnIfNoAdminConfigured(sql);
     } catch (error) {
       captureException(error, { where: "[looktag] admin bootstrap skipped:" });
     }

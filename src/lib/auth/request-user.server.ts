@@ -18,5 +18,9 @@ export async function userFromRequest(
     : request.headers;
   const session = await auth.api.getSession({ headers });
   if (!session?.user) return null;
-  return { id: session.user.id, email: session.user.email ?? null };
+  return {
+    id: session.user.id,
+    email: session.user.email ?? null,
+    emailVerified: session.user.emailVerified === true,
+  };
 }

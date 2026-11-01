@@ -14,7 +14,7 @@ export function resolveOrigin() {
 
 /** Admin credentials for e2e — never hardcode a password in source. */
 export function resolveAdminCredentials() {
-  const email = (process.env.ADMIN_EMAIL || "admin@looktag.studio").trim();
+  const email = (process.env.ADMIN_EMAIL || "hello@thelooktag.com").trim();
   const password = (process.env.ADMIN_BOOTSTRAP_PASSWORD || "").trim();
   if (!password) {
     throw new Error(

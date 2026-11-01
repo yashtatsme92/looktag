@@ -1,6 +1,6 @@
 import { getSessionUser, UnauthorizedError, type VerifiedUser } from "@/lib/auth/verify.server";
 import { assertSameSiteRequest } from "@/lib/auth/isolation.server";
-import { isAdminEmail } from "./access";
+import { isAdminUser } from "./access";
 
 export class ForbiddenError extends Error {
   readonly status = 403;
@@ -13,7 +13,7 @@ export class ForbiddenError extends Error {
 export async function requireAdmin(bearerToken?: string): Promise<VerifiedUser> {
   const user = await getSessionUser(bearerToken);
   if (!user) throw new UnauthorizedError();
-  if (!isAdminEmail(user.email)) throw new ForbiddenError();
+  if (!isAdminUser(user)) throw new ForbiddenError();
   return user;
 }
 

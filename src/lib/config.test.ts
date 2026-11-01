@@ -21,6 +21,7 @@ describe("config registry", () => {
     assert.ok(keys.includes("GROK_AUTH_CLIENT_ID"));
     assert.ok(keys.includes("ADMIN_BOOTSTRAP_PASSWORD"));
     assert.ok(keys.includes("ADMIN_BOOTSTRAP"));
+    assert.ok(keys.includes("ADMIN_EMAILS"));
   });
 
   it("keeps extras keys in sync with settings", () => {

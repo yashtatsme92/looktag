@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { DEFAULT_ADMIN_EMAIL } from "../admin/access.ts";
 import { parseProfileFields } from "./profile.ts";
 
 describe("parseProfileFields", () => {
@@ -25,7 +26,7 @@ describe("parseProfileFields", () => {
   it("maps the admin alias", () => {
     const parsed = parseProfileFields({ name: "Admin", email: "admin", handle: "studio-admin" });
     assert.equal(parsed.ok, true);
-    if (parsed.ok) assert.equal(parsed.value.email, "admin@looktag.studio");
+    if (parsed.ok) assert.equal(parsed.value.email, DEFAULT_ADMIN_EMAIL);
   });
 
   it("rejects a blank name or a bad email", () => {
