@@ -3,7 +3,7 @@ import { withSpan } from "@/lib/observability/instrument";
 import { recordMetric } from "@/lib/observability/runtime";
 import {
   isCrawler,
-  originFromRequestLike,
+  canonicalOrigin,
   resolveOrigin,
   surfaceFromUserAgent,
   type SharePageKind,
@@ -26,7 +26,7 @@ export const recordShareView = createServerFn({ method: "GET" })
         try {
           const { getRequest, setResponseStatus } = await import("@tanstack/react-start/server");
           const request = getRequest();
-          origin = originFromRequestLike(request) || origin;
+          origin = canonicalOrigin(request) || origin;
           const ua = request.headers.get("user-agent") ?? "";
           crawler = isCrawler(ua);
           surface = surfaceFromUserAgent(ua);

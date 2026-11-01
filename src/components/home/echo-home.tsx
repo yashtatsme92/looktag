@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type UIEvent } from "react";
+import { publicUrl } from "@/lib/site/public-url";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, Layers, Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -301,7 +302,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   }
 
   async function share(look: Look) {
-    const url = `${window.location.origin}/looks/${look.id}`;
+    const url = publicUrl(`/looks/${look.id}`);
     const result = await shareOrCopy({ title: look.title || "Look", url, kind: "look" });
     if (result === "copied") toast.success("Link copied");
   }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { publicUrl } from "@/lib/site/public-url";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -160,7 +161,7 @@ function HouseProfile() {
   async function shareHouse() {
     if (!label) return;
     setSharing(true);
-    const url = `${window.location.origin}/houses/${labelId}`;
+    const url = publicUrl(`/houses/${labelId}`);
     const result = await shareOrCopy({
       title: label.name,
       text: label.bio || `${label.name} on Looktag`,

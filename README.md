@@ -105,10 +105,35 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 | `ADMIN_BOOTSTRAP_PASSWORD` | One-time admin bootstrap password | Only when bootstrapping | No admin user is seeded |
 | `ADMIN_BOOTSTRAP` | Explicit bootstrap flag | **Required with password in production** | Bootstrap disabled in production |
 | `XAI_API_KEY` | Grok shop search and look suggestions | Optional | Engines that do not need a key |
-| `APP_URL` | Public origin for share links | Recommended | Request origin |
+| `APP_URL` | Canonical public origin, e.g. `https://thelooktag.com`. Canonical, OG, sitemap, robots, share and email links all use it | **Yes** | Request origin (local dev / previews only) |
+| `TRUSTED_ORIGINS` | Extra sign-in origins, comma-separated (e.g. `https://looktag.onrender.com` during the domain move). Invalid entries fail boot | Optional | None |
+| `CONTACT_EMAIL` | Footer Contact link and legal pages | Optional | `hello@thelooktag.com` |
+| `FOOTER_LINKS_ENABLED` | Footer link ids to force on, comma-separated | Optional | Empty: every link off |
+| `FOOTER_INSTAGRAM_URL` / `FOOTER_TIKTOK_URL` / `FOOTER_X_URL` | Social profile URLs; a social link never renders without one | Optional | Hidden |
+| `SITE_REDIRECT_TO_CANONICAL` | `1` = 301 other hosts to `APP_URL` (auth on `TRUSTED_ORIGINS` exempt) | Optional | Off |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Traces / metrics / logs | Optional | Signals page only |
 | `LOOKTAG_NATIVE_URL` | Hosted origin for the Capacitor shell | Optional | Local `public/` |
 | `VITE_AUTH_ENABLED` | Account sign-in (via `.grok/app-env.json`) | Optional | `true` |
+
+### Domain and footer
+
+Looktag lives at **https://thelooktag.com** (the brand name stays "Looktag").
+Nothing in `src/` names a host: set `APP_URL` and `BETTER_AUTH_URL` to the
+public origin and list any old host in `TRUSTED_ORIGINS`. Google OAuth redirect
+URI: `https://thelooktag.com/api/auth/callback/google` (keep
+`https://looktag.onrender.com/api/auth/callback/google` while the old host is
+in `TRUSTED_ORIGINS`). Full move notes: [`docs/DEPLOY-DOMAIN.md`](docs/DEPLOY-DOMAIN.md).
+
+The footer always renders. Links live in [`src/config/footer.ts`](src/config/footer.ts)
+as `{ id, label, href, enabled }` with ids `impressum`, `privacy`, `terms`,
+`contact` (mailto `CONTACT_EMAIL`), `about`, `instagram`, `tiktok`, `x`,
+`domain` (the `APP_URL` host label). Every link is off by default; switch each
+one on in **Admin → Footer links** (stored in `looktag_settings.extras_json`,
+no migration) or force it on with `FOOTER_LINKS_ENABLED`. `/impressum`,
+`/privacy`, `/terms` and `/about` return 404 until their link is on.
+
+DNS: the site points at the host (`A @` and `CNAME www`). Mail is Zoho
+(MX / SPF / DKIM) — do not touch those records.
 
 Shop API keys (Brave, Google cx) stay on the device in Catalog — they are not
 written to the database.
@@ -170,7 +195,7 @@ Local / e2e notes: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 ### Production hardening checklist
 
 - [ ] Set a strong unique `BETTER_AUTH_SECRET` (do not reuse preview/ephemeral).
-- [ ] Set `BETTER_AUTH_URL` to the public HTTPS origin.
+- [ ] Set `BETTER_AUTH_URL` and `APP_URL` to the public HTTPS origin (`https://thelooktag.com`).
 - [ ] Inject per-app `GROK_AUTH_CLIENT_ID` / `GROK_AUTH_CLIENT_SECRET` (do not
       rely on the shared preview OAuth client outside `*.grok-sandbox.com`).
 - [ ] Bootstrap admin once with `ADMIN_BOOTSTRAP=1` +

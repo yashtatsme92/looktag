@@ -22,8 +22,26 @@ import { isEditorialLook, type Look } from "@/lib/looks/types";
 import { requestInstallSheet } from "@/lib/pwa/display";
 import { useStandaloneDisplay } from "@/lib/pwa/use-display";
 import { useSettingsStore } from "@/lib/settings/store";
+import { shareCacheHeaders } from "@/lib/share-meta";
 
-export const Route = createFileRoute("/creators/$userId")({ component: CreatorPage });
+export const Route = createFileRoute("/creators/$userId")({
+  // SSR only reports whether the creator exists (HTTP status + robots); the page
+  // still loads its own data, including a signed-in user's empty profile.
+  loader: async ({ params }) => {
+    if (!import.meta.env?.SSR) return { exists: true };
+    try {
+      return { exists: Boolean(await getCreator({ data: params.userId })) };
+    } catch {
+      return { exists: true };
+    }
+  },
+  headers: ({ loaderData }) => (loaderData && !loaderData.exists ? shareCacheHeaders(false) : {}),
+  head: ({ loaderData }) =>
+    loaderData && !loaderData.exists
+      ? { meta: [{ title: "Creator not found — Looktag" }, { name: "robots", content: "noindex" }] }
+      : {},
+  component: CreatorPage,
+});
 
 function CreatorPage() {
   const { userId } = Route.useParams();

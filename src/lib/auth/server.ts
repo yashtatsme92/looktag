@@ -41,6 +41,7 @@ import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { enforceSignInMethod, methodForAuthRequest } from "./method-gate";
 import { nativeTrustedOrigins } from "./native";
+import { deployedTrustedOrigins, parseTrustedOrigins } from "./trusted-origins";
 import { appleOriginNeeded, socialProvidersForDeploy } from "@/lib/providers/auth/social";
 import { GROK_PROVIDERS } from "./providers";
 import { readSettings } from "../settings/store.server";
@@ -130,9 +131,12 @@ const baseURL = explicitBaseURL ?? {
 
 // Origins Better Auth accepts on credentialed POSTs (sign-up/sign-in, etc.).
 // Missing entries here surface as FORBIDDEN "Invalid origin".
+// Explicit deploys add APP_URL and TRUSTED_ORIGINS (e.g. the old host during a
+// domain move). An invalid TRUSTED_ORIGINS entry fails boot (names only).
 const trustedOrigins: string[] = explicitBaseURL
-  ? [explicitBaseURL, ...LOCAL_DEV_ORIGINS]
+  ? deployedTrustedOrigins(process.env, explicitBaseURL, LOCAL_DEV_ORIGINS)
   : [
+      ...parseTrustedOrigins(process.env.TRUSTED_ORIGINS),
       // Host wildcards (matched against Origin's host)
       ...previewAllowedHosts,
       // Full-origin wildcards (matched against Origin)

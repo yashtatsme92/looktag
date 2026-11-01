@@ -184,3 +184,19 @@ describe("collectionShareMeta", () => {
   });
 });
 
+
+describe("canonicalOrigin", () => {
+  const read = (h: Record<string, string>) => ({ get: (k: string) => h[k.toLowerCase()] ?? null });
+  it("uses APP_URL over the request host and drops any path", async () => {
+    const { canonicalOrigin } = await import("./share-meta.ts");
+    const prev = process.env.APP_URL;
+    process.env.APP_URL = "https://thelooktag.com/some/path";
+    try {
+      assert.equal(canonicalOrigin(read({ host: "looktag.onrender.com" }) as never), "https://thelooktag.com");
+      assert.equal(absoluteUrl("/looks/a"), "https://thelooktag.com/looks/a");
+    } finally {
+      if (prev === undefined) delete process.env.APP_URL;
+      else process.env.APP_URL = prev;
+    }
+  });
+});

@@ -14,6 +14,7 @@
  *   This must be a middleware transforming `next()`: h3 discards the `response`
  *   runtime hook's return value, and `render:html` does not exist in Nitro v3.
  */
+import { publicHost } from "../../src/lib/site/edge";
 import installPageTemplate from "../../scripts/install-page.html?raw";
 import { grokOgIdentity } from "virtual:grok-og-identity";
 import {
@@ -30,9 +31,11 @@ interface GrokPwaEvent {
   req: { method: string; headers: Headers };
 }
 
+/** APP_URL's host when set (one canonical host for OG/manifest), else the request host. */
 function requestHost(event: GrokPwaEvent): string {
-  return (
-    event.req.headers.get("x-forwarded-host") ?? event.req.headers.get("host") ?? event.url.host
+  return publicHost(
+    process.env,
+    event.req.headers.get("x-forwarded-host") ?? event.req.headers.get("host") ?? event.url.host,
   );
 }
 

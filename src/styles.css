@@ -8436,3 +8436,34 @@ html[data-chrome="phone"] .look-sheet-host {
   height: 26px;
   flex: none;
 }
+
+/* Site footer (#183). Always present; zero height when no link is on. */
+.site-footer {
+  display: block;
+}
+.site-footer:has(.site-footer-list) {
+  padding: 24px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+html:not(.layout-web) .site-footer:has(.site-footer-list) {
+  /* Phone: the tab bar owns the bottom edge; keep links clear of it. */
+  padding-bottom: 24px;
+}
+.site-footer-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.site-footer-list a {
+  color: inherit;
+  text-decoration: none;
+}
+.site-footer-list a:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
