@@ -20,10 +20,23 @@ function cookieJar(res) {
   return raw.map((line) => line.split(";")[0]).filter((pair) => !/=$/.test(pair)).join("; ");
 }
 
+/*
+ * Better Auth rate-limits sign-in/sign-up per client IP when NODE_ENV=production
+ * (3 req / 10 s on /sign-in/*). Every request here comes from 127.0.0.1, so the
+ * suite would trip the real limiter. Give each request its own TEST-NET-3 address
+ * via x-forwarded-for (Better Auth's default IP header) instead of loosening the
+ * production limits.
+ */
+let ipCounter = 0;
+function testIp() {
+  ipCounter += 1;
+  return `203.0.${Math.floor(ipCounter / 250) % 250}.${(ipCounter % 250) + 1}`;
+}
+
 async function post(path, origin, body, cookie = "") {
   return fetch(`${BASE}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json", origin, ...(cookie ? { cookie } : {}) },
+    headers: { "content-type": "application/json", origin, "x-forwarded-for": testIp(), ...(cookie ? { cookie } : {}) },
     body: JSON.stringify(body ?? {}),
     redirect: "manual",
   });

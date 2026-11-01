@@ -8467,3 +8467,34 @@ html:not(.layout-web) .site-footer:has(.site-footer-list) {
   color: var(--foreground);
   text-decoration: underline;
 }
+
+/*
+ * #183: the footer must be reachable on full-screen screens too.
+ * Feed / look plates are absolute full-bleed layers and Create fills the
+ * screen, and their <main> clips overflow. When the footer has links, let
+ * <main> scroll and park the footer after the full-screen layer (top: 100%),
+ * so the photo stays full-screen and the footer is one scroll below it —
+ * never on top of the photo, and above the tab bar (outside <main>).
+ */
+.native-screen .native-main:has(> .site-footer .site-footer-list) {
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+}
+.native-main:has(> .echo-stage, > .look-plate) > .site-footer:has(.site-footer-list) {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  /* Solid band so the links never sit on (or under) the dark photo stage. */
+  background: #fff;
+}
+.native-main:has(> .echo-stage, > .look-plate) > .site-footer .site-footer-list {
+  color: #5f5f5f;
+}
+.native-main:has(> .look-studio) > .site-footer:has(.site-footer-list) {
+  flex-shrink: 0;
+}
+.native-main:has(> .look-studio[data-plate="bleed"]) > .site-footer .site-footer-list {
+  color: rgba(255, 255, 255, 0.72);
+}

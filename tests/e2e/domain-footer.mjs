@@ -16,10 +16,48 @@ const SHOT_DIR = process.env.SHOT_DIR || "";
 const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
   { name: "tablet", width: 820, height: 1180 },
+  { name: "tablet", width: 834, height: 1194 },
   { name: "desktop", width: 1280, height: 800 },
   { name: "desktop", width: 1440, height: 900 },
 ];
-const PAGES = ["/", "/houses", "/looks/seed-sofia-sun-bleached-linen"];
+const PAGES = ["/", "/houses", "/looks/seed-sofia-sun-bleached-linen", "/create"];
+/** Widths where the footer must be on screen and clickable (review on #188). */
+const HIT_TEST_WIDTHS = new Set([390, 834, 1280]);
+const HIT_TEST_PAGES = new Set(["/", "/looks/seed-sofia-sun-bleached-linen", "/create"]);
+const SHOT_WIDTHS = new Set([390, 834, 1280]);
+
+function slug(path) {
+  if (path === "/") return "home";
+  if (path.startsWith("/looks/")) return "look";
+  return path.replace(/\W+/g, "");
+}
+
+/** Scroll the footer into view, then hit-test the centre of the footer and every link. */
+async function assertFooterReachable(page, vp) {
+  const footer = page.getByTestId("site-footer");
+  await footer.scrollIntoViewIfNeeded({ timeout: 10_000 });
+  await page.waitForTimeout(300);
+  const result = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="site-footer"]');
+    if (!el) return { error: "no footer" };
+    const targets = [el, ...el.querySelectorAll("a")];
+    const misses = [];
+    for (const target of targets) {
+      const r = target.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      const inView = r.width > 0 && r.height > 0 && r.top >= -1 && r.bottom <= window.innerHeight + 1 && x >= 0 && x <= window.innerWidth;
+      const hit = document.elementFromPoint(x, y);
+      const ok = inView && hit && (hit === target || target.contains(hit) || (target === el && el.contains(hit)));
+      if (!ok) {
+        misses.push(`${target.tagName}${target.textContent ? ` "${target.textContent.trim().slice(0, 20)}"` : ""} @${Math.round(r.top)}-${Math.round(r.bottom)} hit=${hit ? hit.tagName + "." + String(hit.className).slice(0, 30) : "none"}`);
+      }
+    }
+    return { misses, count: targets.length };
+  });
+  assert.ok(!result.error, result.error);
+  assert.deepEqual(result.misses, [], `footer occluded or off-screen at ${vp.width}px`);
+}
 
 if (SHOT_DIR) mkdirSync(SHOT_DIR, { recursive: true });
 const browser = await chromium.launch();
@@ -69,13 +107,17 @@ try {
         } else {
           assert.equal(count, 0, "every footer link is off by default");
         }
+        if (EXPECT_ALL && HIT_TEST_WIDTHS.has(vp.width) && HIT_TEST_PAGES.has(path)) {
+          await assertFooterReachable(page, vp);
+        }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         assert.ok(overflow <= 1, `no horizontal overflow (${overflow}px)`);
-        if (path === "/houses" && SHOT_DIR) {
-          await footer.scrollIntoViewIfNeeded().catch(() => {});
-          await page.evaluate(() => document.querySelector("[data-testid=site-footer]")?.scrollIntoView({ block: "end" }));
-          await page.waitForTimeout(600);
-          await page.screenshot({ path: join(SHOT_DIR, `footer-${EXPECT_ALL ? "on" : "off"}-${vp.name}-${vp.width}x${vp.height}.png`) });
+        if (SHOT_DIR && SHOT_WIDTHS.has(vp.width) && (HIT_TEST_PAGES.has(path) || path === "/houses")) {
+          if (count) await footer.scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForTimeout(500);
+          await page.screenshot({
+            path: join(SHOT_DIR, `footer-${EXPECT_ALL ? "on" : "off"}-${slug(path)}-${vp.name}-${vp.width}x${vp.height}.png`),
+          });
         }
       });
     }
