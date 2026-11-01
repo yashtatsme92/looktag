@@ -8476,7 +8476,9 @@ html:not(.layout-web) .site-footer:has(.site-footer-list) {
  * so the photo stays full-screen and the footer is one scroll below it —
  * never on top of the photo, and above the tab bar (outside <main>).
  */
-.native-screen .native-main:has(> .site-footer .site-footer-list) {
+.native-screen .native-main:has(> .echo-stage, > .look-plate, > .look-studio):has(> .site-footer .site-footer-list) {
+  /* Scoped to full-screen feed / look / Create only: on tablet/desktop list
+     pages <main> must not become a scroll box or wheel scrolling dies. */
   overflow-y: auto !important;
   overscroll-behavior-y: contain;
 }

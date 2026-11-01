@@ -59,6 +59,32 @@ async function assertFooterReachable(page, vp) {
   assert.deepEqual(result.misses, [], `footer occluded or off-screen at ${vp.width}px`);
 }
 
+/** Real wheel input: some element's scrollTop must grow and reach near its max. */
+const WHEEL_WIDTHS = new Set([834, 1280]);
+const WHEEL_PAGES = new Set(["/", "/houses", "/looks/seed-sofia-sun-bleached-linen"]);
+async function assertWheelScrolls(page, vp) {
+  const maxScroll = () => page.evaluate(() => {
+    let best = { top: 0, max: 0 };
+    for (const el of [document.scrollingElement, ...document.querySelectorAll("*")]) {
+      if (!el) continue;
+      const max = el.scrollHeight - el.clientHeight;
+      if (max > 0 && el.scrollTop >= best.top) best = { top: el.scrollTop, max: Math.max(max, best.max) };
+    }
+    return best;
+  });
+  await page.waitForTimeout(500);
+  const before = await maxScroll();
+  await page.mouse.move(vp.width / 2, vp.height / 2);
+  for (let i = 0; i < 60; i += 1) {
+    await page.mouse.wheel(0, 1500);
+    await page.waitForTimeout(60);
+  }
+  await page.waitForTimeout(800);
+  const after = await maxScroll();
+  assert.ok(after.top > before.top + 50, `wheel scroll increases (${before.top} -> ${after.top})`);
+  assert.ok(after.top >= after.max - 80, `wheel reaches near max (${after.top}/${after.max})`);
+}
+
 if (SHOT_DIR) mkdirSync(SHOT_DIR, { recursive: true });
 const browser = await chromium.launch();
 let failures = 0;
@@ -106,6 +132,12 @@ try {
           }
         } else {
           assert.equal(count, 0, "every footer link is off by default");
+        }
+        if (EXPECT_ALL && WHEEL_WIDTHS.has(vp.width) && WHEEL_PAGES.has(path)) {
+          await assertWheelScrolls(page, vp);
+          await assertFooterReachable(page, vp);
+          await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          await page.locator('[data-testid="site-footer"] a').first().waitFor({ timeout: 15_000 });
         }
         if (EXPECT_ALL && HIT_TEST_WIDTHS.has(vp.width) && HIT_TEST_PAGES.has(path)) {
           await assertFooterReachable(page, vp);
