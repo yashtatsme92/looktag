@@ -9,21 +9,34 @@ import { emitLog, flushSignals, recordMetric, setTelemetrySink, startSpan } from
 import { featureFromRoute, routeTemplate } from "./app-span";
 import { formatTraceparent } from "./traceparent";
 import { buildResourceAttributes } from "./resource";
+import { TELEMETRY_REQUEST_HEADER, applyClientHttpStatus, isTelemetryTransport, telemetryFunctionPath } from "./client-fetch";
+
+let insideTelemetryFlush = 0;
 
 export function TelemetryProvider({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
     const resource = browserResource();
+    const original = window.fetch.bind(window);
     setTelemetrySink(async (signals) => {
+      insideTelemetryFlush += 1;
       try {
-        await ingestClientSignals({ data: { signals, resource } });
+        await ingestClientSignals({
+          data: { signals, resource },
+          headers: { [TELEMETRY_REQUEST_HEADER]: "1" },
+          fetch: (input, init) => original(input, withTelemetryHeader(init)),
+        });
       } catch {
         // Offline / first paint — keep browsing.
+      } finally {
+        insideTelemetryFlush -= 1;
       }
     });
-    const original = window.fetch.bind(window);
-    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => tracedFetch(original, input, init);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      if (insideTelemetryFlush > 0 || isTelemetryRequest(input, init)) return original(input, init);
+      return tracedFetch(original, input, init);
+    };
     const flush = () => {
       void flushSignals();
     };
@@ -124,13 +137,35 @@ function sameOriginUrl(input: RequestInfo | URL): URL | null {
   }
 }
 
+function withTelemetryHeader(init?: RequestInit): RequestInit {
+  const headers = new Headers(init?.headers);
+  headers.set(TELEMETRY_REQUEST_HEADER, "1");
+  return { ...init, headers };
+}
+
+function requestHeaders(input: RequestInfo | URL, init?: RequestInit): Headers {
+  return new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+}
+
+function isTelemetryRequest(input: RequestInfo | URL, init?: RequestInit): boolean {
+  const url = sameOriginUrl(input);
+  if (!url) return false;
+  const serverFnUrl = (ingestClientSignals as { url?: string }).url;
+  return isTelemetryTransport({
+    pathname: url.pathname,
+    headers: requestHeaders(input, init),
+    telemetryPathname: telemetryFunctionPath(serverFnUrl, window.location.href),
+    insideFlush: false,
+  });
+}
+
 function tracedFetch(
   original: typeof window.fetch,
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
   const url = sameOriginUrl(input);
-  if (!url || url.pathname.includes("ingestClientSignals")) return original(input, init);
+  if (!url || isTelemetryRequest(input, init)) return original(input, init);
   const method = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
   const route = routeTemplate(url.pathname);
   const span = startSpan(`HTTP ${method}`, {
@@ -147,8 +182,7 @@ function tracedFetch(
   headers.set("traceparent", formatTraceparent({ traceId: span.traceId, spanId: span.spanId }));
   return original(input, { ...init, headers })
     .then((response) => {
-      span.setAttribute("http.status_code", response.status);
-      if (response.status >= 500) span.setStatus("ERROR", `HTTP ${response.status}`);
+      applyClientHttpStatus(response.status, span);
       span.end();
       return response;
     })

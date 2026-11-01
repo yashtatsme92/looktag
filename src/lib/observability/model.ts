@@ -32,6 +32,11 @@ export type CompletedSpan = {
   events: SpanEvent[];
   /** Server request span. The sampler decides the trace when this span ends. */
   traceRoot?: boolean;
+  /**
+   * Head sampling decision for a root span. Set by the request so the response
+   * traceparent and the gate agree. Unset roots still use the gate ratio.
+   */
+  sampled?: boolean;
   /** Browser signals carry the web resource. Omitted on server signals. */
   resourceAttributes?: Attributes;
 };

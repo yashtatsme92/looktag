@@ -21,3 +21,17 @@ export function formatTraceparent(parent: { traceId: string; spanId: string; fla
   const flags = (parent.flags ?? "01").toLowerCase();
   return `00-${parent.traceId.toLowerCase()}-${parent.spanId.toLowerCase()}-${flags}`;
 }
+
+/** Least-significant bit of the trace-flags byte. Missing flags are not sampled. */
+export function traceFlagsSampled(flags: string | undefined): boolean {
+  if (!flags) return false;
+  const value = Number.parseInt(flags, 16);
+  return Number.isFinite(value) && (value & 0x01) === 1;
+}
+
+/** Keep any non-sample flag bits. The sample bit matches the decision. */
+export function flagsForSampled(sampled: boolean, incoming?: string): string {
+  const base = incoming && /^[0-9a-f]{2}$/i.test(incoming) ? Number.parseInt(incoming, 16) : 0;
+  const next = sampled ? base | 0x01 : base & ~0x01;
+  return (Number.isFinite(next) ? next : 0).toString(16).padStart(2, "0");
+}

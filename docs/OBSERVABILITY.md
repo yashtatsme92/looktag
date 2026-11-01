@@ -16,7 +16,9 @@ OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64 of instanceId:token>
 
 Generate the basic-auth value in Grafana Cloud: Connections → OpenTelemetry. Use the instance id as the username and the token as the password. Do not commit the token.
 
-Production keeps about 1 in 10 successful traces. Traces that end in a 5xx or a thrown error are always kept. Set `OTEL_TRACES_SAMPLER_ARG` (`0`–`1`) to override that ratio.
+Production keeps about 1 in 10 successful traces. Traces that end in a 5xx or a thrown error are always kept. Set `OTEL_TRACES_SAMPLER_ARG` (`0`–`1`) to override that ratio. The response `traceparent` uses the parent's sampled flag when the request sent one (parent-based). With no parent, the flag is the head decision. A kept error forces the flag to sampled.
+
+`deployment.environment.name` is `DEPLOYMENT_ENV` when that is `production`, `preview`, or `development`. Otherwise it is `APP_ENV`, then the host (`RENDER`, Netlify `CONTEXT` / `REVIEW_ID`), then `NODE_ENV=production`.
 
 ## What a request looks like
 
@@ -25,11 +27,11 @@ One trace id links the browser fetch, the server HTTP span, application `withSpa
 1. The browser starts a client span and sends `traceparent`.
 2. The server continues that trace. Its HTTP span is the parent of app spans and of `pg.query`.
 3. The response sets `traceparent` and `X-Request-Id`.
-4. Browser spans posted through `ingestClientSignals` keep the same `trace_id`.
+4. Browser spans posted through `ingestClientSignals` keep the same `trace_id`. The upload itself is not a span. Any visitor can post signals: 60 requests per minute per IP, 64 KB per body, and a strict span/metric/log schema. Admin auth stays on the observability page reads. Email/password is not required.
 
-Span attributes are `http.method`, `http.route` (the route pattern, not the raw id), `http.status_code`, and `app.*` (`app.route`, `app.feature`, `app.server_fn`, `app.auth.state` of `anonymous` or `signed_in`, `app.locale`, `app.flag.*`, `app.request_id`). There is no user id, cookie, authorization header, or request body. `pg.query` records `db.system=postgresql` and `db.statement` with literals stripped and no bound values.
+Span attributes are `http.method`, `http.route` (the route pattern, not the raw id), `http.status_code`, and `app.*` (`app.route`, `app.feature`, `app.server_fn`, `app.auth.state` of `anonymous` or `signed_in`, `app.locale`, `app.flag.*`, `app.request_id`). Browser fetch spans mark 4xx and 5xx with `error.type` set to the status code. There is no user id, cookie, authorization header, or request body. `pg.query` records `db.system=postgresql` and `db.statement` with string and numeric literals stripped. Placeholders such as `$1` stay. Bound values are not attached.
 
-Every signal carries the same resource: `service.name=looktag` (browser: `looktag-web`), `service.namespace`, `service.version`, `deployment.environment.name`, `deployment.id`, the git revision and branch, and `https://github.com/yashtatsme92/looktag`. Render adds `cloud.provider=render` and `cloud.region` when `RENDER_REGION` is set. Netlify previews add `cloud.provider=netlify` and `app.preview.pr`.
+Every signal carries the same resource: `service.name=looktag` (browser: `looktag-web`), `service.namespace`, `service.version` (the `package.json` version baked at build), `deployment.environment.name`, `deployment.id`, the git revision and branch, and `https://github.com/yashtatsme92/looktag`. `deployment.id` is `RENDER_DEPLOY_ID`, then Netlify `DEPLOY_ID`, then the git revision when the host has no deploy id. Docker images have no `.git`. The Dockerfile accepts build args `GIT_COMMIT` and `RENDER_GIT_COMMIT` (plus `RENDER_GIT_BRANCH` and `RENDER_DEPLOY_ID`). Render passes those when they are declared; the Render build command stays `npm run build`. Render adds `cloud.provider=render` and `cloud.region` when `RENDER_REGION` is set. Netlify previews add `cloud.provider=netlify` and `app.preview.pr`.
 
 `/api/version` returns `serviceVersion`, `deploymentId`, and `gitSha` next to `version`, `commit`, and `builtAt`.
 
@@ -54,7 +56,7 @@ Errors for one git revision:
 One deploy:
 
 ```
-{resource.service.name="looktag" && resource.deployment.id="<RENDER_DEPLOY_ID or Netlify DEPLOY_ID>"}
+{resource.service.name="looktag" && resource.deployment.id="<RENDER_DEPLOY_ID, Netlify DEPLOY_ID, or git revision>"}
 ```
 
 A user report that includes `X-Request-Id` or a log line's `trace_id`:

@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { adminMiddleware } from "@/lib/auth/middleware";
-import type { ObservabilityConfig, SignalKind, TelemetrySignal } from "./model";
-import { sanitizeAttributes } from "./model";
+import type { ObservabilityConfig, SignalKind } from "./model";
 import { browserResourceFromClient } from "./resource";
 import { createTraceFilter, parseTraceFilter, type TraceFilter } from "./graph";
+import { parseClientSignals, ingestPayloadTooLarge } from "./client-signals";
+import { clientIngestLimiter } from "./ingest-limit";
 import {
   ensureTelemetrySink,
   ingestSignals,
@@ -63,72 +64,62 @@ export const probeObservability = createServerFn({ method: "POST" })
   });
 
 export const ingestClientSignals = createServerFn({ method: "POST" })
-  .middleware([adminMiddleware])
-  .validator((input: { signals: unknown; resource?: Record<string, unknown> }) => input)
+  .validator((input: { signals?: unknown; resource?: Record<string, unknown> }) => input)
   .handler(async ({ data }) => {
+    const ip = await clientIp();
+    if (!clientIngestLimiter.allow(ip)) {
+      await respond(429);
+      return { accepted: 0 };
+    }
+    if (ingestPayloadTooLarge(data) || (await contentLengthTooLarge())) {
+      await respond(413);
+      return { accepted: 0 };
+    }
+    const signals = parseClientSignals(data?.signals);
+    if (!signals) {
+      await respond(400);
+      return { accepted: 0 };
+    }
     ensureTelemetrySink();
-    const signals = Array.isArray(data.signals)
-      ? data.signals.map(asSignal).filter((row): row is TelemetrySignal => Boolean(row))
-      : [];
-    const resource = browserResourceFromClient(data.resource);
+    const resource = browserResourceFromClient(data?.resource);
     if (resource) {
       for (const signal of signals) signal.resourceAttributes = resource;
     }
-    const accepted = await ingestSignals(signals.slice(0, 40));
+    const accepted = await ingestSignals(signals);
     return { accepted };
   });
 
-function asSignal(raw: unknown): TelemetrySignal | null {
-  if (!raw || typeof raw !== "object") return null;
-  const row = raw as Record<string, unknown>;
-  if (row.kind === "span") {
-    if (typeof row.name !== "string" || typeof row.traceId !== "string" || typeof row.spanId !== "string") {
-      return null;
-    }
-    return {
-      kind: "span",
-      id: String(row.id || row.spanId).slice(0, 64),
-      traceId: row.traceId.slice(0, 32),
-      spanId: row.spanId.slice(0, 16),
-      parentSpanId: typeof row.parentSpanId === "string" ? row.parentSpanId.slice(0, 16) : undefined,
-      name: row.name.slice(0, 160),
-      spanKind: row.spanKind === "CLIENT" || row.spanKind === "SERVER" ? row.spanKind : "INTERNAL",
-      status: row.status === "ERROR" || row.status === "OK" ? row.status : "UNSET",
-      statusMessage: typeof row.statusMessage === "string" ? row.statusMessage.slice(0, 280) : undefined,
-      startTimeUnixNano: String(row.startTimeUnixNano || ""),
-      endTimeUnixNano: String(row.endTimeUnixNano || ""),
-      durationMs: typeof row.durationMs === "number" ? Math.max(0, Math.round(row.durationMs)) : 0,
-      attributes: sanitizeAttributes(row.attributes as Record<string, unknown>),
-      events: [],
-    };
+async function contentLengthTooLarge(): Promise<boolean> {
+  try {
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const raw = getRequestHeader("content-length");
+    const length = raw ? Number(raw) : Number.NaN;
+    return Number.isFinite(length) && length > 64 * 1024;
+  } catch {
+    return false;
   }
-  if (row.kind === "metric") {
-    if (typeof row.name !== "string" || typeof row.value !== "number") return null;
-    return {
-      kind: "metric",
-      id: String(row.id || row.name).slice(0, 64),
-      name: row.name.slice(0, 160),
-      type: row.type === "histogram" || row.type === "gauge" ? row.type : "counter",
-      value: row.value,
-      unit: typeof row.unit === "string" ? row.unit.slice(0, 24) : undefined,
-      timeUnixNano: String(row.timeUnixNano || ""),
-      attributes: sanitizeAttributes(row.attributes as Record<string, unknown>),
-    };
+}
+
+async function clientIp(): Promise<string> {
+  try {
+    const { getRequestIP, getRequestHeader } = await import("@tanstack/react-start/server");
+    const ip = getRequestIP();
+    if (ip?.trim()) return ip.trim();
+    const hop = getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim();
+    if (hop) return hop;
+  } catch {
+    // Called outside a request.
   }
-  if (row.kind === "log") {
-    if (typeof row.body !== "string") return null;
-    return {
-      kind: "log",
-      id: String(row.id || "log").slice(0, 64),
-      severity: row.severity === "DEBUG" || row.severity === "WARN" || row.severity === "ERROR" ? row.severity : "INFO",
-      body: row.body.slice(0, 500),
-      timeUnixNano: String(row.timeUnixNano || ""),
-      traceId: typeof row.traceId === "string" ? row.traceId.slice(0, 32) : undefined,
-      spanId: typeof row.spanId === "string" ? row.spanId.slice(0, 16) : undefined,
-      attributes: sanitizeAttributes(row.attributes as Record<string, unknown>),
-    };
+  return "unknown";
+}
+
+async function respond(status: number): Promise<void> {
+  try {
+    const { setResponseStatus } = await import("@tanstack/react-start/server");
+    setResponseStatus(status);
+  } catch {
+    // The accepted count is still zero when status cannot be set.
   }
-  return null;
 }
 
 export const HEADER_KEEP_VALUE = HEADER_KEEP;

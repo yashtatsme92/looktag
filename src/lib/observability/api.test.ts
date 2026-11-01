@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { maskOtlpHeaders, parseOtlpHeaders } from "./model.ts";
+import { parseClientSignals, ingestPayloadTooLarge, INGEST_MAX_BYTES } from "./client-signals.ts";
+import { IngestRateLimiter } from "./ingest-limit.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const apiSource = readFileSync(join(here, "api.ts"), "utf8");
@@ -23,19 +25,25 @@ function handlerBody(exportName: string): string {
 }
 
 describe("observability API admin auth", () => {
-  it("gates formerly-public read and ingest handlers behind adminMiddleware", () => {
-    for (const name of ["getObservability", "listObservabilitySignals", "ingestClientSignals"] as const) {
+  it("gates admin reads behind adminMiddleware and leaves ingest anonymous", () => {
+    for (const name of ["getObservability", "listObservabilitySignals"] as const) {
       const body = handlerBody(name);
       assert.match(body, /\.middleware\(\[adminMiddleware\]\)/, `${name} must use adminMiddleware`);
       assert.equal(body.includes("requireAdmin()"), false, `${name} must not call bare requireAdmin`);
       assert.equal(body.includes("requireObservabilityAdmin"), false);
       const workAt = Math.min(
-        ...["ensureTelemetrySink", "listTraceBundle", "ingestSignals"]
+        ...["ensureTelemetrySink", "listTraceBundle"]
           .map((token) => body.indexOf(token))
           .filter((idx) => idx >= 0),
       );
       assert.ok(workAt >= 0, `${name} handler body missing telemetry work`);
     }
+    const ingest = handlerBody("ingestClientSignals");
+    assert.equal(ingest.includes("adminMiddleware"), false, "browser ingest must accept anonymous signals");
+    assert.match(ingest, /clientIngestLimiter\.allow/);
+    assert.match(ingest, /ingestPayloadTooLarge/);
+    assert.match(ingest, /parseClientSignals/);
+    assert.match(ingest, /content-length/);
   });
 
   it("adminMiddleware enforces same-site then requireAdmin (401/403)", () => {
@@ -75,5 +83,51 @@ describe("observability publicConfig header redaction", () => {
     assert.match(storeSource, /hasHeaders:/);
     assert.match(storeSource, /headersMasked:/);
     assert.equal(storeSource.includes("otlpHeaders: config.otlpHeaders"), false);
+  });
+});
+
+const TRACE = "a".repeat(32);
+const SPAN = "b".repeat(16);
+
+describe("anonymous client ingest", () => {
+  it("accepts a strict span and drops legacy or malformed rows", () => {
+    const parsed = parseClientSignals([
+      {
+        kind: "span",
+        id: SPAN,
+        traceId: TRACE.toUpperCase(),
+        spanId: SPAN,
+        name: "HTTP GET",
+        spanKind: "CLIENT",
+        status: "OK",
+        startTimeUnixNano: "1000",
+        endTimeUnixNano: "2000",
+        durationMs: 1,
+        attributes: { "http.route": "/looks/$lookId", email: "secret@example.com" },
+      },
+      { kind: "span", name: "nope", traceId: "admin", spanId: "admin" },
+      { kind: "other" },
+    ]);
+    assert.ok(parsed);
+    assert.equal(parsed.length, 1);
+    assert.equal(parsed[0].kind === "span" && parsed[0].traceId, TRACE);
+    assert.equal(JSON.stringify(parsed).includes("secret@example.com"), false);
+    assert.equal(parseClientSignals({ signals: [] }), null);
+  });
+
+  it("rejects a payload over 64 KB", () => {
+    assert.equal(INGEST_MAX_BYTES, 64 * 1024);
+    assert.equal(ingestPayloadTooLarge({ signals: "x".repeat(INGEST_MAX_BYTES) }), true);
+    assert.equal(ingestPayloadTooLarge({ signals: [] }), false);
+  });
+
+  it("allows 60 requests per IP per minute and then refuses", () => {
+    let now = 1_000;
+    const limiter = new IngestRateLimiter(60, 60_000, 100, () => now);
+    for (let i = 0; i < 60; i += 1) assert.equal(limiter.allow("203.0.113.4"), true);
+    assert.equal(limiter.allow("203.0.113.4"), false);
+    assert.equal(limiter.allow("203.0.113.5"), true);
+    now += 60_001;
+    assert.equal(limiter.allow("203.0.113.4"), true);
   });
 });

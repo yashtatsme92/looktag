@@ -38,15 +38,21 @@ function first(env: ResourceEnv, ...keys: string[]): string | undefined {
   return undefined;
 }
 
-/** production | preview | development. APP_ENV wins when it is one of those three. */
+/** production | preview | development. DEPLOYMENT_ENV wins, then APP_ENV, then the host. */
 export function deploymentEnvironmentName(env: ResourceEnv = {}): "production" | "preview" | "development" {
-  const app = trimmed(env.APP_ENV)?.toLowerCase();
-  if (app === "production" || app === "preview" || app === "development") return app;
+  const named = namedEnvironment(trimmed(env.DEPLOYMENT_ENV)) ?? namedEnvironment(trimmed(env.APP_ENV));
+  if (named) return named;
   const context = trimmed(env.CONTEXT)?.toLowerCase();
   if (context === "deploy-preview" || context === "branch-deploy" || context === "preview") return "preview";
   if (trimmed(env.REVIEW_ID) || env.IS_PULL_REQUEST === "true") return "preview";
   if (env.RENDER === "true" || context === "production" || env.NODE_ENV === "production") return "production";
   return "development";
+}
+
+function namedEnvironment(value: string | undefined): "production" | "preview" | "development" | undefined {
+  const name = value?.toLowerCase();
+  if (name === "production" || name === "preview" || name === "development") return name;
+  return undefined;
 }
 
 /** render or netlify, and only when the host says so. */
@@ -73,7 +79,7 @@ export function browserFamily(userAgent: string | undefined): string {
 function revisionOf(env: ResourceEnv, explicit?: string): string {
   return (
     trimmed(explicit) ||
-    first(env, "RENDER_GIT_COMMIT", "COMMIT_REF", "GITHUB_SHA", "VERCEL_GIT_COMMIT_SHA") ||
+    first(env, "RENDER_GIT_COMMIT", "GIT_COMMIT", "COMMIT_REF", "GITHUB_SHA", "VERCEL_GIT_COMMIT_SHA") ||
     "unknown"
   );
 }
@@ -96,7 +102,9 @@ export function buildResourceAttributes(input: ResourceFields = {}): Attributes 
   const provider = trimmed(input.cloudProvider) || cloudProviderFromEnv(env);
   const region = trimmed(input.cloudRegion) || (provider === "render" ? trimmed(env.RENDER_REGION) : undefined);
   const previewPr = trimmed(input.previewPr) || trimmed(env.REVIEW_ID);
-  const deploymentId = trimmed(input.deploymentId) || first(env, "RENDER_DEPLOY_ID", "DEPLOY_ID") || "unknown";
+  const revision = revisionOf(env, input.revision);
+  const deploymentId =
+    trimmed(input.deploymentId) || first(env, "RENDER_DEPLOY_ID", "DEPLOY_ID") || (revision !== "unknown" ? revision : "unknown");
   const instance =
     trimmed(input.instanceId) || first(env, "RENDER_INSTANCE_ID") || trimmed(input.hostname) || "unknown";
   const attrs: Attributes = {
@@ -105,7 +113,7 @@ export function buildResourceAttributes(input: ResourceFields = {}): Attributes 
     "service.version": version,
     "deployment.environment.name": environment,
     "deployment.id": deploymentId,
-    "vcs.ref.head.revision": revisionOf(env, input.revision),
+    "vcs.ref.head.revision": revision,
     "vcs.ref.head.name": branchOf(env, input.branch),
     "vcs.repository.url.full": REPO,
     "telemetry.sdk.name": "looktag",

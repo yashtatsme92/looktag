@@ -321,6 +321,35 @@ async function runViewport(browser, viewport, size) {
 
 const browser = await chromium.launch({ headless: true });
 try {
+  await withPage(
+    browser,
+    origin,
+    async (page) => {
+      let posts = 0;
+      const onRequest = (request) => {
+        if (request.method() !== "POST") return;
+        const headers = request.headers();
+        const body = request.postData() ?? "";
+        const marked = headers["x-looktag-telemetry"] === "1";
+        const payload = body.includes("looktag.ui.navigation") || body.includes('"kind":"span"') || body.includes('"kind":"metric"');
+        if (marked || payload) posts += 1;
+      };
+      page.on("request", onRequest);
+      await page.goto(`${origin}/`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+      await page.waitForTimeout(2_000);
+      const baseline = posts;
+      await page.waitForTimeout(10_000);
+      const duringIdle = posts - baseline;
+      page.off("request", onRequest);
+      record(
+        "idle.telemetry.bounded",
+        duringIdle <= 2,
+        `${duringIdle} telemetry POSTs in 10s after load (${baseline} during load)`,
+      );
+    },
+    "guest-idle-telemetry",
+    { viewport: { width: 390, height: 844 } },
+  );
   await runViewport(browser, "phone", { width: 390, height: 844 });
   await runViewport(browser, "tablet", { width: 834, height: 1194 });
   await runViewport(browser, "desktop", { width: 1280, height: 800 });

@@ -5,6 +5,7 @@
  */
 export type BuildCommitEnv = {
   RENDER_GIT_COMMIT?: string;
+  GIT_COMMIT?: string;
   COMMIT_REF?: string;
   GITHUB_SHA?: string;
   VERCEL_GIT_COMMIT_SHA?: string;
@@ -12,6 +13,7 @@ export type BuildCommitEnv = {
 
 const COMMIT_ENV_KEYS = [
   "RENDER_GIT_COMMIT",
+  "GIT_COMMIT",
   "COMMIT_REF",
   "GITHUB_SHA",
   "VERCEL_GIT_COMMIT_SHA",

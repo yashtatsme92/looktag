@@ -15,6 +15,16 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# No .git in the image (.dockerignore). Render passes these as build-args
+# because the Dockerfile declares them. The Render build command is unchanged.
+ARG GIT_COMMIT=""
+ARG RENDER_GIT_COMMIT=""
+ARG RENDER_GIT_BRANCH=""
+ARG RENDER_DEPLOY_ID=""
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV RENDER_GIT_COMMIT=${RENDER_GIT_COMMIT}
+ENV RENDER_GIT_BRANCH=${RENDER_GIT_BRANCH}
+ENV RENDER_DEPLOY_ID=${RENDER_DEPLOY_ID}
 ENV NITRO_PRESET=node-server
 RUN npm run build
 

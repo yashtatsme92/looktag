@@ -20,6 +20,7 @@ describe("resolveBuildCommit", () => {
     };
     assert.equal(resolveBuildCommit(env, "git-sha"), "render-sha");
     assert.equal(resolveBuildCommit({ ...env, RENDER_GIT_COMMIT: "  " }, "git-sha"), "netlify-sha");
+    assert.equal(resolveBuildCommit({ GIT_COMMIT: "docker-sha", COMMIT_REF: "netlify-sha" }, "git-sha"), "docker-sha");
     assert.equal(
       resolveBuildCommit({ ...env, RENDER_GIT_COMMIT: "", COMMIT_REF: "" }, "git-sha"),
       "github-sha",
@@ -58,5 +59,17 @@ describe("resolveBuildCommit", () => {
     assert.equal(readPackageVersion(pkg), pkg.version);
     assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
     assert.throws(() => readPackageVersion({}), /version/);
+  });
+
+  it("declares Docker build args so a Render image without .git still has a commit", () => {
+    const docker = readFileSync(new URL("../../Dockerfile", import.meta.url), "utf8");
+    const buildAt = docker.indexOf("RUN npm run build");
+    assert.ok(buildAt > 0);
+    for (const name of ["GIT_COMMIT", "RENDER_GIT_COMMIT"]) {
+      const at = docker.indexOf(`ARG ${name}`);
+      assert.ok(at > 0 && at < buildAt, name);
+    }
+    assert.match(docker, /ENV GIT_COMMIT=/);
+    assert.match(docker, /ENV RENDER_GIT_COMMIT=/);
   });
 });

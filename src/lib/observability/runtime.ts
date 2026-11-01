@@ -26,6 +26,7 @@ export type SpanRecorder = {
   addEvent: (name: string, attrs?: Attributes) => void;
   recordException: (error: unknown) => void;
   setStatus: (status: SpanStatusName, message?: string) => void;
+  setSampled: (sampled: boolean) => void;
 };
 
 type Sink = (signals: TelemetrySignal[]) => void | Promise<void>;
@@ -85,6 +86,7 @@ export function startSpan(
     parentSpanId?: string;
     root?: boolean;
     traceRoot?: boolean;
+    sampled?: boolean;
   },
 ): SpanRecorder & { end: (error?: unknown) => CompletedSpan } {
   const startMs = Date.now();
@@ -98,6 +100,7 @@ export function startSpan(
   const events: SpanEvent[] = [];
   let status: SpanStatusName = "UNSET";
   let statusMessage: string | undefined;
+  let sampled = options?.sampled;
   const inherited = inheritParent(options);
   const traceId = options?.traceId || inherited?.traceId || newTraceId();
   const parentSpanId = options?.parentSpanId || (inherited?.spanId ? inherited.spanId : undefined);
@@ -138,6 +141,9 @@ export function startSpan(
       status = next;
       if (message) statusMessage = message.slice(0, 280);
     },
+    setSampled(next) {
+      sampled = next;
+    },
     end(error) {
       if (onClient) {
         for (let idx = clientStack.length - 1; idx >= 0; idx -= 1) {
@@ -166,6 +172,7 @@ export function startSpan(
         attributes,
         events,
         traceRoot: options?.traceRoot,
+        sampled,
       };
       emit(span);
       if (status !== "ERROR") {

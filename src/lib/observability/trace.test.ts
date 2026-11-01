@@ -4,10 +4,14 @@ import { appSpanAttributes, authStateFromCookie, featureFromRoute, routeTemplate
 import { deliverOtlp, otlpExportErrorCount, recordOtlpExportError } from "./export-error.ts";
 import { configFromEnv, sanitizeAttributes } from "./model.ts";
 import { encodeOtlpLogs, encodeOtlpMetrics, encodeOtlpTraces } from "./otlp.ts";
-import { buildResourceAttributes, browserFamily, browserResourceFromClient } from "./resource.ts";
-import { effectiveSampleRatio, TraceGate } from "./sampling.ts";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { buildResourceAttributes, browserFamily, browserResourceFromClient, deploymentEnvironmentName } from "./resource.ts";
+import { effectiveSampleRatio, headSampleDecision, TraceGate } from "./sampling.ts";
 import { stripSqlValues } from "./sql-statement.ts";
-import { formatTraceparent, parseTraceparent } from "./traceparent.ts";
+import { flagsForSampled, formatTraceparent, parseTraceparent } from "./traceparent.ts";
+import { TELEMETRY_REQUEST_HEADER, applyClientHttpStatus, isTelemetryTransport, telemetryFunctionPath } from "./client-fetch.ts";
 import { flushSignals, setTelemetrySink, startSpan } from "./runtime.ts";
 import { traceDbQuery } from "./db-span.ts";
 import { runRequestTrace } from "./request-trace.ts";
@@ -125,6 +129,25 @@ describe("resource attributes", () => {
     assert.equal(resource["cloud.region"], undefined);
   });
 
+  it("honors DEPLOYMENT_ENV over NODE_ENV and falls back to the git revision for deployment id", () => {
+    assert.equal(deploymentEnvironmentName({ NODE_ENV: "production", DEPLOYMENT_ENV: "preview" }), "preview");
+    assert.equal(deploymentEnvironmentName({ NODE_ENV: "production" }), "production");
+    assert.equal(deploymentEnvironmentName({ DEPLOYMENT_ENV: "development", RENDER: "true" }), "development");
+    const resource = buildResourceAttributes({
+      env: { GIT_COMMIT: SHA, DEPLOYMENT_ENV: "production" },
+      version: "2.5.36",
+    });
+    assert.equal(resource["deployment.environment.name"], "production");
+    assert.equal(resource["service.version"], "2.5.36");
+    assert.equal(resource["vcs.ref.head.revision"], SHA);
+    assert.equal(resource["deployment.id"], SHA);
+    const explicit = buildResourceAttributes({
+      env: { GIT_COMMIT: SHA, RENDER_DEPLOY_ID: "dep-9" },
+      version: "2.5.36",
+    });
+    assert.equal(explicit["deployment.id"], "dep-9");
+  });
+
   it("truncates the browser user agent to family and major", () => {
     const ua = "Mozilla/5.0 Chrome/120.0.0.0 Safari/537.36";
     const resource = buildResourceAttributes({
@@ -218,6 +241,142 @@ describe("trace continuity", () => {
     assert.ok(parseTraceparent(response.headers.get("traceparent")));
     setTelemetrySink(null);
   });
+
+  it("honors an unsampled parent and a ratio decision on the response flag", async () => {
+    const seen: TelemetrySignal[] = [];
+    setTelemetrySink((signals) => {
+      seen.push(...signals);
+    });
+    const traceId = "c".repeat(32);
+    const parent = `00-${traceId}-${"d".repeat(16)}-00`;
+    const unsampled = await runRequestTrace(
+      {
+        method: "GET",
+        path: "/",
+        skipFlags: true,
+        env: { OTEL_TRACES_SAMPLER_ARG: "1" },
+        headers: { get: (name) => (name === "traceparent" ? parent : null) },
+      },
+      async () => new Response("ok", { status: 200 }),
+    );
+    assert.ok(unsampled instanceof Response);
+    assert.equal(unsampled.headers.get("traceparent")?.endsWith("-00"), true);
+    const keptError = await runRequestTrace(
+      {
+        method: "GET",
+        path: "/",
+        skipFlags: true,
+        env: { OTEL_TRACES_SAMPLER_ARG: "0" },
+        headers: { get: (name) => (name === "traceparent" ? parent : null) },
+      },
+      async () => new Response("nope", { status: 500 }),
+    );
+    assert.ok(keptError instanceof Response);
+    assert.equal(keptError.headers.get("traceparent")?.endsWith("-01"), true);
+    const dropped = await runRequestTrace(
+      {
+        method: "GET",
+        path: "/houses",
+        skipFlags: true,
+        env: { RENDER: "true", OTEL_TRACES_SAMPLER_ARG: "0" },
+        random: () => 0.99,
+        headers: { get: () => null },
+      },
+      async () => new Response("ok", { status: 200 }),
+    );
+    assert.ok(dropped instanceof Response);
+    assert.equal(dropped.headers.get("traceparent")?.endsWith("-00"), true);
+    const forced = await runRequestTrace(
+      {
+        method: "GET",
+        path: "/houses",
+        skipFlags: true,
+        env: { OTEL_TRACES_SAMPLER_ARG: "0" },
+        headers: { get: (name) => (name === "traceparent" ? parent.replace(/-00$/, "-01") : null) },
+      },
+      async () => new Response("ok", { status: 200 }),
+    );
+    assert.ok(forced instanceof Response);
+    assert.equal(forced.headers.get("traceparent")?.endsWith("-01"), true);
+    await flushSignals();
+    const roots = seen.filter((signal): signal is CompletedSpan => signal.kind === "span" && signal.traceRoot === true);
+    assert.equal(roots[0]?.sampled, false);
+    assert.equal(roots[1]?.sampled, true);
+    assert.equal(roots[2]?.sampled, false);
+    assert.equal(roots[3]?.sampled, true);
+    assert.equal(headSampleDecision({ incomingFlags: "00", ratio: 1 }), false);
+    assert.equal(headSampleDecision({ incomingFlags: "01", ratio: 0 }), true);
+    assert.equal(flagsForSampled(false), "00");
+    assert.equal(flagsForSampled(true, "00"), "01");
+    setTelemetrySink(null);
+  });
+
+  it("does not trace a telemetry upload, including the production server-fn URL", async () => {
+    const seen: TelemetrySignal[] = [];
+    setTelemetrySink((signals) => {
+      seen.push(...signals);
+    });
+    const prodId = "ab".repeat(32);
+    assert.equal(`/_serverFn/${prodId}`.includes("ingestClientSignals"), false);
+    const telemetryPath = telemetryFunctionPath(`/_serverFn/${prodId}`, "https://looktag.example");
+    assert.equal(
+      isTelemetryTransport({
+        pathname: `/_serverFn/${prodId}`,
+        headers: new Headers(),
+        telemetryPathname: telemetryPath,
+        insideFlush: false,
+      }),
+      true,
+    );
+    assert.equal(
+      isTelemetryTransport({
+        pathname: `/_serverFn/${"cd".repeat(32)}`,
+        headers: new Headers(),
+        telemetryPathname: telemetryPath,
+        insideFlush: false,
+      }),
+      false,
+    );
+    assert.equal(
+      isTelemetryTransport({
+        pathname: `/_serverFn/${"cd".repeat(32)}`,
+        headers: new Headers({ [TELEMETRY_REQUEST_HEADER]: "1" }),
+        telemetryPathname: null,
+        insideFlush: false,
+      }),
+      true,
+    );
+    assert.equal(
+      isTelemetryTransport({
+        pathname: "/houses",
+        headers: new Headers(),
+        telemetryPathname: null,
+        insideFlush: true,
+      }),
+      true,
+    );
+    const response = await runRequestTrace(
+      {
+        method: "POST",
+        path: `/_serverFn/${prodId}`,
+        skipFlags: true,
+        headers: {
+          get: (name) => (name === TELEMETRY_REQUEST_HEADER ? "1" : null),
+        },
+      },
+      async () => new Response("ok", { status: 200 }),
+    );
+    await flushSignals();
+    assert.ok(response instanceof Response);
+    assert.equal(response.headers.get("traceparent"), null);
+    assert.equal(seen.length, 0);
+    const clientSource = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "client.tsx"), "utf8");
+    assert.equal(clientSource.includes('includes("ingestClientSignals")'), false);
+    assert.equal(clientSource.includes("includes('ingestClientSignals')"), false);
+    assert.match(clientSource, /isTelemetryTransport/);
+    assert.match(clientSource, /TELEMETRY_REQUEST_HEADER/);
+    setTelemetrySink(null);
+  });
 });
 
 describe("sampling", () => {
@@ -239,6 +398,39 @@ describe("sampling", () => {
     assert.equal(effectiveSampleRatio(1, { RENDER: "true", OTEL_TRACES_SAMPLER_ARG: "1" }), 1);
     assert.equal(effectiveSampleRatio(1, { APP_ENV: "development" }), 1);
     assert.equal(effectiveSampleRatio(0.4, { RENDER: "true" }), 0.4);
+  });
+
+  it("drops held spans after the TTL and caps the number of traces", () => {
+    let now = 0;
+    const gate = new TraceGate(1, () => 0, { ttlMs: 60_000, maxSize: 2, now: () => now });
+    const traceA = "a".repeat(32);
+    const traceB = "b".repeat(32);
+    const traceC = "c".repeat(32);
+    assert.deepEqual(gate.push(childSpan(traceA, "OK")), []);
+    assert.deepEqual(gate.push(childSpan(traceB, "OK")), []);
+    assert.deepEqual(gate.push(childSpan(traceC, "OK")), []);
+    assert.equal(gate.traceCount, 2);
+    const forgotten = gate.push(rootSpan(traceA, "OK"));
+    assert.equal(forgotten.length, 1);
+    const first = forgotten[0];
+    assert.equal(first && first.kind === "span" ? first.name : "", "HTTP GET");
+    const kept = gate.push(rootSpan(traceC, "OK"));
+    assert.equal(kept.length, 2);
+    now = 60_001;
+    const expired = new TraceGate(1, () => 0, { ttlMs: 60_000, maxSize: 10, now: () => now });
+    now = 0;
+    assert.deepEqual(expired.push(childSpan(traceA, "OK")), []);
+    now = 60_001;
+    const afterTtl = expired.push(rootSpan(traceA, "OK"));
+    assert.equal(afterTtl.length, 1);
+  });
+
+  it("keeps a parent-sampled root when the ratio is zero", () => {
+    const gate = new TraceGate(0, () => 0.99);
+    const traceId = "e".repeat(32);
+    assert.deepEqual(gate.push(rootSpan(traceId, "OK", undefined, false)), []);
+    const kept = gate.push(rootSpan("f".repeat(32), "OK", undefined, true));
+    assert.equal(kept.length, 1);
   });
 });
 
@@ -309,14 +501,55 @@ describe("export", () => {
     assert.equal(otlpExportErrorCount(), before + 2);
   });
 
-  it("strips SQL literals and leaves parameters out of the statement", () => {
-    const sql = stripSqlValues("select * from users where email = 'secret@example.com' and id = $1");
+  it("strips SQL string and numeric literals and leaves parameters out of the statement", () => {
+    const sql = stripSqlValues("select * from users where email = 'secret@example.com' and age = 42 and id = $1");
     assert.equal(sql.includes("secret@example.com"), false);
+    assert.equal(sql.includes("42"), false);
     assert.match(sql, /email = \?/);
+    assert.match(sql, /age = \?/);
+    assert.match(sql, /id = \$1/);
   });
 });
 
-function rootSpan(traceId: string, status: "OK" | "ERROR", httpStatus?: number): CompletedSpan {
+describe("client fetch status", () => {
+  it("marks 4xx and 5xx as errors with error.type set to the status", () => {
+    for (const status of [401, 404, 500]) {
+      const attrs: Record<string, string | number | boolean> = {};
+      let spanStatus = "UNSET";
+      applyClientHttpStatus(status, {
+        setAttribute(key, value) {
+          attrs[key] = value;
+        },
+        setStatus(next) {
+          spanStatus = next;
+        },
+      });
+      assert.equal(spanStatus, "ERROR");
+      assert.equal(attrs["error.type"], String(status));
+      assert.equal(attrs["http.status_code"], status);
+    }
+    const ok: Record<string, string | number | boolean> = {};
+    let spanStatus = "UNSET";
+    applyClientHttpStatus(200, {
+      setAttribute(key, value) {
+        ok[key] = value;
+      },
+      setStatus(next) {
+        spanStatus = next;
+      },
+    });
+    assert.equal(spanStatus, "UNSET");
+    assert.equal(ok["error.type"], undefined);
+    assert.equal(ok["http.status_code"], 200);
+  });
+});
+
+function rootSpan(
+  traceId: string,
+  status: "OK" | "ERROR",
+  httpStatus?: number,
+  sampled?: boolean,
+): CompletedSpan {
   return {
     kind: "span",
     id: "r",
@@ -331,6 +564,7 @@ function rootSpan(traceId: string, status: "OK" | "ERROR", httpStatus?: number):
     traceRoot: true,
     attributes: httpStatus ? { "http.status_code": httpStatus } : {},
     events: [],
+    sampled,
   };
 }
 

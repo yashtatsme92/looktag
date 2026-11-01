@@ -222,7 +222,8 @@ function buildDefine(): Record<string, string> {
   const revision = resolveBuildCommit(process.env, gitHead());
   const commit = shortCommit(revision);
   const branch = [process.env.RENDER_GIT_BRANCH, process.env.BRANCH, process.env.HEAD].find((value) => value?.trim())?.trim() || "HEAD";
-  const deploymentId = [process.env.RENDER_DEPLOY_ID, process.env.DEPLOY_ID].find((value) => value?.trim())?.trim() || "unknown";
+  const explicitDeploy = [process.env.RENDER_DEPLOY_ID, process.env.DEPLOY_ID].find((value) => value?.trim())?.trim();
+  const deploymentId = explicitDeploy || (revision !== "unknown" ? revision : "unknown");
   const provider = cloudProviderFromEnv(process.env) ?? "";
   const region = provider === "render" ? process.env.RENDER_REGION?.trim() || "" : "";
   const previewPr = deploymentEnvironmentName(process.env) === "preview" ? process.env.REVIEW_ID?.trim() || "" : "";

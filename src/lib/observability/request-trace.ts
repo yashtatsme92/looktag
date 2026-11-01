@@ -2,7 +2,10 @@ import { randomHex } from "./model.ts";
 import type { Attributes } from "./model.ts";
 import { emitLog, startSpan } from "./runtime.ts";
 import { spanParent } from "./span-context.server.ts";
-import { formatTraceparent, parseTraceparent } from "./traceparent.ts";
+import { flagsForSampled, formatTraceparent, parseTraceparent } from "./traceparent.ts";
+import { effectiveSampleRatio, headSampleDecision } from "./sampling.ts";
+import { TELEMETRY_REQUEST_HEADER } from "./client-fetch.ts";
+import type { ResourceEnv } from "./resource.ts";
 import {
   appSpanAttributes,
   authStateFromCookie,
@@ -21,6 +24,10 @@ export type RequestTraceInput = {
   /** Test hook. When set, skip the settings read. */
   flags?: Record<string, boolean>;
   skipFlags?: boolean;
+  /** Test hook. Defaults to process.env. */
+  env?: ResourceEnv;
+  /** Test hook for the head sampler. */
+  random?: () => number;
 };
 
 let flagCache: { at: number; flags: Record<string, boolean> } | null = null;
@@ -79,14 +86,24 @@ function requestError(method: string, route: string, status: number, traceId: st
 
 /**
  * One server span per request. An incoming traceparent is the parent, so the
- * browser span and this span share a trace id. The response always carries
- * traceparent and X-Request-Id. Headers, cookies, and the body are not recorded.
+ * browser span and this span share a trace id. The response traceparent uses
+ * the sampling decision: the parent's sampled flag when one was sent, otherwise
+ * the head ratio. 5xx still forces the trace to be kept, and the flag matches.
+ * Telemetry uploads are not spans. Headers, cookies, and the body are not recorded.
  */
 export async function runRequestTrace(input: RequestTraceInput, next: () => Promise<unknown> | unknown): Promise<unknown> {
+  if (input.headers.get(TELEMETRY_REQUEST_HEADER) === "1") return next();
   const method = (input.method || "GET").toUpperCase();
   const route = routeTemplate(input.path || "/");
   const serverFn = serverFnName(input.path || "/");
   const incoming = parseTraceparent(input.headers.get("traceparent"));
+  const env = input.env ?? (typeof process !== "undefined" ? process.env : {});
+  const ratio = effectiveSampleRatio(1, env);
+  let sampled = headSampleDecision({
+    incomingFlags: incoming?.flags,
+    ratio,
+    random: input.random,
+  });
   const requestId = requestIdFromHeader(input.headers.get("x-request-id"), randomHex(16));
   const app = appSpanAttributes({
     route,
@@ -106,6 +123,7 @@ export async function runRequestTrace(input: RequestTraceInput, next: () => Prom
     traceId: incoming?.traceId,
     parentSpanId: incoming?.spanId,
     traceRoot: true,
+    sampled,
     attributes,
   });
   const parentAttrs: Attributes = { ...app };
@@ -128,12 +146,17 @@ export async function runRequestTrace(input: RequestTraceInput, next: () => Prom
     const status = result instanceof Response ? result.status : 200;
     span.setAttribute("http.status_code", status);
     if (status >= 500) {
+      sampled = true;
       span.setStatus("ERROR", `HTTP ${status}`);
       requestError(method, route, status, span.traceId, span.spanId, requestId);
     }
+    span.setSampled(sampled);
     span.end();
-    return withTraceHeaders(result, formatTraceparent({ traceId: span.traceId, spanId: span.spanId }), requestId);
+    const flags = flagsForSampled(sampled, incoming?.flags);
+    return withTraceHeaders(result, formatTraceparent({ traceId: span.traceId, spanId: span.spanId, flags }), requestId);
   } catch (error) {
+    sampled = true;
+    span.setSampled(sampled);
     span.setAttribute("http.status_code", 500);
     span.setStatus("ERROR");
     requestError(method, route, 500, span.traceId, span.spanId, requestId);
