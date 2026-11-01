@@ -70,7 +70,7 @@ export async function ensureAdminUser(sql: Sql): Promise<void> {
 }
 
 const NO_ADMIN_WARNING =
-  "[looktag] No verified admin. Set ADMIN_EMAILS to a comma-separated list of Google accounts. Email/password sign-ups are never admin.";
+  "[looktag] No verified admin. Set ADMIN_EMAILS to a comma-separated list of Google accounts. Email/password sign-ups are never admin (only the opt-in ADMIN_BOOTSTRAP_PASSWORD+ADMIN_BOOTSTRAP=1 account is).";
 
 /**
  * Startup hint when nobody has configured an admin and no verified allowlisted
@@ -84,9 +84,12 @@ export async function warnIfNoAdminConfigured(
   try {
     const status = adminConfigStatus(env);
     if (status.explicit || status.bootstrap) return;
-    const allowlist = new Set(adminEmailAllowlist(env));
+    const list = adminEmailAllowlist(env);
+    const allowlist = new Set(list);
     const rows = await sql<{ email: string | null; emailVerified: boolean | null }>`
       select email, "emailVerified" from "user"
+      where lower(email) = any(string_to_array(${list.join(",")}, ',')) and "emailVerified" = true
+      limit 1
     `;
     const verified = rows.some((row) => {
       const email = (row.email ?? "").trim().toLowerCase();

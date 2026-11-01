@@ -113,21 +113,34 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 Shop API keys (Brave, Google cx) stay on the device in Catalog — they are not
 written to the database.
 
-### Admin access on Render
+### Admin access
 
-Admin is not a role column. It is an allowlist of **verified** email addresses.
-
-On the Render service, set runtime env (not only the build):
+Admin is not a role column. It is an allowlist of **verified** email addresses,
+read from the server's runtime environment (any host: set it wherever your
+platform keeps runtime env vars, not only build vars, then restart/redeploy).
 
 ```sh
-ADMIN_EMAILS=hello@thelooktag.com,ops@example.com
+ADMIN_EMAILS=yashtatsme@ymail.com,ops@example.com   # comma-separated, case-insensitive
+# ADMIN_EMAIL optional (bootstrap mailbox, default hello@thelooktag.com)
+# ADMIN_BOOTSTRAP / ADMIN_BOOTSTRAP_PASSWORD: leave UNSET (fallback only)
 ```
 
-`ADMIN_EMAIL` is optional. It sets the one bootstrap mailbox and is added to the same allowlist. When neither variable is set, the allowlist is `hello@thelooktag.com`.
+The allowlist is `ADMIN_EMAILS` **plus** the `ADMIN_EMAIL` mailbox (default
+`hello@thelooktag.com`, always included). Removing an address and restarting
+revokes admin (existing sessions may keep a cached session for up to 5 minutes).
 
-Admins sign in with **Google** using a listed address. Google marks that email verified, which is what the server gate checks. Email/password sign-ups never get admin, even if the address is on the list, because those accounts are not verified.
+Admins sign in with **Google or Apple** using a listed address. The server gate
+requires a verified email **and no email/password credential on the account**,
+so email/password sign-ups never get admin, even after a later Google sign-in
+links onto the same user. The only password admin is the opt-in bootstrap user
+below. Changing your email in the profile clears its verified flag.
 
-If nothing explicit is set, bootstrap is off, and no verified allowlisted user exists, the server logs how to set `ADMIN_EMAILS`. It does not print passwords or mailbox values.
+Only the `ADMIN_EMAIL` bootstrap mailbox may use the email sign-in form when
+email sign-in is disabled; `ADMIN_EMAILS` admins cannot.
+
+If nothing explicit is set, bootstrap is off, and no verified allowlisted user
+exists, the server logs a warning on startup explaining how to set
+`ADMIN_EMAILS`. It never prints passwords.
 
 ### Admin bootstrap (secure)
 
