@@ -100,7 +100,8 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 | `GROK_AUTH_ISSUER` | Grok auth broker issuer | Recommended | `https://auth.grok.me` |
 | `GROK_AUTH_CLIENT_ID` | Per-app broker client id | **Yes** outside sandbox | Shared preview client |
 | `GROK_AUTH_CLIENT_SECRET` | Per-app broker client secret | **Yes** outside sandbox | Shared preview client |
-| `ADMIN_EMAIL` | Admin mailbox for bootstrap / checks | Optional | `admin@looktag.studio` |
+| `ADMIN_EMAIL` | Single admin mailbox (allowlist and bootstrap) | Optional | `hello@thelooktag.com` |
+| `ADMIN_EMAILS` | Extra admin mailboxes, comma-separated | Optional | the `ADMIN_EMAIL` default |
 | `ADMIN_BOOTSTRAP_PASSWORD` | One-time admin bootstrap password | Only when bootstrapping | No admin user is seeded |
 | `ADMIN_BOOTSTRAP` | Explicit bootstrap flag | **Required with password in production** | Bootstrap disabled in production |
 | `XAI_API_KEY` | Grok shop search and look suggestions | Optional | Engines that do not need a key |
@@ -112,13 +113,43 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 Shop API keys (Brave, Google cx) stay on the device in Catalog — they are not
 written to the database.
 
+### Admin access
+
+Admin is not a role column. It is an allowlist of **verified** email addresses,
+read from the server's runtime environment (any host: set it wherever your
+platform keeps runtime env vars, not only build vars, then restart/redeploy).
+
+```sh
+ADMIN_EMAILS=yashtatsme@ymail.com,ops@example.com   # comma-separated, case-insensitive
+# ADMIN_EMAIL optional (bootstrap mailbox, default hello@thelooktag.com)
+# ADMIN_BOOTSTRAP / ADMIN_BOOTSTRAP_PASSWORD: leave UNSET (fallback only)
+```
+
+The allowlist is `ADMIN_EMAILS` **plus** the `ADMIN_EMAIL` mailbox (default
+`hello@thelooktag.com`, always included). Removing an address and restarting
+revokes admin (existing sessions may keep a cached session for up to 5 minutes).
+
+Admins sign in with **Google or Apple** using a listed address. The server gate
+requires a verified email **and no email/password credential on the account**,
+so email/password sign-ups never get admin, even after a later Google sign-in
+links onto the same user. The only password admin is the opt-in bootstrap user
+below. Changing your email in the profile clears its verified flag.
+
+Only the `ADMIN_EMAIL` bootstrap mailbox may use the email sign-in form when
+email sign-in is disabled; `ADMIN_EMAILS` admins cannot.
+
+If nothing explicit is set, bootstrap is off, and no verified allowlisted user
+exists, the server logs a warning on startup explaining how to set
+`ADMIN_EMAILS`. It never prints passwords.
+
 ### Admin bootstrap (secure)
 
 System settings are on `/admin`, not on You. There is **no default admin
 password** in source. Provision once with env:
 
 ```sh
-export ADMIN_EMAIL='admin@looktag.studio'          # optional override
+export ADMIN_EMAIL='hello@thelooktag.com'          # optional override
+export ADMIN_EMAILS='hello@thelooktag.com'         # Google accounts that should be admin
 export ADMIN_BOOTSTRAP_PASSWORD='a-long-random-secret'
 export ADMIN_BOOTSTRAP=1                           # required when NODE_ENV=production
 ```

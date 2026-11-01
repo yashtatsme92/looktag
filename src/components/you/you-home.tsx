@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { signOut } from "@/lib/auth/client";
 import type { AppUser } from "@/lib/auth/use-current-user";
-import { isAdminEmail } from "@/lib/admin/access";
+import { useAdminStatus } from "@/lib/admin/admin-status";
 import { resetFeedTuning } from "@/lib/home/follows";
 import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
 import { useSavedLooks } from "@/lib/looks/saved";
@@ -175,6 +175,7 @@ function DraftsPane({ draft }: { draft: DraftCard | null }) {
 }
 
 function ProfilePane({ user, onSignIn }: { user: AppUser | null; onSignIn: () => void }) {
+  const isAdmin = useAdminStatus(user?.id) === "admin";
   if (!user) {
     return (
       <div className="you-empty">
@@ -200,7 +201,7 @@ function ProfilePane({ user, onSignIn }: { user: AppUser | null; onSignIn: () =>
       </span>
       <p className="you-profile-name">{name}</p>
       {user.primaryEmail ? <p className="you-profile-mail">{user.primaryEmail}</p> : null}
-      {isAdminEmail(user.primaryEmail) ? (
+      {isAdmin ? (
         <Link to="/admin" className="you-admin">
           Admin
         </Link>

@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { isAdminEmail } from "@/lib/admin/access";
+import { useAdminStatus } from "@/lib/admin/admin-status";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { FEED_FEATURES, feedModulesNote } from "@/lib/home/engagement";
 import { FEATURE_FLAGS, flagStatus } from "@/lib/settings/flags";
@@ -206,9 +206,11 @@ export function AdminGate({ children }: { children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const showSkeleton = useSkeletonAfter(isPending);
+  const adminStatus = useAdminStatus(user?.id);
+  const checking = isPending || (Boolean(user) && adminStatus === "pending");
+  const showSkeleton = useSkeletonAfter(checking);
 
-  if (isPending) {
+  if (checking) {
     return (
       <AppShell title="Admin" backTo="/">
         {showSkeleton ? <Skeleton className="h-48 rounded-xl" /> : null}
@@ -237,7 +239,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isAdminEmail(user.primaryEmail)) {
+  if (adminStatus !== "admin") {
     return (
       <SessionSplit>
         <AppShell title="Admin" backTo="/" header="hidden">

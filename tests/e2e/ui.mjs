@@ -1746,7 +1746,7 @@ async function flowSaveResume(page, label, path) {
     JSON.stringify({ url: page.url(), beforeContinue, pendingAtLogin }),
   );
   const { email, password } = resolveAdminCredentials();
-  await page.locator("#creator-email").fill(email.toLowerCase() === "admin@looktag.studio" ? "admin" : email);
+  await page.locator("#creator-email").fill(email.toLowerCase() === "hello@thelooktag.com" ? "admin" : email);
   await page.locator("#creator-password").fill(password);
   await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
   await page.waitForURL((url) => url.pathname + url.search === path, { timeout: 20_000 });
@@ -1804,7 +1804,7 @@ async function flowYouSignInReturn(page, label, pane = "Saved") {
   await continueLink.click();
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
   const { email, password } = resolveAdminCredentials();
-  await page.locator("#creator-email").fill(email.toLowerCase() === "admin@looktag.studio" ? "admin" : email);
+  await page.locator("#creator-email").fill(email.toLowerCase() === "hello@thelooktag.com" ? "admin" : email);
   await page.locator("#creator-password").fill(password);
   await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
   await page.waitForURL((url) => url.pathname === "/login" && !url.searchParams.has("next"), { timeout: 20_000 });
@@ -1833,7 +1833,7 @@ async function flowShopWholePhoneFlag(page) {
   await goto(page, `/login?next=${encodeURIComponent("/admin")}`);
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
   const { email, password } = resolveAdminCredentials();
-  await page.locator("#creator-email").fill(email.toLowerCase() === "admin@looktag.studio" ? "admin" : email);
+  await page.locator("#creator-email").fill(email.toLowerCase() === "hello@thelooktag.com" ? "admin" : email);
   await page.locator("#creator-password").fill(password);
   await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
   await page.waitForURL((url) => url.pathname === "/admin", { timeout: 20_000 });

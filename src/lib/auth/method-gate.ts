@@ -1,5 +1,5 @@
 import { APIError } from "better-auth/api";
-import { isAdminEmail } from "../admin/access.ts";
+import { isAdminPasswordSignInEmail } from "../admin/access.ts";
 import type { AppSettings } from "../settings/model";
 
 export type SignInMethod = "email" | "google" | "apple" | "x";
@@ -85,7 +85,7 @@ export function enforceSignInMethod(
     method === "email" &&
     endpoint === "/sign-in/email" &&
     typeof payload.email === "string" &&
-    isAdminEmail(payload.email)
+    isAdminPasswordSignInEmail(payload.email)
   ) {
     return;
   }

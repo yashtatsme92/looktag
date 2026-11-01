@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { DEFAULT_ADMIN_EMAIL, LEGACY_ADMIN_EMAIL } from "../admin/access.ts";
 import { DEFAULT_SETTINGS } from "../settings/model.ts";
 import { enforceSignInMethod, methodForAuthRequest } from "./method-gate.ts";
 
@@ -79,9 +80,52 @@ describe("enforceSignInMethod", () => {
     assert.doesNotThrow(() =>
       enforceSignInMethod(
         "/sign-in/email",
-        { email: "admin@looktag.studio" },
+        { email: DEFAULT_ADMIN_EMAIL },
         { ...DEFAULT_SETTINGS, signupEmail: false },
       ),
+    );
+  });
+
+  it("does not let an allowlisted address sign up when email sign-up is disabled", () => {
+    assert.throws(
+      () =>
+        enforceSignInMethod(
+          "/sign-up/email",
+          { email: DEFAULT_ADMIN_EMAIL },
+          { ...DEFAULT_SETTINGS, signupEmail: false },
+        ),
+      /Sign-in method disabled: email/,
+    );
+  });
+
+  it("does not let ADMIN_EMAILS members bypass a disabled email sign-in", () => {
+    const previous = process.env.ADMIN_EMAILS;
+    process.env.ADMIN_EMAILS = "ops@example.test";
+    try {
+      assert.throws(
+        () =>
+          enforceSignInMethod(
+            "/sign-in/email",
+            { email: "Ops@Example.test" },
+            { ...DEFAULT_SETTINGS, signupEmail: false },
+          ),
+        /Sign-in method disabled: email/,
+      );
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_EMAILS;
+      else process.env.ADMIN_EMAILS = previous;
+    }
+  });
+
+  it("does not treat the legacy mailbox as an admin sign-in bypass", () => {
+    assert.throws(
+      () =>
+        enforceSignInMethod(
+          "/sign-in/email",
+          { email: LEGACY_ADMIN_EMAIL },
+          { ...DEFAULT_SETTINGS, signupEmail: false },
+        ),
+      /Sign-in method disabled: email/,
     );
   });
 

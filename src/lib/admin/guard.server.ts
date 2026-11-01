@@ -1,6 +1,6 @@
 import { getSessionUser, UnauthorizedError, type VerifiedUser } from "@/lib/auth/verify.server";
 import { assertSameSiteRequest } from "@/lib/auth/isolation.server";
-import { isAdminEmail } from "./access";
+import { isAdminUser } from "./access";
 
 export class ForbiddenError extends Error {
   readonly status = 403;
@@ -13,8 +13,23 @@ export class ForbiddenError extends Error {
 export async function requireAdmin(bearerToken?: string): Promise<VerifiedUser> {
   const user = await getSessionUser(bearerToken);
   if (!user) throw new UnauthorizedError();
-  if (!isAdminEmail(user.email)) throw new ForbiddenError();
+  if (!(await isAdminSessionUser(user))) throw new ForbiddenError();
   return user;
+}
+
+/** Server-side admin check for an already-resolved session user. Never throws on "not admin". */
+export async function isAdminSessionUser(user: VerifiedUser | null): Promise<boolean> {
+  if (!user) return false;
+  // Cheap env checks first so non-admins never hit the database.
+  if (!isAdminUser({ ...user, hasPassword: false })) return false;
+  const { getSql } = await import("@/lib/db");
+  const sql = await getSql();
+  const rows = await sql<{ id: string }>`
+    select id from "account"
+    where "userId" = ${user.id} and "providerId" = 'credential'
+    limit 1
+  `;
+  return isAdminUser({ ...user, hasPassword: Boolean(rows[0]) });
 }
 
 /**

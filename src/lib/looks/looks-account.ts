@@ -106,6 +106,14 @@ export const updateMyProfile = createServerFn({ method: "POST" })
         where id = ${context.userId}
       `;
       if (email !== current.email) {
+        // A new address has not been verified by anyone. Keeping the old flag
+        // would let a squatter become admin if the address is allowlisted later.
+        await sql`
+          update "user" set "emailVerified" = false, "updatedAt" = ${now}
+          where id = ${context.userId}
+        `;
+      }
+      if (email !== current.email) {
         await sql`
           update "account"
           set "accountId" = ${email}, "updatedAt" = ${now}

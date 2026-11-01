@@ -47,8 +47,8 @@ Admin is **not** seeded with a default password. For Studio / admin e2e flows:
 
 ```sh
 export ADMIN_BOOTSTRAP_PASSWORD='choose-a-local-secret'
-# optional override (defaults to admin@looktag.studio)
-export ADMIN_EMAIL='admin@looktag.studio'
+# optional override (defaults to hello@thelooktag.com)
+export ADMIN_EMAIL='hello@thelooktag.com'
 # required when NODE_ENV=production
 # export ADMIN_BOOTSTRAP=1
 sh scripts/dev.sh --background

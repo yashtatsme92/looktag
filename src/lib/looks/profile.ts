@@ -1,4 +1,5 @@
 import { parseHandle } from "./handle.ts";
+import { DEFAULT_ADMIN_EMAIL } from "../admin/access.ts";
 
 export type ProfileFields = {
   name: string;
@@ -42,7 +43,7 @@ export function parseProfileFields(input: {
       ok: true,
       value: {
         name,
-        email: "admin@looktag.studio",
+        email: DEFAULT_ADMIN_EMAIL,
         handle: parsedHandle.value,
         city,
         bio,
