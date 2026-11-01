@@ -98,6 +98,25 @@ describe("enforceSignInMethod", () => {
     );
   });
 
+  it("does not let ADMIN_EMAILS members bypass a disabled email sign-in", () => {
+    const previous = process.env.ADMIN_EMAILS;
+    process.env.ADMIN_EMAILS = "ops@example.test";
+    try {
+      assert.throws(
+        () =>
+          enforceSignInMethod(
+            "/sign-in/email",
+            { email: "Ops@Example.test" },
+            { ...DEFAULT_SETTINGS, signupEmail: false },
+          ),
+        /Sign-in method disabled: email/,
+      );
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_EMAILS;
+      else process.env.ADMIN_EMAILS = previous;
+    }
+  });
+
   it("does not treat the legacy mailbox as an admin sign-in bypass", () => {
     assert.throws(
       () =>

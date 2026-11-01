@@ -85,14 +85,39 @@ export function isAdminEmail(email: string | null | undefined, env: Env = defaul
 }
 
 export type AdminUserLike = {
+  id?: string | null;
   email?: string | null;
   emailVerified?: boolean | null;
+  /**
+   * The user row has a `credential` (email/password) account. Better-auth can
+   * link a verified OAuth sign-in onto an unverified password user and flip
+   * `emailVerified` to true, so a password account is never trusted for admin
+   * unless it is the bootstrap row ({@link ADMIN_USER_ID}).
+   */
+  hasPassword?: boolean | null;
 };
 
-/** Authoritative admin check: allowlisted and verified. Email/password sign-ups are not. */
+/**
+ * Authoritative admin check: allowlisted, verified, and not a password account
+ * (except the env-gated bootstrap admin). Email/password sign-ups are never admin.
+ */
 export function isAdminUser(user: AdminUserLike | null | undefined, env: Env = defaultEnv()): boolean {
   if (!user || user.emailVerified !== true) return false;
+  if (user.hasPassword !== false && user.id !== ADMIN_USER_ID) return false;
   return isAdminEmail(user.email, env);
+}
+
+/**
+ * Whether `/sign-in/email` may bypass a disabled email sign-in method. Only the
+ * bootstrap mailbox (`ADMIN_EMAIL` or the default) qualifies; `ADMIN_EMAILS`
+ * admins sign in with Google/Apple.
+ */
+export function isAdminPasswordSignInEmail(
+  email: string | null | undefined,
+  env: Env = defaultEnv(),
+): boolean {
+  const value = (email ?? "").trim().toLowerCase();
+  return Boolean(value) && value === resolveAdminEmail(env).trim().toLowerCase();
 }
 
 export type AdminConfigStatus = {

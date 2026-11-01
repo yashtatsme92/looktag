@@ -2,11 +2,13 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { Sql } from "../db.ts";
 import {
+  ADMIN_USER_ID,
   DEFAULT_ADMIN_EMAIL,
   LEGACY_ADMIN_EMAIL,
   adminConfigStatus,
   adminEmailAllowlist,
   isAdminEmail,
+  isAdminPasswordSignInEmail,
   isAdminUser,
   normalizeLoginEmail,
   parseAdminEmails,
@@ -93,7 +95,46 @@ describe("isAdminUser", () => {
     assert.equal(isAdminUser({ email: DEFAULT_ADMIN_EMAIL }, {}), false);
     assert.equal(isAdminUser({ email: "you@email.com", emailVerified: true }, {}), false);
     assert.equal(isAdminUser({ email: LEGACY_ADMIN_EMAIL, emailVerified: true }, {}), false);
-    assert.equal(isAdminUser({ email: "Hello@TheLookTag.com", emailVerified: true }, {}), true);
+    assert.equal(
+      isAdminUser({ email: "Hello@TheLookTag.com", emailVerified: true, hasPassword: false }, {}),
+      true,
+    );
+  });
+
+  it("never trusts a password account linked to a verified provider (takeover path)", () => {
+    // Attacker signs up with a password for an allowlisted mailbox; the real
+    // owner's Google sign-in links onto that row and flips emailVerified=true.
+    const env = { ADMIN_EMAILS: " Boss@Example.test , ops@example.test ,," };
+    const linked = { id: "u-attacker", email: "boss@example.test", emailVerified: true, hasPassword: true };
+    assert.equal(isAdminUser(linked, env), false);
+    // Unknown credential state fails closed.
+    assert.equal(isAdminUser({ id: "u1", email: "boss@example.test", emailVerified: true }, env), false);
+    // OAuth-only verified user on the allowlist is admin.
+    assert.equal(
+      isAdminUser({ id: "u2", email: "Ops@example.test", emailVerified: true, hasPassword: false }, env),
+      true,
+    );
+  });
+
+  it("keeps the env-gated bootstrap password account as admin", () => {
+    assert.equal(
+      isAdminUser({ id: ADMIN_USER_ID, email: DEFAULT_ADMIN_EMAIL, emailVerified: true, hasPassword: true }, {}),
+      true,
+    );
+    assert.equal(
+      isAdminUser({ id: ADMIN_USER_ID, email: DEFAULT_ADMIN_EMAIL, emailVerified: false, hasPassword: true }, {}),
+      false,
+    );
+  });
+});
+
+describe("isAdminPasswordSignInEmail", () => {
+  it("only matches the bootstrap mailbox, not ADMIN_EMAILS", () => {
+    const env = { ADMIN_EMAILS: "ops@example.test" };
+    assert.equal(isAdminPasswordSignInEmail(" Hello@TheLookTag.com ", env), true);
+    assert.equal(isAdminPasswordSignInEmail("ops@example.test", env), false);
+    assert.equal(isAdminPasswordSignInEmail("ops@example.test", { ADMIN_EMAIL: "ops@example.test" }), true);
+    assert.equal(isAdminPasswordSignInEmail("", env), false);
   });
 });
 
