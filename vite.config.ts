@@ -1,4 +1,5 @@
-import { readdirSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
@@ -15,6 +16,7 @@ import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 import { resolveNitroPreset, shouldCopyPgliteAssets } from "./scripts/nitro-preset.mjs";
 import { rewriteBakedPreviewEnvModule } from "./src/lib/auth/preview.ts";
+import { readPackageVersion, resolveBuildCommit, shortCommit } from "./src/lib/build-commit.ts";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -194,6 +196,34 @@ function authPopupPlugin(): Plugin {
   };
 }
 
+function gitHead(): string {
+  try {
+    return execSync("git rev-parse HEAD", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Same values in the client and server bundles. Version tracks package.json
+ * (bump it with the release tag). Commit is the short host SHA.
+ */
+function buildDefine(): Record<string, string> {
+  const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
+    version?: unknown;
+  };
+  const version = readPackageVersion(pkg);
+  const commit = shortCommit(resolveBuildCommit(process.env, gitHead()));
+  return {
+    __APP_VERSION__: JSON.stringify(version),
+    __APP_COMMIT__: JSON.stringify(commit),
+    __APP_BUILT_AT__: JSON.stringify(new Date().toISOString()),
+  };
+}
+
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
@@ -209,6 +239,7 @@ export default defineConfig(({ command, isPreview }) => ({
     strictPort: true,
   },
   resolve: { tsconfigPaths: true },
+  define: buildDefine(),
   plugins: [
     pgliteBootstrapPlugin(),
     {

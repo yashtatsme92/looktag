@@ -14,6 +14,7 @@
  *   This must be a middleware transforming `next()`: h3 discards the `response`
  *   runtime hook's return value, and `render:html` does not exist in Nitro v3.
  */
+import { appVersionHeader } from "../../src/lib/build-info";
 import installPageTemplate from "../../scripts/install-page.html?raw";
 import { grokOgIdentity } from "virtual:grok-og-identity";
 import {
@@ -60,7 +61,37 @@ function injectHeadStreaming(response: Response, host: string): Response {
   });
 }
 
+function withAppVersion(result: unknown): unknown {
+  if (!(result instanceof Response)) return result;
+  const value = appVersionHeader();
+  try {
+    result.headers.set("X-App-Version", value);
+    return result;
+  } catch {
+    const headers = new Headers(result.headers);
+    headers.set("X-App-Version", value);
+    const cookies =
+      typeof result.headers.getSetCookie === "function" ? result.headers.getSetCookie() : [];
+    if (cookies.length > 1) {
+      headers.delete("set-cookie");
+      for (const cookie of cookies) headers.append("set-cookie", cookie);
+    }
+    return new Response(result.body, {
+      status: result.status,
+      statusText: result.statusText,
+      headers,
+    });
+  }
+}
+
 export default async function grokPwaMiddleware(
+  event: GrokPwaEvent,
+  next: () => unknown | Promise<unknown>,
+): Promise<unknown> {
+  return withAppVersion(await grokPwaMiddlewareImpl(event, next));
+}
+
+async function grokPwaMiddlewareImpl(
   event: GrokPwaEvent,
   next: () => unknown | Promise<unknown>,
 ): Promise<unknown> {

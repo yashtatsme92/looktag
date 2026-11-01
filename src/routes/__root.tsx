@@ -1,5 +1,11 @@
 import { useEffect } from "react";
-import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
+import {
+  createRootRoute,
+  HeadContent,
+  Outlet,
+  Scripts,
+  useRouterState,
+} from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
@@ -12,7 +18,13 @@ import { ViewportLock } from "@/components/layout/viewport-lock";
 import { parseThemeId, DEFAULT_THEME, readStoredTheme } from "@/lib/design/themes";
 import { withTimeout } from "@/lib/login-next";
 import { APP_VIEWPORT } from "@/lib/pwa/viewport";
-import { DEFAULT_SPLASH, EARLY_CHROME_SCRIPT, parseSplashId, readStoredSplash } from "@/lib/pwa/splash";
+import { appBuiltAt, appCommit, appVersion } from "@/lib/build-info";
+import {
+  DEFAULT_SPLASH,
+  EARLY_CHROME_SCRIPT,
+  parseSplashId,
+  readStoredSplash,
+} from "@/lib/pwa/splash";
 import appCss from "../styles.css?url";
 import phase1aCss from "../styles.phase1-a.css?url";
 
@@ -92,6 +104,9 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-title", content: APP_NAME },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "format-detection", content: "telephone=no" },
+      { name: "app-version", content: appVersion },
+      { name: "app-commit", content: appCommit },
+      { name: "app-built-at", content: appBuiltAt },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -203,7 +218,8 @@ function RootDocument() {
           mobileOffset="var(--toast-offset)"
           toastOptions={{
             classNames: {
-              toast: "bg-card text-card-foreground border-border font-sans shadow-[var(--shadow-border-hover)]",
+              toast:
+                "bg-card text-card-foreground border-border font-sans shadow-[var(--shadow-border-hover)]",
             },
           }}
         />

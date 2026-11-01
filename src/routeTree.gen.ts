@@ -25,6 +25,7 @@ import { Route as AdminLookRouteImport } from './routes/admin_.look'
 import { Route as AdminObservabilityRouteImport } from './routes/admin_.observability'
 import { Route as AdminShopsRouteImport } from './routes/admin_.shops'
 import { Route as AdminStudioRouteImport } from './routes/admin_.studio'
+import { Route as ApiVersionRouteImport } from './routes/api/version'
 import { Route as CreatorsUserIdRouteImport } from './routes/creators.$userId'
 import { Route as HousesLabelIdRouteImport } from './routes/houses_.$labelId'
 import { Route as HousesApplyRouteImport } from './routes/houses_.apply'
@@ -115,6 +116,11 @@ const AdminStudioRoute = AdminStudioRouteImport.update({
   path: '/admin/studio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVersionRoute = ApiVersionRouteImport.update({
+  id: '/api/version',
+  path: '/api/version',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CreatorsUserIdRoute = CreatorsUserIdRouteImport.update({
   id: '/creators/$userId',
   path: '/creators/$userId',
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/admin/observability': typeof AdminObservabilityRoute
   '/admin/shops': typeof AdminShopsRoute
   '/admin/studio': typeof AdminStudioRoute
+  '/api/version': typeof ApiVersionRoute
   '/creators/$userId': typeof CreatorsUserIdRoute
   '/houses/$labelId': typeof HousesLabelIdRoute
   '/houses/apply': typeof HousesApplyRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/admin/observability': typeof AdminObservabilityRoute
   '/admin/shops': typeof AdminShopsRoute
   '/admin/studio': typeof AdminStudioRoute
+  '/api/version': typeof ApiVersionRoute
   '/creators/$userId': typeof CreatorsUserIdRoute
   '/houses/$labelId': typeof HousesLabelIdRoute
   '/houses/apply': typeof HousesApplyRoute
@@ -235,6 +243,7 @@ export interface FileRoutesById {
   '/admin_/observability': typeof AdminObservabilityRoute
   '/admin_/shops': typeof AdminShopsRoute
   '/admin_/studio': typeof AdminStudioRoute
+  '/api/version': typeof ApiVersionRoute
   '/creators/$userId': typeof CreatorsUserIdRoute
   '/houses_/$labelId': typeof HousesLabelIdRoute
   '/houses_/apply': typeof HousesApplyRoute
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
     | '/admin/observability'
     | '/admin/shops'
     | '/admin/studio'
+    | '/api/version'
     | '/creators/$userId'
     | '/houses/$labelId'
     | '/houses/apply'
@@ -291,6 +301,7 @@ export interface FileRouteTypes {
     | '/admin/observability'
     | '/admin/shops'
     | '/admin/studio'
+    | '/api/version'
     | '/creators/$userId'
     | '/houses/$labelId'
     | '/houses/apply'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/admin_/observability'
     | '/admin_/shops'
     | '/admin_/studio'
+    | '/api/version'
     | '/creators/$userId'
     | '/houses_/$labelId'
     | '/houses_/apply'
@@ -346,6 +358,7 @@ export interface RootRouteChildren {
   AdminObservabilityRoute: typeof AdminObservabilityRoute
   AdminShopsRoute: typeof AdminShopsRoute
   AdminStudioRoute: typeof AdminStudioRoute
+  ApiVersionRoute: typeof ApiVersionRoute
   CreatorsUserIdRoute: typeof CreatorsUserIdRoute
   HousesLabelIdRoute: typeof HousesLabelIdRoute
   HousesApplyRoute: typeof HousesApplyRoute
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminStudioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/version': {
+      id: '/api/version'
+      path: '/api/version'
+      fullPath: '/api/version'
+      preLoaderRoute: typeof ApiVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/creators/$userId': {
       id: '/creators/$userId'
       path: '/creators/$userId'
@@ -554,6 +574,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminObservabilityRoute: AdminObservabilityRoute,
   AdminShopsRoute: AdminShopsRoute,
   AdminStudioRoute: AdminStudioRoute,
+  ApiVersionRoute: ApiVersionRoute,
   CreatorsUserIdRoute: CreatorsUserIdRoute,
   HousesLabelIdRoute: HousesLabelIdRoute,
   HousesApplyRoute: HousesApplyRoute,
