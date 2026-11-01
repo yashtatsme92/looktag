@@ -333,7 +333,8 @@ export function mergeExtrasJson(raw: unknown, settings: AppSettings): string {
   });
 }
 
-export function mergeSettings(current: AppSettings, patch: Partial<AppSettings>): AppSettings {
+/** Patch applied with signupOff updated from the social switches; no guard. */
+export function withSignupPatch(current: AppSettings, patch: Partial<AppSettings>): AppSettings {
   const next = parseSettings({ ...current, ...patch });
   const off = new Set(next.signupOff ? next.signupOff.split(",") : []);
   for (const method of SOCIAL_METHODS) {
@@ -342,7 +343,21 @@ export function mergeSettings(current: AppSettings, patch: Partial<AppSettings>)
     if (value === true) off.delete(method);
   }
   next.signupOff = SOCIAL_METHODS.filter((id) => off.has(id)).join(",");
-  if (!hasSignupMethod(next)) return current;
+  return next;
+}
+
+/**
+ * Apply an admin patch. A social switch set to false is recorded in signupOff
+ * (explicit off, survives credential changes); set to true removes it. With
+ * `providers`, the "at least one method on" guard uses effective flags.
+ */
+export function mergeSettings(
+  current: AppSettings,
+  patch: Partial<AppSettings>,
+  providers?: ProviderAvailability,
+): AppSettings {
+  const next = withSignupPatch(current, patch);
+  if (!hasSignupMethod(next, providers)) return current;
   return next;
 }
 
@@ -368,9 +383,19 @@ export function pickSettingsPatch(input: Partial<AppSettings>): Partial<AppSetti
   return next;
 }
 
+/**
+ * True when at least one sign-up method is on. Pass `providers` to judge
+ * social methods by their effective state (configured, not switched off).
+ */
 export function hasSignupMethod(
-  settings: Pick<AppSettings, "signupEmail" | "signupGoogle" | "signupApple" | "signupX">,
+  settings: Pick<AppSettings, "signupEmail" | "signupGoogle" | "signupApple" | "signupX"> &
+    Partial<Pick<AppSettings, "signupOff">>,
+  providers?: ProviderAvailability,
 ): boolean {
+  if (providers) {
+    const withOff = { ...settings, signupOff: settings.signupOff ?? "" };
+    return settings.signupEmail || SOCIAL_METHODS.some((m) => effectiveSocialEnabled(withOff, m, providers));
+  }
   return settings.signupEmail || settings.signupGoogle || settings.signupApple || settings.signupX;
 }
 

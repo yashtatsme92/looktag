@@ -38,6 +38,7 @@ import type { OptimisticPhase } from "@/lib/loading/optimistic";
 import { settleLoad } from "@/lib/loading/test-delay";
 import {
   hasSignupMethod,
+  withSignupPatch,
   type AppSettings,
   type SearchEngineId,
 } from "@/lib/settings/model";
@@ -99,8 +100,9 @@ function StudioAdmin() {
 
   async function patch(next: Partial<AppSettings>) {
     const changes = next;
-    const merged = { ...settings, ...changes };
-    if (!hasSignupMethod(merged)) {
+    // Judge by effective flags: a stored "on" for an unconfigured provider is not a way in.
+    const merged = withSignupPatch(settings, changes);
+    if (!hasSignupMethod(merged, settings.providers)) {
       toast.error("Leave at least one sign-up method on.");
       return;
     }

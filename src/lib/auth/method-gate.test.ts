@@ -205,4 +205,18 @@ describe("server provider availability", () => {
     assert.equal(shown.signupApple, false);
     assert.equal(shown.providers.google.credentials, true);
   });
+
+  it("does not count the shared broker as configured without GROK_AUTH_ISSUER", () => {
+    const none = serverProviderAvailability({});
+    assert.equal(none.apple.broker, false);
+    assert.equal(none.x.broker, false);
+    const issuer = serverProviderAvailability({ GROK_AUTH_ISSUER: "https://auth.example.test" });
+    assert.equal(issuer.apple.broker, true);
+    assert.equal(issuer.x.broker, true);
+    // A stored "on" for an unconfigured provider is not offered.
+    const storedOn = { ...DEFAULT_SETTINGS, signupApple: true, signupX: true };
+    const shown = publicSignInSettings(storedOn, {});
+    assert.equal(shown.signupApple, false);
+    assert.equal(shown.signupX, false);
+  });
 });

@@ -262,3 +262,32 @@ describe("effectiveSocialEnabled", () => {
     assert.deepEqual([next.signupGoogle, next.signupApple, next.signupX], [true, false, false]);
   });
 });
+
+describe("at least one sign-up method (effective flags)", () => {
+  const none = NO_PROVIDERS;
+  const withGoogle = { ...NO_PROVIDERS, google: { credentials: true, broker: false } };
+
+  it("does not count stored Apple/X as on when they are not configured", () => {
+    const stored = { ...DEFAULT_SETTINGS, signupEmail: false, signupApple: true, signupX: true };
+    assert.equal(hasSignupMethod(stored), true);
+    assert.equal(hasSignupMethod(stored, none), false);
+  });
+
+  it("refuses to switch email off when only unconfigured providers are stored on", () => {
+    const current = { ...DEFAULT_SETTINGS, signupEmail: true, signupApple: true };
+    const next = mergeSettings(current, { signupEmail: false }, none);
+    assert.equal(next.signupEmail, true);
+  });
+
+  it("allows switching email off when configured Google is effectively on", () => {
+    const next = mergeSettings(DEFAULT_SETTINGS, { signupEmail: false }, withGoogle);
+    assert.equal(next.signupEmail, false);
+    assert.equal(hasSignupMethod(next, withGoogle), true);
+  });
+
+  it("refuses to switch Google off when it is the last effective method", () => {
+    const current = mergeSettings(DEFAULT_SETTINGS, { signupEmail: false }, withGoogle);
+    const next = mergeSettings(current, { signupGoogle: false }, withGoogle);
+    assert.equal(next.signupOff, "");
+  });
+});

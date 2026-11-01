@@ -73,7 +73,12 @@ type ServerEnv = Record<string, string | undefined>;
 export function serverProviderAvailability(env: ServerEnv = process.env): ProviderAvailability {
   if (previewHidesSocial(env)) return NO_PROVIDERS;
   const direct = socialProvidersForDeploy(env) as Record<string, unknown>;
-  const broker = (env.VITE_AUTH_ENABLED ?? "").trim() !== "false" && shouldRegisterGrokBroker(env);
+  // The broker counts as configured only when its issuer is set explicitly;
+  // the built-in default issuer alone does not make Apple or X available.
+  const broker =
+    (env.VITE_AUTH_ENABLED ?? "").trim() !== "false" &&
+    shouldRegisterGrokBroker(env) &&
+    Boolean((env.GROK_AUTH_ISSUER ?? "").trim());
   return {
     google: { credentials: Boolean(direct.google), broker },
     apple: { credentials: Boolean(direct.apple), broker },

@@ -5,6 +5,7 @@ import {
   extrasFromSettings,
   mergeExtrasJson,
   mergeSettings,
+  type ProviderAvailability,
   parseExtrasJson,
   parseSettings,
   type AppSettings,
@@ -54,7 +55,10 @@ export async function readSettings(): Promise<AppSettings> {
   return rowToSettings(rows[0]);
 }
 
-export async function writeSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
+export async function writeSettings(
+  patch: Partial<AppSettings>,
+  providers?: ProviderAvailability,
+): Promise<AppSettings> {
   const sql = await getSql();
   const rows = await sql<SettingsRow>`
     select id, signup_email, signup_google, signup_x, labels_enabled, extras_json, updated_at
@@ -63,7 +67,7 @@ export async function writeSettings(patch: Partial<AppSettings>): Promise<AppSet
     limit 1
   `;
   const current = rowToSettings(rows[0]);
-  const next = mergeSettings(current, patch);
+  const next = mergeSettings(current, patch, providers);
   const extras = mergeExtrasJson(rows[0]?.extras_json, next);
   await sql`
     insert into looktag_settings (

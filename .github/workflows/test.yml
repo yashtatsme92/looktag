@@ -38,6 +38,8 @@ jobs:
           export ADMIN_EMAIL=admin@looktag.studio
           export ADMIN_BOOTSTRAP_PASSWORD="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
           export BETTER_AUTH_URL=http://127.0.0.1:8080
+          # Broker counts as configured only with an explicit issuer (Apple/X e2e).
+          export GROK_AUTH_ISSUER=https://auth.grok.me
           npm run dev > /tmp/looktag-e2e-dev.log 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
