@@ -55,11 +55,19 @@ try {
   console.error("/api/version is not JSON", versionText);
   process.exit(1);
 }
-for (const key of ["version", "commit", "builtAt"]) {
+for (const key of ["version", "commit", "builtAt", "serviceVersion", "deploymentId", "gitSha"]) {
   if (typeof info[key] !== "string" || !info[key].trim()) {
     console.error("/api/version missing", key, versionText);
     process.exit(1);
   }
+}
+if (info.serviceVersion !== info.version) {
+  console.error("/api/version serviceVersion", info.serviceVersion, info.version);
+  process.exit(1);
+}
+if (info.commit !== "unknown" && !info.gitSha.startsWith(info.commit)) {
+  console.error("/api/version gitSha", info.gitSha, "commit", info.commit);
+  process.exit(1);
 }
 if (Number.isNaN(Date.parse(info.builtAt))) {
   console.error("/api/version builtAt is not a date", info.builtAt);
@@ -80,6 +88,15 @@ if (home.status !== 200) {
 }
 if (home.headers.get("x-app-version") !== expectedHeader) {
   console.error("home X-App-Version", home.headers.get("x-app-version"));
+  process.exit(1);
+}
+const traceparent = home.headers.get("traceparent") ?? "";
+if (!/^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/.test(traceparent)) {
+  console.error("home traceparent", traceparent);
+  process.exit(1);
+}
+if (!home.headers.get("x-request-id")) {
+  console.error("home missing x-request-id");
   process.exit(1);
 }
 function metaContent(name) {

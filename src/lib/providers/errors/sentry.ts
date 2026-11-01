@@ -3,8 +3,8 @@ import type { ErrorContext, ErrorUser } from "./types";
 
 type SentryClient = {
   init: (options: { dsn?: string; environment?: string }) => void;
-  captureException: (error: unknown, hint?: { extra?: ErrorContext }) => void;
-  captureMessage: (message: string, hint?: { extra?: ErrorContext }) => void;
+  captureException: (error: unknown, hint?: { extra?: ErrorContext; tags?: Record<string, string> }) => void;
+  captureMessage: (message: string, hint?: { extra?: ErrorContext; tags?: Record<string, string> }) => void;
   setUser: (user: { id?: string; email?: string } | null) => void;
 };
 
@@ -37,14 +37,24 @@ function client(): Promise<SentryClient | null> {
   return reactClient;
 }
 
+function traceTags(context?: ErrorContext): Record<string, string> | undefined {
+  const tags: Record<string, string> = {};
+  if (typeof context?.trace_id === "string") tags.trace_id = context.trace_id;
+  if (typeof context?.span_id === "string") tags.span_id = context.span_id;
+  if (typeof context?.request_id === "string") tags.request_id = context.request_id;
+  return Object.keys(tags).length > 0 ? tags : undefined;
+}
+
 export async function captureException(error: unknown, context?: ErrorContext): Promise<void> {
   const sentry = await client();
-  sentry?.captureException(error, context ? { extra: context } : undefined);
+  const tags = traceTags(context);
+  sentry?.captureException(error, tags ? { extra: context, tags } : context ? { extra: context } : undefined);
 }
 
 export async function captureMessage(message: string, context?: ErrorContext): Promise<void> {
   const sentry = await client();
-  sentry?.captureMessage(message, context ? { extra: context } : undefined);
+  const tags = traceTags(context);
+  sentry?.captureMessage(message, tags ? { extra: context, tags } : context ? { extra: context } : undefined);
 }
 
 export async function setUser(user: ErrorUser): Promise<void> {

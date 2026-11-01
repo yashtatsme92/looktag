@@ -15,6 +15,7 @@
  *   runtime hook's return value, and `render:html` does not exist in Nitro v3.
  */
 import { appVersionHeader } from "../../src/lib/build-info";
+import { runRequestTrace } from "../../src/lib/observability/request-trace";
 import installPageTemplate from "../../scripts/install-page.html?raw";
 import { grokOgIdentity } from "virtual:grok-og-identity";
 import {
@@ -88,7 +89,20 @@ export default async function grokPwaMiddleware(
   event: GrokPwaEvent,
   next: () => unknown | Promise<unknown>,
 ): Promise<unknown> {
-  return withAppVersion(await grokPwaMiddlewareImpl(event, next));
+  try {
+    const { ensureTelemetrySink } = await import("../../src/lib/observability/store.server");
+    ensureTelemetrySink();
+  } catch {
+    // A telemetry setup failure must not fail the request.
+  }
+  return runRequestTrace(
+    {
+      method: event.req.method ?? "GET",
+      path: event.url.pathname,
+      headers: event.req.headers,
+    },
+    async () => withAppVersion(await grokPwaMiddlewareImpl(event, next)),
+  );
 }
 
 async function grokPwaMiddlewareImpl(

@@ -1,3 +1,4 @@
+import { activeSpan } from "./active-span.ts";
 import {
   ATTR_ERROR_TYPE,
   ATTR_EXCEPTION_MESSAGE,
@@ -14,8 +15,8 @@ import type {
   SpanKindName,
   SpanStatusName,
   TelemetrySignal,
-} from "./model";
-import { newSpanId, newTraceId, sanitizeAttributes, unixNano } from "./model";
+} from "./model.ts";
+import { newSpanId, newTraceId, sanitizeAttributes, unixNano } from "./model.ts";
 
 export type SpanRecorder = {
   traceId: string;
@@ -64,20 +65,36 @@ function emit(signal: TelemetrySignal) {
   enqueueSignals([signal]);
 }
 
-function inheritParent(options?: { traceId?: string; parentSpanId?: string }): SpanRef | undefined {
+function inheritParent(options?: { traceId?: string; parentSpanId?: string; root?: boolean }): SpanRef | undefined {
+  if (options?.root) return undefined;
   if (options?.traceId || options?.parentSpanId) {
     return options.traceId ? { traceId: options.traceId, spanId: options.parentSpanId || "" } : undefined;
   }
+  const server = activeSpan();
+  if (server?.traceId) return { traceId: server.traceId, spanId: server.spanId };
   if (typeof window === "undefined") return undefined;
   return clientStack.at(-1);
 }
 
 export function startSpan(
   name: string,
-  options?: { kind?: SpanKindName; attributes?: Attributes; traceId?: string; parentSpanId?: string },
+  options?: {
+    kind?: SpanKindName;
+    attributes?: Attributes;
+    traceId?: string;
+    parentSpanId?: string;
+    root?: boolean;
+    traceRoot?: boolean;
+  },
 ): SpanRecorder & { end: (error?: unknown) => CompletedSpan } {
   const startMs = Date.now();
-  const attributes = sanitizeAttributes(options?.attributes);
+  const inheritedApp: Attributes = {};
+  if (!options?.root) {
+    for (const [key, value] of Object.entries(activeSpan()?.attributes ?? {})) {
+      if (key.startsWith("app.")) inheritedApp[key] = value;
+    }
+  }
+  const attributes = sanitizeAttributes({ ...inheritedApp, ...options?.attributes });
   const events: SpanEvent[] = [];
   let status: SpanStatusName = "UNSET";
   let statusMessage: string | undefined;
@@ -148,6 +165,7 @@ export function startSpan(
         durationMs: Math.max(0, endMs - startMs),
         attributes,
         events,
+        traceRoot: options?.traceRoot,
       };
       emit(span);
       if (status !== "ERROR") {
@@ -171,9 +189,16 @@ export function startSpan(
 export async function withSpan<T>(
   name: string,
   fn: (span: SpanRecorder) => Promise<T> | T,
-  options?: { kind?: SpanKindName; attributes?: Attributes; traceId?: string; parentSpanId?: string },
+  options?: { kind?: SpanKindName; attributes?: Attributes; traceId?: string; parentSpanId?: string; root?: boolean; traceRoot?: boolean },
 ): Promise<T> {
-  const span = startSpan(name, { kind: options?.kind ?? "SERVER", attributes: options?.attributes, traceId: options?.traceId, parentSpanId: options?.parentSpanId });
+  const span = startSpan(name, {
+    kind: options?.kind ?? "SERVER",
+    attributes: options?.attributes,
+    traceId: options?.traceId,
+    parentSpanId: options?.parentSpanId,
+    root: options?.root,
+    traceRoot: options?.traceRoot,
+  });
   try {
     const result = await fn(span);
     span.end();
@@ -209,15 +234,19 @@ export function emitLog(
   body: string,
   options?: { attributes?: Attributes; traceId?: string; spanId?: string },
 ) {
+  const active = activeSpan();
   const record: LogRecord = {
     kind: "log",
     id: newSpanId(),
     severity,
     body: body.slice(0, 500),
     timeUnixNano: unixNano(),
-    traceId: options?.traceId,
-    spanId: options?.spanId,
-    attributes: sanitizeAttributes(options?.attributes),
+    traceId: options?.traceId || active?.traceId,
+    spanId: options?.spanId || active?.spanId,
+    attributes: sanitizeAttributes({
+      ...(active?.requestId ? { "app.request_id": active.requestId } : {}),
+      ...options?.attributes,
+    }),
   };
   emit(record);
 }

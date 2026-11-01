@@ -5,9 +5,18 @@ import { appBuiltAt, appCommit, appVersion } from "@/lib/build-info";
 export const Route = createFileRoute("/api/version")({
   server: {
     handlers: {
-      GET: async () =>
-        new Response(
-          JSON.stringify({ version: appVersion, commit: appCommit, builtAt: appBuiltAt }),
+      GET: async () => {
+        const { deploymentIdentity } = await import("@/lib/observability/identity.server");
+        const deploy = deploymentIdentity();
+        return new Response(
+          JSON.stringify({
+            version: appVersion,
+            commit: appCommit,
+            builtAt: appBuiltAt,
+            serviceVersion: deploy.serviceVersion,
+            deploymentId: deploy.deploymentId,
+            gitSha: deploy.revision,
+          }),
           {
             status: 200,
             headers: {
@@ -15,7 +24,8 @@ export const Route = createFileRoute("/api/version")({
               "cache-control": "no-store",
             },
           },
-        ),
+        );
+      },
     },
   },
 });

@@ -1,6 +1,7 @@
 import * as consoleReporter from "./console.ts";
 import type { ErrorContext, ErrorProviderName, ErrorUser } from "./types.ts";
 import { unknownProvider } from "../unknown.ts";
+import { activeSpan } from "../../observability/active-span.ts";
 
 export type { ErrorContext, ErrorProviderName, ErrorReporter, ErrorUser } from "./types.ts";
 
@@ -19,6 +20,17 @@ export function resolveErrorProvider(env: Env = process.env): ErrorProviderName 
 function fallback(method: "captureException" | "captureMessage", value: unknown, context?: ErrorContext) {
   if (method === "captureException") consoleReporter.captureException(value, context);
   else consoleReporter.captureMessage(String(value), context);
+}
+
+function withTrace(context?: ErrorContext): ErrorContext | undefined {
+  const span = activeSpan();
+  if (!span) return context;
+  return {
+    ...context,
+    trace_id: span.traceId,
+    span_id: span.spanId,
+    ...(span.requestId ? { request_id: span.requestId } : {}),
+  };
 }
 
 function report(method: "captureException" | "captureMessage", value: unknown, context?: ErrorContext) {
@@ -52,7 +64,7 @@ function report(method: "captureException" | "captureMessage", value: unknown, c
 /** Never throws. A bad provider or a failed adapter logs and falls back to the console reporter. */
 export function captureException(error: unknown, context?: ErrorContext): void {
   try {
-    report("captureException", error, context);
+    report("captureException", error, withTrace(context));
   } catch (failure) {
     try {
       console.error("[errors] captureException failed", failure);
@@ -66,7 +78,7 @@ export function captureException(error: unknown, context?: ErrorContext): void {
 /** Never throws. See `captureException`. */
 export function captureMessage(message: string, context?: ErrorContext): void {
   try {
-    report("captureMessage", message, context);
+    report("captureMessage", message, withTrace(context));
   } catch (failure) {
     try {
       console.error("[errors] captureMessage failed", failure);

@@ -1,7 +1,7 @@
 import { getSql } from "@/lib/db";
-import { captureException } from "@/lib/providers/errors";
 import { postOtlp, resolveTelemetryProvider } from "@/lib/providers/telemetry";
 import type {
+  Attributes,
   ObservabilityConfig,
   PublicSignal,
   SignalKind,
@@ -15,7 +15,6 @@ import {
   nanoToMs,
   parseOtlpHeaders,
   resolveOtlpUrls,
-  shouldSample,
 } from "./model";
 import {
   buildOperationGraph,
@@ -28,6 +27,9 @@ import {
 } from "./graph";
 import { encodeOtlpLogs, encodeOtlpMetrics, encodeOtlpTraces, encodeProbe } from "./otlp";
 import { setTelemetrySink } from "./runtime";
+import { deliverOtlp } from "./export-error";
+import { effectiveSampleRatio, TraceGate } from "./sampling";
+import { serverResourceAttributes } from "./identity.server";
 
 const SETTINGS_ID = "default";
 const MAX_SIGNALS = 400;
@@ -90,18 +92,20 @@ function mergeExtrasJson(raw: unknown, filters: TraceFilter[]): string {
 }
 
 function rowToConfig(row: SettingsRow | undefined): ObservabilityConfig {
-  if (!row) return mergeConfig(null);
-  return mergeConfig({
-    enabled: Boolean(row.enabled),
-    tracesEnabled: Boolean(row.traces_enabled),
-    metricsEnabled: Boolean(row.metrics_enabled),
-    logsEnabled: Boolean(row.logs_enabled),
-    serviceName: row.service_name,
-    otlpEndpoint: row.otlp_endpoint,
-    otlpHeaders: row.otlp_headers,
-    sampleRatio: clampSampleRatio(Number(row.sample_ratio)),
-    filters: parseFiltersJson(row.extras_json),
-  });
+  const merged = !row
+    ? mergeConfig(null)
+    : mergeConfig({
+        enabled: Boolean(row.enabled),
+        tracesEnabled: Boolean(row.traces_enabled),
+        metricsEnabled: Boolean(row.metrics_enabled),
+        logsEnabled: Boolean(row.logs_enabled),
+        serviceName: row.service_name,
+        otlpEndpoint: row.otlp_endpoint,
+        otlpHeaders: row.otlp_headers,
+        sampleRatio: clampSampleRatio(Number(row.sample_ratio)),
+        filters: parseFiltersJson(row.extras_json),
+      });
+  return { ...merged, sampleRatio: effectiveSampleRatio(merged.sampleRatio, process.env) };
 }
 
 export async function readConfig(): Promise<ObservabilityConfig> {
@@ -160,18 +164,28 @@ export async function writeConfig(patch: Partial<ObservabilityConfig>): Promise<
 
 function allows(config: ObservabilityConfig, signal: TelemetrySignal): boolean {
   if (!config.enabled) return false;
-  if (signal.kind === "span") {
-    if (!config.tracesEnabled) return false;
-    return shouldSample(config.sampleRatio, signal.status === "ERROR");
-  }
+  if (signal.kind === "span") return config.tracesEnabled;
   if (signal.kind === "metric") return config.metricsEnabled;
   return config.logsEnabled;
+}
+
+let gate: TraceGate | null = null;
+let gateRatio = Number.NaN;
+
+function traceGate(ratio: number): TraceGate {
+  if (!gate || gateRatio !== ratio) {
+    gate = new TraceGate(ratio);
+    gateRatio = ratio;
+  }
+  return gate;
 }
 
 export async function ingestSignals(signals: TelemetrySignal[]): Promise<number> {
   if (signals.length === 0) return 0;
   const config = await readConfig();
-  const accepted = signals.filter((signal) => allows(config, signal)).slice(0, 60);
+  const ratio = effectiveSampleRatio(config.sampleRatio, process.env);
+  const sampled = signals.flatMap((signal) => (allows(config, signal) ? traceGate(ratio).push(signal) : []));
+  const accepted = sampled.slice(0, 60);
   if (accepted.length === 0) return 0;
   const sql = await getSql();
   for (const signal of accepted) {
@@ -228,22 +242,37 @@ async function exportSignals(signals: TelemetrySignal[], config: ObservabilityCo
     "content-type": "application/json",
     ...parseOtlpHeaders(config.otlpHeaders),
   };
-  const spans = signals.filter((s): s is Extract<TelemetrySignal, { kind: "span" }> => s.kind === "span");
-  const metrics = signals.filter((s): s is Extract<TelemetrySignal, { kind: "metric" }> => s.kind === "metric");
-  const logs = signals.filter((s): s is Extract<TelemetrySignal, { kind: "log" }> => s.kind === "log");
+  const serverResource = serverResourceAttributes();
   const posts: Array<Promise<void>> = [];
-  if (spans.length) posts.push(postOtlpPayload(urls.traces, headers, encodeOtlpTraces(spans, config.serviceName)));
-  if (metrics.length) posts.push(postOtlpPayload(urls.metrics, headers, encodeOtlpMetrics(metrics, config.serviceName)));
-  if (logs.length) posts.push(postOtlpPayload(urls.logs, headers, encodeOtlpLogs(logs, config.serviceName)));
+  for (const [kind, url] of [
+    ["span", urls.traces],
+    ["metric", urls.metrics],
+    ["log", urls.logs],
+  ] as const) {
+    const group = signals.filter((signal) => signal.kind === kind);
+    for (const batch of groupByResource(group, serverResource)) {
+      const body =
+        kind === "span"
+          ? encodeOtlpTraces(batch.items as Extract<TelemetrySignal, { kind: "span" }>[], config.serviceName, batch.resource)
+          : kind === "metric"
+            ? encodeOtlpMetrics(batch.items as Extract<TelemetrySignal, { kind: "metric" }>[], config.serviceName, batch.resource)
+            : encodeOtlpLogs(batch.items as Extract<TelemetrySignal, { kind: "log" }>[], config.serviceName, batch.resource);
+      posts.push(deliverOtlp(() => postOtlp(url, headers, body)));
+    }
+  }
   await Promise.all(posts);
 }
 
-async function postOtlpPayload(url: string, headers: Record<string, string>, body: unknown): Promise<void> {
-  try {
-    await postOtlp(url, headers, body);
-  } catch (error) {
-    captureException(error, { where: "[telemetry] collector unreachable" });
+function groupByResource(signals: TelemetrySignal[], fallback: Attributes): Array<{ resource: Attributes; items: TelemetrySignal[] }> {
+  const groups = new Map<string, { resource: Attributes; items: TelemetrySignal[] }>();
+  for (const signal of signals) {
+    const resource = signal.resourceAttributes ?? fallback;
+    const key = JSON.stringify(resource);
+    const group = groups.get(key) ?? { resource, items: [] };
+    group.items.push(signal);
+    groups.set(key, group);
   }
+  return [...groups.values()];
 }
 
 export async function listSignals(kind?: SignalKind): Promise<PublicSignal[]> {

@@ -1,12 +1,4 @@
-import {
-  ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
-  ATTR_SERVICE_NAME,
-  ATTR_SERVICE_VERSION,
-  ATTR_TELEMETRY_SDK_LANGUAGE,
-  ATTR_TELEMETRY_SDK_NAME,
-  ATTR_TELEMETRY_SDK_VERSION,
-  appEnv,
-} from "../providers/telemetry/index.ts";
+import { ATTR_SERVICE_NAME } from "../providers/telemetry/index.ts";
 import type {
   AttrValue,
   Attributes,
@@ -18,6 +10,7 @@ import type {
   SpanStatusName,
 } from "./model.ts";
 import { unixNano } from "./model.ts";
+import { buildResourceAttributes } from "./resource.ts";
 
 const SPAN_KIND: Record<SpanKindName, number> = {
   INTERNAL: 1,
@@ -61,31 +54,30 @@ export function otlpAttributes(attrs: Attributes): OtlpKeyValue[] {
   return Object.entries(attrs).map(([key, value]) => ({ key, value: otlpValue(value) }));
 }
 
-export function resourceAttributes(serviceName: string): Attributes {
-  const envName = typeof process === "undefined" ? "development" : appEnv();
-  return {
-    [ATTR_SERVICE_NAME]: serviceName || "looktag",
-    [ATTR_SERVICE_VERSION]: "1.0.0",
-    [ATTR_TELEMETRY_SDK_NAME]: "looktag",
-    [ATTR_TELEMETRY_SDK_LANGUAGE]: "javascript",
-    [ATTR_TELEMETRY_SDK_VERSION]: "1.0.0",
-    [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: String(envName),
-  };
+export function resourceAttributes(serviceName: string, override?: Attributes): Attributes {
+  if (override) {
+    return { ...override, [ATTR_SERVICE_NAME]: override[ATTR_SERVICE_NAME] || serviceName || "looktag" };
+  }
+  return buildResourceAttributes({
+    serviceName: serviceName || "looktag",
+    env: typeof process === "undefined" ? {} : process.env,
+    runtimeVersion: typeof process === "undefined" ? undefined : process.version,
+  });
 }
 
-function resource(serviceName: string) {
-  return { attributes: otlpAttributes(resourceAttributes(serviceName)) };
+function resource(serviceName: string, override?: Attributes) {
+  return { attributes: otlpAttributes(resourceAttributes(serviceName, override)) };
 }
 
 function scope() {
   return { name: "looktag", version: "1.0.0" };
 }
 
-export function encodeOtlpTraces(spans: CompletedSpan[], serviceName: string) {
+export function encodeOtlpTraces(spans: CompletedSpan[], serviceName: string, resourceOverride?: Attributes) {
   return {
     resourceSpans: [
       {
-        resource: resource(serviceName),
+        resource: resource(serviceName, resourceOverride),
         scopeSpans: [
           {
             scope: scope(),
@@ -129,11 +121,11 @@ function histogramBuckets(value: number) {
   return { explicitBounds: HISTOGRAM_BOUNDS, bucketCounts: [...counts, overflow].map(String) };
 }
 
-export function encodeOtlpMetrics(points: MetricPoint[], serviceName: string) {
+export function encodeOtlpMetrics(points: MetricPoint[], serviceName: string, resourceOverride?: Attributes) {
   return {
     resourceMetrics: [
       {
-        resource: resource(serviceName),
+        resource: resource(serviceName, resourceOverride),
         scopeMetrics: [
           {
             scope: scope(),
@@ -199,11 +191,11 @@ export function encodeOtlpMetrics(points: MetricPoint[], serviceName: string) {
   };
 }
 
-export function encodeOtlpLogs(records: LogRecord[], serviceName: string) {
+export function encodeOtlpLogs(records: LogRecord[], serviceName: string, resourceOverride?: Attributes) {
   return {
     resourceLogs: [
       {
-        resource: resource(serviceName),
+        resource: resource(serviceName, resourceOverride),
         scopeLogs: [
           {
             scope: scope(),

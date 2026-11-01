@@ -30,6 +30,10 @@ export type CompletedSpan = {
   durationMs: number;
   attributes: Attributes;
   events: SpanEvent[];
+  /** Server request span. The sampler decides the trace when this span ends. */
+  traceRoot?: boolean;
+  /** Browser signals carry the web resource. Omitted on server signals. */
+  resourceAttributes?: Attributes;
 };
 
 export type MetricPoint = {
@@ -42,6 +46,7 @@ export type MetricPoint = {
   value: number;
   timeUnixNano: string;
   attributes: Attributes;
+  resourceAttributes?: Attributes;
 };
 
 export type LogRecord = {
@@ -53,6 +58,7 @@ export type LogRecord = {
   body: string;
   timeUnixNano: string;
   attributes: Attributes;
+  resourceAttributes?: Attributes;
 };
 
 export type TelemetrySignal = CompletedSpan | MetricPoint | LogRecord;
@@ -107,7 +113,7 @@ export const DEFAULT_CONFIG: ObservabilityConfig = {
   filters: DEFAULT_FILTERS,
 };
 
-const SENSITIVE = /pass(word)?|secret|token|authorization|cookie|api[_-]?key|image|dataurl/i;
+const SENSITIVE = /pass(word)?|secret|token|authorization|cookie|api[_-]?key|image|dataurl|email|(^|[._-])user([._-]?id)?$|(^|[._-])body($|[._-])/i;
 
 export function randomHex(bytes: number): string {
   const arr = new Uint8Array(bytes);
@@ -234,7 +240,10 @@ export function configFromEnv(
   return {
     enabled: disabled ? false : true,
     serviceName: env.OTEL_SERVICE_NAME?.trim() || undefined,
-    otlpEndpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim() || undefined,
+    otlpEndpoint:
+      env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT?.trim() ||
+      env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim() ||
+      undefined,
     otlpHeaders: env.OTEL_EXPORTER_OTLP_HEADERS?.trim() || undefined,
     sampleRatio: sample !== undefined && Number.isFinite(sample) ? clampSampleRatio(sample) : undefined,
   };

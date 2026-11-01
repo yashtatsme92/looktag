@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { adminMiddleware } from "@/lib/auth/middleware";
 import type { ObservabilityConfig, SignalKind, TelemetrySignal } from "./model";
 import { sanitizeAttributes } from "./model";
+import { browserResourceFromClient } from "./resource";
 import { createTraceFilter, parseTraceFilter, type TraceFilter } from "./graph";
 import {
   ensureTelemetrySink,
@@ -63,12 +64,16 @@ export const probeObservability = createServerFn({ method: "POST" })
 
 export const ingestClientSignals = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
-  .validator((input: { signals: unknown }) => input)
+  .validator((input: { signals: unknown; resource?: Record<string, unknown> }) => input)
   .handler(async ({ data }) => {
     ensureTelemetrySink();
     const signals = Array.isArray(data.signals)
       ? data.signals.map(asSignal).filter((row): row is TelemetrySignal => Boolean(row))
       : [];
+    const resource = browserResourceFromClient(data.resource);
+    if (resource) {
+      for (const signal of signals) signal.resourceAttributes = resource;
+    }
     const accepted = await ingestSignals(signals.slice(0, 40));
     return { accepted };
   });

@@ -16,7 +16,16 @@ export async function withSpan<T>(
     const parent = spanParent.getStore();
     return runSpan(
       name,
-      (span) => spanParent.run({ traceId: span.traceId, spanId: span.spanId }, () => fn(span)),
+      (span) =>
+        spanParent.run(
+          {
+            traceId: span.traceId,
+            spanId: span.spanId,
+            requestId: parent?.requestId,
+            attributes: parent?.attributes,
+          },
+          () => fn(span),
+        ),
       {
         kind: options?.kind,
         attributes: options?.attributes,

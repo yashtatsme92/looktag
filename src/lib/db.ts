@@ -10,6 +10,7 @@ import {
   type EmbeddedDb,
 } from "./providers/db";
 import type { DbSource, Sql } from "./providers/db/types";
+import { traceDbQuery } from "./observability/db-span.ts";
 import { bakedPreviewEnv, installBakedPreviewEnv } from "./baked-preview-env.ts";
 
 export type { DbSource, Sql };
@@ -82,6 +83,8 @@ type Run = <T>(text: string, params: unknown[]) => Promise<T[]>;
 
 /** Wrap a query runner in the tagged-template + `.query()` `Sql` surface. */
 function toSql(run: Run): Sql {
+  const traced = async <T>(text: string, params: unknown[]): Promise<T[]> =>
+    traceDbQuery(text, () => run<T>(text, params));
   const sql = (async <T = Record<string, unknown>>(
     strings: TemplateStringsArray,
     ...values: unknown[]
@@ -89,10 +92,9 @@ function toSql(run: Run): Sql {
     // Rebuild with $1, $2, … placeholders so values stay parameterized.
     let text = strings[0];
     for (let i = 0; i < values.length; i += 1) text += `$${i + 1}${strings[i + 1]}`;
-    return run<T>(text, values);
+    return traced<T>(text, values);
   }) as unknown as Sql;
-  sql.query = <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
-    run<T>(text, params);
+  sql.query = <T = Record<string, unknown>>(text: string, params: unknown[] = []) => traced<T>(text, params);
   return sql;
 }
 

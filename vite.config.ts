@@ -17,6 +17,7 @@ import { isMigrationFile } from "./scripts/migration-plan.mjs";
 import { resolveNitroPreset, shouldCopyPgliteAssets } from "./scripts/nitro-preset.mjs";
 import { rewriteBakedPreviewEnvModule } from "./src/lib/auth/preview.ts";
 import { readPackageVersion, resolveBuildCommit, shortCommit } from "./src/lib/build-commit.ts";
+import { cloudProviderFromEnv, deploymentEnvironmentName } from "./src/lib/observability/resource.ts";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -209,18 +210,33 @@ function gitHead(): string {
 
 /**
  * Same values in the client and server bundles. Version tracks package.json
- * (bump it with the release tag). Commit is the short host SHA.
+ * (bump it with the release tag). Commit is the short host SHA. The full
+ * revision and deploy identity are baked because function hosts drop them
+ * at runtime.
  */
 function buildDefine(): Record<string, string> {
   const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
     version?: unknown;
   };
   const version = readPackageVersion(pkg);
-  const commit = shortCommit(resolveBuildCommit(process.env, gitHead()));
+  const revision = resolveBuildCommit(process.env, gitHead());
+  const commit = shortCommit(revision);
+  const branch = [process.env.RENDER_GIT_BRANCH, process.env.BRANCH, process.env.HEAD].find((value) => value?.trim())?.trim() || "HEAD";
+  const deploymentId = [process.env.RENDER_DEPLOY_ID, process.env.DEPLOY_ID].find((value) => value?.trim())?.trim() || "unknown";
+  const provider = cloudProviderFromEnv(process.env) ?? "";
+  const region = provider === "render" ? process.env.RENDER_REGION?.trim() || "" : "";
+  const previewPr = deploymentEnvironmentName(process.env) === "preview" ? process.env.REVIEW_ID?.trim() || "" : "";
   return {
     __APP_VERSION__: JSON.stringify(version),
     __APP_COMMIT__: JSON.stringify(commit),
     __APP_BUILT_AT__: JSON.stringify(new Date().toISOString()),
+    __APP_REVISION__: JSON.stringify(revision),
+    __APP_BRANCH__: JSON.stringify(branch),
+    __APP_DEPLOYMENT_ID__: JSON.stringify(deploymentId),
+    __APP_DEPLOYMENT_ENV__: JSON.stringify(deploymentEnvironmentName(process.env)),
+    __APP_PREVIEW_PR__: JSON.stringify(previewPr),
+    __APP_CLOUD_PROVIDER__: JSON.stringify(provider),
+    __APP_CLOUD_REGION__: JSON.stringify(region),
   };
 }
 
