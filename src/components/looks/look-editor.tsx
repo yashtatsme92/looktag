@@ -10,7 +10,22 @@ import { TagForm } from "@/components/looks/tag-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { searchPin, suggestPieces, type SuggestedPiece } from "@/lib/ai/suggest";
+import { aiStatus, searchPin, suggestPieces, type SuggestedPiece } from "@/lib/ai/suggest";
+import {
+  FIND_PIECES_COPY,
+  findPiecesState,
+  isAiQuotaError,
+  isAiUnavailableMessage,
+  createSessionTapQueue,
+} from "@/lib/looks/find-pieces";
+import {
+  clearCreateResume,
+  draftSavedMessage,
+  persistCreateDraft,
+  rememberCreateResume,
+  takeCreateResume,
+  type CreateResumeIntent,
+} from "@/lib/looks/create-draft";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { isUnauthorized } from "@/lib/looks/api";
@@ -99,7 +114,13 @@ export function LookEditor({
   const cropReturnStepRef = useRef<PhoneCreateStepId>("publish");
   const [suggestNote, setSuggestNote] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [accountIntent, setAccountIntent] = useState<"publish" | "draft">("publish");
+  const [accountIntent, setAccountIntent] = useState<CreateResumeIntent>("publish");
+  const [aiOn, setAiOn] = useState<boolean | null>(null);
+  const [quotaHit, setQuotaHit] = useState(false);
+  const [providerError, setProviderError] = useState(false);
+  const [findMessage, setFindMessage] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState(false);
+  const [draftNote, setDraftNote] = useState<string | null>(null);
   const chrome = useChromeLayout();
   const phone = true;
   const { user, isPending } = useCurrentUserState();
@@ -109,6 +130,49 @@ export function LookEditor({
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void aiStatus()
+      .then((status) => {
+        if (alive) setAiOn(Boolean(status?.available));
+      })
+      .catch(() => {
+        if (alive) setAiOn(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const findState = findPiecesState({
+    aiAvailable: aiOn,
+    authEnabled,
+    signedIn: Boolean(user),
+    quotaHit,
+    providerError,
+  });
+
+  // After sign-in from the Create account sheet, resume the tapped action once (#203 A2/B4).
+  useEffect(() => {
+    if (!user || !hydrated) return;
+    const intent = takeCreateResume();
+    if (!intent) return;
+    const id = window.setTimeout(() => {
+      if (intent === "find") {
+        setPhoneStep("pins");
+        void handleFindPieces();
+      } else if (intent === "publish") {
+        setPhoneStep("publish");
+        void handleSave();
+      } else {
+        setPhoneStep("publish");
+        keepDraft();
+      }
+    }, 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, hydrated]);
 
   useEffect(() => {
     let alive = true;
@@ -214,6 +278,9 @@ export function LookEditor({
     const tag = emptyTag(x, y);
     setSelectedId(tag.id);
     patch({ tags: [...lookRef.current.tags, tag] });
+    // A new pin opens its piece card (right pane on desktop) instead of stacking silently (#203).
+    setSuggestNote(null);
+    setPhoneStep("piece");
     recordManualPinAdded(recordPinAdded, {
       chrome,
       lookId: lookRef.current.id,
@@ -245,24 +312,63 @@ export function LookEditor({
     const tags = lookRef.current.tags.filter((tag) => tag.id !== id);
     setSelectedId(tags[0]?.id ?? null);
     patch({ tags });
-    if (phone && tags.length === 0) setPhoneStep("pins");
+    if (phone) setPhoneStep("pins");
+  }
+
+  // A tap that lands while the session is still loading runs once it resolves, instead of being dropped.
+  const tapQueueRef = useRef(createSessionTapQueue());
+  useEffect(() => {
+    const intent = tapQueueRef.current.flush(isPending);
+    if (intent === "publish") requestPublish();
+    else if (intent === "draft") requestDraft();
+    else if (intent === "find") requestFind();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPending, user?.id]);
+
+  function openAccount(intent: CreateResumeIntent) {
+    if (tapQueueRef.current.tap(intent, isPending)) {
+      toast.message("Checking your account…");
+      return;
+    }
+    rememberCreateResume(intent);
+    setAccountIntent(intent);
+    setAccountOpen(true);
+  }
+
+  function requestFind() {
+    if (findState === "unavailable") return;
+    if (findState === "gated") {
+      openAccount("find");
+      return;
+    }
+    if (findState === "quota") {
+      setFindMessage(FIND_PIECES_COPY.quota);
+      return;
+    }
+    void handleFindPieces();
   }
 
   async function handleFindPieces() {
-    if (!look.imageSrc) {
+    const src = lookRef.current.imageSrc;
+    if (!src) {
       toast.error("Add a photo first.");
       return;
     }
+    setFindMessage(null);
     setFindingPieces(true);
     try {
-      const imageDataUrl = await imageSrcToDataUrl(look.imageSrc);
+      const imageDataUrl = await imageSrcToDataUrl(src);
       const result = await suggestPieces({ data: { imageDataUrl, search: searchPayload() } });
       if (!result.ok) {
-        toast.error(result.error);
+        if (isAiUnavailableMessage(result.error)) {
+          setProviderError(true);
+          return;
+        }
+        setFindMessage(result.error);
         return;
       }
       if (result.pieces.length === 0) {
-        toast.error("Nothing to pin. Try a clearer full-body shot.");
+        setSuggestNote(FIND_PIECES_COPY.empty);
         return;
       }
       if (phone) {
@@ -273,10 +379,17 @@ export function LookEditor({
       setSuggestOpen(true);
     } catch (error) {
       if (isUnauthorized(error)) {
-        toast.error("Sign in to search shops.");
+        openAccount("find");
         return;
       }
-      toast.error(error instanceof Error ? error.message : "Could not read that photo.");
+      if (isAiQuotaError(error)) {
+        setQuotaHit(true);
+        setFindMessage(FIND_PIECES_COPY.quota);
+        return;
+      }
+      const message = error instanceof Error ? error.message : "Could not read that photo.";
+      if (isAiUnavailableMessage(message)) setProviderError(true);
+      else setFindMessage(message);
     } finally {
       setFindingPieces(false);
     }
@@ -487,9 +600,11 @@ export function LookEditor({
 
   function continueDetails() {
     if (!look.title.trim()) {
-      toast.error("Give the look a name.");
+      setTitleError(true);
+      document.getElementById("create-title")?.focus();
       return;
     }
+    setTitleError(false);
     setPhoneStep("publish");
   }
 
@@ -499,12 +614,7 @@ export function LookEditor({
 
   function requestPublish() {
     if (needsAccount()) {
-      if (isPending) {
-        toast.message("Still checking your account. Try again in a moment.");
-        return;
-      }
-      setAccountIntent("publish");
-      setAccountOpen(true);
+      openAccount("publish");
       return;
     }
     void handleSave();
@@ -512,15 +622,18 @@ export function LookEditor({
 
   function requestDraft() {
     if (needsAccount()) {
-      if (isPending) {
-        toast.message("Still checking your account. Try again in a moment.");
-        return;
-      }
-      setAccountIntent("draft");
-      setAccountOpen(true);
+      openAccount("draft");
       return;
     }
-    toast.success("Draft saved");
+    keepDraft();
+  }
+
+  // Drafts live in this browser tab only — say exactly what was kept (#203 draft honesty).
+  function keepDraft() {
+    const result = draftSavedMessage(persistCreateDraft({ ...lookRef.current, updatedAt: Date.now() }));
+    setDraftNote(result.text);
+    if (result.ok) toast.success("Draft kept in this tab");
+    else toast.error(result.text);
   }
 
   return (
@@ -580,7 +693,13 @@ export function LookEditor({
           onMoveTag={moveTag}
           onUpdateTag={updateTag}
           onRemoveTag={removeTag}
-          onFind={() => void handleFindPieces()}
+          onFind={requestFind}
+          findState={findState}
+          findMessage={findMessage}
+          titleError={titleError}
+          onTitleErrorClear={() => setTitleError(false)}
+          draftNote={draftNote}
+          guest={needsAccount()}
           onAddPin={addPinAtNext}
           onDonePins={finishPins}
           onContinueDetails={continueDetails}
@@ -846,11 +965,24 @@ export function LookEditor({
 
       <AccountSheet
         open={accountOpen}
-        onOpenChange={setAccountOpen}
-        intent={accountIntent}
+        onOpenChange={(open) => {
+          setAccountOpen(open);
+          if (!open) clearCreateResume();
+        }}
+        intent={accountIntent === "find" ? undefined : accountIntent}
         next="/create"
-        title={accountIntent === "publish" ? "Sign in to publish" : "Sign in to save"}
-        description="Same sheet for Publish and Save draft. Cancel returns to Ready — pins stay."
+        title={
+          accountIntent === "find"
+            ? FIND_PIECES_COPY.gatedTitle
+            : accountIntent === "publish"
+              ? "Sign in to publish"
+              : "Sign in to save"
+        }
+        description={
+          accountIntent === "find"
+            ? "AI find uses paid photo search, so it needs an account. Manual pins stay free. Cancel keeps your pins."
+            : "Cancel returns to Ready — your photo, pins and title stay."
+        }
         primary="Continue with email"
         secondary="Cancel"
       />
@@ -999,7 +1131,7 @@ function PhotoStep({
         ) : null}
         <UploadProgress value={uploadProgress} />
         {guestHint ? (
-          <p className="mt-3 text-sm text-muted-foreground">Sign in to search shops or to publish.</p>
+          <p className="mt-3 text-sm text-muted-foreground">Sign in to find pieces or to publish.</p>
         ) : null}
       </div>
 
