@@ -186,6 +186,8 @@ export function AccountSheet({
                 maxLength={254}
                 value={email}
                 disabled={busy}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
                 onChange={(event) => setEmail(event.target.value)}
               />
               <Button
