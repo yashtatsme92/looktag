@@ -8,7 +8,7 @@ import { isUnauthorized } from "@/lib/looks/api";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { funnelUserState, recordLookCreated } from "@/lib/looks/funnel";
 import { useLooksStore } from "@/lib/looks/store";
-import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
+import { CREATE_DRAFT_KEY, persistCreateDraft } from "@/lib/looks/create-draft";
 import { emptyLook, type Look } from "@/lib/looks/types";
 
 export const Route = createFileRoute("/create")({ component: CreateLook });
@@ -33,15 +33,7 @@ function loadDraft(): Look | null {
 }
 
 function saveDraft(look: Look) {
-  try {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(look));
-  } catch {
-    try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...look, imageSrc: "" }));
-    } catch {
-      // quota / private mode
-    }
-  }
+  return persistCreateDraft(look);
 }
 
 function clearDraft() {

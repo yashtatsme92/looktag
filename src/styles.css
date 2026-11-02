@@ -1259,6 +1259,55 @@ html[data-theme="moss"] {
     opacity: 0.7;
   }
 
+  /* #203: Unavailable stays visible but reads as disabled, with a helper line under it. */
+  .create-find[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .create-pin-find {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .create-find-note {
+    margin: 0;
+    color: rgb(255 255 255 / 0.78);
+    font-size: 0.8125rem;
+    text-align: center;
+  }
+
+  .create-field-error {
+    margin: -0.25rem 0 0;
+    color: #b42318;
+    font-size: 0.8125rem;
+  }
+
+  .create-btn-primary[data-blocked="true"] {
+    opacity: 0.55;
+  }
+
+  /* Phone/tablet: the Details pane is a layout no-op; the dock keeps its bottom placement. */
+  .create-details-pane {
+    display: contents;
+  }
+
+  .create-details .create-details-dock {
+    padding-inline: 0;
+  }
+
+  .create-ready-summary {
+    display: none;
+  }
+
+  .create-ready-note {
+    margin: 0;
+    color: #6b6b6b;
+    font-size: 0.8125rem;
+    text-align: center;
+  }
+
   .create-pin-actions {
     display: flex;
     gap: 0.75rem;
@@ -5162,6 +5211,69 @@ input[type="search"]::-webkit-search-decoration {
     background: transparent;
     color: rgb(17 17 17 / 0.6);
     backdrop-filter: none;
+  }
+
+  /* #203: Details and Ready live in the right pane only — plate left, current step right. */
+  html:not(.native-app) .create-paper > .create-details {
+    grid-column: 1 / -1;
+    padding: 0;
+    overflow: visible;
+  }
+
+  html:not(.native-app) .create-details-photo,
+  html:not(.native-app) .create-ready-photo {
+    height: min(calc(100dvh - 12rem), 52rem);
+    margin: 0;
+  }
+
+  html:not(.native-app) .create-details-pane {
+    display: flex;
+    grid-row: 1;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-self: start;
+    border-radius: 24px;
+    background: #ffffff;
+    padding: 1.25rem;
+  }
+
+  html:not(.native-app) .create-details .create-details-dock,
+  html:not(.native-app) .create-ready-dock {
+    position: static;
+    grid-row: 2;
+    align-self: start;
+    margin: 0;
+    padding: 0;
+  }
+
+  html:not(.native-app) .create-details .create-details-dock {
+    align-self: stretch;
+    margin-top: 0.5rem;
+  }
+
+  html:not(.native-app) .create-ready-dock {
+    border-radius: 24px;
+    background: #ffffff;
+    padding: 1.25rem;
+  }
+
+  html:not(.native-app) .create-paper > .create-ready-photo {
+    grid-row: 2;
+  }
+
+  html:not(.native-app) .create-ready-summary {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  html:not(.native-app) .create-ready-title {
+    margin: 0.35rem 0 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  html:not(.native-app) .create-plate .create-find-note {
+    color: rgb(17 17 17 / 0.6);
   }
 
   html[data-chrome="desktop"] [data-vaul-drawer] {

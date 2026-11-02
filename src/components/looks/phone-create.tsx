@@ -8,6 +8,7 @@ import { pieceLine } from "@/lib/home/echo";
 import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
 import { UploadProgress } from "@/components/ds/upload-progress";
 import type { PhoneCreateStepId } from "@/lib/looks/create-steps";
+import { FIND_PIECES_COPY, type FindPiecesState } from "@/lib/looks/find-pieces";
 import { detectRetailer, getRetailer, RETAILERS } from "@/lib/looks/retailers";
 import type { CropRect } from "@/lib/looks/crop";
 import type { Look, ProductTag } from "@/lib/looks/types";
@@ -52,6 +53,12 @@ type PhoneCreateProps = {
   onUpdateTag: (tag: ProductTag) => void;
   onRemoveTag: (id: string) => void;
   onFind: () => void;
+  findState?: FindPiecesState;
+  findMessage?: string | null;
+  titleError?: boolean;
+  onTitleErrorClear?: () => void;
+  draftNote?: string | null;
+  guest?: boolean;
   onAddPin: () => void;
   onDonePins: () => void;
   onContinueDetails: () => void;
@@ -208,14 +215,17 @@ function PinPlate({
   onUpdateTag,
   onRemoveTag,
   onFind,
+  findState = "free",
+  findMessage,
   onAddPin,
   onDonePins,
   onLibrary,
   onStep,
   mode,
 }: PhoneCreateProps) {
+  const unavailable = findState === "unavailable";
   const selected = look.tags.find((tag) => tag.id === selectedId) ?? null;
-  const hint = suggestNote || "Tap the look to place a pin";
+  const hint = finding ? FIND_PIECES_COPY.finding : suggestNote || "Tap the look to place a pin";
 
   return (
     <div className="create-plate" data-step={step} data-kb-root>
@@ -268,11 +278,25 @@ function PinPlate({
           {suggestNote && !finding ? (
             <p className="create-pin-hint create-pin-hint-quiet">Keep, nudge, or delete — same piece cards</p>
           ) : null}
-          <div className="create-pin-find">
-            <button type="button" className="create-find" onClick={onFind} disabled={finding}>
+          <div className="create-pin-find" data-find-state={findState}>
+            <button
+              type="button"
+              className="create-find"
+              onClick={() => {
+                if (unavailable || finding) return;
+                onFind();
+              }}
+              aria-disabled={unavailable || finding ? "true" : undefined}
+              aria-describedby={unavailable || findMessage ? "create-find-note" : undefined}
+            >
               <ScanSearch className="size-4" />
               Find pieces in photo
             </button>
+            {unavailable || findMessage ? (
+              <p id="create-find-note" className="create-find-note" role="status">
+                {unavailable ? FIND_PIECES_COPY.unavailable : findMessage}
+              </p>
+            ) : null}
           </div>
           <div className="create-pin-actions">
             <button type="button" className="create-btn-ghost create-btn-done" onClick={onDonePins}>
@@ -364,7 +388,17 @@ function applyRetailer(tag: ProductTag, text: string): ProductTag {
   return { ...tag, retailerId: "", brand: text };
 }
 
-function DetailsStep({ look, readingPhoto, onPatch, onStep, onContinueDetails, onEditCrop }: PhoneCreateProps) {
+function DetailsStep({
+  look,
+  readingPhoto,
+  onPatch,
+  onStep,
+  onContinueDetails,
+  onEditCrop,
+  titleError,
+  onTitleErrorClear,
+}: PhoneCreateProps) {
+  const hasTitle = look.title.trim().length > 0;
   return (
     <div className="create-paper" data-kb-root>
       <header className="create-paper-bar">
@@ -386,9 +420,7 @@ function DetailsStep({ look, readingPhoto, onPatch, onStep, onContinueDetails, o
             className="create-plate-canvas"
           />
         </div>
-        <button type="button" className="create-btn-ghost" onClick={onEditCrop}>
-          Edit crop
-        </button>
+        <div className="create-details-pane">
         <label className="create-kicker" htmlFor="create-title">
           Title
         </label>
@@ -396,11 +428,22 @@ function DetailsStep({ look, readingPhoto, onPatch, onStep, onContinueDetails, o
           id="create-title"
           className="create-field"
           value={look.title}
-          placeholder="Numbered cut"
+          placeholder="Name this look"
           autoComplete="off"
           autoCapitalize="sentences"
-          onChange={(event) => onPatch({ title: event.target.value })}
+          required
+          aria-invalid={titleError && !hasTitle ? "true" : undefined}
+          aria-describedby={titleError && !hasTitle ? "create-title-error" : undefined}
+          onChange={(event) => {
+            onPatch({ title: event.target.value });
+            if (event.target.value.trim()) onTitleErrorClear?.();
+          }}
         />
+        {titleError && !hasTitle ? (
+          <p id="create-title-error" className="create-field-error" role="alert">
+            Add a title
+          </p>
+        ) : null}
         <label className="create-kicker" htmlFor="create-caption">
           Caption <span className="create-kicker-optional">(optional)</span>
         </label>
@@ -412,11 +455,22 @@ function DetailsStep({ look, readingPhoto, onPatch, onStep, onContinueDetails, o
           rows={3}
           onChange={(event) => onPatch({ caption: event.target.value })}
         />
-      </div>
-      <div className="create-paper-dock" data-kb-dock>
-        <button type="button" className="create-btn-primary" onClick={onContinueDetails} disabled={readingPhoto}>
-          Continue
+        <button type="button" className="create-btn-ghost create-details-crop" onClick={onEditCrop}>
+          Edit crop
         </button>
+        <div className="create-paper-dock create-details-dock" data-kb-dock>
+          <button
+            type="button"
+            className="create-btn-primary"
+            onClick={onContinueDetails}
+            disabled={readingPhoto}
+            aria-disabled={hasTitle ? undefined : "true"}
+            data-blocked={hasTitle ? undefined : "true"}
+          >
+            Continue
+          </button>
+        </div>
+        </div>
       </div>
     </div>
   );
@@ -432,6 +486,8 @@ function ReadyStep({
   onSaveDraft,
   onCancel,
   onEditCrop,
+  draftNote,
+  guest,
 }: PhoneCreateProps) {
   const pieces = pieceLine(look);
   const who = look.creator?.trim() ?? "";
@@ -462,8 +518,12 @@ function ReadyStep({
           <p className="create-hangtag-title">{look.title.trim() || "Untitled"}</p>
         </div>
       </div>
-      <div className="create-paper-dock">
-        <button type="button" className="create-btn-ghost" onClick={onEditCrop}>
+      <div className="create-paper-dock create-ready-dock">
+        <div className="create-ready-summary">
+          <p className="create-kicker">{kicker}</p>
+          <p className="create-ready-title">{look.title.trim() || "Untitled"}</p>
+        </div>
+        <button type="button" className="create-btn-ghost create-ready-crop" onClick={onEditCrop}>
           Edit crop
         </button>
         <button type="button" className="create-btn-primary" onClick={onPublish} disabled={saving}>
@@ -474,6 +534,14 @@ function ReadyStep({
             Save draft
           </button>
         )}
+        {!editing && guest ? (
+          <p className="create-ready-note">Publishing and saving need an account — your look stays here.</p>
+        ) : null}
+        {!editing && draftNote ? (
+          <p className="create-ready-note" role="status">
+            {draftNote}
+          </p>
+        ) : null}
       </div>
     </div>
   );
