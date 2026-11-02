@@ -33,6 +33,7 @@ export function AccountSheet({
 }) {
   const here = useRouterState({ select: (s) => s.location.href });
   const settings = useSettingsStore();
+  const hydrateSettings = useSettingsStore((s) => s.hydrate);
   const oauth = visibleOauthProviders(settings, GROK_PROVIDERS);
   const emailOn = settings.signupEmail;
   const target = next ?? (intent === "save" ? here : "/");
@@ -46,8 +47,8 @@ export function AccountSheet({
   const continuing = useRef(false);
 
   useEffect(() => {
-    settings.hydrate();
-  }, [settings.hydrate]);
+    hydrateSettings();
+  }, [hydrateSettings]);
 
   function onSheetOpenChange(nextOpen: boolean) {
     if (nextOpen) {
@@ -120,7 +121,7 @@ export function AccountSheet({
               ref={index === 0 ? providerRef : undefined}
               type="button"
               disabled={busy}
-              className="h-11 w-full rounded-xl"
+              className="h-11 w-full rounded-[12px]"
               onClick={() => continueWithProvider(provider)}
             >
               Continue with {provider.label}
@@ -156,7 +157,7 @@ export function AccountSheet({
               <Button
                 asChild
                 variant={oauth.length > 0 ? "outline" : "default"}
-                className="h-11 rounded-xl"
+                className="h-11 rounded-[12px]"
                 disabled={busy}
               >
                 <Link
