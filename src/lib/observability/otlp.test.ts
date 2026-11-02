@@ -14,6 +14,8 @@ import {
   unixNano,
 } from "./model.ts";
 import { encodeOtlpLogs, encodeOtlpMetrics, encodeOtlpTraces, otlpValue } from "./otlp.ts";
+import { installTraceparentFetch } from "./client-fetch.ts";
+import { flushSignals, setTelemetrySink, startSpan } from "./runtime.ts";
 
 describe("OTLP encoding", () => {
   it("uses 32-char trace ids and 16-char span ids", () => {
@@ -103,6 +105,55 @@ describe("OTLP encoding", () => {
     );
     assert.ok(metrics.resourceMetrics[0]?.scopeMetrics[0]?.metrics[0]?.histogram);
     assert.equal(logs.resourceLogs[0]?.scopeLogs[0]?.logRecords[0]?.severityNumber, 17);
+  });
+});
+
+describe("browser fetch tracing", () => {
+  it("exports same-origin fetch spans and propagates their context", async () => {
+    const previousWindow = globalThis.window;
+    const requests: Array<{ url: string; traceparent: string | null }> = [];
+    const signals: Array<{ kind: string; traceId?: string; spanId?: string; parentSpanId?: string }> = [];
+    const fakeWindow = {
+      location: new URL("https://looktag.example/"),
+      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const headers = new Headers(input instanceof Request ? input.headers : undefined);
+        new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+        requests.push({ url: new URL(url, "https://looktag.example/").href, traceparent: headers.get("traceparent") });
+        return new Response("ok", { status: 200 });
+      },
+    } as unknown as Window;
+    Object.defineProperty(globalThis, "window", { value: fakeWindow, configurable: true });
+    setTelemetrySink((batch) => {
+      signals.push(...batch);
+    });
+    try {
+      const parent = startSpan("ui.navigation", { kind: "CLIENT" });
+      const instrumentation = installTraceparentFetch();
+      const response = await window.fetch("/api/looks");
+      assert.equal(response.status, 200);
+      await window.fetch("https://collector.example/v1/traces");
+      await instrumentation.withoutSpan(async () => {
+        await Promise.resolve();
+        return window.fetch("/api/observability/ingest");
+      });
+      instrumentation.restore();
+
+      const propagated = parseTraceparent(requests[0]?.traceparent);
+      assert.ok(propagated);
+      assert.equal(propagated.traceId, parent.traceId);
+      assert.equal(requests[1]?.traceparent, null);
+      assert.equal(requests[2]?.traceparent, null);
+      await flushSignals();
+      const fetchSpan = signals.find((signal) => signal.kind === "span" && signal.spanId === propagated.spanId);
+      assert.equal(fetchSpan?.traceId, parent.traceId);
+      assert.equal(fetchSpan?.parentSpanId, parent.spanId);
+      parent.end();
+    } finally {
+      setTelemetrySink(null);
+      if (previousWindow) Object.defineProperty(globalThis, "window", { value: previousWindow, configurable: true });
+      else delete (globalThis as { window?: Window }).window;
+    }
   });
 });
 

@@ -14,9 +14,17 @@ export function formatTraceparent(context: SpanContextRef): string {
   return `00-${context.traceId}-${context.spanId}-01`;
 }
 
+export function isValidTraceId(value: string): boolean {
+  return /^[0-9a-f]{32}$/.test(value) && !/^0+$/.test(value);
+}
+
+export function isValidSpanId(value: string): boolean {
+  return /^[0-9a-f]{16}$/.test(value) && !/^0+$/.test(value);
+}
+
 export function parseTraceparent(value: string | null | undefined): SpanContextRef | null {
   const match = value?.match(/^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/);
-  if (!match || /^0+$/.test(match[1]!) || /^0+$/.test(match[2]!)) return null;
+  if (!match || !isValidTraceId(match[1]!) || !isValidSpanId(match[2]!)) return null;
   return { traceId: match[1]!, spanId: match[2]! };
 }
 

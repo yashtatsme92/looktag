@@ -14,8 +14,8 @@ import type {
   SpanKindName,
   SpanStatusName,
   TelemetrySignal,
-} from "./model";
-import { newSpanId, newTraceId, sanitizeAttributes, unixNano, type SpanContextRef } from "./model";
+} from "./model.ts";
+import { newSpanId, newTraceId, sanitizeAttributes, unixNano, type SpanContextRef } from "./model.ts";
 
 export type SpanRecorder = {
   traceId: string;
