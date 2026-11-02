@@ -11,6 +11,7 @@ import { resolveOrigin, clearUploadedDrafts, withPage } from "./helpers.mjs";
 const origin = resolveOrigin();
 const widths = [
   { width: 1024, height: 768 },
+  { width: 1280, height: 800 },
   { width: 1440, height: 900 },
 ];
 const PHOTO = new URL("../../public/looks/sunday-coat.jpg", import.meta.url);
@@ -33,6 +34,15 @@ async function overlaps(page, aSel, bSel) {
     },
     [aSel, bSel],
   );
+}
+
+async function inViewport(page, selector) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    return r.top >= 0 && r.bottom <= window.innerHeight;
+  }, selector);
 }
 
 async function openCreate(page) {
@@ -77,6 +87,9 @@ try {
             `create-desktop.${tag}.${mode}.crop-no-overlap`,
             !(await overlaps(page, ".crop-actions", ".crop-frame")),
           );
+          for (const selector of [".crop-frame", ".crop-controls", ".crop-actions"]) {
+            record(`create-desktop.${tag}.${mode}.crop-fits${selector}`, await inViewport(page, selector));
+          }
           if (mode === "chooser") {
             await page.getByRole("button", { name: "Remove photo" }).click();
             await page.getByRole("button", { name: "Upload photo" }).waitFor();
