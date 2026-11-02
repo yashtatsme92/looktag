@@ -96,7 +96,7 @@ async function box(page, selector) {
     const el = document.querySelector(sel);
     if (!el) return null;
     const rect = el.getBoundingClientRect();
-    return { top: rect.top, bottom: rect.bottom, height: rect.height };
+    return { top: rect.top, bottom: rect.bottom, height: rect.height, left: rect.left, right: rect.right };
   }, selector);
 }
 
@@ -2350,10 +2350,11 @@ try {
     await page.locator("#create-title").fill("Wide cut");
     await page.getByRole("button", { name: "Continue" }).click();
     await page.getByRole("heading", { name: "Ready" }).waitFor({ timeout: 5_000 });
+    // #203 Product lock B2: Publish + Save draft live in the right pane, above the fold at 1280×800.
     const dock = await box(page, ".create-paper-dock");
     record(
       "flow.desktop.ready-dock",
-      dock && saveDockStaysDown(dock.top, dock.bottom, 800),
+      !!dock && dock.top >= 0 && dock.bottom <= 800 && dock.left >= 1280 / 2,
       JSON.stringify(dock),
     );
   }, "ui-desktop-ready", desk);
