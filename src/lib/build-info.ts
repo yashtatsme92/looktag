@@ -5,7 +5,15 @@ export const appCommit: string = __APP_COMMIT__;
 export const appBuiltAt: string = __APP_BUILT_AT__;
 
 export function currentAppCommit(): string {
-  return resolveRuntimeCommit(appCommit, process.env);
+  const commit = resolveRuntimeCommit(
+    appCommit,
+    typeof process === "undefined" ? {} : process.env,
+  );
+  if (commit !== "unknown" || typeof document === "undefined") return commit;
+  const renderedCommit = document
+    .querySelector('meta[name="app-commit"]')
+    ?.getAttribute("content");
+  return renderedCommit ? resolveRuntimeCommit(renderedCommit, {}) : commit;
 }
 
 export function appVersionHeader(): string {
