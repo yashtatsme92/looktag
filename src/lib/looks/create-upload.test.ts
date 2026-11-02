@@ -15,17 +15,17 @@ describe("getCreateUploadPresentation", () => {
 
   it("makes desktop choose-first and keeps drag-drop copy", () => {
     const copy = getCreateUploadPresentation({ phone: false });
-    assert.equal(copy.title, "Choose a look photo");
+    assert.equal(copy.title, "Add a look photo");
     assert.equal(copy.primaryAction, "library");
-    assert.equal(copy.primaryLabel, "Choose photo");
-    assert.equal(copy.secondaryLabel, "Take photo");
+    assert.equal(copy.primaryLabel, "Upload photo");
+    assert.equal(copy.secondaryLabel, null);
     assert.match(copy.body, /drag and drop/i);
   });
 
   it("keeps the button label while a photo is reading", () => {
     const copy = getCreateUploadPresentation({ phone: false, reading: true });
-    assert.equal(copy.title, "Choose a look photo");
-    assert.equal(copy.primaryLabel, "Choose photo");
+    assert.equal(copy.title, "Add a look photo");
+    assert.equal(copy.primaryLabel, "Upload photo");
     assert.equal(copy.primaryLabel.includes("Reading"), false);
   });
 });

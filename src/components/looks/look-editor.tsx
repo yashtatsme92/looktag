@@ -517,6 +517,7 @@ export function LookEditor({
   function addPinAtNext() {
     const n = lookRef.current.tags.length;
     addTag(42 + (n % 4) * 8, 36 + (n % 5) * 8);
+    setPhoneStep("piece");
   }
 
   function finishPins() {

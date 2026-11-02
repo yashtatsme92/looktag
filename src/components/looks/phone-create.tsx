@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Camera, ChevronLeft, ImagePlus, Plus, ScanSearch, X } from "lucide-react";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { CropStage } from "@/components/looks/crop-stage";
@@ -99,7 +99,11 @@ function PhotoEntry({
   onCancel,
   onReset,
 }: PhoneCreateProps) {
-  const copy = getCreateUploadPresentation({ phone: true, reading: readingPhoto });
+  const [touch, setTouch] = useState(false);
+  useEffect(() => {
+    setTouch(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+  const copy = getCreateUploadPresentation({ phone: touch, reading: readingPhoto });
   const errorMessage = formatCreateUploadError(photoError);
   const [discardAsk, setDiscardAsk] = useState(false);
   const unsaved = look.tags.length > 0 || Boolean(look.title.trim());
@@ -153,10 +157,12 @@ function PhotoEntry({
               <ImagePlus className="size-4" />
               {copy.primaryLabel}
             </button>
-            <button type="button" className="create-btn-secondary" onClick={onCamera} disabled={readingPhoto}>
-              <Camera className="size-4" />
-              {copy.secondaryLabel}
-            </button>
+            {copy.secondaryLabel ? (
+              <button type="button" className="create-btn-secondary" onClick={onCamera} disabled={readingPhoto}>
+                <Camera className="size-4" />
+                {copy.secondaryLabel}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -564,6 +570,7 @@ function CropStep({
   onSaveCrop,
   onAdjustCrop,
   onKeepCrop,
+  onPatch,
   uploadProgress = null,
   discardCropAsk,
   onDiscardCrop,
@@ -614,7 +621,15 @@ function CropStep({
         ) : (
           <>
             <button type="button" className="create-btn-ghost crop-change" onClick={onLibrary}>
-              Change photo
+              Replace photo
+            </button>
+            <button
+              type="button"
+              className="create-btn-ghost crop-remove"
+              onClick={() => onPatch({ imageSrc: "", crop: undefined })}
+              disabled={readingPhoto}
+            >
+              Remove photo
             </button>
             <button type="button" className="create-btn-primary crop-use" onClick={onUsePhoto} disabled={readingPhoto || !cropReady}>
               Use photo
