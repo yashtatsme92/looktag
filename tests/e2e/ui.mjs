@@ -1655,7 +1655,7 @@ async function flowSaveSheetDismissals(page, label) {
 async function flowSaveSheetBackFromLogin(page, label) {
   await goto(page, "/looks/seed-sunday-coat");
   await openSaveSheet(page);
-  await page.getByRole("link", { name: "Continue with email" }).click();
+  await page.getByRole("button", { name: "Continue with email" }).click();
   await page.waitForURL(/\/login\?/, { timeout: 8_000 });
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
   await page.goBack();
@@ -1731,7 +1731,7 @@ async function flowSaveResume(page, label, path) {
   await goto(page, path);
   await openSaveSheet(page);
   const beforeContinue = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
-  await page.getByRole("link", { name: "Continue with email" }).click();
+  await page.getByRole("button", { name: "Continue with email" }).click();
   await page.waitForURL(/\/login\?/, { timeout: 8_000 });
   const loginUrl = new URL(page.url());
   const pendingAtLogin = await page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) ?? "null"), PENDING_SAVE_KEY);
@@ -1794,14 +1794,15 @@ async function flowYouSignInReturn(page, label, pane = "Saved") {
   }
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("heading", { name: "Sign in to sync You" }).waitFor({ timeout: 5_000 });
-  const continueLink = page.getByRole("link", { name: "Continue with email" });
-  const loginHref = new URL(await continueLink.getAttribute("href"), origin);
+  const continueButton = page.getByRole("button", { name: "Continue with email" });
+  await continueButton.click();
+  await page.waitForURL(/\/login\?/, { timeout: 8_000 });
+  const loginUrl = new URL(page.url());
   record(
     `flow.you.auth-destination-${pane.toLowerCase()}-${label}`,
-    loginHref.pathname === "/login" && loginHref.searchParams.get("next") === "/login",
-    loginHref.href,
+    loginUrl.pathname === "/login" && loginUrl.searchParams.get("next") === "/login",
+    loginUrl.href,
   );
-  await continueLink.click();
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 8_000 });
   const { email, password } = resolveAdminCredentials();
   await page.locator("#creator-email").fill(email.toLowerCase() === "hello@thelooktag.com" ? "admin" : email);

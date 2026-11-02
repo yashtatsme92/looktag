@@ -100,6 +100,71 @@ async function assertLoginMethods(browser, viewport, expected) {
   );
 }
 
+async function assertAccountSheet(browser, viewport) {
+  await withPage(
+    browser,
+    origin,
+    async (page) => {
+      await page.goto(`${origin}/login`, {
+        waitUntil: "domcontentloaded",
+        timeout: 20_000,
+      });
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      const sheet = page.locator(".account-sheet-modal");
+      const google = sheet.getByRole("button", { name: "Continue with Google", exact: true });
+      await google.waitFor({ timeout: 10_000 });
+      const email = sheet.getByLabel("Email");
+      const emailContinue = sheet.getByRole("button", { name: "Continue with email", exact: true });
+      await email.waitFor();
+      await emailContinue.waitFor();
+      assert.equal(await sheet.getByText("Sign in to sync You", { exact: true }).count(), 1);
+      assert.equal(await sheet.getByText("or", { exact: true }).count(), 1);
+      const hierarchy = await page.evaluate(
+        ({ googleButton, divider, emailInput }) =>
+          Boolean(
+            (googleButton.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+            (divider.compareDocumentPosition(emailInput) & Node.DOCUMENT_POSITION_FOLLOWING),
+          ),
+        {
+          googleButton: await google.elementHandle(),
+          divider: await sheet.getByText("or", { exact: true }).elementHandle(),
+          emailInput: await email.elementHandle(),
+        },
+      );
+      assert.equal(hierarchy, true, `provider, divider, and email order at ${viewport.width}px`);
+      const box = await google.boundingBox();
+      const buttonRadius = await google.evaluate((el) => getComputedStyle(el).borderRadius);
+      assert.equal(Math.round(box?.height ?? 0), 44, `Google button height at ${viewport.width}px`);
+      assert.equal(buttonRadius, "12px", `Google button radius at ${viewport.width}px`);
+      const googleStyle = await google.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          background: style.backgroundColor,
+          borderColor: style.borderColor,
+          borderWidth: style.borderTopWidth,
+          color: style.color,
+          markColors: [...el.querySelectorAll("svg path")].map((path) => path.getAttribute("fill")),
+        };
+      });
+      assert.deepEqual(
+        googleStyle,
+        {
+          background: "rgb(255, 255, 255)",
+          borderColor: "rgb(224, 224, 224)",
+          borderWidth: "1px",
+          color: "rgb(17, 17, 17)",
+          markColors: ["#4285F4", "#34A853", "#FBBC05", "#EA4335"],
+        },
+        `Google button styling at ${viewport.width}px`,
+      );
+      const emailStyle = await emailContinue.evaluate((el) => getComputedStyle(el).backgroundColor);
+      assert.equal(emailStyle, "rgb(17, 17, 17)", `email button styling at ${viewport.width}px`);
+    },
+    `auth-methods-sheet-${viewport.width}`,
+    { viewport },
+  );
+}
+
 async function assertProviderCopy(browser, viewport, label) {
   await withPage(
     browser,
@@ -200,6 +265,7 @@ try {
         await setSwitch(apple, true);
         await setSwitch(x, true);
         await assertLoginMethods(browser, viewport, ["Email", "Google", "Apple", "X"]);
+        await assertAccountSheet(browser, viewport);
 
         await setSwitch(google, false);
         await assertForbiddenRoutes(
