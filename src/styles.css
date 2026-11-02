@@ -1592,8 +1592,8 @@ html[data-theme="moss"] {
     padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
   }
 
-  /* Phone: one Done per step. The pin step keeps the bottom Done beside Add pin; the piece card keeps its own primary. */
-  html[data-chrome="phone"] .create-plate .create-plate-done {
+  /* One Done per step on every chrome. The pin step keeps the bottom Done beside Add pin; the piece card keeps its own primary. */
+  .create-plate .create-plate-done {
     visibility: hidden;
   }
 
@@ -4996,9 +4996,9 @@ input[type="search"]::-webkit-search-decoration {
 
   html:not(.native-app) .create-crop-step {
     display: grid;
-    min-height: min(82dvh, 58rem);
+    --crop-stage-h: min(calc(100dvh - 12rem), 52rem);
     grid-template-columns: minmax(0, 7fr) minmax(16rem, 5fr);
-    grid-template-rows: auto minmax(24rem, min(78dvh, 52rem)) auto;
+    grid-template-rows: auto minmax(24rem, var(--crop-stage-h));
     gap: 1rem 1.5rem;
     align-items: start;
     overflow: visible;
@@ -5020,7 +5020,7 @@ input[type="search"]::-webkit-search-decoration {
     grid-row: 2;
     min-height: 24rem;
     grid-template-columns: minmax(0, 7fr) minmax(16rem, 5fr);
-    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
     gap: 0.75rem 1.5rem;
     padding: 0;
     overflow: visible;
@@ -5053,14 +5053,14 @@ input[type="search"]::-webkit-search-decoration {
   html:not(.native-app) .crop-frame,
   html:not(.native-app) .crop-stage-loading {
     grid-column: 1;
-    grid-row: 1;
-    width: min(100%, calc((min(78dvh, 52rem) - 2rem) * 0.75));
+    grid-row: 1 / -1;
+    width: min(100%, calc((var(--crop-stage-h) - 2rem) * 0.75));
   }
 
   html:not(.native-app) .crop-controls {
     grid-column: 2;
     grid-row: 1;
-    align-self: center;
+    align-self: start;
     flex-wrap: wrap;
     width: 100%;
     max-width: 37.5rem;
@@ -5098,9 +5098,14 @@ input[type="search"]::-webkit-search-decoration {
     display: block;
   }
 
+  /* Actions sit in the right column under the zoom row and hint, inside the stage height, so they stay above the fold. */
   html:not(.native-app) .crop-actions {
+    position: relative;
+    z-index: 3;
     grid-column: 2;
-    grid-row: 3;
+    grid-row: 2;
+    align-self: start;
+    margin-top: 8rem;
     padding: 0;
   }
 

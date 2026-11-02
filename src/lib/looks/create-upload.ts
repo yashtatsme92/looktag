@@ -3,7 +3,7 @@ export type CreateUploadPresentation = {
   body: string;
   primaryAction: "camera" | "library";
   primaryLabel: string;
-  secondaryLabel: string;
+  secondaryLabel: string | null;
 };
 
 export function getCreateUploadPresentation({
@@ -23,11 +23,11 @@ export function getCreateUploadPresentation({
   }
 
   return {
-    title: "Choose a look photo",
-    body: "Choose a full-body photo to start, or drag and drop one here, then pin each piece from the preview.",
+    title: "Add a look photo",
+    body: "Upload a full-body photo, or drag and drop one here, then pin each piece from the preview.",
     primaryAction: "library",
-    primaryLabel: "Choose photo",
-    secondaryLabel: "Take photo",
+    primaryLabel: "Upload photo",
+    secondaryLabel: null,
   };
 }
 
