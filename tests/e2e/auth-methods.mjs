@@ -136,6 +136,29 @@ async function assertAccountSheet(browser, viewport) {
       const buttonRadius = await google.evaluate((el) => getComputedStyle(el).borderRadius);
       assert.equal(Math.round(box?.height ?? 0), 44, `Google button height at ${viewport.width}px`);
       assert.equal(buttonRadius, "12px", `Google button radius at ${viewport.width}px`);
+      const googleStyle = await google.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          background: style.backgroundColor,
+          borderColor: style.borderColor,
+          borderWidth: style.borderTopWidth,
+          color: style.color,
+          markColors: [...el.querySelectorAll("svg path")].map((path) => path.getAttribute("fill")),
+        };
+      });
+      assert.deepEqual(
+        googleStyle,
+        {
+          background: "rgb(255, 255, 255)",
+          borderColor: "rgb(224, 224, 224)",
+          borderWidth: "1px",
+          color: "rgb(17, 17, 17)",
+          markColors: ["#4285F4", "#34A853", "#FBBC05", "#EA4335"],
+        },
+        `Google button styling at ${viewport.width}px`,
+      );
+      const emailStyle = await emailContinue.evaluate((el) => getComputedStyle(el).backgroundColor);
+      assert.equal(emailStyle, "rgb(17, 17, 17)", `email button styling at ${viewport.width}px`);
     },
     `auth-methods-sheet-${viewport.width}`,
     { viewport },

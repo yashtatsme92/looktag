@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ export function AccountSheet({
   pendingSave?: string;
 }) {
   const here = useRouterState({ select: (s) => s.location.href });
+  const navigate = useNavigate();
   const settings = useSettingsStore();
   const hydrateSettings = useSettingsStore((s) => s.hydrate);
   const oauth = visibleOauthProviders(settings, GROK_PROVIDERS);
@@ -59,10 +60,18 @@ export function AccountSheet({
     onOpenChange(nextOpen);
   }
 
-  function continueWithEmail() {
+  function prepareEmailContinuation() {
     clearPendingSave();
     if (intent === "save" && pendingSave) rememberPendingSave(pendingSave);
     continuing.current = true;
+  }
+
+  function continueWithEmail() {
+    prepareEmailContinuation();
+    void navigate({
+      to: "/login",
+      search: { next: target, email, intent: intent === "save" ? "save" : undefined },
+    });
   }
 
   function continueWithProvider(provider: (typeof oauth)[number]) {
@@ -120,10 +129,35 @@ export function AccountSheet({
               key={provider.providerId}
               ref={index === 0 ? providerRef : undefined}
               type="button"
+              variant={provider.idp === "google" ? "outline" : "default"}
               disabled={busy}
-              className="h-11 w-full rounded-[12px]"
+              className={
+                provider.idp === "google"
+                  ? "h-11 w-full rounded-[12px] border border-[#E0E0E0] bg-white text-[#111] hover:bg-neutral-50"
+                  : "h-11 w-full rounded-[12px]"
+              }
               onClick={() => continueWithProvider(provider)}
             >
+              {provider.idp === "google" ? (
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.43.34-2.1V8.06H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.94l3.66-2.84z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 6.37c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 3.09 14.97 2 12 2a11 11 0 0 0-9.82 6.06L5.84 10.9C6.71 8.3 9.14 6.37 12 6.37z"
+                  />
+                </svg>
+              ) : null}
               Continue with {provider.label}
             </Button>
           ))}
@@ -155,31 +189,25 @@ export function AccountSheet({
                 onChange={(event) => setEmail(event.target.value)}
               />
               <Button
-                asChild
-                variant={oauth.length > 0 ? "outline" : "default"}
-                className="h-11 rounded-[12px]"
+                type="button"
+                className="h-11 rounded-[12px] bg-[#111] text-white hover:bg-[#111]/90"
                 disabled={busy}
+                onClick={continueWithEmail}
               >
-                <Link
-                  to="/login"
-                  search={{ next: target, email, intent: intent === "save" ? "save" : undefined }}
-                  onClick={continueWithEmail}
-                >
-                  {primary}
-                </Link>
+                {primary}
               </Button>
             </>
-          ) : oauth.length === 0 ? (
+          ) : (
             <Button asChild className="h-11">
               <Link
                 to="/login"
                 search={{ next: target, intent: intent === "save" ? "save" : undefined }}
-                onClick={continueWithEmail}
+                onClick={prepareEmailContinuation}
               >
                 Continue to sign in
               </Link>
             </Button>
-          ) : null}
+          )}
           <Button type="button" variant="ghost" className="h-11" onClick={() => onSheetOpenChange(false)}>
             {secondary}
           </Button>
