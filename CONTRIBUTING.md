@@ -27,6 +27,9 @@ export variables in your shell. Deploy hosts should inject secrets directly.
 
 ## Checks
 
+Every pull request to `main` must bump the `version` in `package.json` to a
+higher semver version. Keep the root version in `package-lock.json` in sync.
+
 ```sh
 npm test            # unit + script tests
 npm run test:e2e    # Playwright journey (app must be running)
