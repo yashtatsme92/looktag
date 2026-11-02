@@ -191,12 +191,13 @@ try {
         await setSwitch(google, false);
         await setSwitch(email, true);
         await setSwitch(x, false);
-        assert.equal(await google.isDisabled(), true, "Google disabled while Apple is off");
         assert.equal(await isSwitchOn(google), false);
+        // Google does not depend on Apple (#google-signin-default).
+        await setSwitch(google, true);
+        assert.equal(await isSwitchOn(apple), false, "Google turns on with Apple off");
+        assert.equal(await isSwitchOn(google), true);
 
         await setSwitch(apple, true);
-        assert.equal(await google.isDisabled(), false, "Google enabled after Apple is on");
-        await setSwitch(google, true);
         await setSwitch(x, true);
         await assertLoginMethods(browser, viewport, ["Email", "Google", "Apple", "X"]);
 
@@ -245,17 +246,16 @@ try {
         );
         assert.equal(adminEmailStatus, 200, "admin email sign-in remains available");
         await assertLoginMethods(browser, viewport, ["Apple", "X"]);
-        // Google cannot be stored without Apple. Apple-only and X-only are real
-        // switches; the Google case leaves Apple on and still must not say "email".
+        // Apple-only, X-only and Google-only are real switches; none may say "email".
         await setSwitch(x, false);
         await assertProviderCopy(browser, viewport, "Apple");
         await setSwitch(x, true);
         await setSwitch(apple, false);
         await assertProviderCopy(browser, viewport, "X");
-        await setSwitch(apple, true);
         await setSwitch(google, true);
         await setSwitch(x, false);
         await assertProviderCopy(browser, viewport, "Google");
+        await setSwitch(apple, true);
         await setSwitch(google, false);
         await setSwitch(x, true);
         await assertForbiddenRoutes(
@@ -276,8 +276,10 @@ try {
         );
         await setSwitch(email, true);
 
+        await setSwitch(google, true);
         await setSwitch(apple, false);
-        assert.equal(await isSwitchOn(google), false, "Turning Apple off also disables Google");
+        assert.equal(await isSwitchOn(google), true, "Turning Apple off leaves Google on");
+        await setSwitch(google, false);
         await assertForbiddenRoutes(
           page,
           [

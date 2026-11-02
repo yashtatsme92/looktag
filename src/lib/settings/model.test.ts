@@ -1,6 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  NO_PROVIDERS,
+  effectiveSettings,
+  effectiveSocialEnabled,
   DEFAULT_SETTINGS,
   extrasFromSettings,
   hasSignupMethod,
@@ -136,20 +139,23 @@ describe("mergeSettings", () => {
     assert.equal(hasSignupMethod(blocked), true);
   });
 
-  it("requires Apple before enabling Google and disables Google with Apple", () => {
-    const rejected = mergeSettings(DEFAULT_SETTINGS, { signupGoogle: true });
-    assert.equal(rejected.signupGoogle, false);
+  it("enables Google without Apple and records explicit switch-offs per method", () => {
+    const google = mergeSettings(DEFAULT_SETTINGS, { signupGoogle: true });
+    assert.equal(google.signupGoogle, true);
+    assert.equal(google.signupApple, false);
 
-    const enabled = mergeSettings(DEFAULT_SETTINGS, {
-      signupApple: true,
-      signupGoogle: true,
-    });
-    assert.equal(enabled.signupApple, true);
-    assert.equal(enabled.signupGoogle, true);
+    const appleOff = mergeSettings(google, { signupApple: false });
+    assert.equal(appleOff.signupGoogle, true, "Apple off does not touch Google");
+    assert.equal(appleOff.signupOff, "apple");
 
-    const disabled = mergeSettings(enabled, { signupApple: false });
-    assert.equal(disabled.signupApple, false);
-    assert.equal(disabled.signupGoogle, false);
+    const googleOff = mergeSettings(appleOff, { signupGoogle: false });
+    assert.equal(googleOff.signupOff, "google,apple");
+    const googleBack = mergeSettings(googleOff, { signupGoogle: true });
+    assert.equal(googleBack.signupOff, "apple");
+  });
+
+  it("ignores a client-sent signupOff", () => {
+    assert.equal("signupOff" in pickSettingsPatch({ signupOff: "google" }), false);
   });
 
   it("allows turning Houses off independently", () => {
@@ -211,5 +217,77 @@ describe("signupMethodCount", () => {
       signupApple: true,
       signupX: false,
     }), 3);
+  });
+});
+
+describe("effectiveSocialEnabled", () => {
+  const google = { credentials: true, broker: false };
+  const none = { credentials: false, broker: false };
+  const withGoogle = { google, apple: none, x: none };
+
+  it("is on when configured and unset", () => {
+    assert.equal(effectiveSocialEnabled(DEFAULT_SETTINGS, "google", withGoogle), true);
+  });
+
+  it("is off when configured but explicitly switched off", () => {
+    const off = mergeSettings(DEFAULT_SETTINGS, { signupGoogle: false });
+    assert.equal(effectiveSocialEnabled(off, "google", withGoogle), false);
+  });
+
+  it("is off when not configured, even if switched on", () => {
+    const on = mergeSettings(DEFAULT_SETTINGS, { signupApple: true });
+    assert.equal(effectiveSocialEnabled(on, "apple", withGoogle), false);
+    assert.equal(effectiveSocialEnabled(on, "google", NO_PROVIDERS), false);
+  });
+
+  it("keeps Google independent of Apple", () => {
+    const both = { google, apple: google, x: none };
+    const appleOff = mergeSettings(DEFAULT_SETTINGS, { signupApple: false });
+    assert.equal(effectiveSocialEnabled(appleOff, "google", both), true);
+    assert.equal(effectiveSocialEnabled(appleOff, "apple", both), false);
+    const googleOff = mergeSettings(DEFAULT_SETTINGS, { signupGoogle: false });
+    assert.equal(effectiveSocialEnabled(googleOff, "apple", both), true);
+  });
+
+  it("needs an explicit switch-on for a broker-only provider", () => {
+    const broker = { credentials: false, broker: true };
+    const brokerOnly = { google: broker, apple: broker, x: broker };
+    assert.equal(effectiveSocialEnabled(DEFAULT_SETTINGS, "x", brokerOnly), false);
+    const on = mergeSettings(DEFAULT_SETTINGS, { signupX: true });
+    assert.equal(effectiveSocialEnabled(on, "x", brokerOnly), true);
+  });
+
+  it("effectiveSettings rewrites the three social flags", () => {
+    const next = effectiveSettings(DEFAULT_SETTINGS, withGoogle);
+    assert.deepEqual([next.signupGoogle, next.signupApple, next.signupX], [true, false, false]);
+  });
+});
+
+describe("at least one sign-up method (effective flags)", () => {
+  const none = NO_PROVIDERS;
+  const withGoogle = { ...NO_PROVIDERS, google: { credentials: true, broker: false } };
+
+  it("does not count stored Apple/X as on when they are not configured", () => {
+    const stored = { ...DEFAULT_SETTINGS, signupEmail: false, signupApple: true, signupX: true };
+    assert.equal(hasSignupMethod(stored), true);
+    assert.equal(hasSignupMethod(stored, none), false);
+  });
+
+  it("refuses to switch email off when only unconfigured providers are stored on", () => {
+    const current = { ...DEFAULT_SETTINGS, signupEmail: true, signupApple: true };
+    const next = mergeSettings(current, { signupEmail: false }, none);
+    assert.equal(next.signupEmail, true);
+  });
+
+  it("allows switching email off when configured Google is effectively on", () => {
+    const next = mergeSettings(DEFAULT_SETTINGS, { signupEmail: false }, withGoogle);
+    assert.equal(next.signupEmail, false);
+    assert.equal(hasSignupMethod(next, withGoogle), true);
+  });
+
+  it("refuses to switch Google off when it is the last effective method", () => {
+    const current = mergeSettings(DEFAULT_SETTINGS, { signupEmail: false }, withGoogle);
+    const next = mergeSettings(current, { signupGoogle: false }, withGoogle);
+    assert.equal(next.signupOff, "");
   });
 });

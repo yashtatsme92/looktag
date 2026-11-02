@@ -28,6 +28,7 @@ import {
   type HouseSort,
 } from "@/lib/admin/browse";
 import { listFashionCollections, listRankedLabels, setLabelScouted } from "@/lib/labels/api";
+import { providerConfigured, type ProviderAvailability, type SocialMethod } from "@/lib/settings/model";
 import { SCOUTED_FLAG, type FashionCollection, type RankedLabel } from "@/lib/labels/model";
 import { SEARCH_ENGINES } from "@/lib/looks/catalog";
 import { SEARCH_REGIONS, resolveRegion } from "@/lib/looks/region";
@@ -37,6 +38,7 @@ import type { OptimisticPhase } from "@/lib/loading/optimistic";
 import { settleLoad } from "@/lib/loading/test-delay";
 import {
   hasSignupMethod,
+  withSignupPatch,
   type AppSettings,
   type SearchEngineId,
 } from "@/lib/settings/model";
@@ -97,15 +99,10 @@ function StudioAdmin() {
   }, [houseLoad.phase, houseLoad.data]);
 
   async function patch(next: Partial<AppSettings>) {
-    if (next.signupGoogle === true && !settings.signupApple && next.signupApple !== true) {
-      toast.error("Enable Apple sign-in before Google.");
-      return;
-    }
-    const changes = next.signupApple === false && settings.signupGoogle
-      ? { ...next, signupGoogle: false }
-      : next;
-    const merged = { ...settings, ...changes };
-    if (!hasSignupMethod(merged)) {
+    const changes = next;
+    // Judge by effective flags: a stored "on" for an unconfigured provider is not a way in.
+    const merged = withSignupPatch(settings, changes);
+    if (!hasSignupMethod(merged, settings.providers)) {
       toast.error("Leave at least one sign-up method on.");
       return;
     }
@@ -161,9 +158,9 @@ function StudioAdmin() {
       <section className="mb-6 rounded-xl bg-card p-5 shadow-[var(--shadow-border)]">
         <h2 className="ds-card-title">Sign up</h2>
         <p className="mt-2 mb-4 text-sm text-muted-foreground">
-          Choose which ways people can create an account. Apple must be on
-          before Google can be enabled. Disabled methods are also blocked on
-          the server.
+          Choose which ways people can create an account. Each provider is
+          independent and is on by default once its credentials are set on the
+          server. Methods you switch off are also blocked on the server.
         </p>
         <ul className="flex flex-col">
           <MethodRow
@@ -174,20 +171,22 @@ function StudioAdmin() {
           />
           <MethodRow
             label="Google"
-            hint="Opens a sign-in window."
+            hint={socialHint(settings.providers, "google")}
             checked={typeof pendingSettings?.signupGoogle === "boolean" ? pendingSettings.signupGoogle : settings.signupGoogle}
-            disabled={!settings.signupApple && !settings.signupGoogle}
+            disabled={!providerConfigured(settings.providers, "google")}
             onChange={(checked) => void patch({ signupGoogle: checked })}
           />
           <MethodRow
             label="Apple"
-            hint="Opens a sign-in window. Required to enable Google."
+            hint={socialHint(settings.providers, "apple")}
+            disabled={!providerConfigured(settings.providers, "apple")}
             checked={typeof pendingSettings?.signupApple === "boolean" ? pendingSettings.signupApple : settings.signupApple}
             onChange={(checked) => void patch({ signupApple: checked })}
           />
           <MethodRow
             label="X"
-            hint="Opens a sign-in window."
+            hint={socialHint(settings.providers, "x")}
+            disabled={!providerConfigured(settings.providers, "x")}
             checked={typeof pendingSettings?.signupX === "boolean" ? pendingSettings.signupX : settings.signupX}
             onChange={(checked) => void patch({ signupX: checked })}
           />
@@ -545,6 +544,13 @@ function ScoreField({
       />
     </div>
   );
+}
+
+function socialHint(providers: ProviderAvailability, method: SocialMethod): string {
+  const state = providers[method];
+  if (state.credentials) return "Opens a sign-in window. Credentials are set on the server, so it is on unless you switch it off.";
+  if (state.broker) return "Opens a sign-in window through the shared sign-in service. Off until you switch it on.";
+  return "Not configured on the server.";
 }
 
 function MethodRow({

@@ -1,6 +1,14 @@
 import { APIError } from "better-auth/api";
 import { isAdminPasswordSignInEmail } from "../admin/access.ts";
-import type { AppSettings } from "../settings/model";
+import {
+  effectiveSettings,
+  effectiveSocialEnabled,
+  NO_PROVIDERS,
+  type AppSettings,
+  type ProviderAvailability,
+} from "../settings/model.ts";
+import { socialProvidersForDeploy } from "../providers/auth/social.ts";
+import { shouldRegisterGrokBroker } from "./preview.ts";
 
 export type SignInMethod = "email" | "google" | "apple" | "x";
 type ResolvedMethod = SignInMethod | "unknown";
@@ -56,6 +64,37 @@ export function previewHidesSocial(env: { APP_ENV?: string } = process.env): boo
   return (env.APP_ENV ?? "").trim() === "preview";
 }
 
+type ServerEnv = Record<string, string | undefined>;
+
+/**
+ * Which social methods this server can offer, read from its own env. The
+ * client learns this from getAppSettings; it is never hardcoded there.
+ */
+export function serverProviderAvailability(env: ServerEnv = process.env): ProviderAvailability {
+  if (previewHidesSocial(env)) return NO_PROVIDERS;
+  const direct = socialProvidersForDeploy(env) as Record<string, unknown>;
+  // The broker counts as configured only when its issuer is set explicitly;
+  // the built-in default issuer alone does not make Apple or X available.
+  const broker =
+    (env.VITE_AUTH_ENABLED ?? "").trim() !== "false" &&
+    shouldRegisterGrokBroker(env) &&
+    Boolean((env.GROK_AUTH_ISSUER ?? "").trim());
+  return {
+    google: { credentials: Boolean(direct.google), broker },
+    apple: { credentials: Boolean(direct.apple), broker },
+    x: { credentials: false, broker },
+  };
+}
+
+/** Stored settings → what sign-in pages and the gate should honour. */
+export function publicSignInSettings<T extends AppSettings>(
+  settings: T,
+  env: ServerEnv = process.env,
+): T & { providers: ProviderAvailability } {
+  const providers = serverProviderAvailability(env);
+  return { ...settingsForSignIn(effectiveSettings(settings, providers), env), providers };
+}
+
 export function settingsForSignIn<T extends Pick<AppSettings, "signupGoogle" | "signupApple" | "signupX">>(
   settings: T,
   env: { APP_ENV?: string } = process.env,
@@ -64,12 +103,14 @@ export function settingsForSignIn<T extends Pick<AppSettings, "signupGoogle" | "
   return { ...settings, signupGoogle: false, signupApple: false, signupX: false };
 }
 
-export function isSignInMethodEnabled(settings: AppSettings, method: SignInMethod): boolean {
-  if (method !== "email" && previewHidesSocial()) return false;
+export function isSignInMethodEnabled(
+  settings: AppSettings,
+  method: SignInMethod,
+  providers: ProviderAvailability = serverProviderAvailability(),
+): boolean {
   if (method === "email") return settings.signupEmail;
-  if (method === "google") return settings.signupGoogle;
-  if (method === "apple") return settings.signupApple;
-  return settings.signupX;
+  if (previewHidesSocial()) return false;
+  return effectiveSocialEnabled(settings, method, providers);
 }
 
 export function enforceSignInMethod(
@@ -77,6 +118,7 @@ export function enforceSignInMethod(
   body: unknown,
   settings: AppSettings,
   details: AuthRequestDetails = {},
+  providers: ProviderAvailability = serverProviderAvailability(),
 ): void {
   const method = methodForAuthRequest(path, body, details);
   const endpoint = endpointPath(path, details.requestUrl);
@@ -89,7 +131,7 @@ export function enforceSignInMethod(
   ) {
     return;
   }
-  if (method && (method === "unknown" || !isSignInMethodEnabled(settings, method))) {
+  if (method && (method === "unknown" || !isSignInMethodEnabled(settings, method, providers))) {
     throw new APIError("FORBIDDEN", {
       message: `Sign-in method disabled: ${method}`,
     });

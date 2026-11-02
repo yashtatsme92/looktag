@@ -45,6 +45,8 @@ export type AppSettings = {
   feedAuditJson: string;
   /** Footer link ids switched on in Admin (comma-separated). Empty = every link off. */
   footerLinks: string;
+  /** Social sign-in methods an admin explicitly switched off (comma-separated: google,apple,x). */
+  signupOff: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -77,6 +79,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   feedRunIds: "",
   feedAuditJson: "",
   footerLinks: "",
+  signupOff: "",
 };
 
 export type OauthProvider = {
@@ -134,6 +137,71 @@ function asFooterLinks(value: unknown): string {
   return FOOTER_LINK_IDS.filter((id) => ids.includes(id)).join(",");
 }
 
+export const SOCIAL_METHODS = ["google", "apple", "x"] as const;
+export type SocialMethod = (typeof SOCIAL_METHODS)[number];
+
+const SOCIAL_FLAG = {
+  google: "signupGoogle",
+  apple: "signupApple",
+  x: "signupX",
+} as const satisfies Record<SocialMethod, keyof AppSettings>;
+
+function asSignupOff(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const ids = value.split(",").map((id) => id.trim());
+  return SOCIAL_METHODS.filter((id) => ids.includes(id)).join(",");
+}
+
+/**
+ * What the server can actually offer for one social method.
+ * `credentials`: the app's own OAuth client is set (e.g. GOOGLE_CLIENT_ID/SECRET).
+ * `broker`: the shared sign-in broker is registered and can federate to it.
+ */
+export type ProviderAvailability = Record<SocialMethod, { credentials: boolean; broker: boolean }>;
+
+export const NO_PROVIDERS: ProviderAvailability = {
+  google: { credentials: false, broker: false },
+  apple: { credentials: false, broker: false },
+  x: { credentials: false, broker: false },
+};
+
+export function providerConfigured(available: ProviderAvailability, method: SocialMethod): boolean {
+  return available[method].credentials || available[method].broker;
+}
+
+/** True when an admin switched this method off on purpose. */
+export function signupExplicitlyOff(settings: Pick<AppSettings, "signupOff">, method: SocialMethod): boolean {
+  return settings.signupOff.split(",").includes(method);
+}
+
+/**
+ * Whether one social method is offered. Each method is independent:
+ *  - not configured on the server → off;
+ *  - an admin explicitly switched it off → off;
+ *  - an admin switched it on → on;
+ *  - unset → on when the app has its own credentials for it.
+ */
+export function effectiveSocialEnabled(
+  settings: Pick<AppSettings, "signupGoogle" | "signupApple" | "signupX" | "signupOff">,
+  method: SocialMethod,
+  available: ProviderAvailability,
+): boolean {
+  if (!providerConfigured(available, method)) return false;
+  if (signupExplicitlyOff(settings, method)) return false;
+  if (settings[SOCIAL_FLAG[method]]) return true;
+  return available[method].credentials;
+}
+
+/** Settings with each social flag replaced by its effective value. */
+export function effectiveSettings<T extends AppSettings>(settings: T, available: ProviderAvailability): T {
+  return {
+    ...settings,
+    signupGoogle: effectiveSocialEnabled(settings, "google", available),
+    signupApple: effectiveSocialEnabled(settings, "apple", available),
+    signupX: effectiveSocialEnabled(settings, "x", available),
+  };
+}
+
 export function parseSettings(raw: unknown): AppSettings {
   const row = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const extras =
@@ -175,6 +243,7 @@ export function parseSettings(raw: unknown): AppSettings {
       : "",
     signupApple: asBoolean(extras.signupApple ?? row.signupApple, false),
     footerLinks: asFooterLinks(extras.footerLinks ?? row.footerLinks),
+    signupOff: asSignupOff(extras.signupOff ?? row.signupOff),
   };
 }
 
@@ -205,6 +274,7 @@ export function extrasFromSettings(settings: AppSettings): Record<string, unknow
     feedAuditJson: settings.feedAuditJson,
     signupApple: settings.signupApple,
     footerLinks: settings.footerLinks,
+    signupOff: settings.signupOff,
   };
 }
 
@@ -235,6 +305,7 @@ export const EXTRAS_KEYS = [
   "feedAuditJson",
   "signupApple",
   "footerLinks",
+  "signupOff",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 export function parseExtrasRecord(raw: unknown): Record<string, unknown> {
@@ -262,13 +333,31 @@ export function mergeExtrasJson(raw: unknown, settings: AppSettings): string {
   });
 }
 
-export function mergeSettings(current: AppSettings, patch: Partial<AppSettings>): AppSettings {
+/** Patch applied with signupOff updated from the social switches; no guard. */
+export function withSignupPatch(current: AppSettings, patch: Partial<AppSettings>): AppSettings {
   const next = parseSettings({ ...current, ...patch });
-  if (next.signupGoogle && !next.signupApple) {
-    if (patch.signupGoogle === true) return current;
-    next.signupGoogle = false;
+  const off = new Set(next.signupOff ? next.signupOff.split(",") : []);
+  for (const method of SOCIAL_METHODS) {
+    const value = patch[SOCIAL_FLAG[method]];
+    if (value === false) off.add(method);
+    if (value === true) off.delete(method);
   }
-  if (!hasSignupMethod(next)) return current;
+  next.signupOff = SOCIAL_METHODS.filter((id) => off.has(id)).join(",");
+  return next;
+}
+
+/**
+ * Apply an admin patch. A social switch set to false is recorded in signupOff
+ * (explicit off, survives credential changes); set to true removes it. With
+ * `providers`, the "at least one method on" guard uses effective flags.
+ */
+export function mergeSettings(
+  current: AppSettings,
+  patch: Partial<AppSettings>,
+  providers?: ProviderAvailability,
+): AppSettings {
+  const next = withSignupPatch(current, patch);
+  if (!hasSignupMethod(next, providers)) return current;
   return next;
 }
 
@@ -285,6 +374,8 @@ export function pickSettingsPatch(input: Partial<AppSettings>): Partial<AppSetti
   if (typeof input.signupX === "boolean") next.signupX = parsed.signupX;
   if (typeof input.labelsEnabled === "boolean") next.labelsEnabled = parsed.labelsEnabled;
   for (const key of EXTRAS_KEYS) {
+    // signupOff is derived from the sign-up switches on the server, never sent.
+    if (key === "signupOff") continue;
     if (input[key] !== undefined) {
       next[key] = parsed[key] as never;
     }
@@ -292,9 +383,19 @@ export function pickSettingsPatch(input: Partial<AppSettings>): Partial<AppSetti
   return next;
 }
 
+/**
+ * True when at least one sign-up method is on. Pass `providers` to judge
+ * social methods by their effective state (configured, not switched off).
+ */
 export function hasSignupMethod(
-  settings: Pick<AppSettings, "signupEmail" | "signupGoogle" | "signupApple" | "signupX">,
+  settings: Pick<AppSettings, "signupEmail" | "signupGoogle" | "signupApple" | "signupX"> &
+    Partial<Pick<AppSettings, "signupOff">>,
+  providers?: ProviderAvailability,
 ): boolean {
+  if (providers) {
+    const withOff = { ...settings, signupOff: settings.signupOff ?? "" };
+    return settings.signupEmail || SOCIAL_METHODS.some((m) => effectiveSocialEnabled(withOff, m, providers));
+  }
   return settings.signupEmail || settings.signupGoogle || settings.signupApple || settings.signupX;
 }
 

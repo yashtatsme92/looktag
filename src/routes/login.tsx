@@ -108,7 +108,7 @@ function Login() {
             variant="outline"
             className="w-full"
             disabled={busy}
-            onClick={() => handleOauth(provider.providerId)}
+            onClick={() => handleOauth(provider)}
           >
             Continue with {provider.label}
           </Button>
@@ -222,7 +222,13 @@ function Login() {
     }
   }
 
-  function handleOauth(providerId: string) {
+  function handleOauth(provider: { providerId: string; idp: string }) {
+    const social =
+      provider.idp === "google" || provider.idp === "apple"
+        ? settings.providers[provider.idp].credentials
+          ? provider.idp
+          : undefined
+        : undefined;
     setError("");
     setBusy(true);
     markStyleGuideDone({ coach: true });
@@ -230,7 +236,10 @@ function Login() {
       setBusy(false);
       setError("That sign-in did not complete. Use another method.");
     }, 7_000);
-    void signIn(providerId, { callbackURL: dest === "/login" && next !== "/login" ? "/" : dest })
+    void signIn(provider.providerId, {
+      callbackURL: dest === "/login" && next !== "/login" ? "/" : dest,
+      social,
+    })
       .then(() => {
         window.clearTimeout(unlock);
         if (window.location.pathname.startsWith("/login")) {

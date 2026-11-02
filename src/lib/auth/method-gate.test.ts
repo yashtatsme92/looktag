@@ -2,7 +2,14 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_ADMIN_EMAIL, LEGACY_ADMIN_EMAIL } from "../admin/access.ts";
 import { DEFAULT_SETTINGS } from "../settings/model.ts";
-import { enforceSignInMethod, methodForAuthRequest } from "./method-gate.ts";
+import { mergeSettings } from "../settings/model.ts";
+import {
+  enforceSignInMethod,
+  isSignInMethodEnabled,
+  methodForAuthRequest,
+  publicSignInSettings,
+  serverProviderAvailability,
+} from "./method-gate.ts";
 
 describe("methodForAuthRequest", () => {
   const cases: [
@@ -151,5 +158,65 @@ describe("enforceSignInMethod", () => {
         ),
       /Sign-in method disabled: unknown/,
     );
+  });
+});
+
+describe("server provider availability", () => {
+  const creds = {
+    GOOGLE_CLIENT_ID: "dummy-google-id",
+    GOOGLE_CLIENT_SECRET: "dummy-google-secret",
+  };
+
+  it("treats Google as configured from its own env vars, independent of Apple", () => {
+    const providers = serverProviderAvailability(creds);
+    assert.equal(providers.google.credentials, true);
+    assert.equal(providers.apple.credentials, false);
+    assert.equal(isSignInMethodEnabled(DEFAULT_SETTINGS, "google", providers), true);
+    assert.equal(isSignInMethodEnabled(DEFAULT_SETTINGS, "apple", providers), false);
+  });
+
+  it("blocks Google on the server once an admin switched it off", () => {
+    const providers = serverProviderAvailability(creds);
+    const off = mergeSettings(DEFAULT_SETTINGS, { signupGoogle: false });
+    for (const [path, body] of [
+      ["/sign-in/social", { provider: "google" }],
+      ["/sign-in/oauth2", { providerId: "grok-google" }],
+      ["/callback/google", undefined],
+    ] as const) {
+      assert.throws(
+        () => enforceSignInMethod(path, body, off, {}, providers),
+        (error: unknown) => (error as { status?: unknown })?.status === "FORBIDDEN",
+      );
+    }
+    assert.doesNotThrow(() =>
+      enforceSignInMethod("/sign-in/social", { provider: "google" }, DEFAULT_SETTINGS, {}, providers),
+    );
+  });
+
+  it("offers nothing social on previews", () => {
+    const providers = serverProviderAvailability({ ...creds, APP_ENV: "preview" });
+    assert.equal(providers.google.credentials, false);
+    assert.equal(providers.google.broker, false);
+  });
+
+  it("publicSignInSettings returns effective flags plus availability", () => {
+    const shown = publicSignInSettings(DEFAULT_SETTINGS, creds);
+    assert.equal(shown.signupGoogle, true);
+    assert.equal(shown.signupApple, false);
+    assert.equal(shown.providers.google.credentials, true);
+  });
+
+  it("does not count the shared broker as configured without GROK_AUTH_ISSUER", () => {
+    const none = serverProviderAvailability({});
+    assert.equal(none.apple.broker, false);
+    assert.equal(none.x.broker, false);
+    const issuer = serverProviderAvailability({ GROK_AUTH_ISSUER: "https://auth.example.test" });
+    assert.equal(issuer.apple.broker, true);
+    assert.equal(issuer.x.broker, true);
+    // A stored "on" for an unconfigured provider is not offered.
+    const storedOn = { ...DEFAULT_SETTINGS, signupApple: true, signupX: true };
+    const shown = publicSignInSettings(storedOn, {});
+    assert.equal(shown.signupApple, false);
+    assert.equal(shown.signupX, false);
   });
 });

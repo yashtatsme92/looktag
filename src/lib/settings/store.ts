@@ -1,11 +1,13 @@
 import { memoPromise } from "@/lib/loading/memo-promise";
 import { create } from "zustand";
 import { getAppSettings, saveAppSettings } from "./api";
-import { DEFAULT_SETTINGS, type AppSettings } from "./model";
+import { DEFAULT_SETTINGS, NO_PROVIDERS, type AppSettings, type ProviderAvailability } from "./model";
 import { readStoredTheme } from "../design/themes";
 import { readStoredSplash } from "../pwa/splash";
 
 type SettingsState = AppSettings & {
+  /** What the server can offer for each social method (from getAppSettings). */
+  providers: ProviderAvailability;
   hydrated: boolean;
   hydrate: () => void;
   save: (patch: Partial<AppSettings>) => Promise<AppSettings>;
@@ -25,6 +27,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
   return {
     ...DEFAULT_SETTINGS,
     ...clientChromeSeed(),
+    providers: NO_PROVIDERS,
     hydrated: false,
     hydrate: () => {
       if (get().hydrated) return;

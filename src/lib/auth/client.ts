@@ -98,7 +98,12 @@ type PopupMessage = { source: "grok-auth-popup"; token: string | null; error?: s
  */
 export async function signIn(
   providerId: string,
-  opts: { callbackURL?: string; errorCallbackURL?: string } = {},
+  opts: {
+    callbackURL?: string;
+    errorCallbackURL?: string;
+    /** Use the app's own OAuth client for this provider instead of the broker. */
+    social?: "google" | "apple";
+  } = {},
 ): Promise<void> {
   const callbackURL = opts.callbackURL ?? "/";
   const errorCallbackURL = opts.errorCallbackURL ?? "/";
@@ -140,6 +145,17 @@ export async function signIn(
         window.location.href = callbackURL;
       }
     }
+    return;
+  }
+
+  if (opts.social) {
+    const { data, error } = await authClient.signIn.social({
+      provider: opts.social,
+      callbackURL,
+      errorCallbackURL,
+    });
+    if (error) throw new Error(error.message ?? "Sign-in failed");
+    if (data?.url) window.location.href = data.url;
     return;
   }
 
