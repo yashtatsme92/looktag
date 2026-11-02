@@ -190,6 +190,37 @@ async function flow(page, width, height) {
   await clearUploadedDrafts(page);
 }
 
+// #203 review: iPhone SE 375×667 — Title, Caption and Continue must be reachable on Details.
+async function seDetails(page) {
+  await openPins(page);
+  await page.getByRole("button", { name: "Done" }).first().click();
+  await page.locator("#create-title").waitFor({ timeout: 5_000 });
+  const vh = page.viewportSize().height;
+  const title = await box(page, "#create-title");
+  const cont = await page.getByRole("button", { name: "Continue" }).boundingBox();
+  record("create-desktop.se.title-in-view", !!title && title.top >= 0 && title.bottom <= vh, JSON.stringify(title));
+  record(
+    "create-desktop.se.continue-in-view",
+    !!cont && cont.y >= 0 && cont.y + cont.height <= vh,
+    JSON.stringify(cont),
+  );
+  await page.locator("#create-caption").scrollIntoViewIfNeeded();
+  const caption = await box(page, "#create-caption");
+  const cont2 = await page.getByRole("button", { name: "Continue" }).boundingBox();
+  record("create-desktop.se.caption-reachable", !!caption && caption.top >= 0 && caption.bottom <= vh, JSON.stringify(caption));
+  record(
+    "create-desktop.se.continue-stays-docked",
+    !!cont2 && cont2.y + cont2.height <= vh && (!caption || cont2.y >= caption.bottom - 1),
+    JSON.stringify({ cont2, caption }),
+  );
+  await shot(page, "create-details-375x667");
+  await page.locator("#create-title").fill("SE coat");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Publish" }).waitFor({ timeout: 5_000 });
+  record("create-desktop.se.reaches-ready", true);
+  await clearUploadedDrafts(page);
+}
+
 const browser = await chromium.launch();
 try {
   for (const [width, height] of [
@@ -201,6 +232,7 @@ try {
       viewport: { width, height },
     });
   }
+  await withPage(browser, origin, seDetails, "create-desktop-se", { viewport: { width: 375, height: 667 } });
 } finally {
   await browser.close();
 }

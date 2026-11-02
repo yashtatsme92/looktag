@@ -34,7 +34,35 @@ export function isAiQuotaError(error: unknown): boolean {
   return typeof e.message === "string" && /too many ai searches|rate limit/i.test(e.message);
 }
 
-/** Server-side "AI is not available" result copy → Unavailable, not a toast. */
+/**
+ * Server-side "AI is not available" and raw provider failures ("Could not reach Grok.", "xAI API error 503")
+ * → Unavailable helper copy. Vendor names never reach the UI (platform-agnostic).
+ */
 export function isAiUnavailableMessage(message: string): boolean {
-  return /ai is not available/i.test(message);
+  return /ai is not available|could not reach|\bapi error\b|\bgrok\b|\bxai\b/i.test(message);
+}
+
+export type SessionTapIntent = "find" | "publish" | "draft";
+
+/**
+ * Taps on Publish / Save draft / Find that land while the session is still loading are queued
+ * and run once it resolves (latest tap wins, runs once).
+ */
+export function createSessionTapQueue() {
+  let queued: SessionTapIntent | null = null;
+  return {
+    /** Returns true when the tap was queued (session pending) — caller must not act yet. */
+    tap(intent: SessionTapIntent, sessionPending: boolean): boolean {
+      if (!sessionPending) return false;
+      queued = intent;
+      return true;
+    },
+    /** Call when the session state changes; returns the intent to run now, at most once. */
+    flush(sessionPending: boolean): SessionTapIntent | null {
+      if (sessionPending || !queued) return null;
+      const intent = queued;
+      queued = null;
+      return intent;
+    },
+  };
 }

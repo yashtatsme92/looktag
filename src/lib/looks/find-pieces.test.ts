@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FIND_PIECES_COPY, findPiecesState, isAiQuotaError, isAiUnavailableMessage } from "./find-pieces.ts";
+import {
+  FIND_PIECES_COPY,
+  createSessionTapQueue,
+  findPiecesState,
+  isAiQuotaError,
+  isAiUnavailableMessage,
+} from "./find-pieces.ts";
 
 const base = { aiAvailable: true, authEnabled: true, signedIn: true, quotaHit: false };
 
@@ -38,4 +44,23 @@ test("error classifiers", () => {
   assert.ok(!isAiQuotaError(new Error("Unauthorized")));
   assert.ok(isAiUnavailableMessage("AI is not available in this environment."));
   assert.ok(!FIND_PIECES_COPY.gatedTitle.toLowerCase().includes("free"));
+});
+
+test("raw provider errors map to Unavailable, never shown verbatim", () => {
+  assert.equal(isAiUnavailableMessage("Could not reach Grok."), true);
+  assert.equal(isAiUnavailableMessage("xAI API error 503"), true);
+  assert.equal(isAiUnavailableMessage("Could not read that photo."), false);
+});
+
+test("session-loading tap is queued and runs once when the session resolves", () => {
+  const q = createSessionTapQueue();
+  assert.equal(q.tap("publish", false), false, "settled session acts immediately");
+  assert.equal(q.flush(false), null);
+  assert.equal(q.tap("publish", true), true);
+  assert.equal(q.flush(true), null, "still loading: nothing runs");
+  assert.equal(q.flush(false), "publish");
+  assert.equal(q.flush(false), null, "runs once");
+  q.tap("find", true);
+  q.tap("draft", true);
+  assert.equal(q.flush(false), "draft", "latest tap wins");
 });

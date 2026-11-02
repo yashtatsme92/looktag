@@ -1293,8 +1293,21 @@ html[data-theme="moss"] {
     display: contents;
   }
 
+  /* Phone/tablet: the dock lives inside the scrolling Details column, so pin it to the bottom
+     edge — Continue stays reachable on short screens such as iPhone SE 375×667 (#203 review). */
   .create-details .create-details-dock {
+    position: sticky;
+    bottom: -1rem;
+    z-index: 2;
+    margin-bottom: -1rem;
     padding-inline: 0;
+    background: #f4f4f4;
+  }
+
+  @media (max-height: 700px) {
+    .create-details-photo {
+      height: 12rem;
+    }
   }
 
   .create-ready-summary {
@@ -1656,6 +1669,12 @@ html[data-theme="moss"] {
     padding-bottom: 0.5rem;
     background: #f4f4f4;
     box-shadow: 0 -1px 0 rgb(224 224 224 / 0.8);
+  }
+
+  /* Keyboard dock is fixed — drop the resting sticky offset so it keeps its own height. */
+  [data-kb="open"] .create-details .create-details-dock {
+    bottom: auto;
+    margin-bottom: 0;
   }
 
   [data-kb="open"] .create-details,
@@ -5247,6 +5266,9 @@ input[type="search"]::-webkit-search-decoration {
   }
 
   html:not(.native-app) .create-details .create-details-dock {
+    position: static;
+    margin-bottom: 0;
+    background: transparent;
     align-self: stretch;
     margin-top: 0.5rem;
   }

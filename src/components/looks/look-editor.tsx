@@ -16,6 +16,7 @@ import {
   findPiecesState,
   isAiQuotaError,
   isAiUnavailableMessage,
+  createSessionTapQueue,
 } from "@/lib/looks/find-pieces";
 import {
   clearCreateResume,
@@ -315,20 +316,17 @@ export function LookEditor({
   }
 
   // A tap that lands while the session is still loading runs once it resolves, instead of being dropped.
-  const pendingTapRef = useRef<CreateResumeIntent | null>(null);
+  const tapQueueRef = useRef(createSessionTapQueue());
   useEffect(() => {
-    if (isPending || !pendingTapRef.current) return;
-    const intent = pendingTapRef.current;
-    pendingTapRef.current = null;
+    const intent = tapQueueRef.current.flush(isPending);
     if (intent === "publish") requestPublish();
     else if (intent === "draft") requestDraft();
-    else requestFind();
+    else if (intent === "find") requestFind();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPending, user?.id]);
 
   function openAccount(intent: CreateResumeIntent) {
-    if (isPending) {
-      pendingTapRef.current = intent;
+    if (tapQueueRef.current.tap(intent, isPending)) {
       toast.message("Checking your account…");
       return;
     }
@@ -389,7 +387,9 @@ export function LookEditor({
         setFindMessage(FIND_PIECES_COPY.quota);
         return;
       }
-      setFindMessage(error instanceof Error ? error.message : "Could not read that photo.");
+      const message = error instanceof Error ? error.message : "Could not read that photo.";
+      if (isAiUnavailableMessage(message)) setProviderError(true);
+      else setFindMessage(message);
     } finally {
       setFindingPieces(false);
     }
