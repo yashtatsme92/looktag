@@ -314,9 +314,22 @@ export function LookEditor({
     if (phone) setPhoneStep("pins");
   }
 
+  // A tap that lands while the session is still loading runs once it resolves, instead of being dropped.
+  const pendingTapRef = useRef<CreateResumeIntent | null>(null);
+  useEffect(() => {
+    if (isPending || !pendingTapRef.current) return;
+    const intent = pendingTapRef.current;
+    pendingTapRef.current = null;
+    if (intent === "publish") requestPublish();
+    else if (intent === "draft") requestDraft();
+    else requestFind();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPending, user?.id]);
+
   function openAccount(intent: CreateResumeIntent) {
     if (isPending) {
-      toast.message("Still checking your account. Try again in a moment.");
+      pendingTapRef.current = intent;
+      toast.message("Checking your account…");
       return;
     }
     rememberCreateResume(intent);
