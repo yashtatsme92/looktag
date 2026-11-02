@@ -1,4 +1,5 @@
-import { readdirSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
@@ -15,6 +16,12 @@ import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 import { resolveNitroPreset, shouldCopyPgliteAssets } from "./scripts/nitro-preset.mjs";
 import { rewriteBakedPreviewEnvModule } from "./src/lib/auth/preview.ts";
+import {
+  formatAppVersionHeader,
+  readPackageVersion,
+  resolveBuildCommit,
+  shortCommit,
+} from "./src/lib/build-commit.ts";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -47,6 +54,33 @@ function pgliteAssetsPlugin(): Plugin {
     },
   };
 }
+
+function getBuildInfo() {
+  const packageJson = JSON.parse(
+    readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+  ) as {
+    version?: unknown;
+  };
+  const version = readPackageVersion(packageJson);
+  let gitHead = "";
+  try {
+    gitHead = execSync("git rev-parse HEAD", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    // Docker and source archives may not include .git.
+  }
+  const commit = shortCommit(resolveBuildCommit(process.env, gitHead));
+  return {
+    version,
+    commit,
+    builtAt: new Date().toISOString(),
+    header: formatAppVersionHeader(version, commit),
+  };
+}
+
+const buildInfo = getBuildInfo();
 
 /**
  * Inline preview env into the server bundle only. Netlify functions never see
@@ -209,6 +243,11 @@ export default defineConfig(({ command, isPreview }) => ({
     strictPort: true,
   },
   resolve: { tsconfigPaths: true },
+  define: {
+    __APP_VERSION__: JSON.stringify(buildInfo.version),
+    __APP_COMMIT__: JSON.stringify(buildInfo.commit),
+    __APP_BUILT_AT__: JSON.stringify(buildInfo.builtAt),
+  },
   plugins: [
     pgliteBootstrapPlugin(),
     {
@@ -236,6 +275,9 @@ export default defineConfig(({ command, isPreview }) => ({
             // NITRO_PRESET=vercel (or any other Nitro host) when you want
             // a provider-specific build. Vercel CI sets VERCEL=1 for you.
             preset: resolveNitroPreset(),
+            routeRules: {
+              "/**": { headers: { "X-App-Version": buildInfo.header } },
+            },
             // Auto-registers server/middleware/* (the PWA install page +
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.

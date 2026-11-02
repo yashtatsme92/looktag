@@ -15,6 +15,7 @@
  *   runtime hook's return value, and `render:html` does not exist in Nitro v3.
  */
 import { publicHost } from "../../src/lib/site/edge";
+import { appVersionHeader } from "../../src/lib/build-info";
 import installPageTemplate from "../../scripts/install-page.html?raw";
 import { grokOgIdentity } from "virtual:grok-og-identity";
 import {
@@ -67,6 +68,13 @@ export default async function grokPwaMiddleware(
   event: GrokPwaEvent,
   next: () => unknown | Promise<unknown>,
 ): Promise<unknown> {
+  return withAppVersion(await grokPwaMiddlewareImpl(event, next));
+}
+
+async function grokPwaMiddlewareImpl(
+  event: GrokPwaEvent,
+  next: () => unknown | Promise<unknown>,
+): Promise<unknown> {
   const method = (event.req.method ?? "GET").toUpperCase();
   if (method !== "GET") return next();
 
@@ -111,4 +119,27 @@ export default async function grokPwaMiddleware(
     return injectHeadStreaming(result, requestHost(event));
   }
   return result;
+}
+
+function withAppVersion(result: unknown): unknown {
+  if (!(result instanceof Response)) return result;
+  const value = appVersionHeader();
+  try {
+    result.headers.set("X-App-Version", value);
+    return result;
+  } catch {
+    const headers = new Headers(result.headers);
+    headers.set("X-App-Version", value);
+    const cookies =
+      typeof result.headers.getSetCookie === "function" ? result.headers.getSetCookie() : [];
+    if (cookies.length > 1) {
+      headers.delete("set-cookie");
+      for (const cookie of cookies) headers.append("set-cookie", cookie);
+    }
+    return new Response(result.body, {
+      status: result.status,
+      statusText: result.statusText,
+      headers,
+    });
+  }
 }
