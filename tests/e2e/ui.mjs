@@ -582,7 +582,7 @@ async function screenCreateEntry(page) {
   const text = await page.locator("body").innerText();
   record(
     "screen.create.entry",
-    /Start with a look/.test(text) && /Choose photo/.test(text) && /Camera/.test(text),
+    /Add a look photo/.test(text) && /Upload photo/.test(text) && /drag and drop/.test(text) && !/Camera/.test(text),
     text.slice(0, 140),
   );
 }
@@ -779,7 +779,7 @@ async function screenCropLayout(page, label) {
   record(`flow.crop.layout-${label}`, Boolean(layoutOk && geometry.busy === "false" && !geometry.overflow), JSON.stringify(geometry));
   record(
     `flow.crop.actions-${label}`,
-    (await page.getByRole("button", { name: "Change photo" }).isEnabled()) &&
+    (await page.getByRole("button", { name: "Replace photo" }).isEnabled()) &&
       (await page.getByRole("button", { name: "Use photo" }).isEnabled()) &&
       (await page.getByRole("button", { name: "Skip" }).isEnabled()),
   );
@@ -1073,7 +1073,7 @@ async function flowSignedInEdit(page) {
   await page.getByRole("heading", { name: "Edit look" }).waitFor({ timeout: 5_000 });
   record(
     "flow.edit.pins-back-to-save",
-    (await page.getByRole("button", { name: "Change photo" }).count()) === 0 &&
+    (await page.getByRole("button", { name: "Replace photo" }).count()) === 0 &&
       (await page.getByRole("button", { name: "Skip" }).count()) === 0,
   );
   } finally {

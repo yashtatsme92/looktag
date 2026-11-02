@@ -1592,8 +1592,8 @@ html[data-theme="moss"] {
     padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
   }
 
-  /* Phone: one Done per step. The pin step keeps the bottom Done beside Add pin; the piece card keeps its own primary. */
-  html[data-chrome="phone"] .create-plate .create-plate-done {
+  /* One Done per step on every chrome. The pin step keeps the bottom Done beside Add pin; the piece card keeps its own primary. */
+  .create-plate .create-plate-done {
     visibility: hidden;
   }
 
