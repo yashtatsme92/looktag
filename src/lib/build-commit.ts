@@ -34,6 +34,11 @@ export function shortCommit(commit: string): string {
   return SAFE_BUILD_VALUE.test(value) ? value.slice(0, 7) : "unknown";
 }
 
+export function resolveRuntimeCommit(builtCommit: string, env: BuildCommitEnv): string {
+  const built = shortCommit(builtCommit);
+  return built === "unknown" ? shortCommit(resolveBuildCommit(env)) : built;
+}
+
 export function formatAppVersionHeader(version: string, commit: string): string {
   return `${version}+${commit}`;
 }

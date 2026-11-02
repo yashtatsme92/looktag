@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { appBuiltAt, appCommit, appVersion } from "@/lib/build-info";
+import { appBuiltAt, appVersion, currentAppCommit } from "@/lib/build-info";
 
 export const Route = createFileRoute("/api/version")({
   server: {
     handlers: {
       GET: async () =>
         new Response(
-          JSON.stringify({ version: appVersion, commit: appCommit, builtAt: appBuiltAt }),
+          JSON.stringify({ version: appVersion, commit: currentAppCommit(), builtAt: appBuiltAt }),
           {
             status: 200,
             headers: {
