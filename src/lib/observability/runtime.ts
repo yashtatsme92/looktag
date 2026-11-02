@@ -15,7 +15,7 @@ import type {
   SpanStatusName,
   TelemetrySignal,
 } from "./model";
-import { newSpanId, newTraceId, sanitizeAttributes, unixNano } from "./model";
+import { newSpanId, newTraceId, sanitizeAttributes, unixNano, type SpanContextRef } from "./model";
 
 export type SpanRecorder = {
   traceId: string;
@@ -28,12 +28,10 @@ export type SpanRecorder = {
 };
 
 type Sink = (signals: TelemetrySignal[]) => void | Promise<void>;
-type SpanRef = { traceId: string; spanId: string };
-
 let sink: Sink | null = null;
 const queue: TelemetrySignal[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
-const clientStack: SpanRef[] = [];
+const clientStack: SpanContextRef[] = [];
 
 export function setTelemetrySink(next: Sink | null) {
   sink = next;
@@ -64,7 +62,11 @@ function emit(signal: TelemetrySignal) {
   enqueueSignals([signal]);
 }
 
-function inheritParent(options?: { traceId?: string; parentSpanId?: string }): SpanRef | undefined {
+export function currentClientSpan(): SpanContextRef | undefined {
+  return typeof window !== "undefined" ? clientStack.at(-1) : undefined;
+}
+
+function inheritParent(options?: { traceId?: string; parentSpanId?: string }): SpanContextRef | undefined {
   if (options?.traceId || options?.parentSpanId) {
     return options.traceId ? { traceId: options.traceId, spanId: options.parentSpanId || "" } : undefined;
   }

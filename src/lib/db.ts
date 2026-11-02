@@ -11,6 +11,7 @@ import {
 } from "./providers/db";
 import type { DbSource, Sql } from "./providers/db/types";
 import { bakedPreviewEnv, installBakedPreviewEnv } from "./baked-preview-env.ts";
+import { withSpan } from "./observability/instrument";
 
 export type { DbSource, Sql };
 
@@ -82,6 +83,18 @@ type Run = <T>(text: string, params: unknown[]) => Promise<T[]>;
 
 /** Wrap a query runner in the tagged-template + `.query()` `Sql` surface. */
 function toSql(run: Run): Sql {
+  const tracedRun: Run = async (text, params) => {
+    if (/\btelemetry_signals\b/i.test(text)) return run(text, params);
+    const operation = text.match(/^\s*([a-z]+)/i)?.[1]?.toUpperCase() ?? "QUERY";
+    return withSpan(
+      "db.query",
+      async (span) => {
+        span.setAttributes({ "db.system.name": "postgresql", "db.operation.name": operation });
+        return run(text, params);
+      },
+      { kind: "CLIENT" },
+    );
+  };
   const sql = (async <T = Record<string, unknown>>(
     strings: TemplateStringsArray,
     ...values: unknown[]
@@ -89,10 +102,10 @@ function toSql(run: Run): Sql {
     // Rebuild with $1, $2, … placeholders so values stay parameterized.
     let text = strings[0];
     for (let i = 0; i < values.length; i += 1) text += `$${i + 1}${strings[i + 1]}`;
-    return run<T>(text, values);
+    return tracedRun<T>(text, values);
   }) as unknown as Sql;
   sql.query = <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
-    run<T>(text, params);
+    tracedRun<T>(text, params);
   return sql;
 }
 

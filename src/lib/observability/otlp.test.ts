@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import { ATTR_SERVICE_NAME } from "../providers/telemetry/index.ts";
 import {
   clampSampleRatio,
+  formatTraceparent,
   mergeConfig,
   newSpanId,
   newTraceId,
   parseOtlpHeaders,
+  parseTraceparent,
   resolveOtlpUrls,
   sanitizeAttributes,
   unixNano,
@@ -18,6 +20,15 @@ describe("OTLP encoding", () => {
     assert.equal(newTraceId().length, 32);
     assert.equal(newSpanId().length, 16);
     assert.match(newTraceId(), /^[0-9a-f]+$/);
+  });
+
+  it("round-trips valid traceparent context and rejects invalid identifiers", () => {
+    const context = { traceId: "a".repeat(32), spanId: "b".repeat(16) };
+    assert.equal(formatTraceparent(context), `00-${context.traceId}-${context.spanId}-01`);
+    assert.deepEqual(parseTraceparent(formatTraceparent(context)), context);
+    assert.equal(parseTraceparent(`00-${"0".repeat(32)}-${context.spanId}-01`), null);
+    assert.equal(parseTraceparent(`00-${context.traceId}-${"0".repeat(16)}-01`), null);
+    assert.equal(parseTraceparent("invalid"), null);
   });
 
   it("encodes unix nano timestamps as decimal strings", () => {

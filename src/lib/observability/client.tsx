@@ -5,12 +5,14 @@ import { isSharePath } from "@/lib/pwa/boot";
 import { chromeLayout, layoutSurface } from "@/lib/pwa/use-wide-layout";
 import { shareKindFromPath } from "@/lib/share-meta";
 import { ingestClientSignals } from "./api";
-import { emitLog, flushSignals, recordMetric, setTelemetrySink, startSpan } from "./runtime";
+import { formatTraceparent } from "./model";
+import { currentClientSpan, emitLog, flushSignals, recordMetric, setTelemetrySink, startSpan } from "./runtime";
 
 export function TelemetryProvider({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
+    const restoreFetch = installTraceparentFetch();
     setTelemetrySink(async (signals) => {
       try {
         await ingestClientSignals({ data: { signals } });
@@ -29,6 +31,7 @@ export function TelemetryProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("visibilitychange", flush);
       window.removeEventListener("pagehide", flush);
       setTelemetrySink(null);
+      restoreFetch();
     };
   }, []);
 
@@ -83,6 +86,32 @@ export function TelemetryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return children;
+}
+
+function installTraceparentFetch(): () => void {
+  const originalFetch = window.fetch;
+  const tracedFetch: typeof window.fetch = (input, init) => {
+    const parent = currentClientSpan();
+    if (!parent) return originalFetch.call(window, input, init);
+
+    let url: URL;
+    try {
+      const requestUrl = input instanceof Request ? input.url : String(input);
+      url = new URL(requestUrl, window.location.href);
+    } catch {
+      return originalFetch.call(window, input, init);
+    }
+    if (url.origin !== window.location.origin) return originalFetch.call(window, input, init);
+
+    const headers = new Headers(input instanceof Request ? input.headers : undefined);
+    new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+    if (!headers.has("traceparent")) headers.set("traceparent", formatTraceparent(parent));
+    return originalFetch.call(window, input, { ...init, headers });
+  };
+  window.fetch = tracedFetch;
+  return () => {
+    if (window.fetch === tracedFetch) window.fetch = originalFetch;
+  };
 }
 
 function observeVitals() {

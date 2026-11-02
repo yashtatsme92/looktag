@@ -113,6 +113,16 @@ export function normalizeClientIp(raw: string | null | undefined): string | null
   return null;
 }
 
+type RequestWithTransportPeer = {
+  runtime?: { node?: { req?: { socket?: { remoteAddress?: unknown } } } };
+};
+
+export function transportPeerAddress(request: unknown): string | null {
+  if (!request || typeof request !== "object") return null;
+  const peer = (request as RequestWithTransportPeer).runtime?.node?.req?.socket?.remoteAddress;
+  return typeof peer === "string" ? peer : null;
+}
+
 /** Loopback and private ranges: the only peers our reverse proxy connects from. */
 export function isProxyPeer(ip: string): boolean {
   if (ip === "::1") return true;
@@ -137,6 +147,18 @@ function forwardedHops(header: string | null): string[] {
   return hops;
 }
 
+export function resolveClientIp(input: {
+  forwardedFor: string | null;
+  socketAddress?: string | null;
+}): string | null {
+  const socket = normalizeClientIp(input.socketAddress);
+  if (socket && isProxyPeer(socket)) {
+    const hops = forwardedHops(input.forwardedFor);
+    if (hops.length > 0) return hops[hops.length - 1]!;
+  }
+  return socket;
+}
+
 /**
  * Rate-limit key.
  *
@@ -149,8 +171,5 @@ export function nativeNonceClientKey(input: {
   forwardedFor: string | null;
   socketAddress?: string | null;
 }): string {
-  const socket = normalizeClientIp(input.socketAddress);
-  const hops = forwardedHops(input.forwardedFor);
-  if (socket && isProxyPeer(socket) && hops.length > 0) return hops[hops.length - 1];
-  return socket ?? "direct";
+  return resolveClientIp(input) ?? "direct";
 }

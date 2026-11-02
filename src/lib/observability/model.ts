@@ -8,6 +8,17 @@ export type SpanStatusName = "UNSET" | "OK" | "ERROR";
 export type SpanKindName = "INTERNAL" | "SERVER" | "CLIENT";
 export type LogSeverity = "DEBUG" | "INFO" | "WARN" | "ERROR";
 export type MetricType = "counter" | "histogram" | "gauge";
+export type SpanContextRef = { traceId: string; spanId: string };
+
+export function formatTraceparent(context: SpanContextRef): string {
+  return `00-${context.traceId}-${context.spanId}-01`;
+}
+
+export function parseTraceparent(value: string | null | undefined): SpanContextRef | null {
+  const match = value?.match(/^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/);
+  if (!match || /^0+$/.test(match[1]!) || /^0+$/.test(match[2]!)) return null;
+  return { traceId: match[1]!, spanId: match[2]! };
+}
 
 export type SpanEvent = {
   name: string;

@@ -1,5 +1,5 @@
-import type { Attributes, SpanKindName } from "./model";
-import { flushSignals, withSpan as runSpan, type SpanRecorder } from "./runtime";
+import { parseTraceparent, type Attributes, type SpanKindName } from "./model";
+import { withSpan as runSpan, type SpanRecorder } from "./runtime";
 
 export type { SpanRecorder };
 
@@ -14,14 +14,23 @@ export async function withSpan<T>(
     ensureTelemetrySink();
     const { spanParent } = await import("./span-context.server");
     const parent = spanParent.getStore();
+    let remoteParent = parent;
+    if (!remoteParent) {
+      try {
+        const { getRequest } = await import("@tanstack/react-start/server");
+        remoteParent = parseTraceparent(getRequest().headers.get("traceparent")) ?? undefined;
+      } catch {
+        remoteParent = undefined;
+      }
+    }
     return runSpan(
       name,
       (span) => spanParent.run({ traceId: span.traceId, spanId: span.spanId }, () => fn(span)),
       {
         kind: options?.kind,
         attributes: options?.attributes,
-        traceId: parent?.traceId,
-        parentSpanId: parent?.spanId,
+        traceId: remoteParent?.traceId,
+        parentSpanId: remoteParent?.spanId,
       },
     );
   }
