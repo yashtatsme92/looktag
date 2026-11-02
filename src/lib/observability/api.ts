@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { adminMiddleware } from "@/lib/auth/middleware";
 import type { ObservabilityConfig, SignalKind, TelemetrySignal } from "./model";
-import { sanitizeAttributes } from "./model";
+import { isValidSpanId, isValidTraceId, sanitizeAttributes } from "./model";
 import { createTraceFilter, parseTraceFilter, type TraceFilter } from "./graph";
 import {
   ensureTelemetrySink,
@@ -62,9 +62,17 @@ export const probeObservability = createServerFn({ method: "POST" })
   });
 
 export const ingestClientSignals = createServerFn({ method: "POST" })
-  .middleware([adminMiddleware])
   .validator((input: { signals: unknown }) => input)
   .handler(async ({ data }) => {
+    const [{ assertSameSiteRequest }, { requestClientIp }, { allowClientSignalIngest, ClientSignalIngestRateLimitError }] =
+      await Promise.all([
+        import("@/lib/auth/isolation.server"),
+        import("@/lib/auth/request-client-ip.server"),
+        import("./ingest-limit"),
+      ]);
+    assertSameSiteRequest();
+    const clientIp = requestClientIp() ?? "direct";
+    if (!allowClientSignalIngest(clientIp)) throw new ClientSignalIngestRateLimitError();
     ensureTelemetrySink();
     const signals = Array.isArray(data.signals)
       ? data.signals.map(asSignal).filter((row): row is TelemetrySignal => Boolean(row))
@@ -77,7 +85,14 @@ function asSignal(raw: unknown): TelemetrySignal | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
   if (row.kind === "span") {
-    if (typeof row.name !== "string" || typeof row.traceId !== "string" || typeof row.spanId !== "string") {
+    if (
+      typeof row.name !== "string" ||
+      typeof row.traceId !== "string" ||
+      !isValidTraceId(row.traceId) ||
+      typeof row.spanId !== "string" ||
+      !isValidSpanId(row.spanId) ||
+      (typeof row.parentSpanId === "string" && !isValidSpanId(row.parentSpanId))
+    ) {
       return null;
     }
     return {
@@ -112,6 +127,13 @@ function asSignal(raw: unknown): TelemetrySignal | null {
   }
   if (row.kind === "log") {
     if (typeof row.body !== "string") return null;
+    if (
+      (typeof row.traceId === "string" && !isValidTraceId(row.traceId)) ||
+      (typeof row.spanId === "string" && !isValidSpanId(row.spanId)) ||
+      (typeof row.traceId === "string") !== (typeof row.spanId === "string")
+    ) {
+      return null;
+    }
     return {
       kind: "log",
       id: String(row.id || "log").slice(0, 64),

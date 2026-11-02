@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { maskOtlpHeaders, parseOtlpHeaders } from "./model.ts";
+import { allowClientSignalIngest } from "./ingest-limit.ts";
+import { resolveClientIp } from "../auth/native-nonce.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const apiSource = readFileSync(join(here, "api.ts"), "utf8");
@@ -23,8 +25,8 @@ function handlerBody(exportName: string): string {
 }
 
 describe("observability API admin auth", () => {
-  it("gates formerly-public read and ingest handlers behind adminMiddleware", () => {
-    for (const name of ["getObservability", "listObservabilitySignals", "ingestClientSignals"] as const) {
+  it("gates observability reads behind adminMiddleware", () => {
+    for (const name of ["getObservability", "listObservabilitySignals"] as const) {
       const body = handlerBody(name);
       assert.match(body, /\.middleware\(\[adminMiddleware\]\)/, `${name} must use adminMiddleware`);
       assert.equal(body.includes("requireAdmin()"), false, `${name} must not call bare requireAdmin`);
@@ -36,6 +38,39 @@ describe("observability API admin auth", () => {
       );
       assert.ok(workAt >= 0, `${name} handler body missing telemetry work`);
     }
+  });
+
+  it("allows same-site client ingest with a peer-aware IP limit", () => {
+    const body = handlerBody("ingestClientSignals");
+    assert.doesNotMatch(body, /\.middleware\(\[adminMiddleware\]\)/);
+    assert.match(body, /assertSameSiteRequest\(\)/);
+    assert.match(body, /requestClientIp\(\)/);
+    assert.match(body, /allowClientSignalIngest\(clientIp\)/);
+    assert.match(body, /ingestSignals\(/);
+  });
+
+  it("limits spoofed XFF attempts by the proxy-appended client IP", () => {
+    const store = new Map<string, number[]>();
+    let accepted = 0;
+    let rejected = 0;
+    for (let i = 0; i < 70; i += 1) {
+      const clientIp =
+        resolveClientIp({
+          forwardedFor: `198.51.100.${i + 1}, 203.0.113.8`,
+          socketAddress: "10.0.0.4",
+        }) ?? "direct";
+      if (allowClientSignalIngest(clientIp, 1_000 + i, 60, 60_000, store)) accepted += 1;
+      else rejected += 1;
+    }
+    assert.equal(accepted, 60);
+    assert.equal(rejected, 10);
+
+    const otherClientIp =
+      resolveClientIp({
+        forwardedFor: "198.51.100.99, 203.0.113.9",
+        socketAddress: "10.0.0.4",
+      }) ?? "direct";
+    assert.equal(allowClientSignalIngest(otherClientIp, 1_100, 60, 60_000, store), true);
   });
 
   it("adminMiddleware enforces same-site then requireAdmin (401/403)", () => {

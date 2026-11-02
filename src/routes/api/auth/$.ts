@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
-import { getRequestIP } from "@tanstack/react-start/server";
 import { crossSiteResponse, rejectExpoProxy } from "@/lib/auth/expo-proxy";
+import { requestClientIp } from "@/lib/auth/request-client-ip.server";
 import { bearerFromHeaders, bearerOnlyHeaders, isRegisteredLooktagCallback } from "@/lib/auth/native";
 import {
   isStrongNativeNonce,
@@ -9,12 +9,7 @@ import {
   nonceEquals,
   withNonceOnLooktag,
 } from "@/lib/auth/native-callback";
-import {
-  NATIVE_NONCE_USED,
-  allowNativeNonceIssue,
-  nativeNonceClientKey,
-  nativeNonceIdentifier,
-} from "@/lib/auth/native-nonce";
+import { NATIVE_NONCE_USED, allowNativeNonceIssue, nativeNonceIdentifier } from "@/lib/auth/native-nonce";
 import { auth } from "@/lib/auth/server";
 import { getSql } from "@/lib/db";
 
@@ -82,17 +77,8 @@ async function consumeNonce(nonce: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-function nonceRateKey(request: Request): string {
-  let socketAddress: string | null = null;
-  try {
-    socketAddress = getRequestIP() ?? null;
-  } catch {
-    socketAddress = null;
-  }
-  return nativeNonceClientKey({
-    forwardedFor: request.headers.get("x-forwarded-for"),
-    socketAddress,
-  });
+function nonceRateKey(): string {
+  return requestClientIp() ?? "direct";
 }
 
 async function readVerification(identifier: string): Promise<Record<string, unknown> | null> {
@@ -181,7 +167,7 @@ async function prepareNativeSignIn(
   if (foreignOrigin(request)) return new Response("Forbidden", { status: 403 });
   const blocked = crossSiteResponse(request);
   if (blocked) return blocked;
-  if (!allowNativeNonceIssue(nonceRateKey(request))) {
+  if (!allowNativeNonceIssue(nonceRateKey())) {
     return new Response("Too many requests", { status: 429 });
   }
 

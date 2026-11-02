@@ -7,6 +7,8 @@ import {
   nativeNonceIdentifier,
   nativeNoncePhase,
   nativeNonceRegistrationAllowed,
+  resolveClientIp,
+  transportPeerAddress,
   tombstoneNonce,
 } from "./native-nonce.ts";
 
@@ -109,5 +111,32 @@ describe("native nonce client key", () => {
       }),
       "198.51.100.20",
     );
+  });
+
+  it("ignores forwarded addresses unless the transport peer is a proxy", () => {
+    assert.equal(
+      resolveClientIp({
+        forwardedFor: "198.51.100.1, 198.51.100.2",
+        socketAddress: "203.0.113.9",
+      }),
+      "203.0.113.9",
+    );
+    assert.equal(
+      resolveClientIp({
+        forwardedFor: "198.51.100.1, 198.51.100.2",
+        socketAddress: null,
+      }),
+      null,
+    );
+  });
+
+  it("uses the transport peer rather than a proxy-resolved request IP", () => {
+    const request = Object.assign(new Request("https://looktag.example"), {
+      ip: "198.51.100.1",
+      context: { clientAddress: "198.51.100.1" },
+      runtime: { node: { req: { socket: { remoteAddress: "10.0.0.4" } } } },
+    });
+    assert.equal(transportPeerAddress(request), "10.0.0.4");
+    assert.equal(transportPeerAddress({ ip: "198.51.100.1" }), null);
   });
 });

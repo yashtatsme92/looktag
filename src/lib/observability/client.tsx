@@ -5,15 +5,17 @@ import { isSharePath } from "@/lib/pwa/boot";
 import { chromeLayout, layoutSurface } from "@/lib/pwa/use-wide-layout";
 import { shareKindFromPath } from "@/lib/share-meta";
 import { ingestClientSignals } from "./api";
+import { installTraceparentFetch } from "./client-fetch";
 import { emitLog, flushSignals, recordMetric, setTelemetrySink, startSpan } from "./runtime";
 
 export function TelemetryProvider({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
+    const fetchInstrumentation = installTraceparentFetch();
     setTelemetrySink(async (signals) => {
       try {
-        await ingestClientSignals({ data: { signals } });
+        await fetchInstrumentation.withoutSpan(() => ingestClientSignals({ data: { signals } }));
       } catch {
         // Offline / first paint — keep browsing.
       }
@@ -29,6 +31,7 @@ export function TelemetryProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("visibilitychange", flush);
       window.removeEventListener("pagehide", flush);
       setTelemetrySink(null);
+      fetchInstrumentation.restore();
     };
   }, []);
 
