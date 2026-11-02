@@ -84,7 +84,7 @@ type Run = <T>(text: string, params: unknown[]) => Promise<T[]>;
 /** Wrap a query runner in the tagged-template + `.query()` `Sql` surface. */
 function toSql(run: Run): Sql {
   const tracedRun: Run = async (text, params) => {
-    if (/\btelemetry_signals\b/i.test(text)) return run(text, params);
+    if (/\b(?:observability_settings|telemetry_signals)\b/i.test(text)) return run(text, params);
     const operation = text.match(/^\s*([a-z]+)/i)?.[1]?.toUpperCase() ?? "QUERY";
     return withSpan(
       "db.query",
