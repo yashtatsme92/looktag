@@ -464,7 +464,6 @@ function DetailsStep({
             className="create-btn-primary"
             onClick={onContinueDetails}
             disabled={readingPhoto}
-            aria-disabled={hasTitle ? undefined : "true"}
             data-blocked={hasTitle ? undefined : "true"}
           >
             Continue

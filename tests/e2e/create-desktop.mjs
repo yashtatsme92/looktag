@@ -143,8 +143,8 @@ async function flow(page, width, height) {
     record(`create-desktop.details.continue-above-fold${tag}`, cont.bottom <= cont.vh, JSON.stringify(cont));
   }
   await shot(page, `create-details-${width}`);
-  record(`create-desktop.details.continue-aria-disabled${tag}`, (await page.getByRole("button", { name: "Continue" }).getAttribute("aria-disabled")) === "true");
-  await page.getByRole("button", { name: "Continue" }).click({ force: true });
+  record(`create-desktop.details.continue-blocked${tag}`, (await page.getByRole("button", { name: "Continue" }).getAttribute("data-blocked")) === "true");
+  await page.getByRole("button", { name: "Continue" }).click();
   record(`create-desktop.details.add-a-title${tag}`, await page.getByRole("alert").filter({ hasText: "Add a title" }).isVisible());
   record(
     `create-desktop.details.focus-title${tag}`,
