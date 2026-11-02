@@ -5,6 +5,7 @@ import {
   formatAppVersionHeader,
   readPackageVersion,
   resolveBuildCommit,
+  resolveRuntimeCommit,
   shortCommit,
 } from "./build-commit.ts";
 
@@ -49,6 +50,12 @@ describe("resolveBuildCommit", () => {
     assert.equal(shortCommit("  "), "unknown");
     assert.equal(shortCommit("abcdef1\r\nX-Injected: yes"), "unknown");
     assert.equal(formatAppVersionHeader("2.5.36", "0123456"), "2.5.36+0123456");
+  });
+
+  it("uses the Render runtime commit only when the baked commit is unknown", () => {
+    assert.equal(resolveRuntimeCommit("unknown", { RENDER_GIT_COMMIT: FULL }), "0123456");
+    assert.equal(resolveRuntimeCommit("unknown", {}), "unknown");
+    assert.equal(resolveRuntimeCommit("abcdef1", { RENDER_GIT_COMMIT: FULL }), "abcdef1");
   });
 
   it("reads the package.json version that deploys report", () => {

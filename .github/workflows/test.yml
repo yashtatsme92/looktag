@@ -90,7 +90,12 @@ jobs:
         # Bare vite build, not `npm run build`. The npm script also runs
         # scripts/copy-pglite-assets.mjs, which already copies these files on
         # main, so it would not fail if this plugin were removed.
-        run: PATH="$(pwd)/node_modules/.bin:$PATH" node scripts/with-app-env.mjs vite build
+        run: |
+          unset RENDER_GIT_COMMIT COMMIT_REF GITHUB_SHA VERCEL_GIT_COMMIT_SHA
+          mkdir -p "$RUNNER_TEMP/no-git"
+          printf '#!/bin/sh\nexit 1\n' > "$RUNNER_TEMP/no-git/git"
+          chmod +x "$RUNNER_TEMP/no-git/git"
+          PATH="$(pwd)/node_modules/.bin:$RUNNER_TEMP/no-git:$PATH" node scripts/with-app-env.mjs vite build
         env:
           VITE_AUTH_ENABLED: "true"
           BETTER_AUTH_SECRET: ci-prod-secret-0123456789abcdef01
@@ -105,6 +110,7 @@ jobs:
           HOST: 127.0.0.1
           PROD_CHECK_URL: http://127.0.0.1:4173
           LOOKTAG_ALLOW_EPHEMERAL_DB: "1"
+          RENDER_GIT_COMMIT: ${{ github.sha }}
         run: |
           for file in pglite.data pglite.wasm initdb.wasm; do
             test -s ".output/server/_libs/$file" || {

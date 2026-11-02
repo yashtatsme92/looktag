@@ -17,7 +17,6 @@ import { isMigrationFile } from "./scripts/migration-plan.mjs";
 import { resolveNitroPreset, shouldCopyPgliteAssets } from "./scripts/nitro-preset.mjs";
 import { rewriteBakedPreviewEnvModule } from "./src/lib/auth/preview.ts";
 import {
-  formatAppVersionHeader,
   readPackageVersion,
   resolveBuildCommit,
   shortCommit,
@@ -76,7 +75,6 @@ function getBuildInfo() {
     version,
     commit,
     builtAt: new Date().toISOString(),
-    header: formatAppVersionHeader(version, commit),
   };
 }
 
@@ -275,9 +273,6 @@ export default defineConfig(({ command, isPreview }) => ({
             // NITRO_PRESET=vercel (or any other Nitro host) when you want
             // a provider-specific build. Vercel CI sets VERCEL=1 for you.
             preset: resolveNitroPreset(),
-            routeRules: {
-              "/**": { headers: { "X-App-Version": buildInfo.header } },
-            },
             // Auto-registers server/middleware/* (the PWA install page +
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
