@@ -20,3 +20,16 @@ export function keyboardInset(innerHeight: number, visualHeight: number, offsetT
   if (!Number.isFinite(inset)) return 0;
   return Math.max(0, Math.round(inset));
 }
+
+/**
+ * Visual-viewport height to pin --app-height to, or null to let CSS 100dvh decide.
+ * iOS standalone reports a visualViewport shorter than the screen (safe area excluded),
+ * which leaves an empty band under the tab bar, so only an open keyboard overrides it.
+ */
+export function appHeightOverride(
+  innerHeight: number,
+  visualHeight: number,
+  offsetTop = 0,
+): number | null {
+  return keyboardInset(innerHeight, visualHeight, offsetTop) > 0 ? Math.round(visualHeight) : null;
+}

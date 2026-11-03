@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   APP_VIEWPORT,
+  appHeightOverride,
   WEB_VIEWPORT,
   isAppViewport,
   keyboardInset,
@@ -36,5 +37,13 @@ describe("keyboardInset", () => {
   it("reports the covered band when the keyboard is up", () => {
     assert.equal(keyboardInset(844, 500, 0), 344);
     assert.equal(keyboardInset(844, 500, 40), 304);
+  });
+});
+
+describe("appHeightOverride", () => {
+  it("leaves height to 100dvh unless the keyboard is open", () => {
+    assert.equal(appHeightOverride(844, 760), 760);
+    assert.equal(appHeightOverride(844, 844), null);
+    assert.equal(appHeightOverride(844, 844, 0), null);
   });
 });
