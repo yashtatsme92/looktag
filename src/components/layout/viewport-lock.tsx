@@ -1,5 +1,11 @@
 import { useEffect } from "react";
-import { appHeightOverride, isEditableElement, keyboardInset, viewportContent } from "@/lib/pwa/viewport";
+import {
+  appHeightOverride,
+  BASELINE_MAX_INSET,
+  isEditableElement,
+  keyboardInset,
+  viewportContent,
+} from "@/lib/pwa/viewport";
 
 function writeViewport(content: string) {
   const meta = document.querySelector('meta[name="viewport"]');
@@ -25,6 +31,7 @@ function appShell(): { standalone: boolean; nativeApp: boolean; width: number } 
 export function ViewportLock() {
   useEffect(() => {
     const root = document.documentElement;
+    let baseline = 0;
 
     function sync() {
       const { standalone, nativeApp, width } = appShell();
@@ -40,14 +47,19 @@ export function ViewportLock() {
       const visualHeight = vv?.height ?? window.innerHeight;
       const offsetTop = vv?.offsetTop ?? 0;
       const editing = isEditableElement(document.activeElement as HTMLElement | null);
-      const pinned = appHeightOverride(window.innerHeight, visualHeight, offsetTop, editing);
+      const inset = keyboardInset(window.innerHeight, visualHeight, offsetTop);
+      if (!editing) baseline = inset < BASELINE_MAX_INSET ? inset : baseline;
+      const pinned = appHeightOverride(
+        window.innerHeight,
+        visualHeight,
+        offsetTop,
+        editing,
+        baseline,
+      );
       if (pinned === null) root.style.removeProperty("--app-height");
       else root.style.setProperty("--app-height", `${pinned}px`);
       root.style.setProperty("--vv-offset", `${Math.max(0, Math.round(offsetTop))}px`);
-      root.style.setProperty(
-        "--keyboard-inset",
-        `${editing ? keyboardInset(window.innerHeight, visualHeight, offsetTop) : 0}px`,
-      );
+      root.style.setProperty("--keyboard-inset", `${pinned === null ? 0 : inset}px`);
     }
 
     function preventPinch(event: TouchEvent) {

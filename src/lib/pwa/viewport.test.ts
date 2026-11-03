@@ -52,6 +52,18 @@ describe("appHeightOverride", () => {
     assert.equal(appHeightOverride(844, 508, 0, true), 508);
     assert.equal(appHeightOverride(844, 844, 0, true), null);
   });
+
+  it("keeps full height when a field is focused but the viewport does not shrink further", () => {
+    assert.equal(appHeightOverride(844, 810, 0, true), null);
+    assert.equal(appHeightOverride(844, 810, 0, true, 34), null);
+    assert.equal(appHeightOverride(1194, 1174, 0, true, 20), null);
+    assert.equal(appHeightOverride(844, 714, 0, true, 130), null);
+  });
+
+  it("pins when the keyboard shrinks the viewport beyond the static baseline", () => {
+    assert.equal(appHeightOverride(844, 508, 0, true, 34), 508);
+    assert.equal(appHeightOverride(1194, 700, 0, true, 20), 700);
+  });
 });
 
 describe("isEditableElement", () => {

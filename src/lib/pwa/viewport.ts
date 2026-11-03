@@ -21,20 +21,29 @@ export function keyboardInset(innerHeight: number, visualHeight: number, offsetT
   return Math.max(0, Math.round(inset));
 }
 
+/** Smallest extra viewport shrink (px) that counts as an on-screen keyboard. */
+export const KEYBOARD_MIN_INSET = 120;
+
+/** Largest unfocused shortfall (px) trusted as a static standalone baseline. */
+export const BASELINE_MAX_INSET = 200;
+
 /**
  * Visual-viewport height to pin --app-height to, or null to let CSS 100dvh decide.
  * iOS standalone reports a visualViewport shorter than the screen with no keyboard open,
- * which leaves an empty band under the tab bar, so only pin while an editable field has
- * focus and the visual viewport is actually shrunk.
+ * which leaves an empty band under the tab bar. Only pin while an editable field has focus
+ * and the viewport has shrunk by a keyboard-sized amount beyond that static `baseline`
+ * (the shortfall measured while nothing was focused).
  */
 export function appHeightOverride(
   innerHeight: number,
   visualHeight: number,
   offsetTop = 0,
   editableFocused = false,
+  baseline = 0,
 ): number | null {
   if (!editableFocused) return null;
-  return keyboardInset(innerHeight, visualHeight, offsetTop) > 0 ? Math.round(visualHeight) : null;
+  const extra = keyboardInset(innerHeight, visualHeight, offsetTop) - Math.max(0, baseline);
+  return extra >= KEYBOARD_MIN_INSET ? Math.round(visualHeight) : null;
 }
 
 /** True when the element takes text input, i.e. the on-screen keyboard can be open. */
@@ -46,7 +55,15 @@ export function isEditableElement(
   const tag = (el.tagName ?? "").toUpperCase();
   if (tag === "TEXTAREA" || tag === "SELECT") return true;
   if (tag !== "INPUT") return false;
-  return !["checkbox", "radio", "button", "submit", "reset", "range", "file", "image", "color"].includes(
-    (el.type ?? "").toLowerCase(),
-  );
+  return ![
+    "checkbox",
+    "radio",
+    "button",
+    "submit",
+    "reset",
+    "range",
+    "file",
+    "image",
+    "color",
+  ].includes((el.type ?? "").toLowerCase());
 }

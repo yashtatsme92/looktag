@@ -23,6 +23,12 @@ const CASES = [
   { name: "iphone-se", width: 375, height: 667, shortfall: 0 },
 ];
 
+const FOCUS_CASES = [
+  { name: "iphone-14", width: 390, height: 844, shortfall: 34 },
+  { name: "iphone-14-130", width: 390, height: 844, shortfall: 130 },
+  { name: "ipad", width: 834, height: 1194, shortfall: 20 },
+];
+
 async function emulateStandalone(page, shortfall) {
   await page.addInitScript((shortfall) => {
     const real = window.matchMedia.bind(window);
@@ -129,6 +135,47 @@ try {
         );
       },
       `ios-standalone-${c.name}`,
+      { viewport: { width: c.width, height: c.height } },
+    );
+  }
+  // A focused text field with no on-screen keyboard (hardware keyboard, iPad) must not pin the height.
+  for (const c of FOCUS_CASES) {
+    await withPage(
+      browser,
+      origin,
+      async (page) => {
+        await emulateStandalone(page, c.shortfall);
+        await page.goto(`${origin}/`, { waitUntil: "networkidle" });
+        await page
+          .locator("html.boot-done, .tab-bar")
+          .first()
+          .waitFor({ state: "attached", timeout: 10_000 });
+        await page.evaluate(() => {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.id = "e2e-focus-field";
+          input.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+          document.body.append(input);
+        });
+        await page.waitForTimeout(300);
+        await page.locator("#e2e-focus-field").focus();
+        await page.waitForTimeout(300);
+        const m = await measure(page);
+        const phone = c.width < 768;
+        record(
+          `ios-standalone.${c.name}.focus-no-shrink.not-pinned`,
+          m.appHeight === "" && (!phone || m.screenBottom === m.innerHeight),
+          JSON.stringify(m),
+        );
+        if (phone) {
+          record(
+            `ios-standalone.${c.name}.focus-no-shrink.flush`,
+            m.barBottom === m.innerHeight,
+            JSON.stringify(m),
+          );
+        }
+      },
+      `ios-standalone-focus-${c.name}`,
       { viewport: { width: c.width, height: c.height } },
     );
   }
