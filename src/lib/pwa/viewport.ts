@@ -23,13 +23,30 @@ export function keyboardInset(innerHeight: number, visualHeight: number, offsetT
 
 /**
  * Visual-viewport height to pin --app-height to, or null to let CSS 100dvh decide.
- * iOS standalone reports a visualViewport shorter than the screen (safe area excluded),
- * which leaves an empty band under the tab bar, so only an open keyboard overrides it.
+ * iOS standalone reports a visualViewport shorter than the screen with no keyboard open,
+ * which leaves an empty band under the tab bar, so only pin while an editable field has
+ * focus and the visual viewport is actually shrunk.
  */
 export function appHeightOverride(
   innerHeight: number,
   visualHeight: number,
   offsetTop = 0,
+  editableFocused = false,
 ): number | null {
+  if (!editableFocused) return null;
   return keyboardInset(innerHeight, visualHeight, offsetTop) > 0 ? Math.round(visualHeight) : null;
+}
+
+/** True when the element takes text input, i.e. the on-screen keyboard can be open. */
+export function isEditableElement(
+  el: { tagName?: string; isContentEditable?: boolean; type?: string } | null | undefined,
+): boolean {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = (el.tagName ?? "").toUpperCase();
+  if (tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (tag !== "INPUT") return false;
+  return !["checkbox", "radio", "button", "submit", "reset", "range", "file", "image", "color"].includes(
+    (el.type ?? "").toLowerCase(),
+  );
 }

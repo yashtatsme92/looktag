@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { appHeightOverride, keyboardInset, viewportContent } from "@/lib/pwa/viewport";
+import { appHeightOverride, isEditableElement, keyboardInset, viewportContent } from "@/lib/pwa/viewport";
 
 function writeViewport(content: string) {
   const meta = document.querySelector('meta[name="viewport"]');
@@ -39,13 +39,14 @@ export function ViewportLock() {
       const vv = window.visualViewport;
       const visualHeight = vv?.height ?? window.innerHeight;
       const offsetTop = vv?.offsetTop ?? 0;
-      const pinned = appHeightOverride(window.innerHeight, visualHeight, offsetTop);
+      const editing = isEditableElement(document.activeElement as HTMLElement | null);
+      const pinned = appHeightOverride(window.innerHeight, visualHeight, offsetTop, editing);
       if (pinned === null) root.style.removeProperty("--app-height");
       else root.style.setProperty("--app-height", `${pinned}px`);
       root.style.setProperty("--vv-offset", `${Math.max(0, Math.round(offsetTop))}px`);
       root.style.setProperty(
         "--keyboard-inset",
-        `${keyboardInset(window.innerHeight, visualHeight, offsetTop)}px`,
+        `${editing ? keyboardInset(window.innerHeight, visualHeight, offsetTop) : 0}px`,
       );
     }
 
@@ -67,6 +68,8 @@ export function ViewportLock() {
     vv?.addEventListener("scroll", sync);
     window.addEventListener("orientationchange", sync);
     window.addEventListener("resize", sync);
+    document.addEventListener("focusin", sync);
+    document.addEventListener("focusout", sync);
     document.addEventListener("touchmove", preventPinch, { passive: false });
     document.addEventListener("gesturestart", preventGesture, { passive: false });
 
@@ -75,6 +78,8 @@ export function ViewportLock() {
       vv?.removeEventListener("scroll", sync);
       window.removeEventListener("orientationchange", sync);
       window.removeEventListener("resize", sync);
+      document.removeEventListener("focusin", sync);
+      document.removeEventListener("focusout", sync);
       document.removeEventListener("touchmove", preventPinch);
       document.removeEventListener("gesturestart", preventGesture);
     };

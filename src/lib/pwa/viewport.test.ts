@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   APP_VIEWPORT,
   appHeightOverride,
+  isEditableElement,
   WEB_VIEWPORT,
   isAppViewport,
   keyboardInset,
@@ -41,9 +42,25 @@ describe("keyboardInset", () => {
 });
 
 describe("appHeightOverride", () => {
-  it("leaves height to 100dvh unless the keyboard is open", () => {
-    assert.equal(appHeightOverride(844, 760), 760);
+  it("ignores a static standalone shortfall when nothing is focused", () => {
+    assert.equal(appHeightOverride(844, 810), null);
+    assert.equal(appHeightOverride(844, 714), null);
     assert.equal(appHeightOverride(844, 844), null);
-    assert.equal(appHeightOverride(844, 844, 0), null);
+  });
+
+  it("pins the visual height only while a field is focused and the viewport is shrunk", () => {
+    assert.equal(appHeightOverride(844, 508, 0, true), 508);
+    assert.equal(appHeightOverride(844, 844, 0, true), null);
+  });
+});
+
+describe("isEditableElement", () => {
+  it("detects text-entry elements", () => {
+    assert.equal(isEditableElement({ tagName: "INPUT", type: "text" }), true);
+    assert.equal(isEditableElement({ tagName: "TEXTAREA" }), true);
+    assert.equal(isEditableElement({ tagName: "DIV", isContentEditable: true }), true);
+    assert.equal(isEditableElement({ tagName: "INPUT", type: "checkbox" }), false);
+    assert.equal(isEditableElement({ tagName: "BUTTON" }), false);
+    assert.equal(isEditableElement(null), false);
   });
 });
