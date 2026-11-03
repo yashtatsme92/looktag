@@ -4911,9 +4911,22 @@ html[data-chrome="phone"] [data-pin-nudge],
   }
 
   .boot-splash-art {
-    width: min(36vw, 11rem);
-    height: min(36dvh, 16rem);
-    overflow: hidden;
+    width: auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  .boot-art-wordmark {
+    width: min(18vw, 8rem);
+    height: 0.7rem;
+  }
+
+  .boot-art-tag {
+    width: min(18vw, 10rem);
+  }
+
+  .boot-art-pieces {
+    width: min(90vw, 36rem, 61dvh);
   }
 
   html:not(.native-app) .look-slide-meta {

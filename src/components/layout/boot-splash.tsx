@@ -5,6 +5,7 @@ import {
   BOOT_FEED_READY_EVENT,
   BOOT_HOLD_MS,
   BOOT_REPLAY_EVENT,
+  BOOT_STATIC_FINISH_EVENT,
   hasBootPlayed,
   isSharePath,
   markBootPlayed,
@@ -58,7 +59,7 @@ export function BootSplash({
     void bootNativeShell();
   }, [skipLaunch]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     function replay() {
       bootClock = Date.now();
       document.documentElement.classList.remove("boot-done");
@@ -66,8 +67,13 @@ export function BootSplash({
       setVariant(readStoredSplash());
       setPhase("in");
     }
+    const finishBoot = () => setPhase("out");
     window.addEventListener(BOOT_REPLAY_EVENT, replay);
-    return () => window.removeEventListener(BOOT_REPLAY_EVENT, replay);
+    window.addEventListener(BOOT_STATIC_FINISH_EVENT, finishBoot);
+    return () => {
+      window.removeEventListener(BOOT_REPLAY_EVENT, replay);
+      window.removeEventListener(BOOT_STATIC_FINISH_EVENT, finishBoot);
+    };
   }, []);
 
   useEffect(() => {
@@ -199,10 +205,10 @@ export function BootArtwork({ variant, preview }: { variant: SplashId; preview?:
               <path pathLength="1" d="M51 207 H149 M100 195 V222 M68 208 L75 257 M84 208 L87 257 M116 208 L113 257 M132 208 L125 257" />
             </g>
             <g className="boot-piece-lines">
-              <path pathLength="1" d="M235 248 Q248 232 270 232 H302 Q315 232 327 244 L354 254 Q362 258 357 266 H251 Q238 264 235 248 Z" />
-              <path pathLength="1" d="M243 249 H351 M264 236 L276 253 M285 236 L296 253 M306 238 L317 255" />
-              <path pathLength="1" d="M235 284 Q248 268 270 268 H302 Q315 268 327 280 L354 290 Q362 294 357 302 H251 Q238 300 235 284 Z" />
-              <path pathLength="1" d="M243 285 H351 M264 272 L276 289 M285 272 L296 289 M306 274 L317 291" />
+              <path pathLength="1" d="M235 222 Q248 206 270 206 H302 Q315 206 327 218 L354 228 Q362 232 357 240 H251 Q238 238 235 222 Z" />
+              <path pathLength="1" d="M243 223 H351 M264 210 L276 227 M285 210 L296 227 M306 212 L317 229" />
+              <path pathLength="1" d="M235 258 Q248 242 270 242 H302 Q315 242 327 254 L354 264 Q362 268 357 276 H251 Q238 274 235 258 Z" />
+              <path pathLength="1" d="M243 259 H351 M264 246 L276 263 M285 246 L296 263 M306 248 L317 265" />
             </g>
           </>
         )}

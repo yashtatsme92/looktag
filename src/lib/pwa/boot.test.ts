@@ -5,6 +5,7 @@ import {
   BOOT_FEED_READY_EVENT,
   BOOT_HOLD_MS,
   BOOT_SKIP_KEY,
+  BOOT_STATIC_FINISH_EVENT,
   isSharePath,
 } from "./boot.ts";
 
@@ -31,6 +32,7 @@ describe("boot hold", () => {
     assert.equal(BOOT_HOLD_MS, 1200);
     assert.equal(BOOT_CROSSFADE_MS, 150);
     assert.equal(BOOT_FEED_READY_EVENT, "looktag:feed-ready");
+    assert.equal(BOOT_STATIC_FINISH_EVENT, "looktag:finish-boot");
     assert.equal(BOOT_SKIP_KEY, "looktag-boot-v1");
   });
 });

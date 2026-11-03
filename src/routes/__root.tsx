@@ -9,6 +9,7 @@ import { BootSplash, StaticBootSplash } from "@/components/layout/boot-splash";
 import { ThemeSync } from "@/components/layout/theme-sync";
 import { ScrollRestore } from "@/components/layout/scroll-restore";
 import { ViewportLock } from "@/components/layout/viewport-lock";
+import { BOOT_STATIC_FINISH_EVENT } from "@/lib/pwa/boot";
 import { parseThemeId, DEFAULT_THEME, readStoredTheme } from "@/lib/design/themes";
 import { withTimeout } from "@/lib/login-next";
 import { APP_VIEWPORT } from "@/lib/pwa/viewport";
@@ -197,7 +198,7 @@ function RootDocument() {
       <body>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone){r.classList.add("standalone")}var wide=window.matchMedia("(min-width: 768px)");var desk=window.matchMedia("(min-width: 1024px)");function layout(){if(r.classList.contains("native-app")){r.classList.remove("layout-web");r.setAttribute("data-chrome","phone");return}var w=wide.matches;r.classList.toggle("layout-web",w);r.setAttribute("data-chrome",w?(desk.matches?"desktop":"tablet"):"phone")}layout();if(wide.addEventListener){wide.addEventListener("change",layout);desk.addEventListener("change",layout)}var k="looktag-boot-v1";function go(){if(r.classList.contains("boot-done"))return;r.classList.add("boot-done");try{sessionStorage.setItem(k,"done")}catch(e){}}if(sessionStorage.getItem(k)==="done"){go();return}var p=location.pathname;if(/^\\/looks\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+\\/[^/]+$/.test(p)){go();return}document.addEventListener("pointerdown",function(e){var t=e.target;if(t&&t.closest&&t.closest(".boot-splash"))go()},true);setTimeout(go,1400)}catch(e){}})();`,
+            __html: `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone){r.classList.add("standalone")}var wide=window.matchMedia("(min-width: 768px)");var desk=window.matchMedia("(min-width: 1024px)");function layout(){if(r.classList.contains("native-app")){r.classList.remove("layout-web");r.setAttribute("data-chrome","phone");return}var w=wide.matches;r.classList.toggle("layout-web",w);r.setAttribute("data-chrome",w?(desk.matches?"desktop":"tablet"):"phone")}layout();if(wide.addEventListener){wide.addEventListener("change",layout);desk.addEventListener("change",layout)}var k="looktag-boot-v1";function go(){if(r.classList.contains("boot-done"))return;if(r.classList.contains("boot-react")){window.dispatchEvent(new Event("${BOOT_STATIC_FINISH_EVENT}"));return}r.classList.add("boot-done");try{sessionStorage.setItem(k,"done")}catch(e){}}if(sessionStorage.getItem(k)==="done"){go();return}var p=location.pathname;if(/^\\/looks\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+\\/[^/]+$/.test(p)){go();return}document.addEventListener("pointerdown",function(e){var t=e.target;if(t&&t.closest&&t.closest(".boot-splash"))go()},true);setTimeout(go,1400)}catch(e){}})();`,
           }}
         />
         <StaticBootSplash variant={splashId} />
