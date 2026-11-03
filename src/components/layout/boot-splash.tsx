@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import {
+  BOOT_CROSSFADE_MS,
+  BOOT_FEED_READY_EVENT,
   BOOT_HOLD_MS,
   BOOT_REPLAY_EVENT,
   hasBootPlayed,
@@ -8,19 +10,11 @@ import {
   markBootPlayed,
 } from "@/lib/pwa/boot";
 import { bootNativeShell, restyleNativeChrome } from "@/lib/native/shell";
-import {
-  parseSplashId,
-  readStoredSplash,
-  resolveBootSplash,
-  type SplashId,
-} from "@/lib/pwa/splash";
+import { parseSplashId, resolveBootSplash, readStoredSplash, type SplashId } from "@/lib/pwa/splash";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
 
 type Phase = "in" | "out" | "done";
-
-const COAT =
-  "M100 70 C86 64 74 66 66 76 C52 88 44 110 42 134 L38 170 C36 176 46 178 54 170 L62 142 L60 250 C60 258 70 264 84 264 L116 264 C130 264 140 258 140 250 L138 142 L146 170 C154 178 164 176 162 170 L158 134 C156 110 148 88 134 76 C126 66 114 64 100 70 Z";
 
 let bootClock = 0;
 
@@ -52,8 +46,7 @@ export function BootSplash({
   }, [hydrated, splashId]);
 
   function finish() {
-    markBootPlayed();
-    setPhase("done");
+    setPhase("out");
   }
 
   useLayoutEffect(() => {
@@ -80,14 +73,24 @@ export function BootSplash({
   useEffect(() => {
     if (phase !== "in") return;
     if (!bootClock) bootClock = Date.now();
-    const left = Math.max(80, BOOT_HOLD_MS - (Date.now() - bootClock));
-    const timer = window.setTimeout(() => setPhase("out"), left);
-    return () => window.clearTimeout(timer);
-  }, [phase]);
+    const timer = window.setTimeout(() => setPhase("out"), BOOT_HOLD_MS);
+    function feedReady() {
+      setPhase("out");
+    }
+    if (document.documentElement.dataset.feedReady === "true") feedReady();
+    window.addEventListener(BOOT_FEED_READY_EVENT, feedReady);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener(BOOT_FEED_READY_EVENT, feedReady);
+    };
+  }, [phase, pathname]);
 
   useEffect(() => {
     if (phase !== "out") return;
-    const timer = window.setTimeout(() => finish(), 420);
+    const timer = window.setTimeout(() => {
+      markBootPlayed();
+      setPhase("done");
+    }, BOOT_CROSSFADE_MS);
     return () => window.clearTimeout(timer);
   }, [phase]);
 
@@ -115,23 +118,7 @@ export function BootSplash({
             }
           }}
         >
-          {variant !== "minimal" ? <div className="boot-splash-grain" aria-hidden /> : null}
-          {variant === "numbered" || variant === "atelier" ? (
-            <p className="boot-splash-index">Look 01</p>
-          ) : null}
-          <BootArtwork variant={variant} />
-          <div className="boot-splash-mark">
-            <p className="boot-splash-word">Looktag</p>
-            {variant !== "minimal" ? <p className="boot-splash-kicker">Shoppable looks</p> : null}
-            {variant !== "minimal" && variant !== "quiet" ? (
-              <p className="boot-splash-line">Tap to enter</p>
-            ) : null}
-          </div>
-          {variant !== "minimal" ? (
-            <div className="boot-splash-bar" aria-hidden>
-              <span />
-            </div>
-          ) : null}
+          <SplashContent variant={variant} />
         </div>
       ) : null}
       {children}
@@ -139,114 +126,113 @@ export function BootSplash({
   );
 }
 
+function SplashContent({ variant }: { variant: SplashId }) {
+  return (
+    <>
+      <BootArtwork variant={variant} />
+      {variant === "pieces" || variant === "soft-power" ? (
+        <p className="boot-splash-count">4 pieces tagged</p>
+      ) : null}
+      <div className={cn("boot-splash-mark", `boot-mark-${variant}`)}>
+        <p className="boot-splash-word">Looktag</p>
+        {variant === "wordmark" ? <span className="boot-wordmark-line" /> : null}
+      </div>
+    </>
+  );
+}
+
 export function BootArtwork({ variant, preview }: { variant: SplashId; preview?: boolean }) {
-  if (variant === "minimal") {
-    return <div className="boot-splash-art boot-art-empty" aria-hidden />;
+  if (variant === "wordmark") {
+    return <div className={cn("boot-splash-art boot-art-wordmark", preview && "boot-art-preview")} aria-hidden />;
   }
-  if (variant === "quiet") {
+
+  if (variant === "tag-draw") {
     return (
-      <div className={cn("boot-splash-art", preview && "boot-art-preview")} aria-hidden>
-        <span className="boot-quiet-rule" />
+      <div className={cn("boot-splash-art boot-art-tag", preview && "boot-art-preview")} aria-hidden>
+        <svg viewBox="0 0 160 110" fill="none">
+          <path className="boot-tag-outline" pathLength="1" d="M37 18 H98 L129 48 V92 H37 Z" />
+          <circle className="boot-tag-hole" cx="105" cy="42" r="5" />
+          <path className="boot-tag-string" d="M108 38 C135 17 141 41 125 51" />
+        </svg>
       </div>
     );
   }
 
-  const pins =
-    variant === "atelier"
-      ? [
-          { n: 1, top: "28%", left: "58%" },
-          { n: 2, top: "46%", left: "38%" },
-          { n: 3, top: "62%", left: "55%" },
-          { n: 4, top: "78%", left: "44%" },
-        ]
-      : variant === "numbered"
-        ? [
-            { n: 1, top: "32%", left: "57%" },
-            { n: 2, top: "52%", left: "40%" },
-            { n: 3, top: "72%", left: "54%" },
-          ]
-        : [{ n: 1, top: "36%", left: "57%" }];
-
+  const elegant = variant === "soft-power";
   return (
-    <div className={cn("boot-splash-art", preview && "boot-art-preview")} aria-hidden>
-      <svg className="boot-splash-svg" viewBox="0 0 200 360" fill="none">
-        <rect className="boot-art-plate" x="36" y="18" width="128" height="324" />
-        {variant === "atelier" ? (
+    <div className={cn("boot-splash-art boot-art-pieces", preview && "boot-art-preview")} aria-hidden>
+      <svg viewBox="0 0 400 360" fill="none">
+        {elegant ? (
           <>
-            <line className="boot-art-guide" x1="100" y1="28" x2="100" y2="330" pathLength="1" />
-            <line className="boot-art-guide boot-art-g2" x1="48" y1="78" x2="152" y2="78" pathLength="1" />
-            <line className="boot-art-guide boot-art-g2" x1="52" y1="262" x2="148" y2="262" pathLength="1" />
-            <line className="boot-art-guide" x1="48" y1="168" x2="152" y2="168" pathLength="1" />
-          </>
-        ) : variant === "numbered" ? (
-          <>
-            <line className="boot-art-guide" x1="100" y1="28" x2="100" y2="330" pathLength="1" />
-            <line className="boot-art-guide boot-art-g2" x1="52" y1="262" x2="148" y2="262" pathLength="1" />
+            <g className="boot-piece-lines">
+              <path pathLength="1" d="M51 40 L79 27 L100 43 L121 27 L149 40 L169 66 L151 77 L137 60 V106 H63 V60 L49 77 L31 66 Z" />
+              <path pathLength="1" d="M100 43 V105 M65 91 H135 M79 29 L87 53 L100 43 L113 53 L121 29" />
+              <path pathLength="1" d="M91 39 C78 29 82 20 94 27 L100 34 L106 27 C118 20 122 29 109 39 L100 46 Z" />
+            </g>
+            <g className="boot-piece-lines">
+              <path pathLength="1" d="M247 30 H353 L347 59 L337 107 H307 L300 60 L293 107 H263 L253 59 Z" />
+              <path pathLength="1" d="M250 41 H350 M280 33 L281 105 M320 33 L319 105 M300 32 V59" />
+            </g>
+            <g className="boot-piece-lines">
+              <path pathLength="1" d="M46 205 Q46 194 59 194 H141 Q154 194 154 205 V258 H46 Z" />
+              <path pathLength="1" d="M58 194 V207 H142 V194 M64 222 H136 M64 237 H136" />
+            </g>
+            <g className="boot-piece-lines">
+              <path pathLength="1" d="M240 222 Q250 212 264 211 L280 196 Q287 191 291 199 L289 211 Q307 203 323 208 Q331 211 326 218 L309 232 H252 Z" />
+              <path pathLength="1" d="M280 199 L294 207 M252 222 H326" />
+              <path pathLength="1" d="M240 258 Q250 248 264 247 L280 232 Q287 227 291 235 L289 247 Q307 239 323 244 Q331 247 326 254 L309 268 H252 Z" />
+              <path pathLength="1" d="M280 235 L294 243 M252 258 H326" />
+            </g>
           </>
         ) : (
           <>
-            <line className="boot-art-guide" x1="100" y1="28" x2="100" y2="330" pathLength="1" />
-            <line className="boot-art-guide boot-art-g2" x1="48" y1="78" x2="152" y2="78" pathLength="1" />
-            <line className="boot-art-guide boot-art-g2" x1="52" y1="262" x2="148" y2="262" pathLength="1" />
+            <g className="boot-piece-lines">
+              <path pathLength="1" d="M51 40 L79 27 L100 43 L121 27 L149 40 L169 66 L151 77 L137 60 V106 H63 V60 L49 77 L31 66 Z" />
+              <path pathLength="1" d="M100 43 V105 M65 91 H135 M79 29 L87 53 M121 29 L113 53" />
+            </g>
+            <g className="boot-piece-lines">
+              <path pathLength="1" d="M252 48 H348 V107 H252 Z M268 48 C268 20 294 20 294 48 M306 48 C306 20 332 20 332 48" />
+              <path pathLength="1" d="M260 62 H340 M260 76 H340 M260 90 H340 M274 52 V104 M294 52 V104 M314 52 V104 M334 52 V104" />
+            </g>
+            <g className="boot-piece-lines">
+              <path pathLength="1" d="M48 194 H152 L147 220 L135 267 L105 260 L100 224 L95 260 L65 267 L53 220 Z" />
+              <path pathLength="1" d="M51 207 H149 M100 195 V222 M68 208 L75 257 M84 208 L87 257 M116 208 L113 257 M132 208 L125 257" />
+            </g>
+            <g className="boot-piece-lines">
+              <path pathLength="1" d="M235 248 Q248 232 270 232 H302 Q315 232 327 244 L354 254 Q362 258 357 266 H251 Q238 264 235 248 Z" />
+              <path pathLength="1" d="M243 249 H351 M264 236 L276 253 M285 236 L296 253 M306 238 L317 255" />
+              <path pathLength="1" d="M235 284 Q248 268 270 268 H302 Q315 268 327 280 L354 290 Q362 294 357 302 H251 Q238 300 235 284 Z" />
+              <path pathLength="1" d="M243 285 H351 M264 272 L276 289 M285 272 L296 289 M306 274 L317 291" />
+            </g>
           </>
         )}
-        <ellipse className="boot-art-stroke boot-art-d1" cx="100" cy="42" rx="9.5" ry="13" pathLength="1" />
-        <path className="boot-art-stroke boot-art-d2" pathLength="1" d={COAT.replace(" Z", "")} />
-        <path
-          className="boot-art-stroke boot-art-d3"
-          pathLength="1"
-          d="M88 76 L100 132 L112 76 M100 132 L100 264 M76 174 L90 174 M110 174 L124 174"
-        />
-        <path
-          className="boot-art-stroke boot-art-d4"
-          pathLength="1"
-          d="M86 264 L84 338 M78 338 L90 338 M114 264 L116 338 M110 338 L122 338 M96 264 L95 332 M104 264 L105 332"
-        />
-        {variant === "atelier" ? (
-          <path
-            className="boot-art-stroke boot-art-d3"
-            pathLength="1"
-            d="M72 250 C70 280 74 310 78 338 M128 250 C130 280 126 310 122 338"
-          />
-        ) : null}
+        {[
+          { n: 1, cx: 159, cy: 42, label: elegant ? "Bow blouse" : "Linen shirt", x: 18, y: 121 },
+          { n: 2, cx: 359, cy: 43, label: elegant ? "Wide-leg trousers" : "Raffia tote", x: 218, y: 121 },
+          { n: 3, cx: 159, cy: 201, label: elegant ? "Clutch" : "Pleated shorts", x: 18, y: 281 },
+          { n: 4, cx: 359, cy: 202, label: elegant ? "Kitten heels" : "Espadrilles", x: 218, y: 281 },
+        ].map((piece) => (
+          <g className="boot-splash-pin" data-pin={piece.n} key={piece.n}>
+            <circle className="boot-piece-number" cx={piece.cx} cy={piece.cy} r="9" />
+            <text className="boot-piece-number-text" x={piece.cx} y={piece.cy + 3.5}>
+              {piece.n}
+            </text>
+            <rect className="boot-piece-label" x={piece.x} y={piece.y} width="164" height="22" rx="11" />
+            <text className="boot-piece-label-text" x={piece.x + 82} y={piece.y + 14.5}>
+              {piece.label}
+            </text>
+          </g>
+        ))}
       </svg>
-      <div className="boot-art-ink">
-        <svg className="boot-splash-svg" viewBox="0 0 200 360" fill="none">
-          <path className="boot-art-fill" d={COAT} />
-        </svg>
-      </div>
-      {pins.map((pin) => (
-        <span
-          key={pin.n}
-          className="boot-splash-pin"
-          data-pin={pin.n}
-          style={{ top: pin.top, left: pin.left }}
-        >
-          {pin.n}
-        </span>
-      ))}
     </div>
   );
 }
 
-/** First-paint overlay. CSS shows the plate from html[data-splash] before React hydrates. */
-export function StaticBootSplash() {
+/** First-paint overlay, rendered by the server before React hydrates. */
+export function StaticBootSplash({ variant = "tag-draw" }: { variant?: SplashId }) {
   return (
-    <div id="boot-splash-html" className="boot-splash" aria-hidden="true" suppressHydrationWarning>
-      <div className="boot-splash-grain" />
-      <p className="boot-splash-index">Look 01</p>
-      <div className="boot-splash-art">
-        <span className="boot-quiet-rule" />
-        <BootArtwork variant="atelier" />
-      </div>
-      <div className="boot-splash-mark">
-        <p className="boot-splash-word">Looktag</p>
-        <p className="boot-splash-kicker">Shoppable looks</p>
-        <p className="boot-splash-line">Tap to enter</p>
-      </div>
-      <div className="boot-splash-bar" aria-hidden>
-        <span />
-      </div>
+    <div id="boot-splash-html" className="boot-splash" data-splash={variant} aria-hidden="true" suppressHydrationWarning>
+      <SplashContent variant={variant} />
     </div>
   );
 }

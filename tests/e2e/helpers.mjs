@@ -5,7 +5,6 @@ import { checkedUrl } from "../../scripts/browser-guard.mjs";
 export const STYLE_GUIDE_KEY = "looktag-style-guide-v1";
 export const BROWSE_COACH_KEY = "looktag-browse-coach-v1";
 export const BOOT_SKIP_KEY = "looktag-boot-v1";
-export const SPLASH_STORAGE_KEY = "looktag-splash-v1";
 export const SCREENSHOT_DIR = "/workspace/screenshots";
 
 export function resolveOrigin() {
@@ -176,12 +175,12 @@ export async function withBootPage(browser, origin, splashId, fn, shotName = "bo
     deviceScaleFactor: 2,
   });
   await context.addInitScript(
-    ([guide, coach, splashKey, splash, bootKey]) => {
+    ([guide, coach, splash, bootKey]) => {
       try {
         localStorage.setItem(guide, "done");
         localStorage.setItem(coach, "done");
-        localStorage.setItem(splashKey, splash);
         sessionStorage.removeItem(bootKey);
+        window.__splashExpected = splash;
         window.__splashLog = [];
         const note = () => {
           const html = document.documentElement?.getAttribute("data-splash") || "";
@@ -221,7 +220,7 @@ export async function withBootPage(browser, origin, splashId, fn, shotName = "bo
         /* private mode */
       }
     },
-    [STYLE_GUIDE_KEY, BROWSE_COACH_KEY, SPLASH_STORAGE_KEY, splashId, BOOT_SKIP_KEY],
+    [STYLE_GUIDE_KEY, BROWSE_COACH_KEY, splashId, BOOT_SKIP_KEY],
   );
   const page = await context.newPage();
   page.setDefaultTimeout(12_000);
@@ -420,14 +419,14 @@ export async function restoreStudioDefaults(page, origin) {
       await page.getByText(/Studio updated/i).first().waitFor({ timeout: 4_000 }).catch(() => {});
     }
   }
-  const classy = page.getByRole("radio", { name: "Classy" });
-  if (await classy.count()) {
+  const tagDraw = page.getByRole("radio", { name: "Tag draw" });
+  if (await tagDraw.count()) {
     const on =
-      (await classy.getAttribute("data-state")) === "checked" ||
-      (await classy.getAttribute("aria-checked")) === "true";
+      (await tagDraw.getAttribute("data-state")) === "checked" ||
+      (await tagDraw.getAttribute("aria-checked")) === "true";
     if (!on) {
-      await classy.scrollIntoViewIfNeeded();
-      await classy.click();
+      await tagDraw.scrollIntoViewIfNeeded();
+      await tagDraw.click();
       await page.getByText(/Studio updated/i).first().waitFor({ timeout: 4_000 }).catch(() => {});
     }
   }

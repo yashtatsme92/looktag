@@ -1,6 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { BOOT_HOLD_MS, BOOT_SKIP_KEY, isSharePath } from "./boot.ts";
+import {
+  BOOT_CROSSFADE_MS,
+  BOOT_FEED_READY_EVENT,
+  BOOT_HOLD_MS,
+  BOOT_SKIP_KEY,
+  isSharePath,
+} from "./boot.ts";
 
 describe("isSharePath", () => {
   it("skips the opening splash on look, house, and collection permalinks", () => {
@@ -21,8 +27,10 @@ describe("isSharePath", () => {
 });
 
 describe("boot hold", () => {
-  it("holds the plate long enough to read, then lets the session skip a replay", () => {
-    assert.equal(BOOT_HOLD_MS, 700);
+  it("caps the animation, crossfades quickly, and lets the session skip a replay", () => {
+    assert.equal(BOOT_HOLD_MS, 1200);
+    assert.equal(BOOT_CROSSFADE_MS, 150);
+    assert.equal(BOOT_FEED_READY_EVENT, "looktag:feed-ready");
     assert.equal(BOOT_SKIP_KEY, "looktag-boot-v1");
   });
 });

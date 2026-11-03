@@ -1,7 +1,6 @@
 /** Native iOS / Android shell. No-ops in the browser. */
 
-const STUDIO = "#111111";
-const PAPER = "#F4F4F4";
+const SPLASH_BACKGROUND = "#F4F4F4";
 
 let backBound = false;
 
@@ -18,7 +17,7 @@ export async function bootNativeShell() {
     ]);
     await Promise.all([
       StatusBar.setStyle({ style: Style.Dark }),
-      StatusBar.setBackgroundColor({ color: STUDIO }).catch(() => undefined),
+      StatusBar.setBackgroundColor({ color: SPLASH_BACKGROUND }).catch(() => undefined),
       SplashScreen.hide(),
     ]);
     if (!backBound) {
@@ -42,8 +41,8 @@ export async function restyleNativeChrome() {
     const { Capacitor } = await import("@capacitor/core");
     if (!Capacitor.isNativePlatform()) return;
     const { StatusBar, Style } = await import("@capacitor/status-bar");
-    await StatusBar.setStyle({ style: Style.Light });
-    await StatusBar.setBackgroundColor({ color: PAPER }).catch(() => undefined);
+    await StatusBar.setStyle({ style: Style.Dark });
+    await StatusBar.setBackgroundColor({ color: SPLASH_BACKGROUND }).catch(() => undefined);
   } catch {
     // Web, or Capacitor plugins unavailable.
   }

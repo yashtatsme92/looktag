@@ -9,6 +9,7 @@ import { listPublicLooks } from "@/lib/looks/api";
 import { memoPromise } from "@/lib/loading/memo-promise";
 import { useLooksStore } from "@/lib/looks/store";
 import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
+import { BOOT_FEED_READY_EVENT } from "@/lib/pwa/boot";
 
 export const Route = createFileRoute("/")({
   loader: async () => {
@@ -30,8 +31,14 @@ function Home() {
   const looks = hydrated ? storeLooks : loaded.looks.length > 0 ? loaded.looks : storeLooks;
 
   useLayoutEffect(() => {
-    if (loaded.looks.length === 0) return;
-    useLooksStore.setState({ looks: loaded.looks, hydrated: true });
+    document.documentElement.dataset.feedReady = "true";
+    window.dispatchEvent(new Event(BOOT_FEED_READY_EVENT));
+    if (loaded.looks.length > 0) {
+      useLooksStore.setState({ looks: loaded.looks, hydrated: true });
+    }
+    return () => {
+      delete document.documentElement.dataset.feedReady;
+    };
   }, [loaded.looks]);
 
   return (

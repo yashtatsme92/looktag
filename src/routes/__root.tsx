@@ -151,6 +151,18 @@ export const Route = createRootRoute({
         media:
           "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)",
       },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/splash-1668x2388.png",
+        media:
+          "(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/splash-2048x2732.png",
+        media:
+          "(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)",
+      },
     ],
     scripts: [{ children: EARLY_CHROME_SCRIPT }],
   }),
@@ -185,10 +197,10 @@ function RootDocument() {
       <body>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}try{var sp=localStorage.getItem("looktag-splash-v1");if(sp==="minimal"||sp==="quiet"||sp==="classy"||sp==="numbered"||sp==="atelier")r.setAttribute("data-splash",sp)}catch(e){}if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone){r.classList.add("standalone")}var wide=window.matchMedia("(min-width: 768px)");var desk=window.matchMedia("(min-width: 1024px)");function layout(){if(r.classList.contains("native-app")){r.classList.remove("layout-web");r.setAttribute("data-chrome","phone");return}var w=wide.matches;r.classList.toggle("layout-web",w);r.setAttribute("data-chrome",w?(desk.matches?"desktop":"tablet"):"phone")}layout();if(wide.addEventListener){wide.addEventListener("change",layout);desk.addEventListener("change",layout)}var k="looktag-boot-v1";function go(){if(r.classList.contains("boot-done"))return;r.classList.add("boot-done");try{sessionStorage.setItem(k,"done")}catch(e){}}if(sessionStorage.getItem(k)==="done"){go();return}var p=location.pathname;if(/^\\/looks\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+\\/[^/]+$/.test(p)){go();return}document.addEventListener("pointerdown",function(e){var t=e.target;if(t&&t.closest&&t.closest(".boot-splash"))go()},true);setTimeout(go,1400)}catch(e){}})();`,
+            __html: `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone){r.classList.add("standalone")}var wide=window.matchMedia("(min-width: 768px)");var desk=window.matchMedia("(min-width: 1024px)");function layout(){if(r.classList.contains("native-app")){r.classList.remove("layout-web");r.setAttribute("data-chrome","phone");return}var w=wide.matches;r.classList.toggle("layout-web",w);r.setAttribute("data-chrome",w?(desk.matches?"desktop":"tablet"):"phone")}layout();if(wide.addEventListener){wide.addEventListener("change",layout);desk.addEventListener("change",layout)}var k="looktag-boot-v1";function go(){if(r.classList.contains("boot-done"))return;r.classList.add("boot-done");try{sessionStorage.setItem(k,"done")}catch(e){}}if(sessionStorage.getItem(k)==="done"){go();return}var p=location.pathname;if(/^\\/looks\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+$/.test(p)||/^\\/houses\\/[^/]+\\/[^/]+$/.test(p)){go();return}document.addEventListener("pointerdown",function(e){var t=e.target;if(t&&t.closest&&t.closest(".boot-splash"))go()},true);setTimeout(go,1400)}catch(e){}})();`,
           }}
         />
-        <StaticBootSplash />
+        <StaticBootSplash variant={splashId} />
         <PreviewHostBridge />
         <AuthProvider>
           <TelemetryProvider>

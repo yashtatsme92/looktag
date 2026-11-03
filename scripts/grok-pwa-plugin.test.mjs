@@ -479,6 +479,8 @@ test("renders the manifest with the per-app name", () => {
   assert.equal(manifest.name, "Wild Race");
   assert.equal(manifest.short_name, "Wild Race");
   assert.equal(manifest.icons[0].src, "/__grok/icon-180.png");
+  assert.equal(manifest.background_color, "#F4F4F4");
+  assert.equal(manifest.theme_color, "#F4F4F4");
 });
 
 // Tripwires: the deployed-app path only works if Nitro scans server/ — an
@@ -545,4 +547,3 @@ test("still stamps the site card when a share document has no page meta", () => 
   });
   assert.match(out, /property="og:title" content="Looktag"/);
 });
-

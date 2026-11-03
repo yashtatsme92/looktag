@@ -2655,6 +2655,219 @@ html[data-theme="moss"] {
     .boot-art-ink { clip-path: inset(0); }
     .boot-splash-out { opacity: 0; }
   }
+
+  .boot-splash {
+    background: #f4f4f4;
+    color: #242424;
+    padding: max(1.5rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  .boot-splash-art {
+    flex: none;
+    width: min(88vw, 36rem);
+    height: auto;
+    margin-bottom: 0.8rem;
+  }
+
+  .boot-art-wordmark {
+    width: min(32vw, 8rem);
+    height: 0.7rem;
+  }
+
+  .boot-art-tag {
+    width: min(32vw, 9rem);
+    margin-bottom: 1.2rem;
+  }
+
+  .boot-art-tag svg,
+  .boot-art-pieces svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .boot-tag-outline,
+  .boot-tag-hole,
+  .boot-tag-string {
+    fill: none;
+    stroke: #898989;
+    stroke-width: 1.25px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .boot-tag-outline {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: boot-draw 0.72s var(--ease-out) both;
+  }
+
+  .boot-tag-hole {
+    fill: #f4f4f4;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: boot-draw 0.24s 0.65s var(--ease-out) both;
+  }
+
+  .boot-tag-string {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: boot-draw 0.35s 0.4s var(--ease-out) both;
+  }
+
+  .boot-art-pieces {
+    width: min(90vw, 36rem);
+    margin-bottom: 0.25rem;
+  }
+
+  .boot-piece-lines path {
+    fill: none;
+    stroke: #969696;
+    stroke-width: 1.1px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    vector-effect: non-scaling-stroke;
+    animation: boot-draw 0.68s 0.06s var(--ease-out) both;
+  }
+
+  .boot-splash-pin {
+    position: static;
+    width: auto;
+    height: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    transform: none;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: boot-pop 0.24s 0.78s var(--ease-smooth-out) both;
+  }
+
+  .boot-splash-pin[data-pin="2"] { animation-delay: 0.85s; }
+  .boot-splash-pin[data-pin="3"] { animation-delay: 0.92s; }
+  .boot-splash-pin[data-pin="4"] { animation-delay: 0.99s; }
+
+  .boot-piece-number {
+    fill: #f4f4f4;
+    stroke: #777;
+    stroke-width: 1px;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .boot-piece-number-text,
+  .boot-piece-label-text {
+    font-family: var(--font-sans);
+    text-anchor: middle;
+    dominant-baseline: middle;
+  }
+
+  .boot-piece-number-text {
+    fill: #333;
+    font-size: 9px;
+  }
+
+  .boot-piece-label {
+    fill: #292929;
+  }
+
+  .boot-piece-label-text {
+    fill: #fff;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .boot-splash-count {
+    margin: 0.35rem 0 0;
+    border-radius: 999px;
+    background: #292929;
+    color: #fff;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    animation: boot-rise 0.25s 0.95s var(--ease-smooth-out) both;
+  }
+
+  .boot-splash-mark {
+    width: auto;
+    padding: 0.35rem 0 0;
+    text-align: center;
+  }
+
+  .boot-splash-word {
+    color: #242424;
+    font-size: clamp(2.6rem, 11vw, 4.5rem);
+    animation: boot-rise 0.58s 0.08s var(--ease-smooth-out) both;
+  }
+
+  .boot-mark-tag-draw .boot-splash-word {
+    animation-delay: 0.62s;
+  }
+
+  .boot-mark-pieces .boot-splash-word,
+  .boot-mark-soft-power .boot-splash-word {
+    font-size: clamp(1.75rem, 7vw, 2.5rem);
+    animation-duration: 0.25s;
+    animation-delay: 0.98s;
+  }
+
+  .boot-wordmark-line {
+    display: block;
+    width: min(4.5rem, 30vw);
+    height: 1px;
+    margin: 0.7rem auto 0;
+    background: #898989;
+    transform: scaleX(0);
+    transform-origin: center;
+    animation: boot-line 0.38s 0.35s var(--ease-out) both;
+  }
+
+  .boot-splash-out {
+    animation: boot-out 0.15s ease both;
+  }
+
+  @keyframes boot-pop {
+    from { opacity: 0; transform: scale(0.55); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes boot-line {
+    to { transform: scaleX(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .boot-tag-outline,
+    .boot-tag-hole,
+    .boot-tag-string,
+    .boot-piece-lines path,
+    .boot-splash-pin,
+    .boot-splash-count,
+    .boot-splash-word,
+    .boot-wordmark-line,
+    .boot-splash-out {
+      animation: none !important;
+    }
+
+    .boot-tag-outline,
+    .boot-tag-hole,
+    .boot-tag-string,
+    .boot-piece-lines path {
+      stroke-dashoffset: 0;
+    }
+
+    .boot-splash-pin,
+    .boot-splash-count,
+    .boot-splash-word,
+    .boot-wordmark-line {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
 @layer base {
@@ -4282,6 +4495,48 @@ html:not(.boot-done) .look-feed-refresh {
   font-style: italic;
   font-size: 1.05rem;
   line-height: 1;
+}
+
+.splash-card {
+  background: #f4f4f4;
+  color: #242424;
+}
+
+.splash-card .boot-art-wordmark {
+  width: 4rem;
+  height: 0.2rem;
+}
+
+.splash-card .boot-art-tag {
+  width: 3.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.splash-card .boot-art-pieces {
+  width: min(100%, 22rem);
+  height: auto;
+  margin: 0;
+}
+
+.splash-card .boot-splash-pin {
+  position: static;
+  width: auto;
+  height: auto;
+  transform: none;
+}
+
+.splash-card .boot-splash-count {
+  margin-top: 0.15rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.65rem;
+}
+
+.splash-card .boot-wordmark-line {
+  width: 3rem;
+  margin-top: 0.4rem;
+  animation: none;
+  opacity: 1;
+  transform: none;
 }
 
 

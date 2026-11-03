@@ -1,6 +1,6 @@
 {
   "name": "app-builder-workspace",
-  "version": "2.5.38",
+  "version": "2.5.39",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -19,6 +19,7 @@
     "db:seed": "node --experimental-strip-types scripts/seed.mjs",
     "db:seed:audit": "node --experimental-strip-types scripts/seed-audit.mjs",
     "db:seed:prune": "node --experimental-strip-types scripts/seed-prune.mjs",
+    "splash:generate": "node scripts/generate-splash.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
     "preview": "node scripts/with-app-env.mjs vite preview",
     "preview:restart": "node scripts/preview.mjs restart",
@@ -31,6 +32,7 @@
     "test:e2e:google": "node tests/e2e/google-signin.mjs",
     "test:app": "node scripts/looktag-qa.mjs",
     "test:e2e": "node tests/e2e/run.mjs",
+    "test:e2e:splash": "node tests/e2e/splash-designs.mjs",
     "test:e2e:auth-methods": "node tests/e2e/auth-methods.mjs",
     "test:e2e:guest": "node tests/e2e/guest-shared-links.mjs",
     "test:e2e:create-phone": "node --experimental-strip-types tests/e2e/create-phone.mjs",
