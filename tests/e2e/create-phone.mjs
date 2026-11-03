@@ -96,6 +96,13 @@ async function checkField(page, selector, label, offsetTop) {
     JSON.stringify(m),
   );
   await page.evaluate(() => document.activeElement?.blur());
+  await page.evaluate(() => {
+    const vv = window.visualViewport;
+    vv.height = window.innerHeight;
+    vv.offsetTop = 0;
+    vv.dispatchEvent(new Event("resize"));
+    window.dispatchEvent(new Event("resize"));
+  });
   await page.waitForTimeout(200);
 }
 

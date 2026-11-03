@@ -1,6 +1,6 @@
 {
   "name": "app-builder-workspace",
-  "version": "2.5.37",
+  "version": "2.5.38",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -35,6 +35,7 @@
     "test:e2e:guest": "node tests/e2e/guest-shared-links.mjs",
     "test:e2e:create-phone": "node --experimental-strip-types tests/e2e/create-phone.mjs",
     "test:e2e:create-desktop": "node --experimental-strip-types tests/e2e/create-desktop.mjs && node --experimental-strip-types tests/e2e/create-desktop-upload.mjs",
+    "test:e2e:ios-standalone": "node tests/e2e/ios-standalone.mjs",
     "test:e2e:aspect": "node --experimental-strip-types tests/e2e/aspect-ratio.mjs",
     "test:e2e:smooth": "node tests/e2e/smoothness.mjs",
     "test:ui": "node --experimental-strip-types tests/e2e/ui.mjs",
