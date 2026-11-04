@@ -1,6 +1,6 @@
 import { DEFAULT_THEME, parseThemeId, type ThemeId } from "../design/themes.ts";
 import { clampCadence, type FeedCadence, type FreshWindow } from "../home/engagement.ts";
-import { DEFAULT_SPLASH, parseSplashId, type SplashId } from "../pwa/splash.ts";
+import { DEFAULT_SPLASH, isSplashId, parseSplashId, type SplashId } from "../pwa/splash.ts";
 import { FOOTER_LINK_IDS, parseFooterIds } from "../../config/footer.ts";
 
 export const SETTINGS_ID = "default";
@@ -363,6 +363,9 @@ export function mergeSettings(
 
 /** Keep only keys the client actually sent, after parsing. Extra knobs live in EXTRAS_KEYS. */
 export function pickSettingsPatch(input: Partial<AppSettings>): Partial<AppSettings> {
+  if (input.splashId !== undefined && !isSplashId(input.splashId)) {
+    throw new Error("Invalid splash design.");
+  }
   const parsed = parseSettings({
     ...input,
     signupEmail: input.signupEmail,

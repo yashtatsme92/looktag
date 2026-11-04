@@ -14,8 +14,12 @@ export const SPLASH_OPTIONS: {
   { id: "soft-power", label: "Elegant “soft power”", hint: "Bow blouse, wide-leg trousers, clutch, kitten heels." },
 ];
 
+export function isSplashId(value: unknown): value is SplashId {
+  return SPLASH_IDS.includes(value as SplashId);
+}
+
 export function parseSplashId(value: unknown): SplashId {
-  return SPLASH_IDS.includes(value as SplashId) ? (value as SplashId) : DEFAULT_SPLASH;
+  return isSplashId(value) ? value : DEFAULT_SPLASH;
 }
 
 /** The server-rendered global selection is authoritative; there is no per-browser override. */

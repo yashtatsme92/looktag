@@ -154,9 +154,21 @@ export const Route = createRootRoute({
       },
       {
         rel: "apple-touch-startup-image",
+        href: "/splash-1125x2436.png",
+        media:
+          "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        rel: "apple-touch-startup-image",
         href: "/splash-1668x2388.png",
         media:
           "(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/splash-1640x2360.png",
+        media:
+          "(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2)",
       },
       {
         rel: "apple-touch-startup-image",

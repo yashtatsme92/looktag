@@ -185,6 +185,13 @@ describe("pickSettingsPatch", () => {
     assert.deepEqual(patch, { splashId: "tag-draw" });
   });
 
+  it("rejects unknown splash ids on writes", () => {
+    assert.throws(
+      () => pickSettingsPatch({ splashId: "neon" as never }),
+      /Invalid splash design/,
+    );
+  });
+
   it("keeps theme and rank extras", () => {
     const patch = pickSettingsPatch({ themeId: "night", scoreLook: 15 });
     assert.equal(patch.themeId, "night");

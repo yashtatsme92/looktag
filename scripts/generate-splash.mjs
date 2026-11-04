@@ -97,7 +97,9 @@ const sizes = [
   { w: 1206, h: 2622, name: "splash-1206x2622.png" },
   { w: 1320, h: 2868, name: "splash-1320x2868.png" },
   { w: 750, h: 1334, name: "splash-750x1334.png" },
+  { w: 1125, h: 2436, name: "splash-1125x2436.png" },
   { w: 1668, h: 2388, name: "splash-1668x2388.png" },
+  { w: 1640, h: 2360, name: "splash-1640x2360.png" },
   { w: 2048, h: 2732, name: "splash-2048x2732.png" },
 ];
 
