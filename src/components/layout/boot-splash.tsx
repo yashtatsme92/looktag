@@ -6,6 +6,7 @@ import {
   BOOT_MAX_WAIT_MS,
   BOOT_MIN_ANIMATION_MS,
   BOOT_REPLAY_EVENT,
+  BOOT_ROUTE_READY_EVENT,
   BOOT_STATIC_FINISH_EVENT,
   hasBootPlayed,
   isSharePath,
@@ -85,21 +86,26 @@ export function BootSplash({
     const elapsed = () => Date.now() - bootClock;
     const maxTimer = window.setTimeout(() => setPhase("out"), Math.max(0, BOOT_MAX_WAIT_MS - elapsed()));
     let animationTimer: number | undefined;
-    let feedReadySeen = false;
-    function feedReady() {
-      if (feedReadySeen) return;
-      feedReadySeen = true;
+    let routeReadySeen = false;
+    function routeReady() {
+      if (routeReadySeen) return;
+      routeReadySeen = true;
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const remaining = reducedMotion ? 0 : Math.max(0, BOOT_MIN_ANIMATION_MS - elapsed());
       animationTimer = window.setTimeout(() => setPhase("out"), remaining);
     }
-    if (document.documentElement.dataset.feedReady === "true") feedReady();
-    window.addEventListener(BOOT_FEED_READY_EVENT, feedReady);
-    if (previewReplay.current) feedReady();
+    if (
+      document.documentElement.dataset.feedReady === "true" ||
+      document.documentElement.dataset.routeReady === "true"
+    ) routeReady();
+    window.addEventListener(BOOT_FEED_READY_EVENT, routeReady);
+    window.addEventListener(BOOT_ROUTE_READY_EVENT, routeReady);
+    if (previewReplay.current) routeReady();
     return () => {
       window.clearTimeout(maxTimer);
       if (animationTimer !== undefined) window.clearTimeout(animationTimer);
-      window.removeEventListener(BOOT_FEED_READY_EVENT, feedReady);
+      window.removeEventListener(BOOT_FEED_READY_EVENT, routeReady);
+      window.removeEventListener(BOOT_ROUTE_READY_EVENT, routeReady);
     };
   }, [phase, pathname]);
 

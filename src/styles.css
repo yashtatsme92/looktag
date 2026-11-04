@@ -2603,6 +2603,12 @@ html[data-theme="moss"] {
     animation: boot-rise 0.58s 0.08s var(--ease-smooth-out) both;
   }
 
+  #boot-splash-html .boot-mark-wordmark .boot-splash-word {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
   .boot-mark-tag-draw .boot-splash-word {
     animation-delay: 0.62s;
   }
@@ -4757,6 +4763,15 @@ html[data-chrome="phone"] [data-pin-nudge],
 
   .boot-art-pieces {
     width: min(90vw, 36rem, 61dvh);
+  }
+
+  @media (max-width: 899px) {
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces,
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="pieces"] .boot-art-pieces,
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces {
+      width: min(48vw, 36rem, 61dvh);
+    }
   }
 
   html:not(.native-app) .look-slide-meta {

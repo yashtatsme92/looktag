@@ -5,6 +5,7 @@ import {
   BOOT_FEED_READY_EVENT,
   BOOT_MAX_WAIT_MS,
   BOOT_MIN_ANIMATION_MS,
+  BOOT_ROUTE_READY_EVENT,
   BOOT_SKIP_KEY,
   BOOT_STATIC_FINISH_EVENT,
   isSharePath,
@@ -34,6 +35,7 @@ describe("boot timing", () => {
     assert.equal(BOOT_MAX_WAIT_MS, 10_000);
     assert.equal(BOOT_CROSSFADE_MS, 150);
     assert.equal(BOOT_FEED_READY_EVENT, "looktag:feed-ready");
+    assert.equal(BOOT_ROUTE_READY_EVENT, "looktag:route-ready");
     assert.equal(BOOT_STATIC_FINISH_EVENT, "looktag:finish-boot");
     assert.equal(BOOT_SKIP_KEY, "looktag-boot-v1");
   });

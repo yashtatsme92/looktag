@@ -11,6 +11,12 @@ const designs = [
   { id: "pieces", label: "Drawn pieces reveal", art: ".boot-art-pieces", motion: ".boot-piece-lines path" },
   { id: "soft-power", label: "Elegant “soft power”", art: ".boot-art-pieces", motion: ".boot-piece-lines path" },
 ];
+const settingsServerFn = Buffer.from(
+  JSON.stringify({
+    file: "/src/lib/settings/api.ts?tss-serverfn-split",
+    export: "saveAppSettings_createServerFn_handler",
+  }),
+).toString("base64url");
 const viewports = [
   { width: 390, height: 844 },
   { width: 320, height: 568 },
@@ -25,9 +31,21 @@ async function selectSplash(page, label) {
     (await radio.getAttribute("data-state")) === "checked" ||
     (await radio.getAttribute("aria-checked")) === "true";
   if (checked) return;
+  await page.locator(".save-status").waitFor({ state: "detached", timeout: 4_000 }).catch(() => {});
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().includes(`/_serverFn/${settingsServerFn}`) &&
+      response.request().method() === "POST",
+    { timeout: 8_000 },
+  );
   await radio.click();
-  await page.getByText("Saving…", { exact: true }).waitFor({ timeout: 4_000 });
-  await page.getByText("Saved", { exact: true }).waitFor({ timeout: 8_000 });
+  const response = await saved;
+  assert.equal(response.status(), 200);
+  await page.waitForFunction(() => {
+    const status = document.querySelector(".save-status");
+    return status?.textContent?.trim() === "Saved" || status?.classList.contains("is-error");
+  }, null, { timeout: 8_000 });
+  assert.equal(await page.locator(".save-status").textContent(), "Saved", "splash setting failed to save");
 }
 
 async function previewSplash(page, design, viewport) {
@@ -59,6 +77,8 @@ async function previewSplash(page, design, viewport) {
     return {
       root: document.documentElement.getAttribute("data-splash"),
       artWidth: art?.getBoundingClientRect().width ?? el.querySelector(".boot-wordmark-line")?.offsetWidth ?? 0,
+      artLeft: art?.getBoundingClientRect().left ?? 0,
+      artRight: art?.getBoundingClientRect().right ?? 0,
       svgWidth: svg?.getBoundingClientRect().width ?? 0,
       background: getComputedStyle(el).backgroundColor,
       pins: el.querySelectorAll(".boot-splash-pin").length,
@@ -86,6 +106,7 @@ async function previewSplash(page, design, viewport) {
   assert.equal(rendered.root, design.id);
   assert.ok(rendered.artWidth > 0, `${design.id} artwork has no width`);
   assert.equal(rendered.background, "rgb(244, 244, 244)");
+  assert.ok(rendered.artLeft >= 0 && rendered.artRight <= viewport.width, `${design.id} artwork overflows viewport`);
   assert.equal(rendered.wordStyle.fontFamily.includes("Playfair Display"), true);
   assert.equal(rendered.wordStyle.fontStyle, "italic");
   assert.equal(rendered.wordStyle.fontWeight, "500");
@@ -97,6 +118,15 @@ async function previewSplash(page, design, viewport) {
     assert.equal(rendered.count, "4 pieces tagged");
     assert.equal(rendered.overlap, false);
     assert.deepEqual(rendered.contentOrder, ["word", "art", "count"]);
+    assert.ok(
+      await splash.locator(".boot-piece-label").evaluateAll((labels) =>
+        labels.every((label) => {
+          const bounds = label.getBoundingClientRect();
+          return bounds.left >= 0 && bounds.right <= innerWidth;
+        }),
+      ),
+      `${design.id} labels overflow viewport`,
+    );
     assert.equal(rendered.firstPinRadius, "14");
     assert.equal(rendered.firstPinColor, "rgb(17, 17, 17)");
     assert.equal(rendered.pillFill, "rgba(17, 17, 17, 0.62)");
@@ -125,12 +155,29 @@ async function checkColdStart(browser, design, viewport) {
   const firstPaint = await page.locator("#boot-splash-html").evaluate((el) => {
     const root = document.documentElement.getAttribute("data-splash");
     const frame = el.querySelector(`.boot-splash-static-frame[data-splash="${root}"]`);
+    const wordmark = frame?.querySelector(".boot-splash-word");
+    const textRange = document.createRange();
+    if (wordmark) textRange.selectNodeContents(wordmark);
+    const wordmarkBox = textRange.getBoundingClientRect();
     return {
       root,
       background: getComputedStyle(el).backgroundColor,
+      wordmarkVisible: Boolean(
+        wordmark &&
+        wordmarkBox.width > 0 &&
+        wordmarkBox.height > 0 &&
+        getComputedStyle(wordmark).visibility !== "hidden"
+      ),
+      wordmarkWidth: wordmarkBox.width,
+      wordmarkOpacity: wordmark ? getComputedStyle(wordmark).opacity : "0",
       artVisible: root === "wordmark"
-        ? frame?.querySelector(".boot-wordmark-line")?.offsetWidth > 0
+        ? wordmarkBox.width > 0
         : frame?.querySelector(".boot-splash-art")?.getBoundingClientRect().width > 0,
+      artRight: frame?.querySelector(".boot-splash-art")?.getBoundingClientRect().right ?? 0,
+      labelsInBounds: [...(frame?.querySelectorAll(".boot-piece-label") ?? [])].every((label) => {
+        const bounds = label.getBoundingClientRect();
+        return bounds.left >= 0 && bounds.right <= innerWidth;
+      }),
       wordmarkFirst: root === "pieces" || root === "soft-power"
         ? frame?.firstElementChild?.classList.contains("boot-splash-mark")
         : true,
@@ -138,7 +185,12 @@ async function checkColdStart(browser, design, viewport) {
   });
   assert.equal(firstPaint.root, design.id);
   assert.equal(firstPaint.background, "rgb(244, 244, 244)");
+  assert.equal(firstPaint.wordmarkVisible, true);
+  assert.ok(firstPaint.wordmarkWidth > 0);
+  if (design.id === "wordmark") assert.equal(firstPaint.wordmarkOpacity, "1");
   assert.equal(firstPaint.artVisible, true);
+  assert.ok(firstPaint.artRight <= viewport.width);
+  assert.equal(firstPaint.labelsInBounds, true);
   assert.equal(firstPaint.wordmarkFirst, true);
 
   if (design.id === "wordmark") {
@@ -206,13 +258,20 @@ async function checkReducedMotion(page, design) {
   await splash.waitFor({ state: "detached", timeout: 5_000 });
 }
 
+async function checkRouteReadiness(browser, path) {
+  const context = await browser.newContext({ viewport: viewports[0] });
+  const page = await context.newPage();
+  const startedAt = Date.now();
+  await page.goto(`${origin}${path}`, { waitUntil: "domcontentloaded" });
+  const splash = page.locator(".boot-splash[data-boot]");
+  await splash.waitFor({ timeout: 5_000 });
+  await splash.waitFor({ state: "detached", timeout: 6_000 });
+  assert.ok(Date.now() - startedAt < 6_000, `${path} held the splash until its timeout`);
+  assert.equal(await page.locator("html").getAttribute("data-route-ready"), "true");
+  await context.close();
+}
+
 async function rejectUnknownSplash(page) {
-  const fn = Buffer.from(
-    JSON.stringify({
-      file: "/src/lib/settings/api.ts?tss-serverfn-split",
-      export: "saveAppSettings_createServerFn_handler",
-    }),
-  ).toString("base64url");
   const body = JSON.stringify(toJSON({ data: { splashId: "neon" }, context: {} }));
   const status = await page.evaluate(async ({ fn, body }) => {
     const response = await fetch(`/_serverFn/${fn}`, {
@@ -222,7 +281,7 @@ async function rejectUnknownSplash(page) {
       body,
     });
     return response.status;
-  }, { fn, body });
+  }, { fn: settingsServerFn, body });
   assert.equal(status, 400, "unknown splash id must be rejected");
 }
 
@@ -247,6 +306,10 @@ try {
     for (const viewport of viewports) {
       await previewSplash(page, design, viewport);
     }
+  }
+
+  for (const path of ["/houses", "/create", "/you", "/login"]) {
+    await checkRouteReadiness(browser, path);
   }
 
   await page.emulateMedia({ reducedMotion: "reduce" });

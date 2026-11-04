@@ -9,7 +9,11 @@ import { BootSplash, StaticBootSplash } from "@/components/layout/boot-splash";
 import { ThemeSync } from "@/components/layout/theme-sync";
 import { ScrollRestore } from "@/components/layout/scroll-restore";
 import { ViewportLock } from "@/components/layout/viewport-lock";
-import { BOOT_MAX_WAIT_MS, BOOT_STATIC_FINISH_EVENT } from "@/lib/pwa/boot";
+import {
+  BOOT_MAX_WAIT_MS,
+  BOOT_ROUTE_READY_EVENT,
+  BOOT_STATIC_FINISH_EVENT,
+} from "@/lib/pwa/boot";
 import { parseThemeId, DEFAULT_THEME, readStoredTheme } from "@/lib/design/themes";
 import { withTimeout } from "@/lib/login-next";
 import { APP_VIEWPORT } from "@/lib/pwa/viewport";
@@ -224,8 +228,14 @@ function RoutePendingDim() {
   const status = useRouterState({ select: (state) => state.status });
   useEffect(() => {
     const root = document.documentElement;
-    if (status === "pending") root.classList.add("route-pending");
-    else root.classList.remove("route-pending", "route-skeleton");
+    if (status === "pending") {
+      delete root.dataset.routeReady;
+      root.classList.add("route-pending");
+    } else {
+      root.dataset.routeReady = "true";
+      root.classList.remove("route-pending", "route-skeleton");
+      window.dispatchEvent(new Event(BOOT_ROUTE_READY_EVENT));
+    }
   }, [status]);
   return null;
 }
