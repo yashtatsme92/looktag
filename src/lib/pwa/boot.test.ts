@@ -1,6 +1,15 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { BOOT_HOLD_MS, BOOT_SKIP_KEY, isSharePath } from "./boot.ts";
+import {
+  BOOT_CROSSFADE_MS,
+  BOOT_FEED_READY_EVENT,
+  BOOT_MAX_WAIT_MS,
+  BOOT_MIN_ANIMATION_MS,
+  BOOT_ROUTE_READY_EVENT,
+  BOOT_SKIP_KEY,
+  BOOT_STATIC_FINISH_EVENT,
+  isSharePath,
+} from "./boot.ts";
 
 describe("isSharePath", () => {
   it("skips the opening splash on look, house, and collection permalinks", () => {
@@ -20,9 +29,14 @@ describe("isSharePath", () => {
   });
 });
 
-describe("boot hold", () => {
-  it("holds the plate long enough to read, then lets the session skip a replay", () => {
-    assert.equal(BOOT_HOLD_MS, 700);
+describe("boot timing", () => {
+  it("waits for feed readiness after one animation cycle, with a 10-second cap", () => {
+    assert.equal(BOOT_MIN_ANIMATION_MS, 1250);
+    assert.equal(BOOT_MAX_WAIT_MS, 10_000);
+    assert.equal(BOOT_CROSSFADE_MS, 150);
+    assert.equal(BOOT_FEED_READY_EVENT, "looktag:feed-ready");
+    assert.equal(BOOT_ROUTE_READY_EVENT, "looktag:route-ready");
+    assert.equal(BOOT_STATIC_FINISH_EVENT, "looktag:finish-boot");
     assert.equal(BOOT_SKIP_KEY, "looktag-boot-v1");
   });
 });

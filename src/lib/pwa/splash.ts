@@ -1,52 +1,47 @@
-export const SPLASH_IDS = ["minimal", "quiet", "classy", "numbered", "atelier"] as const;
+export const SPLASH_IDS = ["wordmark", "tag-draw", "pieces", "soft-power"] as const;
 export type SplashId = (typeof SPLASH_IDS)[number];
 
-export const DEFAULT_SPLASH: SplashId = "classy";
-export const SPLASH_STORAGE_KEY = "looktag-splash-v1";
+export const DEFAULT_SPLASH: SplashId = "tag-draw";
 
 export const SPLASH_OPTIONS: {
   id: SplashId;
   label: string;
   hint: string;
 }[] = [
-  { id: "minimal", label: "Minimal", hint: "Word only on ink." },
-  { id: "quiet", label: "Quiet", hint: "Word, kicker, one line." },
-  { id: "classy", label: "Classy", hint: "Coat plate and one pin." },
-  { id: "numbered", label: "Numbered", hint: "Look 01, three pins, grain." },
-  { id: "atelier", label: "Atelier", hint: "Guides, four pins, full plate." },
+  { id: "wordmark", label: "Wordmark", hint: "Italic wordmark with a fine drawn underline." },
+  { id: "tag-draw", label: "Tag draw", hint: "A tag mark draws in, then Looktag appears." },
+  {
+    id: "pieces",
+    label: "Drawn pieces reveal",
+    hint: "Linen shirt, raffia tote, pleated shorts, espadrilles.",
+  },
+  {
+    id: "soft-power",
+    label: "Elegant “soft power”",
+    hint: "Satin blouse, wide-leg trousers, clutch, kitten heels.",
+  },
 ];
 
-export function parseSplashId(value: unknown): SplashId {
-  return SPLASH_IDS.includes(value as SplashId) ? (value as SplashId) : DEFAULT_SPLASH;
+export function isSplashId(value: unknown): value is SplashId {
+  return SPLASH_IDS.includes(value as SplashId);
 }
 
-/** Last chosen splash for this browser. Never invent Classy when a value is already stored. */
+export function parseSplashId(value: unknown): SplashId {
+  return isSplashId(value) ? value : DEFAULT_SPLASH;
+}
+
 export function readStoredSplash(): SplashId {
   if (typeof document === "undefined") return DEFAULT_SPLASH;
-  try {
-    const fromDom = document.documentElement.getAttribute("data-splash");
-    if (fromDom) return parseSplashId(fromDom);
-    return parseSplashId(localStorage.getItem(SPLASH_STORAGE_KEY));
-  } catch {
-    return DEFAULT_SPLASH;
-  }
+  return parseSplashId(document.documentElement.getAttribute("data-splash"));
 }
 
 export function writeStoredSplash(id: SplashId) {
   if (typeof document === "undefined") return;
-  const next = parseSplashId(id);
-  document.documentElement.setAttribute("data-splash", next);
-  try {
-    localStorage.setItem(SPLASH_STORAGE_KEY, next);
-  } catch {
-    /* private mode */
-  }
+  document.documentElement.setAttribute("data-splash", parseSplashId(id));
 }
 
 /**
- * Until settings hydrate from the server, keep the stored splash.
- * Using the store default (Classy) before hydrate is what made restart
- * flash the primary plate, then the one you picked.
+ * Until settings hydrate from the server, keep the first-paint selection.
  */
 export function resolveBootSplash(input: {
   hydrated: boolean;
@@ -58,8 +53,7 @@ export function resolveBootSplash(input: {
 }
 
 /**
- * Runs in <head> before first paint. Restores the last splash/theme from
- * localStorage when present; does not write Classy over an empty key (the
- * server already stamped html[data-splash] from studio settings).
+ * Runs in <head> before first paint. Restores the theme without changing the
+ * server-rendered, admin-selected splash.
  */
-export const EARLY_CHROME_SCRIPT = `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th)}catch(e){}try{var sp=localStorage.getItem("${SPLASH_STORAGE_KEY}");if(sp==="minimal"||sp==="quiet"||sp==="classy"||sp==="numbered"||sp==="atelier")r.setAttribute("data-splash",sp)}catch(e){}var w=window.innerWidth||0;var native=r.classList.contains("native-app");var phone=native||w<768;r.setAttribute("data-chrome",phone?"phone":w<1024?"tablet":"desktop");if(phone){var vv=window.visualViewport;var t=vv&&vv.offsetTop?vv.offsetTop:0;r.style.setProperty("--vv-offset",Math.max(0,Math.round(t))+"px")}}catch(e){}})();`;
+export const EARLY_CHROME_SCRIPT = `(function(){try{var r=document.documentElement;try{var th=localStorage.getItem("looktag-theme-v1");if(th)r.setAttribute("data-theme",th);localStorage.removeItem("looktag-splash-rotation-v1")}catch(e){}var w=window.innerWidth||0;var native=r.classList.contains("native-app");var phone=native||w<768;r.setAttribute("data-chrome",phone?"phone":w<1024?"tablet":"desktop");if(phone){var vv=window.visualViewport;var t=vv&&vv.offsetTop?vv.offsetTop:0;r.style.setProperty("--vv-offset",Math.max(0,Math.round(t))+"px")}}catch(e){}})();`;

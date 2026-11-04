@@ -121,6 +121,22 @@
    Arial / Times cover macOS and Windows. Liberation and DejaVu cover Linux,
    where local(Arial) and local(Times New Roman) do not resolve. */
 @font-face {
+  font-family: "Playfair Display";
+  src: url("/fonts/playfair-display-latin-500-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Figtree";
+  src: url("/fonts/figtree-latin-500-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+}
+
+@font-face {
   font-family: "Playfair Fallback";
   src: local("Times New Roman");
   size-adjust: 112%;
@@ -2367,6 +2383,7 @@ html[data-theme="moss"] {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    gap: 20px;
     cursor: pointer;
     touch-action: manipulation;
     background: var(--color-studio);
@@ -2380,281 +2397,436 @@ html[data-theme="moss"] {
     display: none !important;
   }
 
-  html[data-splash="minimal"] #boot-splash-html .boot-splash-grain,
-  html[data-splash="minimal"] #boot-splash-html .boot-splash-index,
-  html[data-splash="minimal"] #boot-splash-html .boot-splash-art,
-  html[data-splash="minimal"] #boot-splash-html .boot-splash-kicker,
-  html[data-splash="minimal"] #boot-splash-html .boot-splash-line,
-  html[data-splash="minimal"] #boot-splash-html .boot-splash-bar {
-    display: none !important;
+  .boot-splash-static-frame {
+    display: none;
   }
 
-  html[data-splash="quiet"] #boot-splash-html .boot-splash-index,
-  html[data-splash="quiet"] #boot-splash-html .boot-splash-line,
-  html[data-splash="quiet"] #boot-splash-html .boot-splash-svg,
-  html[data-splash="quiet"] #boot-splash-html .boot-art-ink,
-  html[data-splash="quiet"] #boot-splash-html .boot-splash-pin {
-    display: none !important;
+  html[data-splash="wordmark"] #boot-splash-html .boot-splash-static-frame[data-splash="wordmark"],
+  html[data-splash="tag-draw"] #boot-splash-html .boot-splash-static-frame[data-splash="tag-draw"],
+  html[data-splash="pieces"] #boot-splash-html .boot-splash-static-frame[data-splash="pieces"],
+  html[data-splash="soft-power"] #boot-splash-html .boot-splash-static-frame[data-splash="soft-power"] {
+    display: contents;
   }
 
-  html[data-splash="classy"] #boot-splash-html .boot-splash-index,
-  html[data-splash="classy"] #boot-splash-html .boot-quiet-rule,
-  html[data-splash="classy"] #boot-splash-html .boot-splash-pin[data-pin]:not([data-pin="1"]) {
-    display: none !important;
+  @keyframes boot-draw { to { stroke-dashoffset: 0; } }
+  @keyframes boot-out {
+    to { opacity: 0; }
   }
 
-  html[data-splash="numbered"] #boot-splash-html .boot-quiet-rule,
-  html[data-splash="numbered"] #boot-splash-html .boot-splash-pin[data-pin="4"] {
-    display: none !important;
-  }
-
-  html[data-splash="atelier"] #boot-splash-html .boot-quiet-rule {
-    display: none !important;
-  }
-
-  html:not([data-splash]) #boot-splash-html .boot-splash-index,
-  html:not([data-splash]) #boot-splash-html .boot-quiet-rule,
-  html:not([data-splash]) #boot-splash-html .boot-splash-pin[data-pin]:not([data-pin="1"]) {
-    display: none !important;
-  }
-
-  .boot-splash-grain {
-    pointer-events: none;
-    position: absolute;
-    inset: 0;
-    opacity: 0.2;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.95  0 0 0 0 0.95  0 0 0 0.4 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  }
-
-  .boot-splash-index {
-    position: relative;
-    z-index: 2;
-    margin-bottom: 0.65rem;
-    font-size: var(--text-kicker);
-    font-weight: 500;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: color-mix(in oklab, var(--color-studio-fg) 48%, transparent);
-    animation: boot-rise 0.6s 80ms var(--ease-smooth-out) both;
+  .boot-splash {
+    background: #f4f4f4;
+    color: #111;
+    padding: max(1.5rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
   }
 
   .boot-splash-art {
+    flex: none;
+    width: min(88vw, 36rem);
+    height: auto;
+    margin: 0;
+  }
+
+  .boot-art-wordmark {
+    width: min(32vw, 8rem);
+    height: 0.7rem;
+  }
+
+  .boot-art-tag {
+    width: 72px;
+    height: 45px;
+  }
+
+  .boot-art-tag svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .boot-tag-outline,
+  .boot-tag-eyelet {
+    fill: none;
+    stroke: #111;
+    stroke-width: 1.6px;
+    stroke-linejoin: round;
+  }
+
+  .boot-tag-outline {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: boot-draw 0.7s var(--ease-std) both;
+  }
+
+  .boot-tag-eyelet {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: boot-draw 0.25s 0.45s var(--ease-std) both;
+  }
+
+  .boot-art-pieces {
     position: relative;
-    z-index: 2;
-    width: min(58vw, 13.5rem);
-    height: min(58dvh, 24.5rem);
+    width: min(62vw, 18.125rem);
+    aspect-ratio: 2 / 3;
+    overflow: visible;
   }
 
-  .boot-art-empty {
-    height: 2.5rem;
+  .boot-art-pieces[data-design="soft-power"] {
+    width: min(86vw, 22.5rem);
+    aspect-ratio: 4 / 5;
   }
 
-  .boot-quiet-rule {
+  .boot-splash-side {
+    display: contents;
+  }
+
+  .boot-mark-pieces,
+  .boot-mark-soft-power {
+    order: 0;
+  }
+
+  .boot-art-pieces {
+    order: 1;
+  }
+
+  .boot-splash-count {
+    order: 2;
+  }
+
+  .boot-art-pieces svg {
     position: absolute;
-    top: 50%;
-    left: 18%;
-    right: 18%;
-    height: 1px;
-    background: color-mix(in oklab, var(--color-studio-fg) 42%, transparent);
-  }
-
-  .boot-splash-svg {
-    position: relative;
-    z-index: 1;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
     overflow: visible;
   }
 
-  .boot-art-plate {
-    fill: none;
-    stroke: color-mix(in oklab, var(--color-studio-fg) 22%, transparent);
-    stroke-width: 0.7px;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .boot-art-guide {
-    stroke: color-mix(in oklab, var(--color-studio-fg) 20%, transparent);
-    stroke-width: 0.55px;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1px;
-    vector-effect: non-scaling-stroke;
-    animation: boot-draw 0.72s 60ms var(--ease-out) both;
-  }
-
-  .boot-art-g2 {
-    animation-delay: 0.14s;
-  }
-
-  .boot-art-fill {
-    fill: var(--color-studio-fg);
-    opacity: 0.18;
-  }
-
-  .boot-art-ink {
-    pointer-events: none;
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    overflow: hidden;
-    clip-path: inset(100% 0 0);
-    animation: boot-ink 1.2s 0.52s var(--ease-smooth-out) both;
-  }
-
-  .boot-art-stroke {
-    fill: none;
-    stroke: var(--color-studio-fg);
-    stroke-width: 1.15px;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1px;
-    vector-effect: non-scaling-stroke;
-    animation: boot-draw 1.1s var(--ease-out) both;
-  }
-
-  .boot-art-d1 { animation-duration: 0.7s; animation-delay: 0.18s; }
-  .boot-art-d2 { animation-duration: 1.35s; animation-delay: 0.28s; }
-  .boot-art-d3 { animation-duration: 0.9s; animation-delay: 0.62s; }
-  .boot-art-d4 { animation-duration: 0.85s; animation-delay: 0.78s; }
-
   .boot-splash-pin {
     position: absolute;
-    top: 36%;
-    left: 57%;
-    z-index: 2;
-    display: flex;
-    width: 1.85rem;
-    height: 1.85rem;
-    align-items: center;
-    justify-content: center;
-    border: 1.5px solid var(--color-studio-fg);
-    border-radius: 999px;
-    background: color-mix(in oklab, var(--color-studio) 45%, transparent);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: var(--tracking-tight);
-    transform: translate(-50%, -50%);
-    animation: boot-pin 0.7s 1.48s var(--ease-smooth-out) both;
+    z-index: 1;
+    display: block;
+    width: 28px;
+    height: 28px;
+    margin: -14px 0 0 -14px;
+    border-radius: 50%;
+    background: #fff;
+    color: #111;
+    font: 600 13px/28px var(--font-sans);
+    text-align: center;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+    animation: boot-pop 260ms var(--ease-std) both;
   }
 
-  .boot-splash-pin:after {
-    content: "";
+  .boot-splash-pin[data-pin="1"] {
+    background: #111;
+    color: #fff;
+  }
+
+  .boot-piece-label {
     position: absolute;
-    inset: -8px;
-    border: 1px solid color-mix(in oklab, var(--color-studio-fg) 55%, transparent);
+    z-index: 2;
+    white-space: nowrap;
     border-radius: 999px;
-    animation: boot-ring 1.6s 1.68s var(--ease-out) both;
+    background: rgba(17, 17, 17, 0.62);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    padding: 7px 11px;
+    font: 500 12px/1 var(--font-sans);
+    transform: translate(22px, -50%);
+    animation: boot-fade 200ms var(--ease-std) both;
+  }
+
+  .boot-piece-label-left {
+    transform: translate(calc(-100% - 22px), -50%);
+  }
+
+  .boot-splash-count {
+    margin: 0;
+    border-radius: 999px;
+    background: rgba(17, 17, 17, 0.62);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    padding: 7px 11px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    animation: boot-fade 200ms 1000ms var(--ease-std) both;
+  }
+
+  html[data-splash="pieces"] #boot-splash-html,
+  .boot-splash[data-splash="pieces"] {
+    gap: 28px;
+  }
+
+  html[data-splash="soft-power"] #boot-splash-html,
+  .boot-splash[data-splash="soft-power"] {
+    gap: 26px;
   }
 
   .boot-splash-mark {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    width: 100%;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.35rem 1.5rem 0;
+    width: auto;
+    padding: 0;
     text-align: center;
   }
 
   .boot-splash-word {
+    color: #111;
     font-family: var(--font-display);
-    font-size: clamp(3.25rem, 12vw, 5.5rem);
+    font-size: clamp(44px, 12vw, 64px);
     font-style: italic;
     font-weight: 500;
-    letter-spacing: var(--tracking-display);
-    line-height: 0.86;
-    animation: boot-rise 0.7s 40ms var(--ease-smooth-out) both;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    animation: boot-fade 150ms var(--ease-std) both;
+  }
+
+  #boot-splash-html .boot-mark-wordmark .boot-splash-word {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .boot-mark-tag-draw .boot-splash-word {
+    animation-duration: 400ms;
+    animation-delay: 550ms;
+  }
+
+  .boot-mark-pieces .boot-splash-word,
+  .boot-mark-soft-power .boot-splash-word {
+    font-size: clamp(44px, 12vw, 56px);
+  }
+
+  .boot-wordmark-line {
+    display: block;
+    width: min(132px, 30vw);
+    height: 1.5px;
+    margin: 0;
+    background: #111;
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: boot-line 600ms 200ms var(--ease-out) both;
+  }
+
+  .boot-mark-wordmark {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
   }
 
   .boot-splash-kicker {
-    margin-top: 0.85rem;
-    font-size: var(--text-kicker);
+    margin: 0;
+    color: #111;
+    font-size: 13px;
     font-weight: 500;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: color-mix(in oklab, var(--color-studio-fg) 62%, transparent);
-    animation: boot-rise 0.7s 0.98s var(--ease-smooth-out) both;
-  }
-
-  .boot-splash-line {
-    margin-top: 0.4rem;
-    font-size: 0.9375rem;
-    color: color-mix(in oklab, var(--color-studio-fg) 78%, transparent);
-    animation: boot-rise 0.7s 1.14s var(--ease-smooth-out) both;
-  }
-
-  .boot-splash-bar {
-    position: absolute;
-    right: 22%;
-    bottom: calc(1.75rem + env(safe-area-inset-bottom));
-    left: 22%;
-    height: 1px;
-    overflow: hidden;
-    background: color-mix(in oklab, var(--color-studio-fg) 18%, transparent);
-  }
-
-  .boot-splash-bar span {
-    display: block;
-    width: 100%;
-    height: 100%;
-    transform-origin: 0;
-    background: var(--color-studio-fg);
-    animation: boot-bar 2.5s linear both;
+    letter-spacing: 0.14em;
+    opacity: 0.55;
+    animation: boot-fade 300ms 800ms var(--ease-std) both;
   }
 
   .boot-splash-out {
     pointer-events: none;
-    animation: boot-out 0.28s ease both;
+    animation: boot-out 0.15s var(--ease-std) both;
   }
 
-  @keyframes boot-draw { to { stroke-dashoffset: 0; } }
-  @keyframes boot-ink {
-    0% { clip-path: inset(100% 0 0); }
-    to { clip-path: inset(0); }
+  @keyframes boot-pop {
+    0% { opacity: 0; transform: scale(0.4); }
+    70% { opacity: 1; transform: scale(1.08); }
+    100% { opacity: 1; transform: scale(1); }
   }
-  @keyframes boot-pin {
-    0% { opacity: 0; filter: blur(4px); transform: translate(-50%, -50%) scale(0.25); }
-    to { opacity: 1; filter: blur(0); transform: translate(-50%, -50%) scale(1); }
+
+  @keyframes boot-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
-  @keyframes boot-ring {
-    0% { opacity: 0.9; transform: scale(0.7); }
-    to { opacity: 0; transform: scale(1.7); }
-  }
-  @keyframes boot-rise {
-    0% { opacity: 0; filter: blur(6px); transform: translateY(12px); }
-    to { opacity: 1; filter: blur(0); transform: translateY(0); }
-  }
-  @keyframes boot-bar {
-    0% { transform: scaleX(0); }
+
+  @keyframes boot-line {
     to { transform: scaleX(1); }
-  }
-  @keyframes boot-out {
-    to { opacity: 0; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .boot-splash-index,
-    .boot-art-guide,
-    .boot-art-stroke,
-    .boot-art-ink,
+    .boot-tag-outline,
+    .boot-tag-eyelet,
     .boot-splash-pin,
-    .boot-splash-pin:after,
+    .boot-piece-label,
+    .boot-splash-count,
     .boot-splash-word,
+    .boot-wordmark-line,
     .boot-splash-kicker,
-    .boot-splash-line,
-    .boot-splash-bar span,
     .boot-splash-out {
-      animation: none;
+      animation: none !important;
     }
-    .boot-art-guide,
-    .boot-art-stroke { stroke-dashoffset: 0; }
-    .boot-art-ink { clip-path: inset(0); }
-    .boot-splash-out { opacity: 0; }
+
+    .boot-tag-outline,
+    .boot-tag-eyelet {
+      stroke-dashoffset: 0;
+    }
+
+    .boot-splash-pin,
+    .boot-piece-label,
+    .boot-splash-count,
+    .boot-splash-word,
+    .boot-wordmark-line,
+    .boot-splash-kicker {
+      opacity: 1;
+    }
+
+    .boot-wordmark-line {
+      transform: none;
+    }
   }
+
+  @media (min-width: 768px) and (min-aspect-ratio: 1/1) {
+    html[data-splash="pieces"] #boot-splash-html,
+    html[data-splash="soft-power"] #boot-splash-html,
+    .boot-splash[data-splash="pieces"],
+    .boot-splash[data-splash="soft-power"] {
+      display: grid;
+      grid-template-areas:
+        "side art"
+        "side art";
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      align-content: center;
+      justify-items: center;
+      gap: 0 6rem;
+      padding-inline: 5vw;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-mark-pieces,
+    html[data-splash="soft-power"] #boot-splash-html .boot-mark-soft-power,
+    .boot-splash[data-splash="pieces"] .boot-mark-pieces,
+    .boot-splash[data-splash="soft-power"] .boot-mark-soft-power {
+      order: 0;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-splash-side,
+    html[data-splash="soft-power"] #boot-splash-html .boot-splash-side,
+    .boot-splash[data-splash="pieces"] .boot-splash-side,
+    .boot-splash[data-splash="soft-power"] .boot-splash-side {
+      grid-area: side;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="pieces"] .boot-art-pieces {
+      grid-area: art;
+      width: auto;
+      height: 70vh;
+      aspect-ratio: 2 / 3;
+      margin: 0;
+    }
+
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces {
+      grid-area: art;
+      width: auto;
+      height: 74vh;
+      aspect-ratio: 4 / 5;
+      margin: 0;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-mark-pieces .boot-splash-word,
+    html[data-splash="soft-power"] #boot-splash-html .boot-mark-soft-power .boot-splash-word,
+    .boot-splash[data-splash="pieces"] .boot-mark-pieces .boot-splash-word,
+    .boot-splash[data-splash="soft-power"] .boot-mark-soft-power .boot-splash-word {
+      font-size: clamp(64px, 7vw, 104px);
+    }
+  }
+
+  @media (min-width: 600px) and (max-aspect-ratio: 1/1) {
+    html[data-splash="pieces"] #boot-splash-html,
+    html[data-splash="soft-power"] #boot-splash-html,
+    .boot-splash[data-splash="pieces"],
+    .boot-splash[data-splash="soft-power"] {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="pieces"] .boot-art-pieces {
+      width: 56vw;
+      height: auto;
+    }
+
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces {
+      width: 68vw;
+      height: auto;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-mark-pieces .boot-splash-word,
+    html[data-splash="soft-power"] #boot-splash-html .boot-mark-soft-power .boot-splash-word,
+    .boot-splash[data-splash="pieces"] .boot-mark-pieces .boot-splash-word,
+    .boot-splash[data-splash="soft-power"] .boot-mark-soft-power .boot-splash-word {
+      font-size: 88px;
+    }
+  }
+
+  @media (max-height: 700px) and (max-width: 599px) {
+    .boot-splash[data-splash="pieces"],
+    html[data-splash="pieces"] #boot-splash-html {
+      gap: 18px;
+    }
+
+    .boot-splash[data-splash="pieces"] .boot-art-pieces,
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces {
+      width: min(52vw, 260px);
+    }
+
+    .boot-splash[data-splash="soft-power"],
+    html[data-splash="soft-power"] #boot-splash-html {
+      gap: 16px;
+    }
+
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces,
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces {
+      width: min(80vw, 330px);
+      aspect-ratio: 4 / 5;
+    }
+  }
+
+  @media (min-aspect-ratio: 1/1) and (max-width: 767px) {
+    .boot-splash[data-splash="pieces"],
+    html[data-splash="pieces"] #boot-splash-html {
+      flex-direction: row;
+      gap: 28px;
+    }
+
+    .boot-splash[data-splash="pieces"] .boot-splash-side,
+    html[data-splash="pieces"] #boot-splash-html .boot-splash-side,
+    .boot-splash[data-splash="soft-power"] .boot-splash-side,
+    html[data-splash="soft-power"] #boot-splash-html .boot-splash-side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .boot-splash[data-splash="pieces"] .boot-art-pieces,
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces {
+      width: auto;
+      height: min(70vh, 70vw);
+    }
+
+    .boot-splash[data-splash="soft-power"],
+    html[data-splash="soft-power"] #boot-splash-html {
+      flex-direction: row;
+      gap: 24px;
+    }
+
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces,
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces {
+      width: auto;
+      height: min(74vh, 74vw);
+      aspect-ratio: 4 / 5;
+    }
+  }
+
 }
 
 @layer base {
@@ -4256,32 +4428,80 @@ html:not(.boot-done) .look-feed-refresh {
   height: 7rem;
 }
 
-.splash-card .boot-art-empty {
-  height: 0.35rem;
-}
-
-.splash-card .boot-art-stroke,
-.splash-card .boot-art-guide,
-.splash-card .boot-art-ink,
-.splash-card .boot-splash-pin,
-.splash-card .boot-splash-pin:after {
-  animation: none;
-  opacity: 1;
-  filter: none;
-  clip-path: none;
-  stroke-dashoffset: 0;
-}
-
-.splash-card .boot-splash-pin {
-  transform: translate(-50%, -50%) scale(0.92);
-}
-
 .splash-card-word {
   margin-top: 0.3rem;
   font-family: var(--font-display);
   font-style: italic;
   font-size: 1.05rem;
   line-height: 1;
+}
+
+.splash-card {
+  background: #f4f4f4;
+  color: #242424;
+}
+
+.splash-card .boot-art-wordmark {
+  width: 4rem;
+  height: 0.2rem;
+}
+
+.splash-card .boot-art-tag {
+  width: 3.2rem;
+  height: 2rem;
+  margin: 0;
+}
+
+.splash-card .boot-art-pieces {
+  width: min(100%, 7rem);
+  height: auto;
+  margin: 0;
+}
+
+.splash-card .boot-splash-pin {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  font-size: 7px;
+  line-height: 14px;
+  transform: none;
+  animation: none;
+  opacity: 1;
+}
+
+.splash-card .boot-piece-label {
+  padding: 3px 5px;
+  font-size: 6px;
+  transform: translate(4px, -50%);
+  animation: none;
+  opacity: 1;
+}
+
+.splash-card .boot-piece-label-left {
+  transform: translate(calc(-100% - 4px), -50%);
+}
+
+.splash-card .boot-splash-count {
+  margin: 0.15rem 0 0;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.65rem;
+  animation: none;
+  opacity: 1;
+}
+
+.splash-card .boot-splash-kicker {
+  font-size: 0.4rem;
+  animation: none;
+  opacity: 0.55;
+}
+
+.splash-card .boot-wordmark-line {
+  width: 3rem;
+  margin-top: 0.4rem;
+  animation: none;
+  opacity: 1;
+  transform: none;
 }
 
 
@@ -4656,9 +4876,62 @@ html[data-chrome="phone"] [data-pin-nudge],
   }
 
   .boot-splash-art {
-    width: min(36vw, 11rem);
-    height: min(36dvh, 16rem);
-    overflow: hidden;
+    width: auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  .boot-art-wordmark {
+    width: min(18vw, 8rem);
+    height: 0.7rem;
+  }
+
+  .boot-art-tag {
+    width: 72px;
+    height: 45px;
+  }
+
+  .boot-art-pieces {
+    width: min(90vw, 36rem, 61dvh);
+  }
+
+  @media (max-width: 899px) {
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="pieces"] .boot-art-pieces {
+      width: 56vw;
+    }
+
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces {
+      width: 68vw;
+    }
+  }
+
+  @media (min-width: 600px) and (max-aspect-ratio: 1/1) {
+    #boot-splash-html .boot-splash-word,
+    .boot-splash .boot-splash-word {
+      font-size: 88px;
+    }
+  }
+
+  @media (min-aspect-ratio: 1/1) {
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="pieces"] .boot-art-pieces {
+      width: auto;
+      height: 70vh;
+      aspect-ratio: 2 / 3;
+      justify-self: center;
+      align-self: center;
+    }
+
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces {
+      width: auto;
+      height: 74vh;
+      aspect-ratio: 4 / 5;
+      justify-self: center;
+      align-self: center;
+    }
   }
 
   html:not(.native-app) .look-slide-meta {

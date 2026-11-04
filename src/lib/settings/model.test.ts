@@ -70,10 +70,10 @@ describe("parseSettings", () => {
   });
 
   it("reads splash from extras", () => {
-    const parsed = parseSettings({ splashId: "minimal" });
-    assert.equal(parsed.splashId, "minimal");
-    assert.equal(parseSettings({ splashId: "neon" }).splashId, "classy");
-    assert.equal(DEFAULT_SETTINGS.splashId, "classy");
+    const parsed = parseSettings({ splashId: "pieces" });
+    assert.equal(parsed.splashId, "pieces");
+    assert.equal(parseSettings({ splashId: "neon" }).splashId, "tag-draw");
+    assert.equal(DEFAULT_SETTINGS.splashId, "tag-draw");
   });
 
   it("rejects unknown search engines and out-of-range scores", () => {
@@ -171,16 +171,25 @@ describe("mergeSettings", () => {
   });
 
   it("merges splash without resetting other knobs", () => {
-    const next = mergeSettings(DEFAULT_SETTINGS, { splashId: "atelier" });
-    assert.equal(next.splashId, "atelier");
+    const next = mergeSettings(DEFAULT_SETTINGS, { splashId: "soft-power" });
+    assert.equal(next.splashId, "soft-power");
     assert.equal(next.themeId, DEFAULT_SETTINGS.themeId);
+    const persisted = parseExtrasJson(mergeExtrasJson("", next));
+    assert.equal(persisted.splashId, "soft-power");
   });
 });
 
 describe("pickSettingsPatch", () => {
   it("keeps splashId so studio can save it", () => {
-    const patch = pickSettingsPatch({ splashId: "minimal" });
-    assert.deepEqual(patch, { splashId: "minimal" });
+    const patch = pickSettingsPatch({ splashId: "tag-draw" });
+    assert.deepEqual(patch, { splashId: "tag-draw" });
+  });
+
+  it("rejects unknown splash ids on writes", () => {
+    assert.throws(
+      () => pickSettingsPatch({ splashId: "neon" as never }),
+      /Invalid splash design/,
+    );
   });
 
   it("keeps theme and rank extras", () => {

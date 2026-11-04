@@ -17,28 +17,28 @@ const config = {
   appId: "app.looktag.studio",
   appName: "Looktag",
   webDir: "public",
-  backgroundColor: "#111111",
+  backgroundColor: "#F4F4F4",
   ios: {
     contentInset: "never" as const,
-    backgroundColor: "#111111",
+    backgroundColor: "#F4F4F4",
     preferredContentMode: "mobile" as const,
     scheme: "Looktag",
   },
   android: {
-    backgroundColor: "#111111",
+    backgroundColor: "#F4F4F4",
   },
   plugins: {
     SplashScreen: {
       launchShowDuration: 0,
       launchAutoHide: true,
-      backgroundColor: "#111111",
+      backgroundColor: "#F4F4F4",
       showSpinner: false,
       splashFullScreen: true,
       splashImmersive: true,
     },
     StatusBar: {
       style: "DARK" as const,
-      backgroundColor: "#111111",
+      backgroundColor: "#F4F4F4",
     },
   },
   ...(liveUrl

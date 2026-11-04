@@ -197,9 +197,9 @@ function StudioAdmin() {
       <section className="mb-6 rounded-xl bg-card p-5 shadow-[var(--shadow-border)]">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="ds-card-title">Splash</h2>
+            <h2 className="ds-card-title">Splash screen</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Opening screen. Minimal through Atelier. Play it once to preview.
+              Choose the opening design for every user. Play it once to preview.
             </p>
           </div>
           <Button
@@ -236,9 +236,23 @@ function StudioAdmin() {
                 <RadioGroupItem value={option.id} className="mt-1" aria-label={option.label} />
                 <span className="min-w-0 flex-1">
                   <span className="splash-card mb-2" data-splash={option.id}>
-                    <BootArtwork variant={option.id} preview />
-                    <span className="splash-card-word">Looktag</span>
-                  </span>
+                  {option.id === "pieces" || option.id === "soft-power" ? (
+                    <>
+                      <span className="splash-card-word">Looktag</span>
+                      <BootArtwork variant={option.id} preview />
+                      <span className="boot-splash-count splash-card-count">4 pieces tagged</span>
+                    </>
+                  ) : (
+                    <>
+                      {option.id === "wordmark" ? null : <BootArtwork variant={option.id} preview />}
+                      <span className="splash-card-word">Looktag</span>
+                      {option.id === "wordmark" ? <span className="boot-wordmark-line" /> : null}
+                      {option.id === "tag-draw" ? (
+                        <span className="boot-splash-kicker">SHOP THE LOOK</span>
+                      ) : null}
+                    </>
+                  )}
+                </span>
                   <span className="block text-sm font-medium">{option.label}</span>
                   <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
                     {option.hint}
