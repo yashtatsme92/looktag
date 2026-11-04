@@ -315,12 +315,16 @@ export function spanDepths(graph: TraceGraph): Map<string, number> {
     list.push(edge.to);
     children.set(edge.from, list);
   }
-  const visit = (id: string, depth: number) => {
+  const maxDepthCap = Math.max(0, graph.nodes.length - 1);
+  const visit = (id: string, depth: number, path: Set<string>) => {
+    if (depth > maxDepthCap || path.has(id)) return;
     if (depths.has(id) && (depths.get(id) ?? 0) <= depth) return;
     depths.set(id, depth);
-    for (const child of children.get(id) ?? []) visit(child, depth + 1);
+    path.add(id);
+    for (const child of children.get(id) ?? []) visit(child, depth + 1, path);
+    path.delete(id);
   };
-  for (const root of graph.rootIds) visit(root, 0);
+  for (const root of graph.rootIds) visit(root, 0, new Set());
   for (const node of graph.nodes) if (!depths.has(node.id)) depths.set(node.id, 0);
   return depths;
 }
@@ -392,13 +396,16 @@ export function layoutOperationGraph(graph: OperationGraph): GraphLayout {
     children.set(edge.from, list);
   }
   const depths = new Map<string, number>();
-  const visit = (name: string, depth: number) => {
-    if ((depths.get(name) ?? -1) >= depth) return;
+  const maxDepthCap = Math.max(0, graph.nodes.length - 1);
+  const visit = (name: string, depth: number, path: Set<string>) => {
+    if (depth > maxDepthCap || path.has(name) || (depths.get(name) ?? -1) >= depth) return;
     depths.set(name, depth);
-    for (const child of children.get(name) ?? []) visit(child, depth + 1);
+    path.add(name);
+    for (const child of children.get(name) ?? []) visit(child, depth + 1, path);
+    path.delete(name);
   };
   const roots = graph.nodes.map((node) => node.name).filter((name) => !incoming.has(name));
-  for (const root of roots.length ? roots : graph.nodes.map((n) => n.name)) visit(root, 0);
+  for (const root of roots.length ? roots : graph.nodes.map((n) => n.name)) visit(root, 0, new Set());
   for (const node of graph.nodes) if (!depths.has(node.name)) depths.set(node.name, 0);
 
   const columns = new Map<number, OperationNode[]>();
