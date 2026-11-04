@@ -84,7 +84,7 @@ function createHtml(selectedDesign) {
     .rule { width: min(132px, 30vw); height: 1.5px; background: #111; }
     .tag { display: block; width: 72px; height: 45px; }
     .art { display: flex; flex-direction: column; align-items: center; }
-    .kicker { margin: 0; font: 500 13px/1 Figtree, sans-serif; letter-spacing: .14em; opacity: .55; }
+    .kicker { margin: 0; color: #111; font: 500 13px/1 Figtree, sans-serif; letter-spacing: .14em; }
     .box { position: relative; width: min(62vw, 290px); aspect-ratio: 2 / 3; }
     .box.soft-power { width: min(86vw, 360px); aspect-ratio: 4 / 5; }
     .boot-piece-illustration { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
