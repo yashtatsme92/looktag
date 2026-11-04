@@ -1,13 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 
-const ITEMS = [
+export const ITEMS = [
   { to: "/admin", label: "Admin", id: "hub" },
-  { to: "/admin/shops", label: "Shops", id: "shops" },
-  { to: "/admin/studio", label: "Studio", id: "studio" },
-  { to: "/admin/houses", label: "Houses", id: "houses" },
-  { to: "/admin/look", label: "Look", id: "look" },
-  { to: "/admin/observability", label: "Signals", id: "signals" },
+  { to: "/admin/shops", label: "Shops", id: "shops", note: "Catalog · Sources" },
+  { to: "/admin/studio", label: "Studio", id: "studio", note: "Splash screen, settings" },
+  { to: "/admin/houses", label: "Houses", id: "houses", note: "Approve · Scouted" },
+  { to: "/admin/look", label: "Look", id: "look", note: "Looks · Moods" },
+  { to: "/admin/observability", label: "Signals", id: "signals", note: "Observability · Health" },
 ] as const;
 
 export type AdminNavId = (typeof ITEMS)[number]["id"];
