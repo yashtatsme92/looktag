@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAdminStatus } from "@/lib/admin/admin-status";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { FEED_FEATURES, feedModulesNote } from "@/lib/home/engagement";
+import { ITEMS as ADMIN_NAV_ITEMS } from "@/components/observability/admin-nav";
 import { FooterLinksSection } from "@/components/admin/footer-links-section";
 import { FEATURE_FLAGS, flagStatus } from "@/lib/settings/flags";
 import { housesSwitchCopy } from "@/lib/labels/model";
@@ -93,6 +94,16 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
     <div className="ops-stage">
       <h1 className="ops-title">Admin</h1>
       <p className="ops-lead">System tools.</p>
+      {linked ? (
+        <nav aria-label="Admin pages" data-testid="admin-pages">
+          {ADMIN_NAV_ITEMS.filter((item) => item.id !== "hub" && item.id !== "houses").map((item) => (
+            <Link key={item.to} to={item.to} className="ops-row">
+              <span className="ops-row-title">{item.label}</span>
+              <span className="ops-row-note">{"note" in item ? item.note : ""}</span>
+            </Link>
+          ))}
+        </nav>
+      ) : null}
       {linked ? (
         <Link to="/admin/houses" className="ops-row">
           {row}

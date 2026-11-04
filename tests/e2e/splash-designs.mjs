@@ -441,7 +441,10 @@ try {
   await page.locator("#creator-password").fill(credentials.password);
   await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/admin"), { timeout: 20_000 });
-  await page.goto(`${origin}/admin/studio`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${origin}/admin`, { waitUntil: "domcontentloaded" });
+  await page.getByTestId("admin-pages").getByRole("link", { name: /Studio/ }).click();
+  await page.waitForURL((url) => url.pathname === "/admin/studio", { timeout: 10_000 });
+  await page.getByRole("heading", { name: "Splash screen" }).waitFor({ timeout: 10_000 });
 
   for (const [index, design] of designs.entries()) {
     await selectSplash(page, design.label);
