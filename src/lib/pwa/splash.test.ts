@@ -3,10 +3,13 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_SPLASH,
   EARLY_CHROME_SCRIPT,
+  nextSplashId,
   parseSplashId,
+  resolveSplashRotation,
   resolveBootSplash,
   SPLASH_OPTIONS,
   SPLASH_IDS,
+  SPLASH_ROTATION_KEY,
 } from "./splash.ts";
 
 describe("parseSplashId", () => {
@@ -65,10 +68,28 @@ describe("resolveBootSplash", () => {
   });
 });
 
+describe("splash rotation", () => {
+  it("starts from the admin selection and cycles round-robin", () => {
+    assert.equal(resolveSplashRotation("pieces", null), "pieces");
+    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "pieces" }), "soft-power");
+    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "soft-power" }), "wordmark");
+    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "wordmark" }), "tag-draw");
+    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "tag-draw" }), "pieces");
+    assert.equal(nextSplashId("soft-power"), "wordmark");
+  });
+
+  it("restarts at a changed admin selection and ignores invalid stored rotation", () => {
+    assert.equal(resolveSplashRotation("wordmark", { selected: "pieces", last: "soft-power" }), "wordmark");
+    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "neon" }), "pieces");
+  });
+});
+
 describe("early chrome script", () => {
-  it("does not override the server-rendered global splash choice", () => {
+  it("rotates the server selection before first paint and skips share/replayed routes", () => {
     assert.match(EARLY_CHROME_SCRIPT, /looktag-theme-v1/);
-    assert.equal(EARLY_CHROME_SCRIPT.includes("looktag-splash-v1"), false);
-    assert.equal(EARLY_CHROME_SCRIPT.includes('setAttribute("data-splash"'), false);
+    assert.match(EARLY_CHROME_SCRIPT, new RegExp(SPLASH_ROTATION_KEY));
+    assert.match(EARLY_CHROME_SCRIPT, /sessionStorage\.getItem\("looktag-boot-v1"\)/);
+    assert.match(EARLY_CHROME_SCRIPT, /var share=/);
+    assert.match(EARLY_CHROME_SCRIPT, /setAttribute\("data-splash",shown\)/);
   });
 });

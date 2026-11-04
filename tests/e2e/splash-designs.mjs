@@ -41,6 +41,7 @@ async function previewSplash(page, design, viewport) {
   const rendered = await splash.evaluate((el) => {
     const art = el.querySelector(".boot-splash-art");
     const svg = el.querySelector(".boot-art-pieces svg");
+    const word = getComputedStyle(el.querySelector(".boot-splash-word"));
     const overlap = svg
       ? [...svg.querySelectorAll(".boot-piece-label")].some((label) => {
           const labelBox = label.getBBox();
@@ -62,19 +63,50 @@ async function previewSplash(page, design, viewport) {
       background: getComputedStyle(el).backgroundColor,
       pins: el.querySelectorAll(".boot-splash-pin").length,
       count: el.querySelector(".boot-splash-count")?.textContent?.trim() ?? "",
+      wordStyle: {
+        fontFamily: word.fontFamily,
+        fontStyle: word.fontStyle,
+        fontWeight: word.fontWeight,
+        color: word.color,
+      },
+      firstPinRadius: el.querySelector(".boot-piece-number")?.getAttribute("r"),
+      firstPinColor: el.querySelector(".boot-piece-number") ? getComputedStyle(el.querySelector(".boot-piece-number")).fill : "",
+      trousersFill: el.querySelector(".boot-piece-trousers") ? getComputedStyle(el.querySelector(".boot-piece-trousers")).fill : "",
+      pillFill: el.querySelector(".boot-piece-label") ? getComputedStyle(el.querySelector(".boot-piece-label")).fill : "",
+      kicker: el.querySelector(".boot-splash-kicker")?.textContent?.trim() ?? "",
+      desktopLayout: getComputedStyle(el).display,
+      contentOrder: [...el.children].map((child) =>
+        child.classList.contains("boot-splash-mark") ? "word" :
+          child.classList.contains("boot-splash-art") ? "art" :
+            child.classList.contains("boot-splash-count") ? "count" : "other"
+      ),
       overlap,
     };
   });
   assert.equal(rendered.root, design.id);
   assert.ok(rendered.artWidth > 0, `${design.id} artwork has no width`);
   assert.equal(rendered.background, "rgb(244, 244, 244)");
+  assert.equal(rendered.wordStyle.fontFamily.includes("Playfair Display"), true);
+  assert.equal(rendered.wordStyle.fontStyle, "italic");
+  assert.equal(rendered.wordStyle.fontWeight, "500");
+  assert.equal(rendered.wordStyle.color, "rgb(17, 17, 17)");
   if (design.id === "pieces" || design.id === "soft-power") {
     assert.ok(rendered.svgWidth > 0);
     if (viewport.width >= 768) assert.ok(rendered.svgWidth >= 300);
     assert.equal(rendered.pins, 4);
     assert.equal(rendered.count, "4 pieces tagged");
     assert.equal(rendered.overlap, false);
+    assert.deepEqual(rendered.contentOrder, ["word", "art", "count"]);
+    assert.equal(rendered.firstPinRadius, "14");
+    assert.equal(rendered.firstPinColor, "rgb(17, 17, 17)");
+    assert.equal(rendered.pillFill, "rgba(17, 17, 17, 0.62)");
+    if (design.id === "soft-power") {
+      assert.equal(rendered.trousersFill, "rgb(212, 212, 212)");
+      assert.equal(await splash.getByText("Satin blouse").count(), 1);
+    }
+    if (viewport.width >= 768) assert.equal(rendered.desktopLayout, "grid");
   }
+  if (design.id === "tag-draw") assert.equal(rendered.kicker, "SHOP THE LOOK");
   await splash.waitFor({ state: "detached", timeout: 5_000 });
 }
 
@@ -90,30 +122,65 @@ async function checkColdStart(browser, design, viewport) {
   });
 
   await page.goto(origin, { waitUntil: "domcontentloaded" });
-  const firstPaint = await page.locator("#boot-splash-html").evaluate((el) => ({
-    root: document.documentElement.getAttribute("data-splash"),
-    splash: el.getAttribute("data-splash"),
-    background: getComputedStyle(el).backgroundColor,
-    artVisible: el.querySelector(".boot-splash-art")?.getBoundingClientRect().width > 0,
-  }));
+  const firstPaint = await page.locator("#boot-splash-html").evaluate((el) => {
+    const root = document.documentElement.getAttribute("data-splash");
+    const frame = el.querySelector(`.boot-splash-static-frame[data-splash="${root}"]`);
+    return {
+      root,
+      background: getComputedStyle(el).backgroundColor,
+      artVisible: root === "wordmark"
+        ? frame?.querySelector(".boot-wordmark-line")?.getBoundingClientRect().width > 0
+        : frame?.querySelector(".boot-splash-art")?.getBoundingClientRect().width > 0,
+      wordmarkFirst: root === "pieces" || root === "soft-power"
+        ? frame?.firstElementChild?.classList.contains("boot-splash-mark")
+        : true,
+    };
+  });
   assert.equal(firstPaint.root, design.id);
-  assert.equal(firstPaint.splash, design.id);
   assert.equal(firstPaint.background, "rgb(244, 244, 244)");
   assert.equal(firstPaint.artVisible, true);
+  assert.equal(firstPaint.wordmarkFirst, true);
 
-  await page.waitForFunction(
-    (key) => sessionStorage.getItem(key) === "done",
-    BOOT_SKIP_KEY,
-    { timeout: 5_000 },
-  );
+  if (design.id === "wordmark") {
+    const startupLinks = await page.locator('link[rel="apple-touch-startup-image"]').evaluateAll((links) =>
+      links.map((link) => ({ href: link.getAttribute("href"), media: link.getAttribute("media") })),
+    );
+    assert.equal(startupLinks.length, 14);
+    assert.ok(startupLinks.every((link) => link.media.includes("orientation: portrait")));
+    const imageSizes = await page.evaluate(async (links) => Promise.all(links.map(async ({ href }) => {
+      const response = await fetch(href);
+      const bytes = new DataView(await response.arrayBuffer());
+      return {
+        href,
+        width: bytes.getUint32(16),
+        height: bytes.getUint32(20),
+      };
+    })), startupLinks);
+    for (const image of imageSizes) {
+      assert.equal(image.href, `/splash-${image.width}x${image.height}.png`);
+    }
+    assert.ok(!startupLinks.some(({ href }) => href === "/splash-2048.png"));
+  }
+
+  await page.evaluate((key) => sessionStorage.setItem(key, "done"), BOOT_SKIP_KEY);
   await page.reload({ waitUntil: "domcontentloaded" });
-  const replay = await page.locator("#boot-splash-html").evaluate((el) => ({
-    root: document.documentElement.getAttribute("data-splash"),
-    hidden: getComputedStyle(el).display === "none",
-  }));
-  assert.equal(replay.root, design.id);
-  assert.equal(replay.hidden, true, `${design.id} splash replayed after reload`);
+  assert.equal(
+    await page.locator("#boot-splash-html").evaluate((el) => getComputedStyle(el).display),
+    "none",
+  );
   await context.close();
+
+  const appContext = await browser.newContext({ viewport });
+  const appPage = await appContext.newPage();
+  const startedAt = Date.now();
+  await appPage.goto(origin, { waitUntil: "domcontentloaded" });
+  const splash = appPage.locator(`.boot-splash[data-boot][data-splash="${design.id}"]`);
+  await splash.waitFor({ timeout: 10_000 });
+  await splash.waitFor({ state: "detached", timeout: 12_000 });
+  assert.ok(Date.now() - startedAt >= 1_200, `${design.id} ended before its animation cycle`);
+  await appPage.reload({ waitUntil: "domcontentloaded" });
+  assert.equal(await appPage.locator(".boot-splash[data-boot]").count(), 0, `${design.id} replayed`);
+  await appContext.close();
 }
 
 async function checkReducedMotion(page, design) {

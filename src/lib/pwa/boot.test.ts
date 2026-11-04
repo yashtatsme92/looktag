@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   BOOT_CROSSFADE_MS,
   BOOT_FEED_READY_EVENT,
-  BOOT_HOLD_MS,
+  BOOT_MAX_WAIT_MS,
+  BOOT_MIN_ANIMATION_MS,
   BOOT_SKIP_KEY,
   BOOT_STATIC_FINISH_EVENT,
   isSharePath,
@@ -27,9 +28,10 @@ describe("isSharePath", () => {
   });
 });
 
-describe("boot hold", () => {
-  it("caps the animation, crossfades quickly, and lets the session skip a replay", () => {
-    assert.equal(BOOT_HOLD_MS, 1200);
+describe("boot timing", () => {
+  it("waits for feed readiness after one animation cycle, with a 10-second cap", () => {
+    assert.equal(BOOT_MIN_ANIMATION_MS, 1250);
+    assert.equal(BOOT_MAX_WAIT_MS, 10_000);
     assert.equal(BOOT_CROSSFADE_MS, 150);
     assert.equal(BOOT_FEED_READY_EVENT, "looktag:feed-ready");
     assert.equal(BOOT_STATIC_FINISH_EVENT, "looktag:finish-boot");

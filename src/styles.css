@@ -121,6 +121,22 @@
    Arial / Times cover macOS and Windows. Liberation and DejaVu cover Linux,
    where local(Arial) and local(Times New Roman) do not resolve. */
 @font-face {
+  font-family: "Playfair Display";
+  src: url("/fonts/playfair-display-latin-500-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Figtree";
+  src: url("/fonts/figtree-latin-500-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+}
+
+@font-face {
   font-family: "Playfair Fallback";
   src: local("Times New Roman");
   size-adjust: 112%;
@@ -2380,6 +2396,17 @@ html[data-theme="moss"] {
     display: none !important;
   }
 
+  .boot-splash-static-frame {
+    display: none;
+  }
+
+  html[data-splash="wordmark"] #boot-splash-html .boot-splash-static-frame[data-splash="wordmark"],
+  html[data-splash="tag-draw"] #boot-splash-html .boot-splash-static-frame[data-splash="tag-draw"],
+  html[data-splash="pieces"] #boot-splash-html .boot-splash-static-frame[data-splash="pieces"],
+  html[data-splash="soft-power"] #boot-splash-html .boot-splash-static-frame[data-splash="soft-power"] {
+    display: contents;
+  }
+
   @keyframes boot-draw { to { stroke-dashoffset: 0; } }
   @keyframes boot-rise {
     0% { opacity: 0; filter: blur(6px); transform: translateY(12px); }
@@ -2422,9 +2449,10 @@ html[data-theme="moss"] {
 
   .boot-tag-outline,
   .boot-tag-hole,
+  .boot-tag-eyelet,
   .boot-tag-string {
     fill: none;
-    stroke: #898989;
+    stroke: #111;
     stroke-width: 1.25px;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -2444,6 +2472,12 @@ html[data-theme="moss"] {
     animation: boot-draw 0.24s 0.65s var(--ease-out) both;
   }
 
+  .boot-tag-eyelet {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: boot-draw 0.2s 0.68s var(--ease-out) both;
+  }
+
   .boot-tag-string {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
@@ -2452,12 +2486,32 @@ html[data-theme="moss"] {
 
   .boot-art-pieces {
     width: min(90vw, 36rem);
-    margin-bottom: 0.25rem;
+    margin: 0;
+  }
+
+  .boot-piece-fill {
+    fill: #fff;
+  }
+
+  .boot-piece-trousers {
+    fill: #d4d4d4;
+  }
+
+  .boot-piece-tote {
+    fill: #d8cbb7;
+  }
+
+  .boot-piece-shorts {
+    fill: #e4e0d9;
+  }
+
+  .boot-piece-shirt {
+    fill: #f8f6f1;
   }
 
   .boot-piece-lines path {
     fill: none;
-    stroke: #969696;
+    stroke: #111;
     stroke-width: 1.1px;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -2485,10 +2539,11 @@ html[data-theme="moss"] {
   .boot-splash-pin[data-pin="4"] { animation-delay: 0.99s; }
 
   .boot-piece-number {
-    fill: #f4f4f4;
-    stroke: #777;
-    stroke-width: 1px;
-    vector-effect: non-scaling-stroke;
+    fill: #fff;
+  }
+
+  .boot-splash-pin[data-pin="1"] .boot-piece-number {
+    fill: #111;
   }
 
   .boot-piece-number-text,
@@ -2499,12 +2554,18 @@ html[data-theme="moss"] {
   }
 
   .boot-piece-number-text {
-    fill: #333;
-    font-size: 9px;
+    fill: #111;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .boot-splash-pin[data-pin="1"] .boot-piece-number-text {
+    fill: #fff;
   }
 
   .boot-piece-label {
-    fill: #292929;
+    fill: rgba(17, 17, 17, 0.62);
+    backdrop-filter: blur(6px);
   }
 
   .boot-piece-label-text {
@@ -2517,7 +2578,8 @@ html[data-theme="moss"] {
   .boot-splash-count {
     margin: 0.35rem 0 0;
     border-radius: 999px;
-    background: #292929;
+    background: rgba(17, 17, 17, 0.62);
+    backdrop-filter: blur(6px);
     color: #fff;
     padding: 0.35rem 0.85rem;
     font-size: 0.72rem;
@@ -2533,8 +2595,11 @@ html[data-theme="moss"] {
   }
 
   .boot-splash-word {
-    color: #242424;
+    color: #111;
+    font-family: var(--font-display);
     font-size: clamp(2.6rem, 11vw, 4.5rem);
+    font-style: italic;
+    font-weight: 500;
     animation: boot-rise 0.58s 0.08s var(--ease-smooth-out) both;
   }
 
@@ -2554,15 +2619,23 @@ html[data-theme="moss"] {
     width: min(4.5rem, 30vw);
     height: 1px;
     margin: 0.7rem auto 0;
-    background: #898989;
+    background: #111;
     transform: scaleX(0);
     transform-origin: center;
     animation: boot-line 0.38s 0.35s var(--ease-out) both;
   }
 
+  .boot-splash-kicker {
+    margin-top: 0.65rem;
+    color: #111;
+    font-size: var(--text-kicker);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+  }
+
   .boot-splash-out {
     pointer-events: none;
-    animation: boot-out 0.15s ease both;
+    animation: boot-out 0.15s var(--ease-std) both;
   }
 
   @keyframes boot-pop {
@@ -2577,6 +2650,7 @@ html[data-theme="moss"] {
   @media (prefers-reduced-motion: reduce) {
     .boot-tag-outline,
     .boot-tag-hole,
+    .boot-tag-eyelet,
     .boot-tag-string,
     .boot-piece-lines path,
     .boot-splash-pin,
@@ -2600,6 +2674,46 @@ html[data-theme="moss"] {
     .boot-wordmark-line {
       opacity: 1;
       transform: none;
+    }
+
+    @media (min-width: 768px) {
+      html[data-splash="pieces"] #boot-splash-html,
+      html[data-splash="soft-power"] #boot-splash-html,
+      .boot-splash[data-splash="pieces"],
+      .boot-splash[data-splash="soft-power"] {
+        display: grid;
+        grid-template-areas:
+          "word art"
+          ". count";
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+        align-content: center;
+        justify-items: center;
+        gap: 0 2rem;
+        padding-inline: 5vw;
+      }
+
+      html[data-splash="pieces"] #boot-splash-html .boot-mark-pieces,
+      html[data-splash="soft-power"] #boot-splash-html .boot-mark-soft-power,
+      .boot-splash[data-splash="pieces"] .boot-mark-pieces,
+      .boot-splash[data-splash="soft-power"] .boot-mark-soft-power {
+        grid-area: word;
+      }
+
+      html[data-splash="pieces"] #boot-splash-html .boot-art-pieces,
+      html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
+      .boot-splash[data-splash="pieces"] .boot-art-pieces,
+      .boot-splash[data-splash="soft-power"] .boot-art-pieces {
+        grid-area: art;
+        width: min(54vw, 48rem);
+      }
+
+      html[data-splash="pieces"] #boot-splash-html .boot-splash-count,
+      html[data-splash="soft-power"] #boot-splash-html .boot-splash-count,
+      .boot-splash[data-splash="pieces"] .boot-splash-count,
+      .boot-splash[data-splash="soft-power"] .boot-splash-count {
+        grid-area: count;
+        justify-self: center;
+      }
     }
   }
 }
