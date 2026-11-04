@@ -169,9 +169,11 @@ function SplashContent({ variant }: { variant: SplashId }) {
   }
   return (
     <>
-      {wordmark}
+      <div className="boot-splash-side">
+        {wordmark}
+        <p className="boot-splash-count">4 pieces tagged</p>
+      </div>
       <BootArtwork variant={variant} />
-      <p className="boot-splash-count">4 pieces tagged</p>
     </>
   );
 }
@@ -184,65 +186,276 @@ export function BootArtwork({ variant, preview }: { variant: SplashId; preview?:
   if (variant === "tag-draw") {
     return (
       <div className={cn("boot-splash-art boot-art-tag", preview && "boot-art-preview")} aria-hidden>
-        <svg viewBox="0 0 160 110" fill="none">
-          <path className="boot-tag-outline" pathLength="1" d="M31 18 H99 L132 50 V96 H31 Z" />
-          <circle className="boot-tag-hole" cx="104" cy="42" r="7" />
-          <circle className="boot-tag-eyelet" cx="104" cy="42" r="2" />
-          <path className="boot-tag-string" d="M108 38 C135 17 141 41 125 51" />
+        <svg viewBox="0 0 64 40" width="72" height="45" fill="none">
+          <path
+            className="boot-tag-outline"
+            pathLength="100"
+            d="M18 3H59a2 2 0 0 1 2 2v30a2 2 0 0 1-2 2H18L3 20Z"
+          />
+          <circle className="boot-tag-eyelet" pathLength="100" cx="17" cy="20" r="3.2" />
         </svg>
       </div>
     );
   }
 
   const elegant = variant === "soft-power";
+  const pieces = elegant
+    ? [
+        { n: 1, left: 55, top: 16.67, label: "Satin blouse", delay: 300, direction: "right" },
+        { n: 2, left: 48.75, top: 63.33, label: "Wide-leg trousers", delay: 450, direction: "right" },
+        { n: 3, left: 52.08, top: 83, label: "Clutch", delay: 600, direction: "right" },
+        { n: 4, left: 60.83, top: 92.33, label: "Kitten heels", delay: 750, direction: "right" },
+      ]
+    : [
+        { n: 1, left: 55.8, top: 20.2, label: "Linen shirt", delay: 300, direction: "right" },
+        { n: 2, left: 85.5, top: 49.6, label: "Raffia tote", delay: 450, direction: "left" },
+        { n: 3, left: 33.7, top: 62, label: "Pleated shorts", delay: 600, direction: "left" },
+        { n: 4, left: 57, top: 90.7, label: "Espadrilles", delay: 750, direction: "right" },
+      ];
   return (
-    <div className={cn("boot-splash-art boot-art-pieces", preview && "boot-art-preview")} aria-hidden>
-      <svg viewBox="0 0 400 360" fill="none">
+    <div
+      className={cn("boot-splash-art boot-art-pieces", preview && "boot-art-preview")}
+      data-design={variant}
+      aria-hidden
+    >
+      <svg viewBox={elegant ? "-14 0 240 300" : "24 12 172 258"} fill="none">
         {elegant ? (
           <>
-            <path className="boot-piece-fill" d="M51 40 L79 27 L100 43 L121 27 L149 40 L169 66 L151 77 L137 60 V106 H63 V60 L49 77 L31 66 Z" />
-            <path className="boot-piece-fill boot-piece-trousers" d="M247 30 H353 L347 59 L337 107 H307 L300 60 L293 107 H263 L253 59 Z" />
-            <path className="boot-piece-fill" d="M46 205 Q46 194 59 194 H141 Q154 194 154 205 V258 H46 Z" />
-            <path className="boot-piece-fill" d="M240 222 Q250 212 264 211 L280 196 Q287 191 291 199 L289 211 Q307 203 323 208 Q331 211 326 218 L309 232 H252 Z M240 258 Q250 248 264 247 L280 232 Q287 227 291 235 L289 247 Q307 239 323 244 Q331 247 326 254 L309 268 H252 Z" />
-            <g className="boot-piece-lines">
-              <path pathLength="1" d="M100 43 V105 M65 91 H135 M79 29 L87 53 L100 43 L113 53 L121 29 M91 39 C78 29 82 20 94 27 L100 34 L106 27 C118 20 122 29 109 39 L100 46 Z" />
-              <path pathLength="1" d="M250 41 H350 M280 33 L281 105 M320 33 L319 105 M300 32 V59" />
-              <path pathLength="1" d="M58 194 V207 H142 V194 M64 222 H136 M64 237 H136" />
-              <path pathLength="1" d="M280 199 L294 207 M252 222 H326 M280 235 L294 243 M252 258 H326" />
+            <g stroke="#111" strokeWidth="1.1" strokeLinejoin="round" strokeLinecap="round">
+              <path
+                fill="#fff"
+                d="M54 10 Q74 16 94 10 L120 22 L132 92 L120 94 L110 40 Q114 70 110 100 L38 100 Q34 70 38 40 L28 94 L16 92 L28 22 Z"
+              />
+              <path
+                fill="none"
+                d="M66 13 Q74 24 82 13M74 24 Q62 28 64 38 Q72 36 74 24 Q76 36 84 38 Q86 28 74 24M72 26 L66 54M76 26 L81 52M17 86 L29 88M131 86 L119 88"
+              />
+            </g>
+            <path
+              stroke="#8A8A8A"
+              strokeWidth=".7"
+              fill="none"
+              strokeLinecap="round"
+              d="M44 46 Q50 72 44 98M104 46 Q98 72 104 98M58 60 Q60 80 56 98M90 60 Q88 80 92 98M24 60 Q26 72 22 84M124 60 Q122 72 126 84"
+            />
+            <g stroke="#111" strokeWidth="1.1" strokeLinejoin="round" strokeLinecap="round">
+              <path fill="#D4D4D4" d="M48 106 H100 L112 232 H78 L74 136 L70 232 H36 Z" />
+            </g>
+            <path
+              stroke="#8A8A8A"
+              strokeWidth=".7"
+              fill="none"
+              strokeLinecap="round"
+              d="M48 114H100M60 116 L54 230M88 116 L94 230M66 114V126M82 114V126M74 106V118"
+            />
+            <g stroke="#111" strokeWidth="1.1" strokeLinejoin="round" strokeLinecap="round">
+              <path fill="#E2E2E2" d="M44 240 H104 V258 H44 Z" />
+              <path fill="none" d="M44 240 L74 252 L104 240" />
+            </g>
+            <rect x="71" y="250" width="6" height="4" rx="1" fill="#111" />
+            <g transform="translate(-4,29) scale(.9,.9)">
+              <path
+                stroke="#111"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                fill="#fff"
+                d="M18 288 Q30 276 52 272 Q56 278 60 284 Q40 290 18 288Z"
+              />
+              <path
+                stroke="#111"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                fill="none"
+                d="M60 284 Q68 278 75 276"
+              />
+              <path
+                stroke="#111"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                fill="#111"
+                d="M72 277 L75 277 L73 293 L71 293 Z"
+              />
+              <path
+                stroke="#8A8A8A"
+                strokeWidth=".7"
+                fill="none"
+                strokeLinecap="round"
+                d="M24 286 Q40 282 56 280"
+              />
+              <g transform="translate(60 0)">
+                <path
+                  stroke="#111"
+                  strokeWidth="1.1"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  fill="#fff"
+                  d="M18 288 Q30 276 52 272 Q56 278 60 284 Q40 290 18 288Z"
+                />
+                <path
+                  stroke="#111"
+                  strokeWidth="1.1"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  fill="none"
+                  d="M60 284 Q68 278 75 276"
+                />
+                <path
+                  stroke="#111"
+                  strokeWidth="1.1"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  fill="#111"
+                  d="M72 277 L75 277 L73 293 L71 293 Z"
+                />
+                <path
+                  stroke="#8A8A8A"
+                  strokeWidth=".7"
+                  fill="none"
+                  strokeLinecap="round"
+                  d="M24 286 Q40 282 56 280"
+                />
+              </g>
             </g>
           </>
         ) : (
           <>
-            <path className="boot-piece-fill boot-piece-shirt" d="M51 40 L79 27 L94 32 L100 43 L106 32 L121 27 L149 40 L169 66 L151 77 L137 60 V106 H63 V60 L49 77 L31 66 Z" />
-            <path className="boot-piece-fill boot-piece-tote" d="M252 48 H348 V107 H252 Z" />
-            <path className="boot-piece-fill boot-piece-shorts" d="M48 194 H152 L147 220 L135 267 L105 260 L100 224 L95 260 L65 267 L53 220 Z" />
-            <path className="boot-piece-fill" d="M235 222 Q248 206 270 206 H302 Q315 206 327 218 L354 228 Q362 232 357 240 H251 Q238 238 235 222 Z M235 258 Q248 242 270 242 H302 Q315 242 327 254 L354 264 Q362 268 357 276 H251 Q238 274 235 258 Z" />
-            <g className="boot-piece-lines">
-              <path pathLength="1" d="M100 43 V105 M65 91 H135 M79 29 L87 53 M121 29 L113 53" />
-              <path pathLength="1" d="M268 48 C268 20 294 20 294 48 M306 48 C306 20 332 20 332 48 M260 62 H340 M260 76 H340 M260 90 H340 M274 52 V104 M294 52 V104 M314 52 V104 M334 52 V104" />
-              <path pathLength="1" d="M51 207 H149 M100 195 V222 M68 208 L75 257 M84 208 L87 257 M116 208 L113 257 M132 208 L125 257" />
-              <path pathLength="1" d="M243 223 H351 M264 210 L276 227 M285 210 L296 227 M306 212 L317 229 M243 259 H351 M264 246 L276 263 M285 246 L296 263 M306 248 L317 265" />
+            <g stroke="#111" strokeWidth="1.1" strokeLinejoin="round" strokeLinecap="round">
+              <path d="M158 118 Q171 92 184 118" fill="none" strokeWidth="1.4" />
+              <path d="M150 118 H192 L188 166 H154 Z" fill="#E2E2E2" />
+            </g>
+            <path
+              d="M152 128H190M152 138H190M153 148H189M154 158H188M162 118V166M171 118V166M180 118V166"
+              stroke="#8A8A8A"
+              strokeWidth=".7"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <g stroke="#111" strokeWidth="1.1" strokeLinejoin="round" strokeLinecap="round">
+              <path d="M62 132 H138 L146 202 H106 L100 154 L94 202 H54 Z" fill="#D4D4D4" />
+            </g>
+            <path
+              d="M60 142H140M80 142L77 176M120 142L123 176M100 142V152"
+              stroke="#8A8A8A"
+              strokeWidth=".7"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <g stroke="#111" strokeWidth="1.1" strokeLinejoin="round" strokeLinecap="round">
+              <path
+                d="M70 30 L88 22 Q100 30 112 22 L130 30 L162 52 L170 92 L152 96 L146 72 L144 124 L56 124 L54 72 L48 96 L30 92 L38 52 Z"
+                fill="#fff"
+              />
+              <path
+                d="M88 22 L100 44 L112 22M100 44V124M32 84 L50 88M168 84 L150 88"
+                fill="none"
+              />
+            </g>
+            <path
+              d="M60 60 Q66 90 62 118M140 60 Q134 90 138 118M44 60 L50 80M156 60 L150 80"
+              stroke="#8A8A8A"
+              strokeWidth=".7"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <g fill="#111">
+              <circle cx="103" cy="58" r="1" />
+              <circle cx="103" cy="78" r="1" />
+              <circle cx="103" cy="98" r="1" />
+            </g>
+            <g transform="translate(-8 0)">
+              <path
+                d="M56 252 H106 Q108 258 104 260 H58 Q54 258 56 252Z"
+                fill="#E2E2E2"
+                stroke="#111"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              <path
+                d="M60 254.5H103M60 257.5H103"
+                stroke="#8A8A8A"
+                strokeWidth=".7"
+                fill="none"
+                strokeLinecap="round"
+              />
+              <path
+                d="M58 252 Q60 240 74 238 Q90 236 104 252 Z"
+                fill="#fff"
+                stroke="#111"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              <path
+                d="M68 241 Q78 231 92 242"
+                fill="none"
+                stroke="#8A8A8A"
+                strokeWidth=".7"
+                strokeLinecap="round"
+              />
+            </g>
+            <g transform="translate(44 0)">
+              <path
+                d="M56 252 H106 Q108 258 104 260 H58 Q54 258 56 252Z"
+                fill="#E2E2E2"
+                stroke="#111"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              <path
+                d="M60 254.5H103M60 257.5H103"
+                stroke="#8A8A8A"
+                strokeWidth=".7"
+                fill="none"
+                strokeLinecap="round"
+              />
+              <path
+                d="M58 252 Q60 240 74 238 Q90 236 104 252 Z"
+                fill="#fff"
+                stroke="#111"
+                strokeWidth="1.1"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              <path
+                d="M68 241 Q78 231 92 242"
+                fill="none"
+                stroke="#8A8A8A"
+                strokeWidth=".7"
+                strokeLinecap="round"
+              />
             </g>
           </>
         )}
-        {[
-          { n: 1, cx: 159, cy: 42, label: elegant ? "Satin blouse" : "Linen shirt", x: 18, y: 121 },
-          { n: 2, cx: 359, cy: 43, label: elegant ? "Wide-leg trousers" : "Raffia tote", x: 218, y: 121 },
-          { n: 3, cx: 159, cy: 201, label: elegant ? "Clutch" : "Pleated shorts", x: 18, y: 281 },
-          { n: 4, cx: 359, cy: 202, label: elegant ? "Kitten heels" : "Espadrilles", x: 218, y: 281 },
-        ].map((piece) => (
-          <g className="boot-splash-pin" data-pin={piece.n} key={piece.n}>
-            <circle className="boot-piece-number" cx={piece.cx} cy={piece.cy} r="14" />
-            <text className="boot-piece-number-text" x={piece.cx} y={piece.cy + 0.5}>
-              {piece.n}
-            </text>
-            <rect className="boot-piece-label" x={piece.x} y={piece.y} width="164" height="22" rx="11" />
-            <text className="boot-piece-label-text" x={piece.x + 82} y={piece.y + 14.5}>
-              {piece.label}
-            </text>
-          </g>
-        ))}
       </svg>
+      {pieces.map((piece) => (
+        <span
+          className="boot-splash-pin"
+          data-pin={piece.n}
+          key={piece.n}
+          style={{ left: `${piece.left}%`, top: `${piece.top}%`, animationDelay: `${piece.delay}ms` }}
+        >
+          {piece.n}
+        </span>
+      ))}
+      {pieces.map((piece) => (
+        <span
+          className={cn("boot-piece-label", piece.direction === "left" && "boot-piece-label-left")}
+          data-label={piece.n}
+          key={`label-${piece.n}`}
+          style={{
+            left: `${piece.left}%`,
+            top: `${piece.top}%`,
+            animationDelay: `${piece.delay + 80}ms`,
+          }}
+        >
+          {piece.label}
+        </span>
+      ))}
     </div>
   );
 }

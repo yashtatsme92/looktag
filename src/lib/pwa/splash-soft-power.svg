@@ -1,0 +1,28 @@
+<svg class="boot-piece-illustration" viewBox="-14 0 240 300" fill="none" aria-hidden="true">
+  <g stroke="#111" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round">
+    <path fill="#fff" d="M54 10 Q74 16 94 10 L120 22 L132 92 L120 94 L110 40 Q114 70 110 100 L38 100 Q34 70 38 40 L28 94 L16 92 L28 22 Z"/>
+    <path fill="none" d="M66 13 Q74 24 82 13M74 24 Q62 28 64 38 Q72 36 74 24 Q76 36 84 38 Q86 28 74 24M72 26 L66 54M76 26 L81 52M17 86 L29 88M131 86 L119 88"/>
+  </g>
+  <path stroke="#8A8A8A" stroke-width=".7" fill="none" stroke-linecap="round" d="M44 46 Q50 72 44 98M104 46 Q98 72 104 98M58 60 Q60 80 56 98M90 60 Q88 80 92 98M24 60 Q26 72 22 84M124 60 Q122 72 126 84"/>
+  <g stroke="#111" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round">
+    <path fill="#D4D4D4" d="M48 106 H100 L112 232 H78 L74 136 L70 232 H36 Z"/>
+  </g>
+  <path stroke="#8A8A8A" stroke-width=".7" fill="none" stroke-linecap="round" d="M48 114H100M60 116 L54 230M88 116 L94 230M66 114V126M82 114V126M74 106V118"/>
+  <g stroke="#111" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round">
+    <path fill="#E2E2E2" d="M44 240 H104 V258 H44 Z"/>
+    <path fill="none" d="M44 240 L74 252 L104 240"/>
+  </g>
+  <rect x="71" y="250" width="6" height="4" rx="1" fill="#111"/>
+  <g transform="translate(-4,29) scale(.9,.9)">
+    <path stroke="#111" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round" fill="#fff" d="M18 288 Q30 276 52 272 Q56 278 60 284 Q40 290 18 288Z"/>
+    <path stroke="#111" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round" fill="none" d="M60 284 Q68 278 75 276"/>
+    <path stroke="#111" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round" fill="#111" d="M72 277 L75 277 L73 293 L71 293 Z"/>
+    <path stroke="#8A8A8A" stroke-width=".7" fill="none" stroke-linecap="round" d="M24 286 Q40 282 56 280"/>
+    <g transform="translate(60 0)">
+      <path stroke="#111" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round" fill="#fff" d="M18 288 Q30 276 52 272 Q56 278 60 284 Q40 290 18 288Z"/>
+      <path stroke="#111" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round" fill="none" d="M60 284 Q68 278 75 276"/>
+      <path stroke="#111" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round" fill="#111" d="M72 277 L75 277 L73 293 L71 293 Z"/>
+      <path stroke="#8A8A8A" stroke-width=".7" fill="none" stroke-linecap="round" d="M24 286 Q40 282 56 280"/>
+    </g>
+  </g>
+</svg>

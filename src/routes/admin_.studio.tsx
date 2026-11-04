@@ -236,13 +236,23 @@ function StudioAdmin() {
                 <RadioGroupItem value={option.id} className="mt-1" aria-label={option.label} />
                 <span className="min-w-0 flex-1">
                   <span className="splash-card mb-2" data-splash={option.id}>
-                    <BootArtwork variant={option.id} preview />
-                    {option.id === "pieces" || option.id === "soft-power" ? (
+                  {option.id === "pieces" || option.id === "soft-power" ? (
+                    <>
+                      <span className="splash-card-word">Looktag</span>
+                      <BootArtwork variant={option.id} preview />
                       <span className="boot-splash-count splash-card-count">4 pieces tagged</span>
-                    ) : null}
-                    <span className="splash-card-word">Looktag</span>
-                    {option.id === "wordmark" ? <span className="boot-wordmark-line" /> : null}
-                  </span>
+                    </>
+                  ) : (
+                    <>
+                      {option.id === "wordmark" ? null : <BootArtwork variant={option.id} preview />}
+                      <span className="splash-card-word">Looktag</span>
+                      {option.id === "wordmark" ? <span className="boot-wordmark-line" /> : null}
+                      {option.id === "tag-draw" ? (
+                        <span className="boot-splash-kicker">SHOP THE LOOK</span>
+                      ) : null}
+                    </>
+                  )}
+                </span>
                   <span className="block text-sm font-medium">{option.label}</span>
                   <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
                     {option.hint}

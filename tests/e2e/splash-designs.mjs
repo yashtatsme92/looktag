@@ -8,8 +8,8 @@ const credentials = resolveAdminCredentials();
 const designs = [
   { id: "wordmark", label: "Wordmark", art: ".boot-splash-word", motion: ".boot-wordmark-line" },
   { id: "tag-draw", label: "Tag draw", art: ".boot-art-tag", motion: ".boot-tag-outline" },
-  { id: "pieces", label: "Drawn pieces reveal", art: ".boot-art-pieces", motion: ".boot-piece-lines path" },
-  { id: "soft-power", label: "Elegant “soft power”", art: ".boot-art-pieces", motion: ".boot-piece-lines path" },
+  { id: "pieces", label: "Drawn pieces reveal", art: ".boot-art-pieces", motion: ".boot-splash-pin" },
+  { id: "soft-power", label: "Elegant “soft power”", art: ".boot-art-pieces", motion: ".boot-splash-pin" },
 ];
 const settingsServerFn = Buffer.from(
   JSON.stringify({
@@ -58,49 +58,61 @@ async function previewSplash(page, design, viewport) {
 
   const rendered = await splash.evaluate((el) => {
     const art = el.querySelector(".boot-splash-art");
-    const svg = el.querySelector(".boot-art-pieces svg");
+    const svg = el.querySelector(".boot-art-pieces svg, .boot-art-tag svg");
     const word = getComputedStyle(el.querySelector(".boot-splash-word"));
-    const overlap = svg
-      ? [...svg.querySelectorAll(".boot-piece-label")].some((label) => {
-          const labelBox = label.getBBox();
-          return [...svg.querySelectorAll(".boot-piece-lines path")].some((path) => {
-            const pieceBox = path.getBBox();
-            return (
-              labelBox.x < pieceBox.x + pieceBox.width &&
-              labelBox.x + labelBox.width > pieceBox.x &&
-              labelBox.y < pieceBox.y + pieceBox.height &&
-              labelBox.y + labelBox.height > pieceBox.y
-            );
-          });
-        })
-      : false;
+    const firstPin = el.querySelector(".boot-splash-pin");
+    const firstLabel = el.querySelector(".boot-piece-label");
+    const mark = el.querySelector(".boot-splash-mark");
+    const count = el.querySelector(".boot-splash-count");
+    const box = (node) => {
+      const rect = node?.getBoundingClientRect();
+      return rect ? { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom } : null;
+    };
+    const labelsConnected = [...el.querySelectorAll(".boot-piece-label")].every((label, index) => {
+      const pin = el.querySelector(`.boot-splash-pin[data-pin="${index + 1}"]`);
+      const labelBox = label.getBoundingClientRect();
+      const pinBox = pin.getBoundingClientRect();
+      return label.classList.contains("boot-piece-label-left")
+        ? labelBox.right <= pinBox.left
+        : labelBox.left >= pinBox.right;
+    });
     return {
       root: document.documentElement.getAttribute("data-splash"),
       artWidth: art?.getBoundingClientRect().width ?? el.querySelector(".boot-wordmark-line")?.offsetWidth ?? 0,
       artLeft: art?.getBoundingClientRect().left ?? 0,
       artRight: art?.getBoundingClientRect().right ?? 0,
       svgWidth: svg?.getBoundingClientRect().width ?? 0,
+      svgViewBox: svg?.getAttribute("viewBox") ?? "",
       background: getComputedStyle(el).backgroundColor,
       pins: el.querySelectorAll(".boot-splash-pin").length,
-      count: el.querySelector(".boot-splash-count")?.textContent?.trim() ?? "",
+      count: count?.textContent?.trim() ?? "",
       wordStyle: {
         fontFamily: word.fontFamily,
         fontStyle: word.fontStyle,
         fontWeight: word.fontWeight,
         color: word.color,
+        fontSize: word.fontSize,
       },
-      firstPinRadius: el.querySelector(".boot-piece-number")?.getAttribute("r"),
-      firstPinColor: el.querySelector(".boot-piece-number") ? getComputedStyle(el.querySelector(".boot-piece-number")).fill : "",
-      trousersFill: el.querySelector(".boot-piece-trousers") ? getComputedStyle(el.querySelector(".boot-piece-trousers")).fill : "",
-      pillFill: el.querySelector(".boot-piece-label") ? getComputedStyle(el.querySelector(".boot-piece-label")).fill : "",
+      firstPinSize: firstPin ? getComputedStyle(firstPin).width : "",
+      firstPinColor: firstPin ? getComputedStyle(firstPin).backgroundColor : "",
+      pinDuration: firstPin ? getComputedStyle(firstPin).animationDuration : "",
+      pinDelay: firstPin ? getComputedStyle(firstPin).animationDelay : "",
+      labelDelay: firstLabel ? getComputedStyle(firstLabel).animationDelay : "",
+      labelBackground: firstLabel ? getComputedStyle(firstLabel).backgroundColor : "",
+      trousersFill: svg?.querySelector('[fill="#D4D4D4"]')
+        ? getComputedStyle(svg.querySelector('[fill="#D4D4D4"]')).fill
+        : "",
+      artworkFills: [...(svg?.querySelectorAll("[fill]") ?? [])].map((node) => node.getAttribute("fill")),
       kicker: el.querySelector(".boot-splash-kicker")?.textContent?.trim() ?? "",
       desktopLayout: getComputedStyle(el).display,
-      contentOrder: [...el.children].map((child) =>
-        child.classList.contains("boot-splash-mark") ? "word" :
-          child.classList.contains("boot-splash-art") ? "art" :
-            child.classList.contains("boot-splash-count") ? "count" : "other"
-      ),
-      overlap,
+      wordBox: box(mark),
+      artBox: box(art),
+      countBox: box(count),
+      labelsConnected,
+      labelsInBounds: [...el.querySelectorAll(".boot-piece-label")].every((label) => {
+        const bounds = label.getBoundingClientRect();
+        return bounds.left >= 0 && bounds.right <= innerWidth;
+      }),
     };
   });
   assert.equal(rendered.root, design.id);
@@ -116,27 +128,51 @@ async function previewSplash(page, design, viewport) {
     if (viewport.width >= 768) assert.ok(rendered.svgWidth >= 300);
     assert.equal(rendered.pins, 4);
     assert.equal(rendered.count, "4 pieces tagged");
-    assert.equal(rendered.overlap, false);
-    assert.deepEqual(rendered.contentOrder, ["word", "art", "count"]);
-    assert.ok(
-      await splash.locator(".boot-piece-label").evaluateAll((labels) =>
-        labels.every((label) => {
-          const bounds = label.getBoundingClientRect();
-          return bounds.left >= 0 && bounds.right <= innerWidth;
-        }),
-      ),
-      `${design.id} labels overflow viewport`,
-    );
-    assert.equal(rendered.firstPinRadius, "14");
+    assert.equal(rendered.labelsConnected, true);
+    assert.equal(rendered.labelsInBounds, true, `${design.id} labels overflow viewport`);
+    assert.equal(rendered.firstPinSize, "28px");
     assert.equal(rendered.firstPinColor, "rgb(17, 17, 17)");
-    assert.equal(rendered.pillFill, "rgba(17, 17, 17, 0.62)");
+    assert.equal(rendered.pinDuration, "0.26s");
+    assert.equal(rendered.pinDelay, "0.3s");
+    assert.equal(rendered.labelDelay, "0.38s");
+    assert.equal(rendered.labelBackground, "rgba(17, 17, 17, 0.62)");
+    if (viewport.width < viewport.height) {
+      assert.ok(rendered.wordBox.top < rendered.artBox.top);
+      assert.ok(rendered.artBox.bottom < rendered.countBox.top);
+    } else {
+      assert.ok(rendered.wordBox.left < rendered.artBox.left);
+      assert.ok(rendered.countBox.left < rendered.artBox.left);
+      assert.ok(rendered.countBox.top > rendered.wordBox.top);
+    }
     if (design.id === "soft-power") {
       assert.equal(rendered.trousersFill, "rgb(212, 212, 212)");
       assert.equal(await splash.getByText("Satin blouse").count(), 1);
+      assert.equal(rendered.svgViewBox, "-14 0 240 300");
+    } else {
+      assert.equal(rendered.svgViewBox, "24 12 172 258");
+      assert.ok(rendered.artworkFills.includes("#D4D4D4"));
+      assert.ok(rendered.artworkFills.includes("#E2E2E2"));
     }
-    if (viewport.width >= 768) assert.equal(rendered.desktopLayout, "grid");
+    if (viewport.width >= 768 && viewport.width >= viewport.height) {
+      assert.equal(rendered.desktopLayout, "grid");
+      assert.ok(Number.parseFloat(rendered.wordStyle.fontSize) >= 64);
+    }
   }
-  if (design.id === "tag-draw") assert.equal(rendered.kicker, "SHOP THE LOOK");
+  if (design.id === "wordmark") {
+    assert.ok(Number.parseFloat(rendered.wordStyle.fontSize) >= 44);
+    const line = await splash.locator(".boot-wordmark-line").evaluate((el) => ({
+      width: getComputedStyle(el).width,
+      height: getComputedStyle(el).height,
+    }));
+    assert.ok(Math.abs(Number.parseFloat(line.width) - Math.min(132, viewport.width * 0.3)) < 1);
+    assert.equal(line.height, "1.5px");
+  }
+  if (design.id === "tag-draw") {
+    assert.equal(rendered.kicker, "SHOP THE LOOK");
+    assert.equal(rendered.svgViewBox, "0 0 64 40");
+    assert.equal(rendered.svgWidth, 72);
+    assert.equal(await splash.locator(".boot-art-tag path").getAttribute("d"), "M18 3H59a2 2 0 0 1 2 2v30a2 2 0 0 1-2 2H18L3 20Z");
+  }
   await splash.waitFor({ state: "detached", timeout: 5_000 });
 }
 
@@ -179,7 +215,7 @@ async function checkColdStart(browser, design, viewport) {
         return bounds.left >= 0 && bounds.right <= innerWidth;
       }),
       wordmarkFirst: root === "pieces" || root === "soft-power"
-        ? frame?.firstElementChild?.classList.contains("boot-splash-mark")
+        ? frame?.querySelector(".boot-splash-side")?.firstElementChild?.classList.contains("boot-splash-mark")
         : true,
     };
   });
@@ -247,12 +283,15 @@ async function checkReducedMotion(page, design) {
     return {
       animation: art ? getComputedStyle(art).animationName : "",
       dashOffset: art ? getComputedStyle(art).strokeDashoffset : "",
+      remainingAnimations: [...el.querySelectorAll(".boot-splash-pin, .boot-piece-label, .boot-splash-count")]
+        .map((node) => getComputedStyle(node).animationName),
       wordAnimation: word ? getComputedStyle(word).animationName : "",
       wordTransform: word ? getComputedStyle(word).transform : "",
     };
   }, design.motion);
   assert.equal(motion.animation, "none", `${design.id} artwork animates with reduced motion`);
-  if (design.id !== "wordmark") assert.equal(Number.parseFloat(motion.dashOffset), 0);
+  if (design.id === "tag-draw") assert.equal(Number.parseFloat(motion.dashOffset), 0);
+  assert.ok(motion.remainingAnimations.every((animation) => animation === "none"));
   assert.equal(motion.wordAnimation, "none");
   assert.equal(motion.wordTransform, "none");
   await splash.waitFor({ state: "detached", timeout: 5_000 });

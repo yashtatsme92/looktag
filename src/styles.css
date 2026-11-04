@@ -2383,6 +2383,7 @@ html[data-theme="moss"] {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    gap: 20px;
     cursor: pointer;
     touch-action: manipulation;
     background: var(--color-studio);
@@ -2408,17 +2409,13 @@ html[data-theme="moss"] {
   }
 
   @keyframes boot-draw { to { stroke-dashoffset: 0; } }
-  @keyframes boot-rise {
-    0% { opacity: 0; filter: blur(6px); transform: translateY(12px); }
-    to { opacity: 1; filter: blur(0); transform: translateY(0); }
-  }
   @keyframes boot-out {
     to { opacity: 0; }
   }
 
   .boot-splash {
     background: #f4f4f4;
-    color: #242424;
+    color: #111;
     padding: max(1.5rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
   }
 
@@ -2426,7 +2423,7 @@ html[data-theme="moss"] {
     flex: none;
     width: min(88vw, 36rem);
     height: auto;
-    margin-bottom: 0.8rem;
+    margin: 0;
   }
 
   .boot-art-wordmark {
@@ -2435,172 +2432,153 @@ html[data-theme="moss"] {
   }
 
   .boot-art-tag {
-    width: min(32vw, 9rem);
-    margin-bottom: 1.2rem;
+    width: 72px;
+    height: 45px;
   }
 
-  .boot-art-tag svg,
-  .boot-art-pieces svg {
+  .boot-art-tag svg {
     display: block;
     width: 100%;
-    height: auto;
-    overflow: visible;
+    height: 100%;
   }
 
   .boot-tag-outline,
-  .boot-tag-hole,
-  .boot-tag-eyelet,
-  .boot-tag-string {
+  .boot-tag-eyelet {
     fill: none;
     stroke: #111;
-    stroke-width: 1.25px;
-    stroke-linecap: round;
+    stroke-width: 1.6px;
     stroke-linejoin: round;
-    vector-effect: non-scaling-stroke;
   }
 
   .boot-tag-outline {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: boot-draw 0.72s var(--ease-out) both;
-  }
-
-  .boot-tag-hole {
-    fill: #f4f4f4;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: boot-draw 0.24s 0.65s var(--ease-out) both;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: boot-draw 0.7s var(--ease-std) both;
   }
 
   .boot-tag-eyelet {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: boot-draw 0.2s 0.68s var(--ease-out) both;
-  }
-
-  .boot-tag-string {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: boot-draw 0.35s 0.4s var(--ease-out) both;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: boot-draw 0.25s 0.45s var(--ease-std) both;
   }
 
   .boot-art-pieces {
-    width: min(90vw, 36rem);
-    margin: 0;
+    position: relative;
+    width: min(62vw, 18.125rem);
+    aspect-ratio: 2 / 3;
+    overflow: visible;
   }
 
-  .boot-piece-fill {
-    fill: #fff;
+  .boot-art-pieces[data-design="soft-power"] {
+    width: min(86vw, 22.5rem);
+    aspect-ratio: 4 / 5;
   }
 
-  .boot-piece-trousers {
-    fill: #d4d4d4;
+  .boot-splash-side {
+    display: contents;
   }
 
-  .boot-piece-tote {
-    fill: #d8cbb7;
+  .boot-mark-pieces,
+  .boot-mark-soft-power {
+    order: 0;
   }
 
-  .boot-piece-shorts {
-    fill: #e4e0d9;
-  }
-
-  .boot-piece-shirt {
-    fill: #f8f6f1;
-  }
-
-  .boot-piece-lines path {
-    fill: none;
-    stroke: #111;
-    stroke-width: 1.1px;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    vector-effect: non-scaling-stroke;
-    animation: boot-draw 0.68s 0.06s var(--ease-out) both;
-  }
-
-  .boot-splash-pin {
-    position: static;
-    width: auto;
-    height: auto;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    transform: none;
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: boot-pop 0.24s 0.78s var(--ease-smooth-out) both;
-  }
-
-  .boot-splash-pin[data-pin="2"] { animation-delay: 0.85s; }
-  .boot-splash-pin[data-pin="3"] { animation-delay: 0.92s; }
-  .boot-splash-pin[data-pin="4"] { animation-delay: 0.99s; }
-
-  .boot-piece-number {
-    fill: #fff;
-  }
-
-  .boot-splash-pin[data-pin="1"] .boot-piece-number {
-    fill: #111;
-  }
-
-  .boot-piece-number-text,
-  .boot-piece-label-text {
-    font-family: var(--font-sans);
-    text-anchor: middle;
-    dominant-baseline: middle;
-  }
-
-  .boot-piece-number-text {
-    fill: #111;
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  .boot-splash-pin[data-pin="1"] .boot-piece-number-text {
-    fill: #fff;
-  }
-
-  .boot-piece-label {
-    fill: rgba(17, 17, 17, 0.62);
-    backdrop-filter: blur(6px);
-  }
-
-  .boot-piece-label-text {
-    fill: #fff;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.01em;
+  .boot-art-pieces {
+    order: 1;
   }
 
   .boot-splash-count {
-    margin: 0.35rem 0 0;
+    order: 2;
+  }
+
+  .boot-art-pieces svg {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .boot-splash-pin {
+    position: absolute;
+    z-index: 1;
+    display: block;
+    width: 28px;
+    height: 28px;
+    margin: -14px 0 0 -14px;
+    border-radius: 50%;
+    background: #fff;
+    color: #111;
+    font: 600 13px/28px var(--font-sans);
+    text-align: center;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+    animation: boot-pop 260ms var(--ease-std) both;
+  }
+
+  .boot-splash-pin[data-pin="1"] {
+    background: #111;
+    color: #fff;
+  }
+
+  .boot-piece-label {
+    position: absolute;
+    z-index: 2;
+    white-space: nowrap;
     border-radius: 999px;
     background: rgba(17, 17, 17, 0.62);
-    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     color: #fff;
-    padding: 0.35rem 0.85rem;
-    font-size: 0.72rem;
+    padding: 7px 11px;
+    font: 500 12px/1 var(--font-sans);
+    transform: translate(22px, -50%);
+    animation: boot-fade 200ms var(--ease-std) both;
+  }
+
+  .boot-piece-label-left {
+    transform: translate(calc(-100% - 22px), -50%);
+  }
+
+  .boot-splash-count {
+    margin: 0;
+    border-radius: 999px;
+    background: rgba(17, 17, 17, 0.62);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    padding: 7px 11px;
+    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.01em;
-    animation: boot-rise 0.25s 0.95s var(--ease-smooth-out) both;
+    line-height: 1;
+    animation: boot-fade 200ms 1000ms var(--ease-std) both;
+  }
+
+  html[data-splash="pieces"] #boot-splash-html,
+  .boot-splash[data-splash="pieces"] {
+    gap: 28px;
+  }
+
+  html[data-splash="soft-power"] #boot-splash-html,
+  .boot-splash[data-splash="soft-power"] {
+    gap: 26px;
   }
 
   .boot-splash-mark {
     width: auto;
-    padding: 0.35rem 0 0;
+    padding: 0;
     text-align: center;
   }
 
   .boot-splash-word {
     color: #111;
     font-family: var(--font-display);
-    font-size: clamp(2.6rem, 11vw, 4.5rem);
+    font-size: clamp(44px, 12vw, 64px);
     font-style: italic;
     font-weight: 500;
-    animation: boot-rise 0.58s 0.08s var(--ease-smooth-out) both;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    animation: boot-fade 150ms var(--ease-std) both;
   }
 
   #boot-splash-html .boot-mark-wordmark .boot-splash-word {
@@ -2610,33 +2588,41 @@ html[data-theme="moss"] {
   }
 
   .boot-mark-tag-draw .boot-splash-word {
-    animation-delay: 0.62s;
+    animation-duration: 400ms;
+    animation-delay: 550ms;
   }
 
   .boot-mark-pieces .boot-splash-word,
   .boot-mark-soft-power .boot-splash-word {
-    font-size: clamp(1.75rem, 7vw, 2.5rem);
-    animation-duration: 0.25s;
-    animation-delay: 0.98s;
+    font-size: clamp(44px, 12vw, 56px);
   }
 
   .boot-wordmark-line {
     display: block;
-    width: min(4.5rem, 30vw);
-    height: 1px;
-    margin: 0.7rem auto 0;
+    width: min(132px, 30vw);
+    height: 1.5px;
+    margin: 0;
     background: #111;
     transform: scaleX(0);
-    transform-origin: center;
-    animation: boot-line 0.38s 0.35s var(--ease-out) both;
+    transform-origin: left;
+    animation: boot-line 600ms 200ms var(--ease-out) both;
+  }
+
+  .boot-mark-wordmark {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
   }
 
   .boot-splash-kicker {
-    margin-top: 0.65rem;
+    margin: 0;
     color: #111;
-    font-size: var(--text-kicker);
+    font-size: 13px;
     font-weight: 500;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.14em;
+    opacity: 0.55;
+    animation: boot-fade 300ms 800ms var(--ease-std) both;
   }
 
   .boot-splash-out {
@@ -2645,8 +2631,14 @@ html[data-theme="moss"] {
   }
 
   @keyframes boot-pop {
-    from { opacity: 0; transform: scale(0.55); }
-    to { opacity: 1; transform: scale(1); }
+    0% { opacity: 0; transform: scale(0.4); }
+    70% { opacity: 1; transform: scale(1.08); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes boot-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   @keyframes boot-line {
@@ -2655,47 +2647,45 @@ html[data-theme="moss"] {
 
   @media (prefers-reduced-motion: reduce) {
     .boot-tag-outline,
-    .boot-tag-hole,
     .boot-tag-eyelet,
-    .boot-tag-string,
-    .boot-piece-lines path,
     .boot-splash-pin,
+    .boot-piece-label,
     .boot-splash-count,
     .boot-splash-word,
     .boot-wordmark-line,
+    .boot-splash-kicker,
     .boot-splash-out {
       animation: none !important;
     }
 
     .boot-tag-outline,
-    .boot-tag-hole,
-    .boot-tag-string,
-    .boot-piece-lines path {
+    .boot-tag-eyelet {
       stroke-dashoffset: 0;
     }
 
     .boot-splash-pin,
+    .boot-piece-label,
     .boot-splash-count,
     .boot-splash-word,
-    .boot-wordmark-line {
+    .boot-wordmark-line,
+    .boot-splash-kicker {
       opacity: 1;
-      transform: none;
     }
   }
 
-  @media (min-width: 768px) {
+  @media (min-width: 768px) and (min-aspect-ratio: 1/1) {
     html[data-splash="pieces"] #boot-splash-html,
     html[data-splash="soft-power"] #boot-splash-html,
     .boot-splash[data-splash="pieces"],
     .boot-splash[data-splash="soft-power"] {
       display: grid;
       grid-template-areas:
-        "word art"
-        ". count";
+        "side art"
+        "side art";
       grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
       align-content: center;
       justify-items: center;
-      gap: 0 2rem;
+      gap: 0 6rem;
       padding-inline: 5vw;
     }
 
@@ -2703,25 +2693,136 @@ html[data-theme="moss"] {
     html[data-splash="soft-power"] #boot-splash-html .boot-mark-soft-power,
     .boot-splash[data-splash="pieces"] .boot-mark-pieces,
     .boot-splash[data-splash="soft-power"] .boot-mark-soft-power {
-      grid-area: word;
+      order: 0;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-splash-side,
+    html[data-splash="soft-power"] #boot-splash-html .boot-splash-side,
+    .boot-splash[data-splash="pieces"] .boot-splash-side,
+    .boot-splash[data-splash="soft-power"] .boot-splash-side {
+      grid-area: side;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
     }
 
     html[data-splash="pieces"] #boot-splash-html .boot-art-pieces,
-    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
-    .boot-splash[data-splash="pieces"] .boot-art-pieces,
-    .boot-splash[data-splash="soft-power"] .boot-art-pieces {
+    .boot-splash[data-splash="pieces"] .boot-art-pieces {
       grid-area: art;
-      width: min(54vw, 48rem);
+      width: auto;
+      height: 70vh;
+      aspect-ratio: 2 / 3;
+      margin: 0;
     }
 
-    html[data-splash="pieces"] #boot-splash-html .boot-splash-count,
-    html[data-splash="soft-power"] #boot-splash-html .boot-splash-count,
-    .boot-splash[data-splash="pieces"] .boot-splash-count,
-    .boot-splash[data-splash="soft-power"] .boot-splash-count {
-      grid-area: count;
-      justify-self: center;
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces {
+      grid-area: art;
+      width: auto;
+      height: 74vh;
+      aspect-ratio: 4 / 5;
+      margin: 0;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-mark-pieces .boot-splash-word,
+    html[data-splash="soft-power"] #boot-splash-html .boot-mark-soft-power .boot-splash-word,
+    .boot-splash[data-splash="pieces"] .boot-mark-pieces .boot-splash-word,
+    .boot-splash[data-splash="soft-power"] .boot-mark-soft-power .boot-splash-word {
+      font-size: clamp(64px, 7vw, 104px);
     }
   }
+
+  @media (min-width: 600px) and (max-aspect-ratio: 1/1) {
+    html[data-splash="pieces"] #boot-splash-html,
+    html[data-splash="soft-power"] #boot-splash-html,
+    .boot-splash[data-splash="pieces"],
+    .boot-splash[data-splash="soft-power"] {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="pieces"] .boot-art-pieces {
+      width: 56vw;
+      height: auto;
+    }
+
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces {
+      width: 68vw;
+      height: auto;
+    }
+
+    html[data-splash="pieces"] #boot-splash-html .boot-mark-pieces .boot-splash-word,
+    html[data-splash="soft-power"] #boot-splash-html .boot-mark-soft-power .boot-splash-word,
+    .boot-splash[data-splash="pieces"] .boot-mark-pieces .boot-splash-word,
+    .boot-splash[data-splash="soft-power"] .boot-mark-soft-power .boot-splash-word {
+      font-size: 88px;
+    }
+  }
+
+  @media (max-height: 700px) and (max-width: 599px) {
+    .boot-splash[data-splash="pieces"],
+    html[data-splash="pieces"] #boot-splash-html {
+      gap: 18px;
+    }
+
+    .boot-splash[data-splash="pieces"] .boot-art-pieces,
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces {
+      width: min(52vw, 260px);
+    }
+
+    .boot-splash[data-splash="soft-power"],
+    html[data-splash="soft-power"] #boot-splash-html {
+      gap: 16px;
+    }
+
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces,
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces {
+      width: min(80vw, 330px);
+      aspect-ratio: 4 / 5;
+    }
+  }
+
+  @media (min-aspect-ratio: 1/1) and (max-width: 767px) {
+    .boot-splash[data-splash="pieces"],
+    html[data-splash="pieces"] #boot-splash-html {
+      flex-direction: row;
+      gap: 28px;
+    }
+
+    .boot-splash[data-splash="pieces"] .boot-splash-side,
+    html[data-splash="pieces"] #boot-splash-html .boot-splash-side,
+    .boot-splash[data-splash="soft-power"] .boot-splash-side,
+    html[data-splash="soft-power"] #boot-splash-html .boot-splash-side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .boot-splash[data-splash="pieces"] .boot-art-pieces,
+    html[data-splash="pieces"] #boot-splash-html .boot-art-pieces {
+      width: auto;
+      height: min(70vh, 70vw);
+    }
+
+    .boot-splash[data-splash="soft-power"],
+    html[data-splash="soft-power"] #boot-splash-html {
+      flex-direction: row;
+      gap: 24px;
+    }
+
+    .boot-splash[data-splash="soft-power"] .boot-art-pieces,
+    html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces {
+      width: auto;
+      height: min(74vh, 74vw);
+      aspect-ratio: 4 / 5;
+    }
+  }
+
 }
 
 @layer base {
@@ -4343,28 +4444,52 @@ html:not(.boot-done) .look-feed-refresh {
 
 .splash-card .boot-art-tag {
   width: 3.2rem;
-  margin-bottom: 0.2rem;
+  height: 2rem;
+  margin: 0;
 }
 
 .splash-card .boot-art-pieces {
-  width: min(100%, 22rem);
+  width: min(100%, 7rem);
   height: auto;
   margin: 0;
 }
 
 .splash-card .boot-splash-pin {
-  position: static;
-  width: auto;
-  height: auto;
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  font-size: 7px;
+  line-height: 14px;
   transform: none;
   animation: none;
   opacity: 1;
 }
 
+.splash-card .boot-piece-label {
+  padding: 3px 5px;
+  font-size: 6px;
+  transform: translate(4px, -50%);
+  animation: none;
+  opacity: 1;
+}
+
+.splash-card .boot-piece-label-left {
+  transform: translate(calc(-100% - 4px), -50%);
+}
+
 .splash-card .boot-splash-count {
-  margin-top: 0.15rem;
+  margin: 0.15rem 0 0;
   padding: 0.2rem 0.6rem;
   font-size: 0.65rem;
+  animation: none;
+  opacity: 1;
+}
+
+.splash-card .boot-splash-kicker {
+  font-size: 0.4rem;
+  animation: none;
+  opacity: 0.55;
 }
 
 .splash-card .boot-wordmark-line {
@@ -4758,7 +4883,8 @@ html[data-chrome="phone"] [data-pin-nudge],
   }
 
   .boot-art-tag {
-    width: min(18vw, 10rem);
+    width: 72px;
+    height: 45px;
   }
 
   .boot-art-pieces {
@@ -4767,10 +4893,13 @@ html[data-chrome="phone"] [data-pin-nudge],
 
   @media (max-width: 899px) {
     html[data-splash="pieces"] #boot-splash-html .boot-art-pieces,
+    .boot-splash[data-splash="pieces"] .boot-art-pieces {
+      width: 56vw;
+    }
+
     html[data-splash="soft-power"] #boot-splash-html .boot-art-pieces,
-    .boot-splash[data-splash="pieces"] .boot-art-pieces,
     .boot-splash[data-splash="soft-power"] .boot-art-pieces {
-      width: min(48vw, 36rem, 61dvh);
+      width: 68vw;
     }
   }
 

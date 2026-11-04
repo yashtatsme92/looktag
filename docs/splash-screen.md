@@ -9,6 +9,7 @@ before building. If the variable is omitted, the generator uses `tag-draw`.
 The generator writes fourteen device-sized images into `public/`; the root document
 links each image to its iPhone or iPad viewport. These images do not change when
 an admin switches the live in-app splash, so regenerate them for that design
-before the corresponding app build/release. The generator embeds the bundled
+before the corresponding app build/release. The checked-in launch images are
+currently generated for `soft-power`. The generator embeds the bundled
 Playfair Display and Figtree font files so launch images use the same type as the
 in-app splash even when external font services are unavailable.
