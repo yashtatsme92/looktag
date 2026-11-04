@@ -6,7 +6,7 @@ import { BOOT_SKIP_KEY, resolveAdminCredentials, resolveOrigin } from "./helpers
 const origin = resolveOrigin();
 const credentials = resolveAdminCredentials();
 const designs = [
-  { id: "wordmark", label: "Wordmark", art: ".boot-art-wordmark", motion: ".boot-wordmark-line" },
+  { id: "wordmark", label: "Wordmark", art: ".boot-splash-word", motion: ".boot-wordmark-line" },
   { id: "tag-draw", label: "Tag draw", art: ".boot-art-tag", motion: ".boot-tag-outline" },
   { id: "pieces", label: "Drawn pieces reveal", art: ".boot-art-pieces", motion: ".boot-piece-lines path" },
   { id: "soft-power", label: "Elegant “soft power”", art: ".boot-art-pieces", motion: ".boot-piece-lines path" },
@@ -58,7 +58,7 @@ async function previewSplash(page, design, viewport) {
       : false;
     return {
       root: document.documentElement.getAttribute("data-splash"),
-      artWidth: art?.getBoundingClientRect().width ?? 0,
+      artWidth: art?.getBoundingClientRect().width ?? el.querySelector(".boot-wordmark-line")?.offsetWidth ?? 0,
       svgWidth: svg?.getBoundingClientRect().width ?? 0,
       background: getComputedStyle(el).backgroundColor,
       pins: el.querySelectorAll(".boot-splash-pin").length,
@@ -129,7 +129,7 @@ async function checkColdStart(browser, design, viewport) {
       root,
       background: getComputedStyle(el).backgroundColor,
       artVisible: root === "wordmark"
-        ? frame?.querySelector(".boot-wordmark-line")?.getBoundingClientRect().width > 0
+        ? frame?.querySelector(".boot-wordmark-line")?.offsetWidth > 0
         : frame?.querySelector(".boot-splash-art")?.getBoundingClientRect().width > 0,
       wordmarkFirst: root === "pieces" || root === "soft-power"
         ? frame?.firstElementChild?.classList.contains("boot-splash-mark")
