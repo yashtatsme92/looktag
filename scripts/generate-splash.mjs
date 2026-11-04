@@ -96,7 +96,7 @@ const html = `<!doctype html>
     @media (min-width: 600px) and (max-aspect-ratio: 1/1) {
       .pieces-design .box { width: 56vw; }
       .soft-power .box { width: 68vw; }
-      .pieces-design .word, .soft-power .word { font-size: 88px; }
+      .wrap .word { font-size: 88px; }
     }
     @media (max-height: 700px) and (max-width: 599px) {
       .pieces-design { gap: 18px; }

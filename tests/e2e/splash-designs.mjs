@@ -20,8 +20,8 @@ const settingsServerFn = Buffer.from(
 const viewports = [
   { width: 390, height: 844 },
   { width: 320, height: 568 },
-  { width: 834, height: 1112 },
-  { width: 1440, height: 900 },
+  { width: 834, height: 1194 },
+  { width: 1280, height: 800 },
 ];
 const browser = await chromium.launch({ headless: true });
 
@@ -66,7 +66,16 @@ async function previewSplash(page, design, viewport) {
     const count = el.querySelector(".boot-splash-count");
     const box = (node) => {
       const rect = node?.getBoundingClientRect();
-      return rect ? { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom } : null;
+      return rect
+        ? {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+          }
+        : null;
     };
     const labelsConnected = [...el.querySelectorAll(".boot-piece-label")].every((label, index) => {
       const pin = el.querySelector(`.boot-splash-pin[data-pin="${index + 1}"]`);
@@ -157,6 +166,13 @@ async function previewSplash(page, design, viewport) {
       assert.equal(rendered.desktopLayout, "grid");
       assert.ok(Number.parseFloat(rendered.wordStyle.fontSize) >= 64);
     }
+    if (viewport.width === 1280 && design.id === "pieces") {
+      assert.ok(Math.abs(rendered.artBox.width - 373) < 2, `pieces width was ${rendered.artBox.width}`);
+      assert.ok(Math.abs(rendered.artBox.height - 560) < 2, `pieces height was ${rendered.artBox.height}`);
+    }
+  }
+  if (viewport.width === 834 && viewport.height === 1194) {
+    assert.equal(rendered.wordStyle.fontSize, "88px");
   }
   if (design.id === "wordmark") {
     assert.ok(Number.parseFloat(rendered.wordStyle.fontSize) >= 44);
@@ -287,6 +303,9 @@ async function checkReducedMotion(page, design) {
         .map((node) => getComputedStyle(node).animationName),
       wordAnimation: word ? getComputedStyle(word).animationName : "",
       wordTransform: word ? getComputedStyle(word).transform : "",
+      lineTransform: el.querySelector(".boot-wordmark-line")
+        ? getComputedStyle(el.querySelector(".boot-wordmark-line")).transform
+        : "",
     };
   }, design.motion);
   assert.equal(motion.animation, "none", `${design.id} artwork animates with reduced motion`);
@@ -294,6 +313,7 @@ async function checkReducedMotion(page, design) {
   assert.ok(motion.remainingAnimations.every((animation) => animation === "none"));
   assert.equal(motion.wordAnimation, "none");
   assert.equal(motion.wordTransform, "none");
+  if (design.id === "wordmark") assert.equal(motion.lineTransform, "none");
   await splash.waitFor({ state: "detached", timeout: 5_000 });
 }
 
