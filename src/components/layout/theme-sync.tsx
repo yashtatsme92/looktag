@@ -1,12 +1,6 @@
 import { useEffect } from "react";
 import { parseThemeId, THEME_STORAGE_KEY, themeColor, type ThemeId } from "@/lib/design/themes";
-import {
-  isCurrentSplashRotation,
-  parseSplashId,
-  readStoredSplash,
-  writeStoredSplash,
-  type SplashId,
-} from "@/lib/pwa/splash";
+import { parseSplashId, writeStoredSplash, type SplashId } from "@/lib/pwa/splash";
 import { useSettingsStore } from "@/lib/settings/store";
 
 function applyTheme(id: ThemeId) {
@@ -23,8 +17,7 @@ function applyTheme(id: ThemeId) {
 }
 
 function applySplash(id: SplashId) {
-  const selected = parseSplashId(id);
-  if (!isCurrentSplashRotation(selected, readStoredSplash())) writeStoredSplash(selected);
+  writeStoredSplash(parseSplashId(id));
 }
 
 export function ThemeSync() {

@@ -8,8 +8,18 @@ const credentials = resolveAdminCredentials();
 const designs = [
   { id: "wordmark", label: "Wordmark", art: ".boot-splash-word", motion: ".boot-wordmark-line" },
   { id: "tag-draw", label: "Tag draw", art: ".boot-art-tag", motion: ".boot-tag-outline" },
-  { id: "pieces", label: "Drawn pieces reveal", art: ".boot-art-pieces", motion: ".boot-splash-pin" },
-  { id: "soft-power", label: "Elegant “soft power”", art: ".boot-art-pieces", motion: ".boot-splash-pin" },
+  {
+    id: "pieces",
+    label: "Drawn pieces reveal",
+    art: ".boot-art-pieces",
+    motion: ".boot-splash-pin",
+  },
+  {
+    id: "soft-power",
+    label: "Elegant “soft power”",
+    art: ".boot-art-pieces",
+    motion: ".boot-splash-pin",
+  },
 ];
 const settingsServerFn = Buffer.from(
   JSON.stringify({
@@ -31,7 +41,10 @@ async function selectSplash(page, label) {
     (await radio.getAttribute("data-state")) === "checked" ||
     (await radio.getAttribute("aria-checked")) === "true";
   if (checked) return;
-  await page.locator(".save-status").waitFor({ state: "detached", timeout: 4_000 }).catch(() => {});
+  await page
+    .locator(".save-status")
+    .waitFor({ state: "detached", timeout: 4_000 })
+    .catch(() => {});
   const saved = page.waitForResponse(
     (response) =>
       response.url().includes(`/_serverFn/${settingsServerFn}`) &&
@@ -41,11 +54,19 @@ async function selectSplash(page, label) {
   await radio.click();
   const response = await saved;
   assert.equal(response.status(), 200);
-  await page.waitForFunction(() => {
-    const status = document.querySelector(".save-status");
-    return status?.textContent?.trim() === "Saved" || status?.classList.contains("is-error");
-  }, null, { timeout: 8_000 });
-  assert.equal(await page.locator(".save-status").textContent(), "Saved", "splash setting failed to save");
+  await page.waitForFunction(
+    () => {
+      const status = document.querySelector(".save-status");
+      return status?.textContent?.trim() === "Saved" || status?.classList.contains("is-error");
+    },
+    null,
+    { timeout: 8_000 },
+  );
+  assert.equal(
+    await page.locator(".save-status").textContent(),
+    "Saved",
+    "splash setting failed to save",
+  );
 }
 
 async function previewSplash(page, design, viewport) {
@@ -87,7 +108,10 @@ async function previewSplash(page, design, viewport) {
     });
     return {
       root: document.documentElement.getAttribute("data-splash"),
-      artWidth: art?.getBoundingClientRect().width ?? el.querySelector(".boot-wordmark-line")?.offsetWidth ?? 0,
+      artWidth:
+        art?.getBoundingClientRect().width ??
+        el.querySelector(".boot-wordmark-line")?.offsetWidth ??
+        0,
       artLeft: art?.getBoundingClientRect().left ?? 0,
       artRight: art?.getBoundingClientRect().right ?? 0,
       svgWidth: svg?.getBoundingClientRect().width ?? 0,
@@ -111,7 +135,9 @@ async function previewSplash(page, design, viewport) {
       trousersFill: svg?.querySelector('[fill="#D4D4D4"]')
         ? getComputedStyle(svg.querySelector('[fill="#D4D4D4"]')).fill
         : "",
-      artworkFills: [...(svg?.querySelectorAll("[fill]") ?? [])].map((node) => node.getAttribute("fill")),
+      artworkFills: [...(svg?.querySelectorAll("[fill]") ?? [])].map((node) =>
+        node.getAttribute("fill"),
+      ),
       kicker: el.querySelector(".boot-splash-kicker")?.textContent?.trim() ?? "",
       desktopLayout: getComputedStyle(el).display,
       wordBox: box(mark),
@@ -127,7 +153,10 @@ async function previewSplash(page, design, viewport) {
   assert.equal(rendered.root, design.id);
   assert.ok(rendered.artWidth > 0, `${design.id} artwork has no width`);
   assert.equal(rendered.background, "rgb(244, 244, 244)");
-  assert.ok(rendered.artLeft >= 0 && rendered.artRight <= viewport.width, `${design.id} artwork overflows viewport`);
+  assert.ok(
+    rendered.artLeft >= 0 && rendered.artRight <= viewport.width,
+    `${design.id} artwork overflows viewport`,
+  );
   assert.equal(rendered.wordStyle.fontFamily.includes("Playfair Display"), true);
   assert.equal(rendered.wordStyle.fontStyle, "italic");
   assert.equal(rendered.wordStyle.fontWeight, "500");
@@ -167,8 +196,14 @@ async function previewSplash(page, design, viewport) {
       assert.ok(Number.parseFloat(rendered.wordStyle.fontSize) >= 64);
     }
     if (viewport.width === 1280 && design.id === "pieces") {
-      assert.ok(Math.abs(rendered.artBox.width - 373) < 2, `pieces width was ${rendered.artBox.width}`);
-      assert.ok(Math.abs(rendered.artBox.height - 560) < 2, `pieces height was ${rendered.artBox.height}`);
+      assert.ok(
+        Math.abs(rendered.artBox.width - 373) < 2,
+        `pieces width was ${rendered.artBox.width}`,
+      );
+      assert.ok(
+        Math.abs(rendered.artBox.height - 560) < 2,
+        `pieces height was ${rendered.artBox.height}`,
+      );
     }
   }
   if (viewport.width === 834 && viewport.height === 1194) {
@@ -187,7 +222,10 @@ async function previewSplash(page, design, viewport) {
     assert.equal(rendered.kicker, "SHOP THE LOOK");
     assert.equal(rendered.svgViewBox, "0 0 64 40");
     assert.equal(rendered.svgWidth, 72);
-    assert.equal(await splash.locator(".boot-art-tag path").getAttribute("d"), "M18 3H59a2 2 0 0 1 2 2v30a2 2 0 0 1-2 2H18L3 20Z");
+    assert.equal(
+      await splash.locator(".boot-art-tag path").getAttribute("d"),
+      "M18 3H59a2 2 0 0 1 2 2v30a2 2 0 0 1-2 2H18L3 20Z",
+    );
   }
   await splash.waitFor({ state: "detached", timeout: 5_000 });
 }
@@ -195,6 +233,15 @@ async function previewSplash(page, design, viewport) {
 async function checkColdStart(browser, design, viewport) {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "looktag-splash-rotation-v1",
+      JSON.stringify({
+        selected: "pieces",
+        last: "soft-power",
+      }),
+    );
+  });
   await page.route("**/*", (route) => {
     const request = route.request();
     if (request.resourceType() === "script" && new URL(request.url()).origin === origin) {
@@ -218,21 +265,29 @@ async function checkColdStart(browser, design, viewport) {
         wordmark &&
         wordmarkBox.width > 0 &&
         wordmarkBox.height > 0 &&
-        getComputedStyle(wordmark).visibility !== "hidden"
+        getComputedStyle(wordmark).visibility !== "hidden",
       ),
       wordmarkWidth: wordmarkBox.width,
       wordmarkOpacity: wordmark ? getComputedStyle(wordmark).opacity : "0",
-      artVisible: root === "wordmark"
-        ? wordmarkBox.width > 0
-        : frame?.querySelector(".boot-splash-art")?.getBoundingClientRect().width > 0,
+      artVisible:
+        root === "wordmark"
+          ? wordmarkBox.width > 0
+          : frame?.querySelector(".boot-splash-art")?.getBoundingClientRect().width > 0,
       artRight: frame?.querySelector(".boot-splash-art")?.getBoundingClientRect().right ?? 0,
       labelsInBounds: [...(frame?.querySelectorAll(".boot-piece-label") ?? [])].every((label) => {
         const bounds = label.getBoundingClientRect();
         return bounds.left >= 0 && bounds.right <= innerWidth;
       }),
-      wordmarkFirst: root === "pieces" || root === "soft-power"
-        ? frame?.querySelector(".boot-splash-side")?.firstElementChild?.classList.contains("boot-splash-mark")
-        : true,
+      rotationKey: localStorage.getItem("looktag-splash-rotation-v1"),
+      startupImages: [...document.querySelectorAll('link[rel="apple-touch-startup-image"]')].map(
+        (link) => ({ href: link.getAttribute("href"), media: link.getAttribute("media") }),
+      ),
+      wordmarkFirst:
+        root === "pieces" || root === "soft-power"
+          ? frame
+              ?.querySelector(".boot-splash-side")
+              ?.firstElementChild?.classList.contains("boot-splash-mark")
+          : true,
     };
   });
   assert.equal(firstPaint.root, design.id);
@@ -244,26 +299,28 @@ async function checkColdStart(browser, design, viewport) {
   assert.ok(firstPaint.artRight <= viewport.width);
   assert.equal(firstPaint.labelsInBounds, true);
   assert.equal(firstPaint.wordmarkFirst, true);
-
-  if (design.id === "wordmark") {
-    const startupLinks = await page.locator('link[rel="apple-touch-startup-image"]').evaluateAll((links) =>
-      links.map((link) => ({ href: link.getAttribute("href"), media: link.getAttribute("media") })),
-    );
-    assert.equal(startupLinks.length, 14);
-    assert.ok(startupLinks.every((link) => link.media.includes("orientation: portrait")));
-    const imageSizes = await page.evaluate(async (links) => Promise.all(links.map(async ({ href }) => {
-      const response = await fetch(href);
-      const bytes = new DataView(await response.arrayBuffer());
-      return {
-        href,
-        width: bytes.getUint32(16),
-        height: bytes.getUint32(20),
-      };
-    })), startupLinks);
-    for (const image of imageSizes) {
-      assert.equal(image.href, `/splash-${image.width}x${image.height}.png`);
-    }
-    assert.ok(!startupLinks.some(({ href }) => href === "/splash-2048.png"));
+  assert.equal(firstPaint.rotationKey, null);
+  assert.equal(firstPaint.startupImages.length, 14);
+  assert.ok(
+    firstPaint.startupImages.every(
+      ({ href, media }) =>
+        href.startsWith(`/splash/${design.id}-`) && media.includes("orientation: portrait"),
+    ),
+  );
+  const imageSizes = await page.evaluate(
+    async (links) =>
+      Promise.all(
+        links.map(async ({ href }) => {
+          const response = await fetch(href);
+          const bytes = new DataView(await response.arrayBuffer());
+          return { href, ok: response.ok, width: bytes.getUint32(16), height: bytes.getUint32(20) };
+        }),
+      ),
+    firstPaint.startupImages,
+  );
+  for (const image of imageSizes) {
+    assert.equal(image.ok, true, `missing startup image ${image.href}`);
+    assert.equal(image.href, `/splash/${design.id}-${image.width}x${image.height}.png`);
   }
 
   await page.evaluate((key) => sessionStorage.setItem(key, "done"), BOOT_SKIP_KEY);
@@ -276,14 +333,37 @@ async function checkColdStart(browser, design, viewport) {
 
   const appContext = await browser.newContext({ viewport });
   const appPage = await appContext.newPage();
+  await appPage.addInitScript(() => {
+    localStorage.setItem(
+      "looktag-splash-rotation-v1",
+      JSON.stringify({
+        selected: "pieces",
+        last: "soft-power",
+      }),
+    );
+  });
   const startedAt = Date.now();
   await appPage.goto(origin, { waitUntil: "domcontentloaded" });
+  assert.equal(await appPage.locator("html").getAttribute("data-splash"), design.id);
+  assert.equal(
+    await appPage.evaluate(() => localStorage.getItem("looktag-splash-rotation-v1")),
+    null,
+  );
+  assert.ok(
+    (
+      await appPage.locator('link[rel="apple-touch-startup-image"]').first().getAttribute("href")
+    ).startsWith(`/splash/${design.id}-`),
+  );
   const splash = appPage.locator(`.boot-splash[data-boot][data-splash="${design.id}"]`);
   await splash.waitFor({ timeout: 10_000 });
   await splash.waitFor({ state: "detached", timeout: 12_000 });
   assert.ok(Date.now() - startedAt >= 1_200, `${design.id} ended before its animation cycle`);
   await appPage.reload({ waitUntil: "domcontentloaded" });
-  assert.equal(await appPage.locator(".boot-splash[data-boot]").count(), 0, `${design.id} replayed`);
+  assert.equal(
+    await appPage.locator(".boot-splash[data-boot]").count(),
+    0,
+    `${design.id} replayed`,
+  );
   await appContext.close();
 }
 
@@ -299,8 +379,9 @@ async function checkReducedMotion(page, design) {
     return {
       animation: art ? getComputedStyle(art).animationName : "",
       dashOffset: art ? getComputedStyle(art).strokeDashoffset : "",
-      remainingAnimations: [...el.querySelectorAll(".boot-splash-pin, .boot-piece-label, .boot-splash-count")]
-        .map((node) => getComputedStyle(node).animationName),
+      remainingAnimations: [
+        ...el.querySelectorAll(".boot-splash-pin, .boot-piece-label, .boot-splash-count"),
+      ].map((node) => getComputedStyle(node).animationName),
       wordAnimation: word ? getComputedStyle(word).animationName : "",
       wordTransform: word ? getComputedStyle(word).transform : "",
       lineTransform: el.querySelector(".boot-wordmark-line")
@@ -332,15 +413,18 @@ async function checkRouteReadiness(browser, path) {
 
 async function rejectUnknownSplash(page) {
   const body = JSON.stringify(toJSON({ data: { splashId: "neon" }, context: {} }));
-  const status = await page.evaluate(async ({ fn, body }) => {
-    const response = await fetch(`/_serverFn/${fn}`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "content-type": "application/json", "x-tsr-serverfn": "true" },
-      body,
-    });
-    return response.status;
-  }, { fn: settingsServerFn, body });
+  const status = await page.evaluate(
+    async ({ fn, body }) => {
+      const response = await fetch(`/_serverFn/${fn}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json", "x-tsr-serverfn": "true" },
+        body,
+      });
+      return response.status;
+    },
+    { fn: settingsServerFn, body },
+  );
   assert.equal(status, 400, "unknown splash id must be rejected");
 }
 
@@ -351,9 +435,9 @@ try {
     waitUntil: "domcontentloaded",
   });
   await page.locator("form[data-hydrated='true']").waitFor({ timeout: 10_000 });
-  await page.locator("#creator-email").fill(
-    credentials.email.toLowerCase() === "hello@thelooktag.com" ? "admin" : credentials.email,
-  );
+  await page
+    .locator("#creator-email")
+    .fill(credentials.email.toLowerCase() === "hello@thelooktag.com" ? "admin" : credentials.email);
   await page.locator("#creator-password").fill(credentials.password);
   await page.locator("form").getByRole("button", { name: "Sign in with email" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/admin"), { timeout: 20_000 });
@@ -386,7 +470,11 @@ try {
   await rejectUnknownSplash(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.locator("html.boot-react").waitFor({ timeout: 10_000 });
-  assert.equal(await page.locator(".boot-splash[data-boot]").count(), 0, "splash replayed after reload");
+  assert.equal(
+    await page.locator(".boot-splash[data-boot]").count(),
+    0,
+    "splash replayed after reload",
+  );
   const tagDraw = page.getByRole("radio", { name: "Tag draw" });
   await tagDraw.waitFor({ timeout: 10_000 });
   assert.ok(

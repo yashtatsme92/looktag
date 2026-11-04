@@ -4,9 +4,6 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const SPLASH_DESIGNS = ["wordmark", "tag-draw", "pieces", "soft-power"];
-const selectedDesign = SPLASH_DESIGNS.includes(process.env.LOOKTAG_SPLASH_DESIGN)
-  ? process.env.LOOKTAG_SPLASH_DESIGN
-  : "tag-draw";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const outDir = `${root}public/`;
 const fontData = (name) => readFileSync(`${outDir}fonts/${name}`).toString("base64");
@@ -36,36 +33,43 @@ const pieces = (elegant) => {
         ],
       };
   const boxClass = elegant ? "soft-power" : "pieces";
-  return `<div class="box ${boxClass}">${design.svg}${design.positions.map(([left, top, direction], i) => `
+  return `<div class="box ${boxClass}">${design.svg}${design.positions
+    .map(
+      ([left, top, direction], i) => `
     <span class="pin ${i === 0 ? "first" : ""}" style="left:${left}%;top:${top}%">${i + 1}</span>
-    <span class="pill ${direction === "left" ? "left" : ""}" style="left:${left}%;top:${top}%">${design.labels[i]}</span>`).join("")}
+    <span class="pill ${direction === "left" ? "left" : ""}" style="left:${left}%;top:${top}%">${design.labels[i]}</span>`,
+    )
+    .join("")}
   </div>`;
 };
 
-const art = {
-  wordmark: '<div class="rule"></div>',
-  "tag-draw": `<svg class="tag" viewBox="0 0 64 40" width="72" height="45" fill="none" stroke="#111" stroke-width="1.6" stroke-linejoin="round">
+function createHtml(selectedDesign) {
+  const art = {
+    wordmark: '<div class="rule"></div>',
+    "tag-draw": `<svg class="tag" viewBox="0 0 64 40" width="72" height="45" fill="none" stroke="#111" stroke-width="1.6" stroke-linejoin="round">
     <path d="M18 3H59a2 2 0 0 1 2 2v30a2 2 0 0 1-2 2H18L3 20Z" />
     <circle cx="17" cy="20" r="3.2" />
   </svg>`,
-  pieces: pieces(false),
-  "soft-power": pieces(true),
-};
-const word = '<p class="word">Looktag</p>';
-const className = selectedDesign === "wordmark"
-  ? "wordmark"
-  : selectedDesign === "tag-draw"
-    ? "tag-draw"
-    : selectedDesign === "pieces"
-      ? "pieces-design"
-      : "soft-power";
-const content = selectedDesign === "wordmark"
-  ? `<div class="mark">${word}${art.wordmark}</div>`
-  : selectedDesign === "tag-draw"
-    ? `<div class="art">${art[selectedDesign]}</div><div class="mark">${word}</div><p class="kicker">SHOP THE LOOK</p>`
-    : `<div class="side">${word}<p class="count">4 pieces tagged</p></div>${art[selectedDesign]}`;
+    pieces: pieces(false),
+    "soft-power": pieces(true),
+  };
+  const word = '<p class="word">Looktag</p>';
+  const className =
+    selectedDesign === "wordmark"
+      ? "wordmark"
+      : selectedDesign === "tag-draw"
+        ? "tag-draw"
+        : selectedDesign === "pieces"
+          ? "pieces-design"
+          : "soft-power";
+  const content =
+    selectedDesign === "wordmark"
+      ? `<div class="mark">${word}${art.wordmark}</div>`
+      : selectedDesign === "tag-draw"
+        ? `<div class="art">${art[selectedDesign]}</div><div class="mark">${word}</div><p class="kicker">SHOP THE LOOK</p>`
+        : `<div class="side">${word}<p class="count">4 pieces tagged</p></div>${art[selectedDesign]}`;
 
-const html = `<!doctype html>
+  const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
@@ -127,6 +131,8 @@ const html = `<!doctype html>
   <script>document.fonts.load('500 italic 140px Playfair');document.fonts.load('500 20px Figtree');</script>
 </body>
 </html>`;
+  return html;
+}
 
 const sizes = [
   { w: 1170, h: 2532, scale: 3, name: "splash-1170x2532.png" },
@@ -146,6 +152,7 @@ const sizes = [
 ];
 
 mkdirSync(outDir, { recursive: true });
+mkdirSync(`${outDir}splash/`, { recursive: true });
 const strayImage = `${outDir}splash-2048.png`;
 if (existsSync(strayImage)) unlinkSync(strayImage);
 
@@ -154,22 +161,28 @@ const browser = await chromium.launch({
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
 });
 
-for (const size of sizes) {
-  const page = await browser.newPage({
-    viewport: { width: size.w / size.scale, height: size.h / size.scale },
-    deviceScaleFactor: size.scale,
-  });
-  await page.setContent(html, { waitUntil: "domcontentloaded" });
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    if (!document.fonts.check('500 italic 140px Playfair') || !document.fonts.check("500 20px Figtree")) {
-      throw new Error("Splash fonts did not load");
-    }
-  });
-  const buf = await page.screenshot({ type: "png", scale: "device" });
-  writeFileSync(`${outDir}${size.name}`, buf);
-  await page.close();
+for (const design of SPLASH_DESIGNS) {
+  const html = createHtml(design);
+  for (const size of sizes) {
+    const page = await browser.newPage({
+      viewport: { width: size.w / size.scale, height: size.h / size.scale },
+      deviceScaleFactor: size.scale,
+    });
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      if (
+        !document.fonts.check("500 italic 140px Playfair") ||
+        !document.fonts.check("500 20px Figtree")
+      ) {
+        throw new Error("Splash fonts did not load");
+      }
+    });
+    const buf = await page.screenshot({ type: "png", scale: "device" });
+    writeFileSync(`${outDir}splash/${design}-${size.name.replace("splash-", "")}`, buf);
+    await page.close();
+  }
 }
 
 await browser.close();
-console.log(`splash images written to public/ for ${selectedDesign}`);
+console.log(`splash images written to public/splash/ for ${SPLASH_DESIGNS.join(", ")}`);

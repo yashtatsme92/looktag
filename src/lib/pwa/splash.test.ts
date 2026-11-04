@@ -3,20 +3,20 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_SPLASH,
   EARLY_CHROME_SCRIPT,
-  nextSplashId,
   parseSplashId,
-  resolveSplashRotation,
   resolveBootSplash,
   SPLASH_OPTIONS,
   SPLASH_IDS,
-  SPLASH_ROTATION_KEY,
 } from "./splash.ts";
 
 describe("parseSplashId", () => {
   it("keeps every studio plate", () => {
     for (const id of SPLASH_IDS) assert.equal(parseSplashId(id), id);
     assert.deepEqual(SPLASH_IDS, ["wordmark", "tag-draw", "pieces", "soft-power"]);
-    assert.deepEqual(SPLASH_OPTIONS.map(({ id }) => id), [...SPLASH_IDS]);
+    assert.deepEqual(
+      SPLASH_OPTIONS.map(({ id }) => id),
+      [...SPLASH_IDS],
+    );
   });
 
   it("falls back to Tag draw for unknown values", () => {
@@ -68,28 +68,10 @@ describe("resolveBootSplash", () => {
   });
 });
 
-describe("splash rotation", () => {
-  it("starts from the admin selection and cycles round-robin", () => {
-    assert.equal(resolveSplashRotation("pieces", null), "pieces");
-    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "pieces" }), "soft-power");
-    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "soft-power" }), "wordmark");
-    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "wordmark" }), "tag-draw");
-    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "tag-draw" }), "pieces");
-    assert.equal(nextSplashId("soft-power"), "wordmark");
-  });
-
-  it("restarts at a changed admin selection and ignores invalid stored rotation", () => {
-    assert.equal(resolveSplashRotation("wordmark", { selected: "pieces", last: "soft-power" }), "wordmark");
-    assert.equal(resolveSplashRotation("pieces", { selected: "pieces", last: "neon" }), "pieces");
-  });
-});
-
 describe("early chrome script", () => {
-  it("rotates the server selection before first paint and skips share/replayed routes", () => {
+  it("restores the theme without changing the server splash selection", () => {
     assert.match(EARLY_CHROME_SCRIPT, /looktag-theme-v1/);
-    assert.match(EARLY_CHROME_SCRIPT, new RegExp(SPLASH_ROTATION_KEY));
-    assert.match(EARLY_CHROME_SCRIPT, /sessionStorage\.getItem\("looktag-boot-v1"\)/);
-    assert.match(EARLY_CHROME_SCRIPT, /var share=/);
-    assert.match(EARLY_CHROME_SCRIPT, /setAttribute\("data-splash",shown\)/);
+    assert.match(EARLY_CHROME_SCRIPT, /removeItem\("looktag-splash-rotation-v1"\)/);
+    assert.doesNotMatch(EARLY_CHROME_SCRIPT, /data-splash|setItem\("looktag-splash-rotation-v1"/);
   });
 });
