@@ -6,7 +6,9 @@ import {
   buildTraceGraphs,
   createTraceFilter,
   filterGraphs,
+  layoutOperationGraph,
   layoutTraceGraph,
+  spanDepths,
   parseFiltersJson,
   spanMatchesFilter,
   DEFAULT_FILTERS,
@@ -134,5 +136,27 @@ describe("admin filters", () => {
       ),
       true,
     );
+  });
+});
+
+describe("cyclic graphs", () => {
+  it("lays out cyclic operation edges without overflowing the stack", () => {
+    const names = Array.from({ length: 3000 }, (_, i) => `op${i}`);
+    const nodes = names.map((name) => ({ name, count: 1, errors: 0, p95Ms: 1 }));
+    const edges = names.map((name, i) => ({ from: name, to: names[(i + 1) % names.length] }));
+    const layout = layoutOperationGraph({ nodes, edges } as never);
+    assert.equal(layout.nodes.length, 3000);
+  });
+
+  it("computes span depths for cyclic trace edges", () => {
+    const nodes = ["a", "b", "c"].map((id) => ({ id })) as never;
+    const edges = [
+      { from: "a", to: "b" },
+      { from: "b", to: "c" },
+      { from: "c", to: "b" },
+    ];
+    const depths = spanDepths({ nodes, edges, rootIds: ["a"] } as never);
+    assert.equal(depths.get("a"), 0);
+    assert.ok((depths.get("c") ?? 99) <= 2);
   });
 });
