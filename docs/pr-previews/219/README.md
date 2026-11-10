@@ -2,7 +2,7 @@
 
 Homepage after migration (WebP srcset, boot splash skipped, no scroll). Phone 390×844, tablet 834×1194, desktop 1280×800.
 
-Live `https://thelooktag.com` (current main, full `/looks` JPEGs from Render), same no-scroll measurement:
+Live `https://thelooktag.com` before #218's deploy (full `/looks` JPEGs from Render), same no-scroll measurement:
 
 | Viewport | Before total | Before images | After total | After images |
 | --- | ---: | ---: | ---: | ---: |
