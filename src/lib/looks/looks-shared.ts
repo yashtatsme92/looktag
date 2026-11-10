@@ -6,6 +6,7 @@ import { lookStats, rankScore, type RankWeights } from "./rank";
 import { normalizeLookTags } from "./offers";
 import type { CropRect } from "./crop";
 import { SEED_LOOKS } from "./seed";
+import { parseStoredLookImages, toPublicImages } from "./image-variants";
 import { recordRepoSeedLedger } from "./seed-ledger";
 import { ensureFashionLabels } from "@/lib/labels/api";
 
@@ -40,6 +41,7 @@ export type LookRow = {
   caption: string;
   creator_name: string;
   image_src: string;
+  image_variants_json?: string | null;
   moods_json: string;
   tags_json: string;
   created_at: number;
@@ -88,6 +90,7 @@ export function parseLook(row: LookRow): Look {
   } catch {
     crop = undefined;
   }
+  const storedImages = parseStoredLookImages(row.image_variants_json);
   return normalizeLookTags({
     id: row.id,
     userId: row.user_id,
@@ -95,6 +98,7 @@ export function parseLook(row: LookRow): Look {
     caption: row.caption,
     creator: row.creator_name,
     imageSrc: row.image_src,
+    images: storedImages ? toPublicImages(storedImages) : undefined,
     crop,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
@@ -271,7 +275,7 @@ export async function creatorPayload(sql: Sql, userId: string, weights: RankWeig
   const profile = profiles[0];
   if (!profile) return null;
   const lookRows = await sql<LookRow>`
-    select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+    select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
            created_at, updated_at, collection_id, crop_json
     from looks
     where published = true and user_id = ${userId}

@@ -34,6 +34,31 @@ const productTagSchema = z.object({
   styleId: z.string().optional(),
 });
 
+export const lookImagesSchema = z.object({
+  thumb: z.string(),
+  card: z.string(),
+  detail: z.string(),
+  jpeg: z.object({
+    thumb: z.string(),
+    card: z.string(),
+    detail: z.string(),
+  }),
+  avif: z
+    .object({
+      thumb: z.string(),
+      card: z.string(),
+      detail: z.string(),
+    })
+    .optional(),
+  width: z.number(),
+  height: z.number(),
+  srcWidth: z.object({
+    thumb: z.number(),
+    card: z.number(),
+    detail: z.number(),
+  }),
+});
+
 export const lookResponseSchema = z.object({
   id: lookIdSchema,
   userId: z.string(),
@@ -41,6 +66,7 @@ export const lookResponseSchema = z.object({
   caption: z.string(),
   creator: z.string(),
   imageSrc: z.string(),
+  images: lookImagesSchema.optional(),
   crop: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).optional(),
   createdAt: z.number(),
   updatedAt: z.number(),

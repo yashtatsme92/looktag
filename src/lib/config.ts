@@ -144,6 +144,54 @@ export const INTEGRATIONS = [
     required: false,
     fallback: "true",
   },
+  {
+    env: "STORAGE_PROVIDER",
+    role: "Look photo store: local, s3, or r2. r2 uses the S3 adapter.",
+    required: false,
+    fallback: "local",
+  },
+  {
+    env: "S3_ENDPOINT",
+    role: "S3-compatible endpoint. Required for Cloudflare R2.",
+    required: false,
+    fallback: "AWS regional endpoint when STORAGE_PROVIDER=s3",
+  },
+  {
+    env: "S3_BUCKET",
+    role: "Bucket that holds look photo derivatives.",
+    required: false,
+    fallback: "looktag-photos",
+  },
+  {
+    env: "S3_ACCESS_KEY_ID",
+    role: "S3/R2 access key. Unused when STORAGE_PROVIDER=local.",
+    required: false,
+    fallback: "local disk",
+  },
+  {
+    env: "S3_SECRET_ACCESS_KEY",
+    role: "S3/R2 secret key. Unused when STORAGE_PROVIDER=local.",
+    required: false,
+    fallback: "local disk",
+  },
+  {
+    env: "S3_REGION",
+    role: "S3 signing region. Use auto for R2.",
+    required: false,
+    fallback: "auto",
+  },
+  {
+    env: "STORAGE_PUBLIC_BASE_URL",
+    role: "Public origin for look photos, for example https://img.thelooktag.com.",
+    required: false,
+    fallback: "/storage on local",
+  },
+  {
+    env: "LOOK_IMAGE_AVIF",
+    role: "Set to 1 to also store AVIF derivatives. Off keeps upload and backfill on WebP and JPEG.",
+    required: false,
+    fallback: "off",
+  },
 ] as const satisfies readonly Integration[];
 
 export const MIGRATIONS_DIR = "migrations";

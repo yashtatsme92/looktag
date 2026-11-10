@@ -3,7 +3,7 @@ import { s3Storage } from "./s3.ts";
 import type { ObjectStorage, StorageProviderName, StoredObject } from "./types.ts";
 import { unknownProvider } from "../unknown.ts";
 
-export type { ObjectStorage, StorageProviderName, StoredObject } from "./types.ts";
+export type { ObjectStorage, PutOptions, StorageProviderName, StoredObject } from "./types.ts";
 
 type Env = { STORAGE_PROVIDER?: string; APP_ENV?: string };
 

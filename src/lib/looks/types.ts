@@ -1,4 +1,5 @@
 import type { CropRect } from "./crop";
+import type { LookImages } from "./image-variants";
 
 export const EDITORIAL_USER_ID = "editorial";
 
@@ -35,6 +36,8 @@ export type Look = {
   caption: string;
   creator: string;
   imageSrc: string;
+  /** Sized WebP/JPEG URLs when the photo lives in object storage. */
+  images?: LookImages;
   crop?: CropRect;
   createdAt: number;
   updatedAt: number;

@@ -1,8 +1,8 @@
-import type { ObjectStorage, StoredObject } from "./types";
+import type { ObjectStorage, PutOptions, StoredObject } from "./types";
 
 type S3Module = {
   S3Client: new (config: Record<string, unknown>) => {
-    send: (command: unknown) => Promise<{ Body?: AsyncIterable<Uint8Array>; ContentType?: string }>;
+    send: (command: unknown) => Promise<{ Body?: AsyncIterable<Uint8Array>; ContentType?: string; CacheControl?: string }>;
   };
   PutObjectCommand: new (input: Record<string, unknown>) => unknown;
   GetObjectCommand: new (input: Record<string, unknown>) => unknown;
@@ -45,7 +45,7 @@ export function s3Storage(): ObjectStorage {
   }
 
   return {
-    async put(key, body, contentType) {
+    async put(key, body, contentType, options?: PutOptions) {
       const mod = await loadSdk();
       const s3 = await client();
       await s3.send(
@@ -54,6 +54,7 @@ export function s3Storage(): ObjectStorage {
           Key: key,
           Body: body,
           ContentType: contentType,
+          CacheControl: options?.cacheControl,
         }),
       );
     },
@@ -71,7 +72,7 @@ export function s3Storage(): ObjectStorage {
           body.set(chunk, offset);
           offset += chunk.byteLength;
         }
-        return { body, contentType: result.ContentType };
+        return { body, contentType: result.ContentType, cacheControl: result.CacheControl };
       } catch {
         return null;
       }

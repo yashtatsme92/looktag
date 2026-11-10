@@ -93,7 +93,7 @@ export const getFashionLabel = createServerFn({ method: "GET" })
         const owner = label.ownerUserId ?? "";
         const looks = await withSpan("looktag.houses.looks", async (child) => {
           const lookRows = await sql<LookRow>`
-            select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+            select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
                    created_at, updated_at, collection_id
             from looks
             where published = true
@@ -175,7 +175,7 @@ export const getFashionCollection = createServerFn({ method: "GET" })
         if (!collection) return null;
         span.setAttribute("looktag.collection.slug", collection.slug);
         const lookRows = await sql<LookRow>`
-          select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+          select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
                  created_at, updated_at, collection_id
           from looks
           where published = true and collection_id = ${collection.id}
@@ -222,7 +222,7 @@ export const listRankedLabels = createServerFn({ method: "GET" }).handler(async 
       from fashion_labels
     `;
     const lookRows = await sql<LookRow>`
-      select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+      select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
              created_at, updated_at, collection_id
       from looks
       where published = true and user_id <> ${EDITORIAL_USER_ID}

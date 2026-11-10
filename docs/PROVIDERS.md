@@ -24,11 +24,21 @@ Production on in-memory PGLite exits when the server boots unless `LOOKTAG_ALLOW
 
 ## storage
 
-Interface: `put`, `get`, `delete`, `publicUrl`. Not wired to photo upload.
+Interface: `put(key, body, contentType, { cacheControl })`, `get`, `delete`, `publicUrl`. Look photos go through this interface on upload and in the backfill script. No vendor SDK is imported outside `s3.ts`.
 
-Adapters: `local.ts` (`.data/storage`) and `s3.ts` (S3-compatible, including R2 via `S3_ENDPOINT`). The AWS SDK loads only when `s3` or `r2` is selected.
+Adapters: `local.ts` (`.data/storage`, served at `/storage` by the Vite dev server and by `server/middleware/local-storage.ts` in production) and `s3.ts` (S3-compatible, including Cloudflare R2 via `S3_ENDPOINT`). The AWS SDK loads only when `s3` or `r2` is selected.
 
-Env: `STORAGE_PROVIDER=local|s3|r2` (default `local`). `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET` (default `looktag-photos`), `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `STORAGE_PUBLIC_BASE_URL`.
+Each published look stores thumb (~200px), card (~600px) and detail (~1200px) derivatives, WebP plus a JPEG fallback. AVIF is written only when `LOOK_IMAGE_AVIF=1`. Keys are `looks/{hash of the look id}/{content hash}/{size}.{ext}` — the look id is not in the URL — with `Cache-Control: public, max-age=31536000, immutable`. The original file is not kept. `image_src` is the detail JPEG. `/api/v1/looks` and `/api/v1/looks/:id` also return `images.thumb`, `images.card` and `images.detail` (WebP) plus `images.jpeg`. Unpublished rows are not uploaded. Deleting a look deletes its objects.
+
+Env: `STORAGE_PROVIDER=local|s3|r2` (default `local`). `S3_ENDPOINT`, `S3_REGION` (`auto` on R2), `S3_BUCKET` (default `looktag-photos`), `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `STORAGE_PUBLIC_BASE_URL` (public origin such as `https://img.thelooktag.com`, no trailing slash). `LOOK_IMAGE_AVIF=1` also writes AVIF.
+
+Backfill (requires `DATABASE_URL`; seed JPEGs are read from `public/looks`):
+
+1. Deploy this release first, so `migrations/0017_look_image_variants.sql` has run, then restart after the storage env vars are set.
+2. `node --experimental-strip-types scripts/migrate-look-photos.mjs --dry-run`
+3. `node --experimental-strip-types scripts/migrate-look-photos.mjs`
+4. Copy `.data/look-photo-migration-backup.json` off the machine.
+5. `node --experimental-strip-types scripts/migrate-look-photos.mjs --rollback` only if the feed looks wrong.
 
 ## errors
 
