@@ -110,7 +110,7 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 | `CONTACT_EMAIL` | Footer Contact link and legal pages | Optional | `hello@thelooktag.com` |
 | `FOOTER_LINKS_ENABLED` | Footer link ids to force on, comma-separated | Optional | Empty: every link off |
 | `FOOTER_INSTAGRAM_URL` / `FOOTER_TIKTOK_URL` / `FOOTER_X_URL` | Social profile URLs; a social link never renders without one | Optional | Hidden |
-| `SITE_REDIRECT_TO_CANONICAL` | `1` = 301 other hosts to `APP_URL` (auth on `TRUSTED_ORIGINS` exempt) | Optional | Off |
+| `SITE_REDIRECT_TO_CANONICAL` | `1` = 301 other hosts to `APP_URL` (`/api/*` and auth on `TRUSTED_ORIGINS` stay). Set this to `1` on Render after merge | Optional | Off |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Traces / metrics / logs | Optional | Signals page only |
 | `LOOKTAG_NATIVE_URL` | Hosted origin for the Capacitor shell | Optional | Local `public/` |
 | `VITE_AUTH_ENABLED` | Account sign-in (via `.grok/app-env.json`) | Optional | `true` |

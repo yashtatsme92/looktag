@@ -12,7 +12,7 @@ is env-driven — nothing in `src/` names a host or a hosting provider.
 | `TRUSTED_ORIGINS` | `https://looktag.onrender.com` (old host keeps signing in; drop it later) |
 | `CONTACT_EMAIL` | `hello@thelooktag.com` |
 | `FOOTER_LINKS_ENABLED` | *(empty)* — every footer link off at launch |
-| `SITE_REDIRECT_TO_CANONICAL` | *(unset)* for now; `1` later to 301 the old host to `APP_URL` |
+| `SITE_REDIRECT_TO_CANONICAL` | Set to `1` on Render after the bandwidth change merges. Until then the old host still serves the site. |
 
 Sign-in origin check: Better Auth trusts `BETTER_AUTH_URL`, `APP_URL`,
 every `TRUSTED_ORIGINS` entry and the local dev origins. Before this change it
@@ -40,19 +40,23 @@ staging and confirm the `redirect_uri` host is `thelooktag.com`.
 serves TLS for both names and 301s `www` to the apex. Mail is Zoho
 (MX / SPF / DKIM) — do not touch those records.
 
+## Canonical redirect
+
+`SITE_REDIRECT_TO_CANONICAL=1` 301s any non-`APP_URL` host (including `looktag.onrender.com`) to `https://thelooktag.com`, keeping the path and query. The owner sets that variable on the Render service **after this change is merged**. It is not set in production yet, so merging alone does not start the redirect.
+
+While it is on:
+
+- `localhost`, `127.0.0.1` and the canonical host are never redirected.
+- Every `/api/*` path stays on the host that was asked, so `/api/version`, `/api/auth/ok` and auth callbacks keep working. Render's health check succeeds on a `2xx` or `3xx` (see Render's health check docs). A check aimed at `/api/auth/ok` or `/api/version` stays `200`. A check aimed at `/` on the old host is a `301`, which Render still counts as healthy.
+- Auth routes on a `TRUSTED_ORIGINS` host are also exempt.
+
 ## Plain HTTP (F4)
 
-`curl -I http://thelooktag.com/` returned `500` with `Server: Pingora` and an
-empty body on all three hosts (including the old one) on 2026-10-31. That is
-the host's edge, not the app: the app never sees a plain-HTTP request on this
-host (TLS ends at the edge), and the Node server answers `http://` locally
-without error. Fix it in the host's settings (enable the HTTP→HTTPS
-redirect for the custom domains, or re-save the domains so the edge
-re-provisions the redirect) and recheck with `curl -I`. No host-specific code
-was added.
+Rechecked 2026-11-10: `curl -I http://thelooktag.com/` is `301` to `https://thelooktag.com/` from Cloudflare (`Server: cloudflare`), and `http://looktag.onrender.com/` is `301` to `https://looktag.onrender.com/`. HTTPS on both hosts is `200` from the app (`x-render-origin-server: Render`). The earlier `500` (`Server: Pingora`, empty body, 2026-10-31) was the host edge, not this app, and it is not the response anymore.
 
-The app now sends `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-on HTTPS responses whenever `APP_URL` is `https://…`.
+The app still never sees a plain-HTTP request for these hosts: TLS and the HTTP→HTTPS redirect both end at the edge. Nothing in the app special-cases the host. The Node server answers `http://` locally without error.
+
+The app sends `Strict-Transport-Security: max-age=31536000; includeSubDomains` on HTTPS responses whenever `APP_URL` is `https://…`.
 
 ## Health check
 

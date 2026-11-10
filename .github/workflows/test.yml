@@ -57,6 +57,7 @@ jobs:
           GOOGLE_EXPECT=off BASE_URL=http://127.0.0.1:8080 npm run test:e2e:google
           BASE_URL=http://127.0.0.1:8080 npm run test:e2e:splash
           npm run test:e2e:guest
+          node tests/e2e/feed-bandwidth.mjs
           npm run test:e2e:aspect
           npm run test:e2e:create-phone
           npm run test:e2e:ios-standalone
