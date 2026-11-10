@@ -37,6 +37,38 @@ describe("isSameSiteAllowed", () => {
     assert.equal(isSameSiteAllowed(headers, "POST"), true);
   });
 
+  it("allows guest and same-origin cookie reads but blocks scripted cross-site cookie reads", () => {
+    assert.equal(isSameSiteAllowed(new Headers(), "GET"), true);
+    assert.equal(
+      isSameSiteAllowed(
+        new Headers({ cookie: "session=valid", "sec-fetch-site": "same-origin" }),
+        "GET",
+      ),
+      true,
+    );
+    assert.equal(
+      isSameSiteAllowed(
+        new Headers({ cookie: "session=valid", "sec-fetch-site": "cross-site", "sec-fetch-mode": "cors" }),
+        "GET",
+      ),
+      false,
+    );
+  });
+
+  it("keeps forged bearer requests exempt from the same-site guard", () => {
+    assert.equal(
+      isSameSiteAllowed(
+        new Headers({
+          cookie: "session=valid",
+          authorization: `${B} forged.token`,
+          "sec-fetch-site": "cross-site",
+        }),
+        "GET",
+      ),
+      true,
+    );
+  });
+
   it("does not exempt an empty bearer value", () => {
     const headers = new Headers({ "sec-fetch-site": "cross-site", authorization: "Bearer " });
     assert.equal(isSameSiteAllowed(headers, "POST"), false);

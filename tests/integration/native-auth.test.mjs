@@ -224,6 +224,53 @@ describe("native-ready auth server", () => {
     assert.equal((await call("/api/v1/me")).status, 401);
   });
 
+  it("serves public looks to guests and authenticated clients", async () => {
+    const guestFeed = await call("/api/v1/looks");
+    assert.equal(guestFeed.status, 200);
+    assert.equal(guestFeed.headers.get("cache-control"), "no-store");
+    const looks = await guestFeed.json();
+    assert.ok(Array.isArray(looks) && looks.length > 0);
+
+    const look = looks[0];
+    const guestDetail = await call(`/api/v1/looks/${look.id}`);
+    assert.equal(guestDetail.status, 200);
+    assert.equal(guestDetail.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await guestDetail.json(), look);
+
+    const missing = await call(`/api/v1/looks/${randomBytes(16).toString("hex")}`);
+    assert.equal(missing.status, 404);
+    assert.equal(missing.headers.get("cache-control"), "no-store");
+    const invalid = await call("/api/v1/looks/bad%20id");
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.headers.get("cache-control"), "no-store");
+
+    const email = uniqueEmail("looks-api");
+    await signUp(email);
+    const signedIn = await signIn(email);
+    assert.equal(signedIn.status, 200);
+    const cookie = signedIn.cookies.join("; ");
+    const cookieFeed = await call("/api/v1/looks", { headers: { cookie } });
+    assert.equal(cookieFeed.status, 200);
+
+    const crossSite = { "sec-fetch-site": "cross-site", "sec-fetch-mode": "cors" };
+    const blockedCookie = await call("/api/v1/looks", { headers: { ...crossSite, cookie } });
+    assert.equal(blockedCookie.status, 403);
+    const bearerFeed = await call("/api/v1/looks", {
+      headers: { ...crossSite, ...bearerHeader(signedIn.token) },
+    });
+    assert.equal(bearerFeed.status, 200);
+    const forgedBearerFeed = await call("/api/v1/looks", {
+      headers: { ...crossSite, cookie, ...bearerHeader("forged.token") },
+    });
+    assert.equal(forgedBearerFeed.status, 200, "forged bearer requests remain public guest reads");
+
+    const privateId = randomBytes(16).toString("hex");
+    const privateDetail = await call(`/api/v1/looks/${privateId}`, {
+      headers: bearerHeader(signedIn.token),
+    });
+    assert.equal(privateDetail.status, 404);
+  });
+
   it("bearer requests skip the same-site guard", async () => {
     const { token } = await signUp(uniqueEmail("site"));
     const crossSite = { "sec-fetch-site": "cross-site", "sec-fetch-mode": "cors" };

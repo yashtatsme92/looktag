@@ -35,9 +35,11 @@ import { Route as HousesLabelIdRouteImport } from './routes/houses_.$labelId'
 import { Route as HousesApplyRouteImport } from './routes/houses_.apply'
 import { Route as LooksLookIdRouteImport } from './routes/looks.$lookId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiV1LooksRouteImport } from './routes/api/v1/looks'
 import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
 import { Route as HousesLabelIdCollectionIdRouteImport } from './routes/houses_.$labelId_.$collectionId'
 import { Route as LooksLookIdEditRouteImport } from './routes/looks.$lookId_.edit'
+import { Route as ApiV1LooksIdRouteImport } from './routes/api/v1/looks.$id'
 import { Route as HousesLabelIdCollectionIdStyleIdRouteImport } from './routes/houses_.$labelId_.$collectionId_.$styleId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -170,6 +172,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1LooksRoute = ApiV1LooksRouteImport.update({
+  id: '/api/v1/looks',
+  path: '/api/v1/looks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1MeRoute = ApiV1MeRouteImport.update({
   id: '/api/v1/me',
   path: '/api/v1/me',
@@ -185,6 +192,11 @@ const LooksLookIdEditRoute = LooksLookIdEditRouteImport.update({
   id: '/looks/$lookId_/edit',
   path: '/looks/$lookId/edit',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1LooksIdRoute = ApiV1LooksIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiV1LooksRoute,
 } as any)
 const HousesLabelIdCollectionIdStyleIdRoute =
   HousesLabelIdCollectionIdStyleIdRouteImport.update({
@@ -220,9 +232,11 @@ export interface FileRoutesByFullPath {
   '/houses/apply': typeof HousesApplyRoute
   '/looks/$lookId': typeof LooksLookIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/looks': typeof ApiV1LooksRouteWithChildren
   '/api/v1/me': typeof ApiV1MeRoute
   '/houses/$labelId/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId/edit': typeof LooksLookIdEditRoute
+  '/api/v1/looks/$id': typeof ApiV1LooksIdRoute
   '/houses/$labelId/$collectionId/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
 }
 export interface FileRoutesByTo {
@@ -252,9 +266,11 @@ export interface FileRoutesByTo {
   '/houses/apply': typeof HousesApplyRoute
   '/looks/$lookId': typeof LooksLookIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/looks': typeof ApiV1LooksRouteWithChildren
   '/api/v1/me': typeof ApiV1MeRoute
   '/houses/$labelId/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId/edit': typeof LooksLookIdEditRoute
+  '/api/v1/looks/$id': typeof ApiV1LooksIdRoute
   '/houses/$labelId/$collectionId/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
 }
 export interface FileRoutesById {
@@ -285,9 +301,11 @@ export interface FileRoutesById {
   '/houses_/apply': typeof HousesApplyRoute
   '/looks/$lookId': typeof LooksLookIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/looks': typeof ApiV1LooksRouteWithChildren
   '/api/v1/me': typeof ApiV1MeRoute
   '/houses_/$labelId_/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId_/edit': typeof LooksLookIdEditRoute
+  '/api/v1/looks/$id': typeof ApiV1LooksIdRoute
   '/houses_/$labelId_/$collectionId_/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
 }
 export interface FileRouteTypes {
@@ -319,9 +337,11 @@ export interface FileRouteTypes {
     | '/houses/apply'
     | '/looks/$lookId'
     | '/api/auth/$'
+    | '/api/v1/looks'
     | '/api/v1/me'
     | '/houses/$labelId/$collectionId'
     | '/looks/$lookId/edit'
+    | '/api/v1/looks/$id'
     | '/houses/$labelId/$collectionId/$styleId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -351,9 +371,11 @@ export interface FileRouteTypes {
     | '/houses/apply'
     | '/looks/$lookId'
     | '/api/auth/$'
+    | '/api/v1/looks'
     | '/api/v1/me'
     | '/houses/$labelId/$collectionId'
     | '/looks/$lookId/edit'
+    | '/api/v1/looks/$id'
     | '/houses/$labelId/$collectionId/$styleId'
   id:
     | '__root__'
@@ -383,9 +405,11 @@ export interface FileRouteTypes {
     | '/houses_/apply'
     | '/looks/$lookId'
     | '/api/auth/$'
+    | '/api/v1/looks'
     | '/api/v1/me'
     | '/houses_/$labelId_/$collectionId'
     | '/looks/$lookId_/edit'
+    | '/api/v1/looks/$id'
     | '/houses_/$labelId_/$collectionId_/$styleId'
   fileRoutesById: FileRoutesById
 }
@@ -416,6 +440,7 @@ export interface RootRouteChildren {
   HousesApplyRoute: typeof HousesApplyRoute
   LooksLookIdRoute: typeof LooksLookIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiV1LooksRoute: typeof ApiV1LooksRouteWithChildren
   ApiV1MeRoute: typeof ApiV1MeRoute
   HousesLabelIdCollectionIdRoute: typeof HousesLabelIdCollectionIdRoute
   LooksLookIdEditRoute: typeof LooksLookIdEditRoute
@@ -606,6 +631,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/looks': {
+      id: '/api/v1/looks'
+      path: '/api/v1/looks'
+      fullPath: '/api/v1/looks'
+      preLoaderRoute: typeof ApiV1LooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/me': {
       id: '/api/v1/me'
       path: '/api/v1/me'
@@ -627,6 +659,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LooksLookIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/looks/$id': {
+      id: '/api/v1/looks/$id'
+      path: '/$id'
+      fullPath: '/api/v1/looks/$id'
+      preLoaderRoute: typeof ApiV1LooksIdRouteImport
+      parentRoute: typeof ApiV1LooksRoute
+    }
     '/houses_/$labelId_/$collectionId_/$styleId': {
       id: '/houses_/$labelId_/$collectionId_/$styleId'
       path: '/houses/$labelId/$collectionId/$styleId'
@@ -636,6 +675,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface ApiV1LooksRouteChildren {
+  ApiV1LooksIdRoute: typeof ApiV1LooksIdRoute
+}
+
+const ApiV1LooksRouteChildren: ApiV1LooksRouteChildren = {
+  ApiV1LooksIdRoute: ApiV1LooksIdRoute,
+}
+
+const ApiV1LooksRouteWithChildren = ApiV1LooksRoute._addFileChildren(
+  ApiV1LooksRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -664,6 +715,7 @@ const rootRouteChildren: RootRouteChildren = {
   HousesApplyRoute: HousesApplyRoute,
   LooksLookIdRoute: LooksLookIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiV1LooksRoute: ApiV1LooksRouteWithChildren,
   ApiV1MeRoute: ApiV1MeRoute,
   HousesLabelIdCollectionIdRoute: HousesLabelIdCollectionIdRoute,
   LooksLookIdEditRoute: LooksLookIdEditRoute,
