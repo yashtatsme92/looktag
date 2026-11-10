@@ -21,10 +21,23 @@ export const Route = createFileRoute("/api/v1/looks/$id")({
         }
         const parsed = getLookRequestSchema.safeParse(params);
         if (!parsed.success) return json(looksApiErrorSchema.parse({ error: "Bad request" }), 400);
-        const { getLookById } = await import("@/lib/looks/looks-read");
-        const look = await getLookById({ data: parsed.data.id });
-        if (!look) return json(looksApiErrorSchema.parse({ error: "Not found" }), 404);
-        return json(getLookResponseSchema.parse(look), 200);
+        try {
+          const { getLookById } = await import("@/lib/looks/looks-read");
+          const look = await getLookById({ data: parsed.data.id });
+          if (!look) return json(looksApiErrorSchema.parse({ error: "Not found" }), 404);
+          const response = getLookResponseSchema.safeParse(look);
+          if (!response.success) {
+            console.warn(
+              "[api/v1/looks] look does not match response contract",
+              response.error.issues.map(({ path, code }) => ({ path, code })),
+            );
+            return json(looksApiErrorSchema.parse({ error: "Unable to serialize look" }), 500);
+          }
+          return json(response.data, 200);
+        } catch (error) {
+          console.error("[api/v1/looks] request failed", error);
+          return json(looksApiErrorSchema.parse({ error: "Internal server error" }), 500);
+        }
       },
     },
   },
