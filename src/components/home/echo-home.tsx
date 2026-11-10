@@ -12,6 +12,7 @@ import { FeedLoadError } from "@/components/ds/feed-error";
 import { FeedTabs } from "@/components/ds/feed-tabs";
 import { useCrossfade, useStaggerIn } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
+import { FEED_PLATE_SIZES } from "@/lib/media/feed-image";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
 import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
@@ -505,7 +506,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
                   className="echo-photo"
                   aria-label={`${drop.lineName}, This week's drop`}
                 >
-                  <ImgSlot src={drop.imageSrc} alt="" still slotClassName="img-slot-fill" />
+                  <ImgSlot src={drop.imageSrc} alt="" still slotClassName="img-slot-fill" sizes={FEED_PLATE_SIZES} />
                 </Link>
                 <div className="echo-meta">
                   <p className="echo-kicker">This week's drop</p>
@@ -552,7 +553,14 @@ export function EchoHome({ looks }: { looks: Look[] }) {
                   dragRef.current.moved = false;
                 }}
               >
-                <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" still={mode === "feed" && plateIndex === 0} />
+                <ImgSlot
+                  src={look.imageSrc}
+                  alt=""
+                  slotClassName="img-slot-fill"
+                  sizes={FEED_PLATE_SIZES}
+                  still={mode === "feed" && plateIndex === 0}
+                  priority={mode === "feed" && plateIndex === 0}
+                />
               </Link>
               {mode === "feed" && beatLabel(look) ? <p className="echo-beat">{beatLabel(look)}</p> : null}
               <div className="echo-meta">
@@ -602,7 +610,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
               ) : (
                 <article className="echo-plate echo-tile" key={item.look.id}>
                   <Link to="/looks/$lookId" params={{ lookId: item.look.id }} className="echo-photo" aria-label={item.look.title || "Look"}>
-                    <ImgSlot src={item.look.imageSrc} alt="" slotClassName="img-slot-fill" />
+                    <ImgSlot src={item.look.imageSrc} alt="" slotClassName="img-slot-fill" sizes={FEED_PLATE_SIZES} />
                   </Link>
                   <div className="echo-meta">
                     {echoKicker(item.look) ? <p className="echo-kicker">{echoKicker(item.look)}</p> : null}

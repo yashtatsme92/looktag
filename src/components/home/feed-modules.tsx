@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ImgSlot } from "@/components/ds/img-slot";
+import { FEED_PLATE_SIZES } from "@/lib/media/feed-image";
 import { FEED_LESS_KEY, readStoredIds, toggleStoredId, writeStoredIds } from "@/lib/home/follows";
 import type { Look } from "@/lib/looks/types";
 
@@ -41,7 +42,7 @@ export function BecausePlate({ looks }: { looks: Look[] }) {
         <div className="echo-because-row">
           {looks.map((look) => (
             <Link key={look.id} to="/looks/$lookId" params={{ lookId: look.id }} aria-label={look.title || "Look"}>
-              <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" />
+              <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" sizes="(min-width: 768px) 12rem, 42vw" />
               <span>{look.title || "Untitled look"}</span>
             </Link>
           ))}
@@ -59,7 +60,7 @@ export function BecauseRow({ looks }: { looks: Look[] }) {
       <div className="feed-because-row">
         {looks.map((look) => (
           <Link key={look.id} to="/looks/$lookId" params={{ lookId: look.id }} className="wide-tile">
-            <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" />
+            <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" sizes="(min-width: 768px) 16rem, 42vw" />
             <div className="wide-tile-cap">
               <h3>{look.title || "Untitled look"}</h3>
             </div>
@@ -98,7 +99,7 @@ export function RunPlate({ title, looks }: { title: string; looks: Look[] }) {
   return (
     <article className="echo-plate echo-run" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
       <Link to="/looks/$lookId" params={{ lookId: look.id }} className="echo-photo" aria-label={look.title || "Look"}>
-        <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" still />
+        <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" still sizes={FEED_PLATE_SIZES} />
       </Link>
       <div className="echo-meta">
         <p className="echo-kicker">Run</p>
@@ -126,7 +127,7 @@ export function RunRow({ title, looks }: { title: string; looks: Look[] }) {
         </p>
       </div>
       <Link to="/looks/$lookId" params={{ lookId: look.id }} className="feed-run-photo" aria-label={look.title || "Look"}>
-        <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" still />
+        <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" still sizes="(min-width: 1024px) 28rem, 50vw" />
       </Link>
       <div className="feed-run-nav">
         <button type="button" className="echo-chip-back echo-chip-back-ink" aria-label="Previous" onClick={prev} disabled={index === 0}>

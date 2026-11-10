@@ -107,8 +107,8 @@ function StylePage() {
         ) : page ? (
           <article className="style-detail">
             <div className="style-photos">
-              {photos.map((src) => (
-                <ImgSlot key={src} src={src} alt="" />
+              {photos.map((src, index) => (
+                <ImgSlot key={src} src={src} alt="" feed={false} priority={index === 0} />
               ))}
             </div>
             <div>

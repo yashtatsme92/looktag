@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { ImgSlot } from "@/components/ds/img-slot";
 import type { FashionStyle } from "@/lib/labels/model";
 
 export function StyleFrame({
@@ -16,7 +17,7 @@ export function StyleFrame({
       params={{ labelId: style.labelId, collectionId: lineSlug, styleId: style.id }}
       className="style-frame"
     >
-      <img src={style.imageSrc} alt="" />
+      <ImgSlot src={style.imageSrc} alt="" still sizes="18rem" />
       <div className="style-frame-copy">
         <p className="style-frame-kicker">House</p>
         <p className="style-frame-name">{style.name}</p>

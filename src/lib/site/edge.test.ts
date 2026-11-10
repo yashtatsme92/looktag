@@ -27,6 +27,21 @@ describe("canonical redirect", () => {
       "https://thelooktag.com/looks/a?x=1",
     );
   });
+  it("redirects looktag.onrender.com and any other host to the canonical origin", () => {
+    assert.equal(
+      canonicalRedirect(env, new URL("https://looktag.onrender.com/"), "looktag.onrender.com"),
+      "https://thelooktag.com/",
+    );
+    assert.equal(
+      canonicalRedirect(env, new URL("https://preview.example/looks/a?x=1"), "preview.example"),
+      "https://thelooktag.com/looks/a?x=1",
+    );
+  });
+  it("leaves /api/version and Render health checks on the requested host", () => {
+    assert.equal(canonicalRedirect(env, new URL("https://looktag.onrender.com/api/version"), "looktag.onrender.com"), "");
+    assert.equal(canonicalRedirect(env, new URL("https://looktag.onrender.com/api/auth/ok"), "looktag.onrender.com"), "");
+    assert.equal(canonicalRedirect(env, new URL("https://looktag.onrender.com/api/v1/looks"), "looktag.onrender.com"), "");
+  });
   it("never redirects the canonical host, localhost, or auth on trusted hosts", () => {
     assert.equal(canonicalRedirect(env, new URL("https://thelooktag.com/"), "thelooktag.com"), "");
     assert.equal(canonicalRedirect(env, new URL("http://localhost:8080/"), "localhost:8080"), "");

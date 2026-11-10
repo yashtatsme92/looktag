@@ -1,0 +1,140 @@
+[
+  {
+    "name": "phone",
+    "width": 390,
+    "height": 844,
+    "total": 18485814,
+    "image": 18004951,
+    "document": 26680,
+    "script": 276019,
+    "stylesheet": 38478,
+    "font": 131150,
+    "imageCount": 35,
+    "largest": [
+      {
+        "bytes": 729778,
+        "url": "coastal-linen.jpg"
+      },
+      {
+        "bytes": 652750,
+        "url": "quiet-tailor.jpg"
+      },
+      {
+        "bytes": 578250,
+        "url": "kai-slow-knit.jpg"
+      },
+      {
+        "bytes": 569231,
+        "url": "sofia-sun-bleached-linen.jpg"
+      },
+      {
+        "bytes": 568533,
+        "url": "sofia-dune-path-midi.jpg"
+      },
+      {
+        "bytes": 567758,
+        "url": "tobias-wax-merino.jpg"
+      },
+      {
+        "bytes": 567235,
+        "url": "kai-brown-study.jpg"
+      },
+      {
+        "bytes": 566830,
+        "url": "tobias-park-walk.jpg"
+      }
+    ]
+  },
+  {
+    "name": "tablet",
+    "width": 834,
+    "height": 1112,
+    "total": 18480741,
+    "image": 18005605,
+    "document": 26662,
+    "script": 270570,
+    "stylesheet": 38536,
+    "font": 130832,
+    "imageCount": 35,
+    "largest": [
+      {
+        "bytes": 729790,
+        "url": "coastal-linen.jpg"
+      },
+      {
+        "bytes": 652743,
+        "url": "quiet-tailor.jpg"
+      },
+      {
+        "bytes": 578255,
+        "url": "kai-slow-knit.jpg"
+      },
+      {
+        "bytes": 569222,
+        "url": "sofia-sun-bleached-linen.jpg"
+      },
+      {
+        "bytes": 568922,
+        "url": "sofia-dune-path-midi.jpg"
+      },
+      {
+        "bytes": 567757,
+        "url": "tobias-wax-merino.jpg"
+      },
+      {
+        "bytes": 567217,
+        "url": "kai-brown-study.jpg"
+      },
+      {
+        "bytes": 566805,
+        "url": "tobias-park-walk.jpg"
+      }
+    ]
+  },
+  {
+    "name": "desktop",
+    "width": 1280,
+    "height": 800,
+    "total": 18487073,
+    "image": 18004726,
+    "document": 26664,
+    "script": 276205,
+    "stylesheet": 38371,
+    "font": 132570,
+    "imageCount": 35,
+    "largest": [
+      {
+        "bytes": 729752,
+        "url": "coastal-linen.jpg"
+      },
+      {
+        "bytes": 652756,
+        "url": "quiet-tailor.jpg"
+      },
+      {
+        "bytes": 578236,
+        "url": "kai-slow-knit.jpg"
+      },
+      {
+        "bytes": 569222,
+        "url": "sofia-sun-bleached-linen.jpg"
+      },
+      {
+        "bytes": 568581,
+        "url": "sofia-dune-path-midi.jpg"
+      },
+      {
+        "bytes": 567738,
+        "url": "tobias-wax-merino.jpg"
+      },
+      {
+        "bytes": 567182,
+        "url": "kai-brown-study.jpg"
+      },
+      {
+        "bytes": 566799,
+        "url": "tobias-park-walk.jpg"
+      }
+    ]
+  }
+]

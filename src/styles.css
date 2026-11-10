@@ -255,7 +255,8 @@ html.overlay-lock {
   background-color: var(--ph);
 }
 
-.img-slot > img {
+.img-slot > img,
+.img-slot > picture > img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -265,7 +266,8 @@ html.overlay-lock {
   transition: opacity var(--dur-image) var(--ease-std);
 }
 
-.img-slot > img.is-loaded {
+.img-slot > img.is-loaded,
+.img-slot > picture > img.is-loaded {
   opacity: 1;
 }
 
@@ -275,7 +277,8 @@ html.overlay-lock {
   aspect-ratio: auto;
 }
 
-.img-slot[data-still] > img {
+.img-slot[data-still] > img,
+.img-slot[data-still] > picture > img {
   opacity: 1;
   transition: none;
 }
@@ -471,6 +474,7 @@ html.overlay-lock {
   .is-loading-old,
   .tab-indicator,
   .img-slot > img,
+  .img-slot > picture > img,
   .echo-tile,
   .echo-tile:nth-child(n),
   .echo-lane,
@@ -6285,6 +6289,10 @@ html:not(.native-app) .wide-plate .look-photo-cover {
   box-shadow: 0 0 0 1px rgb(17 17 17 / 2%);
 }
 
+.style-frame picture {
+  display: block;
+}
+
 .style-frame img {
   aspect-ratio: 3 / 4;
   width: 100%;
@@ -7114,7 +7122,8 @@ html.native-app .house-manage[data-editor="open"] .house-save {
   background: #111111;
 }
 
-.house-hero.img-slot > img {
+.house-hero.img-slot > img,
+.house-hero.img-slot > picture > img {
   object-position: center 20%;
 }
 
