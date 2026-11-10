@@ -11,7 +11,8 @@ import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { FeedLoadError } from "@/components/ds/feed-error";
 import { FeedTabs } from "@/components/ds/feed-tabs";
 import { useCrossfade, useStaggerIn } from "@/components/ds/fade-layer";
-import { ImgSlot, FEED_PLATE_SIZES, lookPhotoProps } from "@/components/ds/img-slot";
+import { ImgSlot, lookPhotoProps } from "@/components/ds/img-slot";
+import { FEED_PLATE_SIZES } from "@/lib/media/feed-image";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
 import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
@@ -505,7 +506,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
                   className="echo-photo"
                   aria-label={`${drop.lineName}, This week's drop`}
                 >
-                  <ImgSlot src={drop.imageSrc} alt="" still slotClassName="img-slot-fill" />
+                  <ImgSlot src={drop.imageSrc} alt="" still slotClassName="img-slot-fill" sizes={FEED_PLATE_SIZES} />
                 </Link>
                 <div className="echo-meta">
                   <p className="echo-kicker">This week's drop</p>

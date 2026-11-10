@@ -1,0 +1,123 @@
+[
+  {
+    "name": "phone",
+    "width": 390,
+    "height": 844,
+    "dpr": 3,
+    "total": 1870056,
+    "image": 421638,
+    "document": 241702,
+    "script": 852850,
+    "stylesheet": 184422,
+    "font": 132695,
+    "imageCount": 5,
+    "largest": [
+      {
+        "bytes": 118112,
+        "url": "feed/quiet-tailor-1200.avif"
+      },
+      {
+        "bytes": 117631,
+        "url": "feed/sofia-sardine-blue-set-1200.avif"
+      },
+      {
+        "bytes": 93038,
+        "url": "feed/sofia-sun-bleached-linen-1200.avif"
+      },
+      {
+        "bytes": 92253,
+        "url": "feed/sofia-dune-path-midi-1200.avif"
+      },
+      {
+        "bytes": 604,
+        "url": "127.0.0.1:4174/favicon.svg"
+      }
+    ]
+  },
+  {
+    "name": "tablet",
+    "width": 834,
+    "height": 1112,
+    "dpr": 2,
+    "total": 2074824,
+    "image": 626402,
+    "document": 241702,
+    "script": 852854,
+    "stylesheet": 184422,
+    "font": 132695,
+    "imageCount": 7,
+    "largest": [
+      {
+        "bytes": 118112,
+        "url": "feed/quiet-tailor-1200.avif"
+      },
+      {
+        "bytes": 117631,
+        "url": "feed/sofia-sardine-blue-set-1200.avif"
+      },
+      {
+        "bytes": 112759,
+        "url": "feed/leo-black-on-black-1200.avif"
+      },
+      {
+        "bytes": 93038,
+        "url": "feed/sofia-sun-bleached-linen-1200.avif"
+      },
+      {
+        "bytes": 92253,
+        "url": "feed/sofia-dune-path-midi-1200.avif"
+      },
+      {
+        "bytes": 92005,
+        "url": "feed/sofia-breton-weekend-1200.avif"
+      },
+      {
+        "bytes": 604,
+        "url": "127.0.0.1:4174/favicon.svg"
+      }
+    ]
+  },
+  {
+    "name": "desktop",
+    "width": 1280,
+    "height": 800,
+    "dpr": 1,
+    "total": 1840054,
+    "image": 391640,
+    "document": 241702,
+    "script": 852846,
+    "stylesheet": 184422,
+    "font": 132695,
+    "imageCount": 7,
+    "largest": [
+      {
+        "bytes": 117631,
+        "url": "feed/sofia-sardine-blue-set-1200.avif"
+      },
+      {
+        "bytes": 93038,
+        "url": "feed/sofia-sun-bleached-linen-1200.avif"
+      },
+      {
+        "bytes": 92253,
+        "url": "feed/sofia-dune-path-midi-1200.avif"
+      },
+      {
+        "bytes": 32389,
+        "url": "feed/quiet-tailor-480.avif"
+      },
+      {
+        "bytes": 31590,
+        "url": "feed/sofia-breton-weekend-480.avif"
+      },
+      {
+        "bytes": 24135,
+        "url": "feed/leo-black-on-black-480.avif"
+      },
+      {
+        "bytes": 604,
+        "url": "127.0.0.1:4174/favicon.svg"
+      }
+    ]
+  }
+]

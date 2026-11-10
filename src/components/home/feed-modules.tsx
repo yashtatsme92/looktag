@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { ImgSlot, FEED_PLATE_SIZES, lookPhotoProps } from "@/components/ds/img-slot";
+import { ImgSlot, lookPhotoProps } from "@/components/ds/img-slot";
+import { FEED_PLATE_SIZES } from "@/lib/media/feed-image";
 import { FEED_LESS_KEY, readStoredIds, toggleStoredId, writeStoredIds } from "@/lib/home/follows";
 import type { Look } from "@/lib/looks/types";
 
@@ -41,7 +42,7 @@ export function BecausePlate({ looks }: { looks: Look[] }) {
         <div className="echo-because-row">
           {looks.map((look) => (
             <Link key={look.id} to="/looks/$lookId" params={{ lookId: look.id }} aria-label={look.title || "Look"}>
-              <ImgSlot {...lookPhotoProps(look, { sizes: "(min-width: 768px) 16rem, 42vw" })} alt="" slotClassName="img-slot-fill" />
+              <ImgSlot {...lookPhotoProps(look, { sizes: "(min-width: 768px) 12rem, 42vw" })} alt="" slotClassName="img-slot-fill" />
               <span>{look.title || "Untitled look"}</span>
             </Link>
           ))}

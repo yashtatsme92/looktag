@@ -10,7 +10,8 @@ import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { FeedLoadError } from "@/components/ds/feed-error";
 import { FeedTabs } from "@/components/ds/feed-tabs";
 import { FadeLayer, useStaggerIn } from "@/components/ds/fade-layer";
-import { ImgSlot, FEED_GRID_SIZES, FEED_LEAD_SIZES, lookPhotoProps } from "@/components/ds/img-slot";
+import { ImgSlot, lookPhotoProps } from "@/components/ds/img-slot";
+import { FEED_GRID_SIZES, FEED_LEAD_SIZES } from "@/lib/media/feed-image";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, forYouOrder, recordEchoActivation, pieceLine } from "@/lib/home/echo";
@@ -513,7 +514,7 @@ function TabletLead({
   return (
     <article className="wide-leadcard">
       <Link to="/looks/$lookId" params={{ lookId: look.id }} className="wide-tile-hit" aria-label={look.title || "Look"}>
-        <ImgSlot src={look.imageSrc} alt="" still slotClassName="img-slot-fill" />
+        <ImgSlot {...lookPhotoProps(look, { sizes: FEED_LEAD_SIZES, priority: true })} alt="" still slotClassName="img-slot-fill" />
       </Link>
       <span className="wide-peel" aria-hidden />
       <div className="wide-tile-cap wide-leadcard-cap">

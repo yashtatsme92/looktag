@@ -10,3 +10,5 @@ Live `https://thelooktag.com` (current main, full `/looks` JPEGs from Render), s
 | 1280×800 @1x | 18.49 MB | 18.00 MB, all `/looks` on Render | 2.04 MB | 611 KB, all `/storage` |
 
 `/storage` is the local stand-in for `STORAGE_PUBLIC_BASE_URL`. On R2 those bytes leave Render. The phone `/looks` remainder is house/style art that is not a look row.
+
+#218 is merged. Until the backfill runs, seed looks keep those static feed derivatives. After it runs, look rows point at storage and the feed srcset uses those URLs. Uploads never stay as data URLs.

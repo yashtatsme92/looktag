@@ -74,7 +74,7 @@ export const INTEGRATIONS = [
   },
   {
     env: "SITE_REDIRECT_TO_CANONICAL",
-    role: "Set to 1 to 301 any non-APP_URL host to APP_URL (auth routes on TRUSTED_ORIGINS hosts are exempt).",
+    role: "Set to 1 to 301 any non-APP_URL host to APP_URL. /api/* (including /api/version and health) stays put; auth on TRUSTED_ORIGINS hosts is exempt. Set this on Render after the bandwidth change is merged.",
     required: false,
     fallback: "off",
   },

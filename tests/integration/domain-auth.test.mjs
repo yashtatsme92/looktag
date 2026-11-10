@@ -122,6 +122,45 @@ describe("canonical edge (#183)", { skip: BASE ? false : "DOMAIN_AUTH_URL not se
     });
   }
 
+  it("caches seed photos, fonts, splash and og.jpg, and leaves HTML and /api fresh", async () => {
+    for (const path of [
+      "/looks/sunday-coat.jpg",
+      "/fonts/figtree-latin-500-normal.woff2",
+      "/splash/wordmark-750x1334.png",
+      "/og.jpg",
+    ]) {
+      const res = await fetch(`${BASE}${path}`);
+      assert.equal(res.status, 200, path);
+      const cache = res.headers.get("cache-control") ?? "";
+      assert.match(cache, /public/, path);
+      assert.match(cache, /max-age=604800/, path);
+      assert.equal(cache.includes("immutable"), false, path);
+    }
+    const home = await fetch(`${BASE}/`);
+    assert.equal(home.status, 200);
+    const homeCache = home.headers.get("cache-control") ?? "";
+    assert.equal(/max-age=\d+/.test(homeCache), false);
+    const version = await fetch(`${BASE}/api/version`);
+    assert.equal(version.status, 200);
+    assert.equal(version.headers.get("cache-control"), "no-store");
+  });
+
+  it("preloads at most two homepage images and lazy-loads the rest", async () => {
+    const home = await fetch(`${BASE}/`);
+    const html = await home.text();
+    const links = html.match(/<link\b[^>]*>/gi) ?? [];
+    const preloads = links.filter((tag) => /rel="preload"/i.test(tag) && /as="image"/i.test(tag));
+    const images = html.match(/<img\b[^>]*>/gi) ?? [];
+    const eager = images.filter((tag) => !/loading="lazy"/i.test(tag));
+    assert.ok(images.length > 10, `seeded feed, got ${images.length} images`);
+    assert.ok(preloads.length <= 2, preloads.join("\n"));
+    assert.ok(eager.length >= 1 && eager.length <= 2, eager.join("\n"));
+    for (const tag of images) {
+      assert.match(tag, /decoding="async"/);
+      if (!/loading="lazy"/i.test(tag)) assert.match(tag, /fetchpriority="high"/i);
+    }
+  });
+
   it("sends HSTS on https and builds robots/sitemap from APP_URL", async () => {
     const home = await fetch(`${BASE}/`, { headers: { "x-forwarded-proto": "https" } });
     assert.equal(home.status, 200);

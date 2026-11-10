@@ -116,8 +116,18 @@ async function waitForCropped(page, scope) {
 
 async function waitForNetworkReady(page) {
   await page.waitForFunction(() => document.querySelectorAll("img").length > 0, null, { timeout: 15_000 });
+  // Below-the-fold feed photos are loading="lazy" and stay incomplete until scrolled near.
+  // Only images actually in the viewport have to finish; those are the ones this check measures.
   await page.waitForFunction(
-    () => [...document.querySelectorAll("img")].filter((i) => i.getBoundingClientRect().width > 0).every((i) => i.complete),
+    () => {
+      const viewW = window.innerWidth || document.documentElement.clientWidth;
+      const viewH = window.innerHeight || document.documentElement.clientHeight;
+      const visible = [...document.querySelectorAll("img")].filter((img) => {
+        const box = img.getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && box.bottom > 0 && box.right > 0 && box.top < viewH && box.left < viewW;
+      });
+      return visible.length > 0 && visible.every((img) => img.complete && img.naturalWidth > 0);
+    },
     null,
     { timeout: 15_000 },
   );

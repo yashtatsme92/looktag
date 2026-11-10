@@ -6295,6 +6295,10 @@ html:not(.native-app) .wide-plate .look-photo-cover {
   box-shadow: 0 0 0 1px rgb(17 17 17 / 2%);
 }
 
+.style-frame picture {
+  display: block;
+}
+
 .style-frame img {
   aspect-ratio: 3 / 4;
   width: 100%;
