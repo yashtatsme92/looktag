@@ -11,14 +11,14 @@ import {
   injectGrokPwaHead,
   isDocumentPath,
   isInstallQuery,
-  isShareDocumentPath,
   publicAppHost,
   renderWebManifest,
   resolveOgCardAsset,
   snapshotOgIdentity,
   stripInstallParams,
 } from "./grok-pwa-shared.mjs";
-import { renderInstallPage } from "./grok-pwa-plugin.mjs";
+import { isSharePath } from "../src/lib/pwa/boot.ts";
+import { grokPwaPlugin, renderInstallPage } from "./grok-pwa-plugin.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -478,9 +478,82 @@ test("renders the manifest with the per-app name", () => {
   const manifest = JSON.parse(renderWebManifest("wild-race.grok.me"));
   assert.equal(manifest.name, "Wild Race");
   assert.equal(manifest.short_name, "Wild Race");
-  assert.equal(manifest.icons[0].src, "/__grok/icon-180.png");
+  assert.deepEqual(
+    manifest.icons,
+    [
+      {
+        src: "/__grok/icon-180.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+      {
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon-512-maskable.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
+    ],
+  );
+  for (const icon of manifest.icons) {
+    readFileSync(join(TEMPLATE_ROOT, "public", icon.src.slice(1)));
+  }
   assert.equal(manifest.background_color, "#F4F4F4");
   assert.equal(manifest.theme_color, "#F4F4F4");
+});
+
+test("serves the manifest for GET and HEAD requests", () => {
+  const handlers = [];
+  grokPwaPlugin().configureServer({
+    middlewares: { use: (handler) => handlers.push(handler) },
+  });
+  const handler = handlers[0];
+  const request = (method) => {
+    const headers = {};
+    let body;
+    let nextCalled = false;
+    const response = {
+      statusCode: 0,
+      setHeader(name, value) {
+        headers[name.toLowerCase()] = value;
+      },
+      end(value) {
+        body = value;
+      },
+    };
+    handler(
+      { method, url: "/__grok/manifest.webmanifest", headers: { host: "looktag.studio" } },
+      response,
+      () => {
+        nextCalled = true;
+      },
+    );
+    return { response, headers, body, nextCalled };
+  };
+
+  const get = request("GET");
+  const head = request("HEAD");
+  assert.equal(get.response.statusCode, 200);
+  assert.equal(head.response.statusCode, 200);
+  assert.equal(get.headers["content-type"], "application/manifest+json; charset=utf-8");
+  assert.equal(head.headers["content-type"], get.headers["content-type"]);
+  assert.equal(head.headers["cache-control"], "no-cache");
+  assert.equal(head.headers["content-length"], get.headers["content-length"]);
+  assert.ok(get.body);
+  assert.equal(head.body, undefined);
+  assert.equal(get.nextCalled, false);
+  assert.equal(head.nextCalled, false);
 });
 
 // Tripwires: the deployed-app path only works if Nitro scans server/ — an
@@ -497,7 +570,6 @@ test("nitro middleware and its bundled assets exist", () => {
   assert.match(middleware, /install-page\.html\?raw/);
   assert.match(middleware, /virtual:grok-og-identity/);
   readFileSync(join(TEMPLATE_ROOT, "scripts/install-page.html"));
-  readFileSync(join(TEMPLATE_ROOT, "public/__grok/icon-180.png"));
   readFileSync(join(TEMPLATE_ROOT, "public/__grok/install/styles.css"));
 });
 
@@ -508,11 +580,11 @@ test("vite plugin bakes og identity as a virtual module", () => {
 });
 
 test("look and house paths are share documents", () => {
-  assert.equal(isShareDocumentPath("/looks/seed-sunday-coat"), true);
-  assert.equal(isShareDocumentPath("/houses/label-atelier-noir"), true);
-  assert.equal(isShareDocumentPath("/houses/label-atelier-noir/kinkistyles"), true);
-  assert.equal(isShareDocumentPath("/looks/seed-sunday-coat/edit"), false);
-  assert.equal(isShareDocumentPath("/"), false);
+  assert.equal(isSharePath("/looks/seed-sunday-coat"), true);
+  assert.equal(isSharePath("/houses/label-atelier-noir"), true);
+  assert.equal(isSharePath("/houses/label-atelier-noir/kinkistyles"), true);
+  assert.equal(isSharePath("/looks/seed-sunday-coat/edit"), false);
+  assert.equal(isSharePath("/"), false);
 });
 
 test("keeps look-specific Open Graph tags on anonymous share documents", () => {
