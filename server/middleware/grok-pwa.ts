@@ -75,16 +75,18 @@ async function grokPwaMiddlewareImpl(
   next: () => unknown | Promise<unknown>,
 ): Promise<unknown> {
   const method = (event.req.method ?? "GET").toUpperCase();
-  if (method !== "GET") return next();
+  if (method !== "GET" && method !== "HEAD") return next();
 
   const path = event.url.pathname;
   const urlWithQuery = path + event.url.search;
 
   if (path === "/__grok/manifest.webmanifest" || path === "/__grok/manifest.json") {
-    return new Response(renderWebManifest(requestHost(event)), {
+    const body = renderWebManifest(requestHost(event));
+    return new Response(method === "HEAD" ? null : body, {
       headers: {
         "content-type": "application/manifest+json; charset=utf-8",
         "cache-control": "no-cache",
+        "content-length": String(new TextEncoder().encode(body).byteLength),
       },
     });
   }

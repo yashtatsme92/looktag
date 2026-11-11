@@ -47,7 +47,7 @@ function serveGrokPwa(middlewares) {
     const rawUrl = req.url ?? "";
     const pathOnly = rawUrl.split("?", 1)[0] ?? "";
     const method = (req.method ?? "GET").toUpperCase();
-    if (method !== "GET") {
+    if (method !== "GET" && method !== "HEAD") {
       next();
       return;
     }
@@ -58,11 +58,16 @@ function serveGrokPwa(middlewares) {
       res.setHeader("content-type", "application/manifest+json; charset=utf-8");
       res.setHeader("cache-control", "no-cache");
       res.setHeader("content-length", String(body.byteLength));
-      res.end(body);
+      res.end(method === "HEAD" ? undefined : body);
       return;
     }
 
-    if (isInstallQuery(rawUrl) && isDocumentPath(pathOnly) && acceptsHtml(req.headers.accept)) {
+    if (
+      method === "GET" &&
+      isInstallQuery(rawUrl) &&
+      isDocumentPath(pathOnly) &&
+      acceptsHtml(req.headers.accept)
+    ) {
       try {
         sendHtml(res, renderInstallPage(requestHost(req), rawUrl));
       } catch (err) {
