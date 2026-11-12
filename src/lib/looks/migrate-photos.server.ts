@@ -12,6 +12,13 @@ export type PhotoMigrationBackup = {
   looks: Record<string, { imageSrc: string; imageVariantsJson: string | null }>;
 };
 
+export type PhotoMigrationPlanItem = {
+  id: string;
+  action: "upload" | "restore";
+  imageSrc?: string;
+  keys?: string[];
+};
+
 export type PhotoMigrationResult = {
   dryRun: boolean;
   rollback: boolean;
@@ -19,6 +26,7 @@ export type PhotoMigrationResult = {
   skipped: number;
   restored: number;
   deletedObjects: number;
+  plan: PhotoMigrationPlanItem[];
 };
 
 type LookPhotoRow = {
@@ -62,10 +70,27 @@ async function loadBytes(imageSrc: string, publicDir: string): Promise<Uint8Arra
 }
 
 /**
+ * CLI flags for `scripts/migrate-look-photos.mjs`.
+ * A bare invocation is a dry-run. `--apply` writes. `--rollback` without
+ * `--apply` only lists restores. `--dry-run` forces a dry-run even with `--apply`.
+ */
+export function parseMigrateCli(argv: string[]): { dryRun: boolean; rollback: boolean; backupPath?: string } {
+  const apply = argv.includes("--apply");
+  const forceDry = argv.includes("--dry-run");
+  const backupFlag = argv.find((arg) => arg.startsWith("--backup="));
+  return {
+    dryRun: !apply || forceDry,
+    rollback: argv.includes("--rollback"),
+    backupPath: backupFlag ? backupFlag.slice("--backup=".length) : undefined,
+  };
+}
+
+/**
  * Upload seed files and data-URL photos, then point `image_src` at the detail
  * JPEG. Idempotent: a look whose stored hash already matches the bytes is left
- * alone. `--rollback` restores the backup and deletes objects written for those looks.
- * Unpublished looks are not uploaded, so they never get a public URL.
+ * alone. Rollback restores the backup and deletes only object keys the
+ * migration added. Unpublished looks are not uploaded, so they never get a public URL.
+ * `dryRun` (the CLI default) uploads nothing, deletes nothing, and writes no backup.
  */
 export async function migrateLookPhotos(
   sql: Sql,
@@ -83,7 +108,15 @@ export async function migrateLookPhotos(
   const backupPath = resolve(options?.backupPath || DEFAULT_BACKUP);
   const publicDir = options?.publicDir || resolve("public");
   const store = options?.store ?? storage();
-  const result: PhotoMigrationResult = { dryRun, rollback, uploaded: 0, skipped: 0, restored: 0, deletedObjects: 0 };
+  const result: PhotoMigrationResult = {
+    dryRun,
+    rollback,
+    uploaded: 0,
+    skipped: 0,
+    restored: 0,
+    deletedObjects: 0,
+    plan: [],
+  };
   if (rollback) return rollbackPhotos(sql, store, backupPath, dryRun, result);
 
   const rows = await sql<LookPhotoRow>`
@@ -109,6 +142,7 @@ export async function migrateLookPhotos(
       continue;
     }
     if (dryRun) {
+      result.plan.push({ id: row.id, action: "upload" });
       result.uploaded += 1;
       continue;
     }
@@ -151,6 +185,7 @@ async function rollbackPhotos(
     for (const file of current?.files ?? []) keys.add(file.key);
     for (const file of previous?.files ?? []) keys.delete(file.key);
     if (dryRun) {
+      result.plan.push({ id, action: "restore", imageSrc: original.imageSrc, keys: [...keys] });
       result.restored += 1;
       result.deletedObjects += keys.size;
       continue;

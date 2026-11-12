@@ -35,10 +35,12 @@ Env: `STORAGE_PROVIDER=local|s3|r2` (default `local`). `S3_ENDPOINT`, `S3_REGION
 Backfill (requires `DATABASE_URL`; seed JPEGs are read from `public/looks`):
 
 1. Deploy this release first, so `migrations/0017_look_image_variants.sql` has run, then restart after the storage env vars are set.
-2. `node --experimental-strip-types scripts/migrate-look-photos.mjs --dry-run`
-3. `node --experimental-strip-types scripts/migrate-look-photos.mjs`
+2. Dry-run (writes nothing): `node --experimental-strip-types scripts/migrate-look-photos.mjs`
+3. Real run: `node --experimental-strip-types scripts/migrate-look-photos.mjs --apply`
 4. Copy `.data/look-photo-migration-backup.json` off the machine.
-5. `node --experimental-strip-types scripts/migrate-look-photos.mjs --rollback` only if the feed looks wrong.
+5. `node --experimental-strip-types scripts/migrate-look-photos.mjs --rollback --apply` only if the feed looks wrong. `--rollback` alone lists the rows and keys and writes nothing.
+
+`MIGRATE_LOOK_PHOTOS=1` is a local request hook for measuring the homepage. It does not run when `NODE_ENV=production`, so setting it on Render does nothing. Use the script above.
 
 ## errors
 

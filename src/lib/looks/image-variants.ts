@@ -143,3 +143,8 @@ export function formatSrcSet(images: LookImages, format: LookImageFormat): strin
 export function fallbackImageSrc(images: LookImages): string {
   return images.jpeg.detail || images.detail || images.jpeg.card || images.card;
 }
+
+/** Local measurement hook only. A production request must not migrate photos. */
+export function requestPhotoMigrationEnabled(env: { MIGRATE_LOOK_PHOTOS?: string; NODE_ENV?: string }): boolean {
+  return env.MIGRATE_LOOK_PHOTOS === "1" && env.NODE_ENV !== "production";
+}

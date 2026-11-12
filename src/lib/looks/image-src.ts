@@ -21,8 +21,8 @@
  * `saveLook` still accepts a data URL on the way in (this bound). Before the row
  * is written, the bytes are resized to thumb / card / detail and `image_src`
  * becomes the public detail JPEG URL. Seed paths (`/looks/*.jpg`) stay until
- * `scripts/migrate-look-photos.mjs` rewrites them. Drafts in the browser are
- * data URLs and are not uploaded until publish.
+ * `scripts/migrate-look-photos.mjs --apply` rewrites them. A bare run of that
+ * script is a dry-run. Drafts in the browser are data URLs and are not uploaded until publish.
  */
 
 /** ~3.5 MiB — aligned with the issue's AI/client clamp guidance. */

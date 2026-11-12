@@ -12,12 +12,20 @@ import {
   seedCatalog,
   creatorPayload,
 } from "./looks-shared";
+import { requestPhotoMigrationEnabled } from "./image-variants";
 
 const cropsBackfilled = new WeakSet<object>();
 let photoMigration: Promise<void> | null = null;
 
 async function maybeMigratePhotos(sql: Awaited<ReturnType<typeof getSql>>) {
-  if (process.env.MIGRATE_LOOK_PHOTOS !== "1") return;
+  if (!requestPhotoMigrationEnabled(process.env)) {
+    if (process.env.MIGRATE_LOOK_PHOTOS === "1") {
+      console.error(
+        "[photos] MIGRATE_LOOK_PHOTOS is ignored when NODE_ENV=production. Run scripts/migrate-look-photos.mjs --apply instead.",
+      );
+    }
+    return;
+  }
   photoMigration ??= import("./migrate-photos.server").then(({ migrateLookPhotos }) =>
     migrateLookPhotos(sql).then(() => undefined),
   );

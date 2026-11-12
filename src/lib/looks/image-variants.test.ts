@@ -8,6 +8,7 @@ import {
   formatSrcSet,
   parseStoredLookImages,
   publicStorageUrl,
+  requestPhotoMigrationEnabled,
   toPublicImages,
   variantKey,
   type StoredLookImages,
@@ -58,5 +59,8 @@ describe("look photo keys", () => {
     assert.match(formatSrcSet(images, "webp"), /card\.webp 480w/);
     assert.equal(publicStorageUrl("looks/aa/abc/card.webp", {}), "/storage/looks/aa/abc/card.webp");
     assert.throws(() => publicStorageUrl("../secret", {}), /Invalid storage key/);
+    assert.equal(requestPhotoMigrationEnabled({ MIGRATE_LOOK_PHOTOS: "1", NODE_ENV: "development" }), true);
+    assert.equal(requestPhotoMigrationEnabled({ MIGRATE_LOOK_PHOTOS: "1", NODE_ENV: "production" }), false);
+    assert.equal(requestPhotoMigrationEnabled({ NODE_ENV: "development" }), false);
   });
 });
