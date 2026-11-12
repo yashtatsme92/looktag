@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ExternalLink, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useStylePin } from "@/components/labels/style-pin-note";
+import { PieceThumb } from "@/components/looks/piece-thumb";
 import { FadeLayer } from "@/components/ds/fade-layer";
 import { SkeletonOfferRow } from "@/components/ds/skeleton";
 import { useDelayedLoad } from "@/lib/loading/delayed-load";
@@ -11,6 +12,7 @@ import { visualShopTarget } from "@/lib/looks/offers";
 import { useOverlay } from "@/lib/overlay/use-overlay";
 import { retailerLabel } from "@/lib/looks/retailers";
 import type { ProductTag } from "@/lib/looks/types";
+import { cn } from "@/lib/utils";
 
 type LookShopSheetProps = {
   tags: ProductTag[];
@@ -20,13 +22,24 @@ type LookShopSheetProps = {
   /** The sheet is the whole-look shop; a footer action is only offered where a surface asks for one. */
   onShopWhole?: () => void;
   phoneWholeLook?: boolean;
+  lookSrc?: string;
+  selectedId?: string | null;
 };
 
 /**
  * `Shop this look` (Look/3): a sheet that slides up inside the look plate, so it always sits above the 4-tab bar.
  * One Shop per piece, never a price. A Style-linked piece shows its Style name and House with a ghost View Style.
  */
-export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, phoneWholeLook = false }: LookShopSheetProps) {
+export function LookShopSheet({
+  tags,
+  open,
+  onClose,
+  onShopPiece,
+  onShopWhole,
+  phoneWholeLook = false,
+  lookSrc,
+  selectedId,
+}: LookShopSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const tagsRef = useRef(tags);
   tagsRef.current = tags;
@@ -77,7 +90,14 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
             ))
           ) : (
             tags.map((tag, index) => (
-              <SheetRow key={tag.id} tag={tag} index={index} onShop={() => onShopPiece(tag)} />
+              <SheetRow
+                key={tag.id}
+                tag={tag}
+                index={index}
+                lookSrc={lookSrc}
+                selected={tag.id === selectedId}
+                onShop={() => onShopPiece(tag)}
+              />
             ))
           )}
         </ul>
@@ -91,10 +111,7 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
             {phoneWholeLook ? (
               <>Shop whole look · {tags.length} {tags.length === 1 ? "piece" : "pieces"}</>
             ) : (
-              <>
-                Shop whole look
-                <ExternalLink className="size-4" />
-              </>
+              <>Shop whole look</>
             )}
           </button>
         ) : null}
@@ -107,7 +124,19 @@ export function LookShopSheet({ tags, open, onClose, onShopPiece, onShopWhole, p
   );
 }
 
-function SheetRow({ tag, index, onShop }: { tag: ProductTag; index: number; onShop: () => void }) {
+function SheetRow({
+  tag,
+  index,
+  lookSrc,
+  selected,
+  onShop,
+}: {
+  tag: ProductTag;
+  index: number;
+  lookSrc?: string;
+  selected?: boolean;
+  onShop: () => void;
+}) {
   const stylePin = useStylePin(tag.styleId);
   const target = visualShopTarget(tag);
   const pieceName = tag.name.trim() || "Piece";
@@ -121,8 +150,9 @@ function SheetRow({ tag, index, onShop }: { tag: ProductTag; index: number; onSh
     </button>
   ) : null;
   return (
-    <li className="look-sheet-row" data-style={stylePin ? "true" : undefined}>
+    <li className={cn("look-sheet-row", selected && "is-on")} aria-current={selected ? "true" : undefined} data-style={stylePin ? "true" : undefined}>
       <span className="look-sheet-num">{index + 1}</span>
+      <PieceThumb lookSrc={lookSrc} x={tag.x} y={tag.y} className="look-sheet-thumb" />
       <span className="look-sheet-text">
         <span className="look-sheet-name">{title}</span>
         <span className="look-sheet-meta">{sub}</span>

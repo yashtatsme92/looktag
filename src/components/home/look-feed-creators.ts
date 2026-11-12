@@ -1,4 +1,4 @@
-import type { Look } from "@/lib/looks/types";
+import { isEditorialLook, type Look } from "@/lib/looks/types";
 export { plateAttribution, plateCaptionLine, plateMetaLine } from "@/lib/home/look-feed-plate";
 
 export type FeedCreator = {
@@ -11,7 +11,7 @@ export type FeedCreator = {
 export function creatorsFromLooks(looks: Look[]): FeedCreator[] {
   const map = new Map<string, FeedCreator>();
   for (const look of looks) {
-    if (!look.userId || look.userId === "editorial") continue;
+    if (!look.userId || isEditorialLook(look)) continue;
     const existing = map.get(look.userId);
     if (existing) {
       existing.lookCount += 1;

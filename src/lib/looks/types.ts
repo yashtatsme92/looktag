@@ -3,6 +3,10 @@ import type { LookImages } from "./image-variants";
 
 export const EDITORIAL_USER_ID = "editorial";
 
+export function isSeedCreatorId(userId: string | null | undefined): boolean {
+  return Boolean(userId) && (userId === EDITORIAL_USER_ID || String(userId).startsWith("seed-"));
+}
+
 export type ProductOffer = {
   id: string;
   url: string;
@@ -89,9 +93,9 @@ export function emptyTag(x: number, y: number): ProductTag {
 }
 
 export function isEditorialLook(look: Pick<Look, "userId">): boolean {
-  return look.userId === EDITORIAL_USER_ID;
+  return isSeedCreatorId(look.userId);
 }
 
 export function ownsLook(look: Pick<Look, "userId">, userId: string | null | undefined): boolean {
-  return Boolean(userId) && look.userId === userId && look.userId !== EDITORIAL_USER_ID;
+  return Boolean(userId) && look.userId === userId && !isSeedCreatorId(look.userId);
 }

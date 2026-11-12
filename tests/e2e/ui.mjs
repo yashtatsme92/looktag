@@ -2014,7 +2014,7 @@ async function flowShopWholePhoneFlag(page) {
     const expected = width < 1024
       ? result.sheetWhole &&
         result.footerText === "Shop whole look" &&
-        result.footerExternalIcon &&
+        !result.footerExternalIcon &&
         result.border === "rgb(17, 17, 17)"
       : !result.sheetWhole &&
         result.wideActionText === "Shop whole look" &&
@@ -2022,7 +2022,7 @@ async function flowShopWholePhoneFlag(page) {
         !result.wideActionExternalIcon;
     record(
       `flow.flag.wide-on-${width}`,
-      result.spotlightWhole === (width < 1024 ? 1 : 0) && expected && result.bodyWholeCount === 1,
+      result.spotlightWhole === 0 && expected && result.bodyWholeCount === 1,
       JSON.stringify(result),
     );
   }
@@ -2037,7 +2037,7 @@ async function flowShopWholePhoneFlag(page) {
     const main = wideOn[wideWidths.findIndex((size) => size.width === width)];
     const unchanged = width < 1024
       ? result.footerText === "Shop whole look" &&
-      result.footerExternalIcon &&
+      !result.footerExternalIcon &&
       result.border === "rgb(17, 17, 17)"
       : result.wideActionText === "Shop whole look" &&
       result.wideActionBorder === "rgba(17, 17, 17, 0.16)" &&

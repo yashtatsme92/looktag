@@ -21,6 +21,7 @@ import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
+import { PieceThumb } from "@/components/looks/piece-thumb";
 import { FadeLayer, useStaggerIn } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid, SkeletonOfferRow } from "@/components/ds/skeleton";
@@ -165,6 +166,7 @@ export function WideLook({
               crop={look.crop}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              onHiddenPieces={() => setShopSheetOpen(true)}
               fit="cover"
               className="wide-plate-canvas"
             />
@@ -172,7 +174,13 @@ export function WideLook({
           <aside className="wide-panel" aria-label="Shop">
             <div className="wide-panel-hd">
               <span className="echo-kicker-row">
-                <p className="wide-kicker">{echoKicker(look)}</p>
+                {look.userId ? (
+                  <Link to="/creators/$userId" params={{ userId: look.userId }} className="wide-kicker wide-kicker-link">
+                    {echoKicker(look)}
+                  </Link>
+                ) : (
+                  <p className="wide-kicker">{echoKicker(look)}</p>
+                )}
                 {look.userId ? (
                   <FollowButton creatorId={look.userId} name={look.creator || "this creator"} tone="paper" />
                 ) : null}
@@ -283,6 +291,8 @@ export function WideLook({
           open={shopSheetOpen}
           onClose={() => setShopSheetOpen(false)}
           onShopPiece={shopPiece}
+          lookSrc={look.imageSrc}
+          selectedId={selectedId}
         />
 
         {echo.length > 0 ? (
@@ -358,13 +368,7 @@ function WidePieceRow({
         onClick={onToggle}
       >
         <span className="wide-pn">{index + 1}</span>
-        <span
-          className="wide-pth"
-          style={{
-            backgroundImage: lookSrc ? `url(${lookSrc})` : undefined,
-            backgroundPosition: `${tag.x}% ${tag.y}%`,
-          }}
-        />
+        <PieceThumb lookSrc={lookSrc} x={tag.x} y={tag.y} className="wide-pth" />
         <span className="wide-ptx">
           <span className="wide-pnm">{stylePin ? stylePin.styleName : pieceName}</span>
           <span className="wide-prt">

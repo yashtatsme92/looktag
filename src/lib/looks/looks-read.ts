@@ -123,6 +123,7 @@ export const listRankedCreators = createServerFn({ method: "GET" }).handler(asyn
       join profiles p on p.user_id = l.user_id
       where l.published = true
         and l.user_id <> ${EDITORIAL_USER_ID}
+        and l.user_id not like 'seed-%'
         and l.user_id not in (select id from fashion_labels)
       group by p.user_id, p.display_name, p.handle
       order by (count(*) * ${settings.scoreLook} + coalesce(sum(l.pin_count), 0) * ${settings.scorePin} + coalesce(sum(l.compared_count), 0) * ${settings.scoreCompared}) desc,

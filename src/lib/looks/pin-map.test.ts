@@ -8,7 +8,10 @@ import {
   framePercentToImage,
   imagePercentToFrame,
   inFrame,
+  nudgePinInside,
+  pinInCrop,
 } from "./pin-map.ts";
+import { centeredCrop } from "./crop.ts";
 
 describe("coverLayout", () => {
   it("crops the sides when the photo is wider than the frame", () => {
@@ -85,5 +88,44 @@ describe("focusPosY", () => {
     assert.ok(top >= 0 && top <= 1 && bottom >= 0 && bottom <= 1);
     assert.equal(top, 0);
     assert.equal(bottom, 1);
+  });
+});
+
+describe("pinInCrop", () => {
+  const crop = centeredCrop(1152, 1728);
+
+  it("keeps a pin inside the stored 3:4 window", () => {
+    const blouse = pinInCrop({ x: 52, y: 27 }, crop);
+    assert.equal(blouse.inside, true);
+    assert.ok(blouse.y > 0 && blouse.y < 100);
+  });
+
+  it("marks the Sun-Bleached sandals pin as outside that window", () => {
+    const sandals = pinInCrop({ x: 41, y: 95 }, crop);
+    assert.equal(sandals.inside, false);
+    assert.ok(sandals.y > 100);
+  });
+
+  it("treats a missing crop as the full photo", () => {
+    assert.equal(pinInCrop({ x: 10, y: 10 }, null).inside, true);
+    assert.equal(pinInCrop({ x: -2, y: 10 }, null).inside, false);
+  });
+});
+
+describe("nudgePinInside", () => {
+  it("leaves a centred pin alone", () => {
+    assert.deepEqual(nudgePinInside(50, 40, 400, 600), { dx: 0, dy: 0, leader: false });
+  });
+
+  it("pulls an edge pin inside and asks for a leader", () => {
+    const nudge = nudgePinInside(1, 98, 200, 400, 16);
+    assert.ok(nudge.dx > 0);
+    assert.ok(nudge.dy < 0);
+    assert.equal(nudge.leader, true);
+    assert.ok(Math.abs((1 / 100) * 200 + nudge.dx - 16) < 0.01);
+  });
+
+  it("does nothing without a frame", () => {
+    assert.deepEqual(nudgePinInside(0, 0, 0, 0), { dx: 0, dy: 0, leader: false });
   });
 });

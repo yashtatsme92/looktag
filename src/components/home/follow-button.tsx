@@ -10,16 +10,21 @@ export function FollowButton({
   name,
   primary = false,
   tone = "photo",
+  onSheetChange,
 }: {
   creatorId: string;
   name: string;
   primary?: boolean;
   tone?: "photo" | "paper";
+  onSheetChange?: (open: boolean) => void;
 }) {
   const { user } = useCurrentUserState();
   const runSettled = useSettledSessionAction();
   const [ids, setIds] = useState<string[]>([]);
   const [sheet, setSheet] = useState(false);
+  useEffect(() => {
+    onSheetChange?.(sheet);
+  }, [sheet, onSheetChange]);
   const self = !viewerCanFollow(user?.id, creatorId);
   useEffect(() => {
     const stored = readStoredIds(CREATOR_FOLLOWS_KEY);

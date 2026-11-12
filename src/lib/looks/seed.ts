@@ -1,4 +1,5 @@
-import { EDITORIAL_USER_ID, type Look, type ProductOffer, type ProductTag } from "./types";
+import type { Look, ProductOffer, ProductTag } from "./types";
+import { seededCreatorId } from "./seed-creators.ts";
 
 const EUR = "EUR";
 
@@ -1979,5 +1980,5 @@ const RAW_SEED: Array<Omit<Look, "userId">> = [
 
 export const SEED_LOOKS: Look[] = RAW_SEED.map((look) => ({
   ...look,
-  userId: EDITORIAL_USER_ID,
+  userId: seededCreatorId(look.creator),
 }));

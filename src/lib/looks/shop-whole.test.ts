@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { firstShopTag } from "./shop-whole.ts";
+import { firstShopTag, plateShowsBarShop, shopWholeOpensSheet } from "./shop-whole.ts";
 import type { ProductTag } from "./types.ts";
 
 function tag(id: string, extra: Partial<ProductTag> = {}): ProductTag {
@@ -30,5 +30,19 @@ describe("shop whole look target", () => {
   it("returns nothing when no pin can be shopped, including Style-linked pins without offers", () => {
     assert.equal(firstShopTag([]), undefined);
     assert.equal(firstShopTag([tag("a", { styleId: "style-a" }), tag("b", { url: "   " })]), undefined);
+  });
+});
+
+describe("shop whole look chrome", () => {
+  it("hides the bar Shop control only on a phone with a pin open", () => {
+    assert.equal(plateShowsBarShop(true, true), false);
+    assert.equal(plateShowsBarShop(true, false), true);
+    assert.equal(plateShowsBarShop(false, true), true);
+    assert.equal(plateShowsBarShop(false, false), true);
+  });
+
+  it("keeps phone Shop whole look on the first retailer and opens the sheet everywhere else", () => {
+    assert.equal(shopWholeOpensSheet(true), false);
+    assert.equal(shopWholeOpensSheet(false), true);
   });
 });

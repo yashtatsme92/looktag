@@ -9,3 +9,13 @@ export function firstShopTag(tags: ProductTag[]): { tag: ProductTag; url: string
   }
   return undefined;
 }
+
+/** Phone hides the bar Shop control while a pin card is open. Wider layouts keep "Shop". */
+export function plateShowsBarShop(phone: boolean, pinSelected: boolean): boolean {
+  return !(phone && pinSelected);
+}
+
+/** Phone "Shop whole look" still opens the first retailer. Wider layouts stay on the whole-look sheet. */
+export function shopWholeOpensSheet(phone: boolean): boolean {
+  return !phone;
+}

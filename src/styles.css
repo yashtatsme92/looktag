@@ -2933,20 +2933,6 @@ input.look-studio-title:focus-visible {
   box-shadow: none;
 }
 
-@keyframes pin-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 0 color-mix(in oklab, var(--color-primary) 28%, transparent),
-      0 1px 2px color-mix(in oklab, var(--color-primary) 18%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 10px transparent,
-      0 1px 2px color-mix(in oklab, var(--color-primary) 18%, transparent);
-  }
-}
-
 @keyframes rise-in {
   0% {
     opacity: 0;
@@ -2960,12 +2946,94 @@ input.look-studio-title:focus-visible {
   }
 }
 
-.pin-pulse {
-  animation: pin-pulse 2.4s var(--ease-out) infinite;
-}
-
 .rise-in {
   animation: rise-in 0.4s var(--ease-smooth-out) both;
+}
+
+/* Pins: 28px mark, 44px hit. Selected stays 28px. No pulse. */
+.tag-pin {
+  position: absolute;
+  z-index: 40;
+  display: block;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+
+.tag-pin::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.tag-pin-dot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(17 17 17 / 15%);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgb(17 17 17 / 18%);
+  pointer-events: none;
+}
+
+.tag-pin[aria-pressed="true"] .tag-pin-dot,
+.tag-pin.is-selected .tag-pin-dot {
+  border-color: #111111;
+  background: #111111;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgb(17 17 17 / 28%);
+}
+
+.tag-pin-leader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 0;
+  height: 1px;
+  background: #ffffff;
+  box-shadow: 0 0 0 0.5px rgb(17 17 17 / 45%);
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+
+.pin-more {
+  position: absolute;
+  z-index: 36;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 94%);
+  padding: 0.25rem 0.7rem;
+  color: #111111;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-border);
+  cursor: pointer;
+}
+
+.look-plate .pin-more {
+  top: 4.75rem;
 }
 
 .rise-in-delay-1 { animation-delay: 40ms; }
@@ -2973,7 +3041,6 @@ input.look-studio-title:focus-visible {
 .rise-in-delay-3 { animation-delay: 120ms; }
 
 @media (prefers-reduced-motion: reduce) {
-  .pin-pulse,
   .rise-in,
   .rise-in-delay-1,
   .rise-in-delay-2,
@@ -3797,6 +3864,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  text-decoration: none;
 }
 
 .look-plate-title {
@@ -3878,6 +3946,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   box-shadow: var(--shadow-border);
   backdrop-filter: blur(16px);
   touch-action: pan-y;
+  cursor: pointer;
   animation: look-piece-rise var(--motion-fast, 250ms) ease-out both;
 }
 
@@ -3965,6 +4034,10 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 /* Shop this look (Look/3): a sheet inside the plate, so it sits above the always-visible tab bar. */
 .look-plate[data-sheet="open"] .look-plate-bar {
   z-index: 47;
+}
+
+.look-plate[data-follow="open"] :is(.look-plate-bar, .look-plate-meta, .tag-pin, .pin-more, .look-plate-vignette) {
+  visibility: hidden;
 }
 
 .look-sheet-scrim {
@@ -4065,6 +4138,12 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   border-radius: var(--radius-lg);
 }
 
+.look-sheet-row.is-on,
+.look-sheet-row[aria-current="true"] {
+  border-color: #111111;
+  background: #f4f4f4;
+}
+
 .look-sheet-num {
   display: inline-flex;
   width: 1.75rem;
@@ -4114,8 +4193,16 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 }
 
 .look-sheet-shop {
-  background: #111111;
-  color: #ffffff;
+  border: 1px solid #111111;
+  background: transparent;
+  color: #111111;
+}
+
+.look-sheet-thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: none;
+  border-radius: 0.75rem;
 }
 
 .look-sheet-view {
@@ -6119,13 +6206,13 @@ html:not(.native-app) .wide-plate .look-photo-cover {
 }
 
 .wide-pth {
+  position: relative;
   width: 3.5rem;
   height: 3.5rem;
   flex: none;
+  overflow: hidden;
   border-radius: 12px;
   background-color: #ececec;
-  background-size: 240%;
-  background-repeat: no-repeat;
 }
 
 .wide-ptx {

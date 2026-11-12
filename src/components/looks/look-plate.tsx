@@ -22,7 +22,7 @@ import { useOverlay } from "@/lib/overlay/use-overlay";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
-import { firstShopTag } from "@/lib/looks/shop-whole";
+import { firstShopTag, plateShowsBarShop, shopWholeOpensSheet } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
@@ -66,8 +66,8 @@ export function LookPlate({
   const feedFollow = useSettingsStore((s) => s.feedFollow);
   const shopWholeLookPhone = useSettingsStore((s) => s.shopWholeLookPhone);
   const flagPhone = useFlagPhone();
-  /** Below 768px the spotlight never shows Shop whole look; the sheet footer shows it only when the flag is on. */
-  const showSpotlightWhole = !flagPhone;
+  const [followOpen, setFollowOpen] = useState(false);
+  /** Below 768px the sheet footer shows Shop whole look only when the flag is on. Wider layouts keep the sheet. */
   const showShopWhole = !flagPhone || shopWholeLookPhone;
 
   useEffect(() => {
@@ -250,9 +250,9 @@ export function LookPlate({
     shop(first.tag);
   }
 
-  /** `Shop this look`: the sheet lists every piece, so the pin card gives way to it. */
-  function openShopSheet() {
-    setSelectedId(null);
+  /** `Shop this look`: the sheet lists every piece. Tablet keeps the pin card open underneath it. */
+  function openShopSheet(keepSelection = false) {
+    if (!keepSelection) setSelectedId(null);
     setShopSheetOpen(true);
   }
 
@@ -261,6 +261,7 @@ export function LookPlate({
       className="look-plate"
       ref={plateRef}
       data-sheet={shopSheetOpen ? "open" : undefined}
+      data-follow={followOpen ? "open" : undefined}
       onKeyDown={onPlateKeyDown}
       onPointerDown={onPlatePointerDown}
     >
@@ -271,11 +272,12 @@ export function LookPlate({
         crop={look.crop}
         selectedId={selectedId}
         onSelect={(id) => setSelectedId(id)}
+        onHiddenPieces={() => openShopSheet(false)}
         fit="fill"
         className="look-plate-canvas"
       />
       {spotlight ? <div className="look-plate-vignette" aria-hidden /> : null}
-      {spotlight && typeof document !== "undefined"
+      {spotlight && !followOpen && typeof document !== "undefined"
         ? createPortal(
             <div
               ref={cardRef}
@@ -397,9 +399,21 @@ export function LookPlate({
       <div className="look-plate-meta">
         {kicker || (feedFollow && look.userId) ? (
           <span className="echo-kicker-row">
-            {kicker ? <p className="look-plate-kicker">{kicker}</p> : null}
+            {kicker ? (
+              look.userId ? (
+                <Link to="/creators/$userId" params={{ userId: look.userId }} className="look-plate-kicker">
+                  {kicker}
+                </Link>
+              ) : (
+                <p className="look-plate-kicker">{kicker}</p>
+              )
+            ) : null}
             {feedFollow && look.userId ? (
-              <FollowButton creatorId={look.userId} name={look.creator || "this creator"} />
+              <FollowButton
+                creatorId={look.userId}
+                name={look.creator || "this creator"}
+                onSheetChange={setFollowOpen}
+              />
             ) : null}
           </span>
         ) : null}
@@ -427,22 +441,16 @@ export function LookPlate({
               Echo
             </button>
           </div>
-          {spotlight ? (
-            showSpotlightWhole ? (
-              <button
-                type="button"
-                className="look-plate-shop-whole"
-                onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}
-              >
-                Shop whole look
-              </button>
-            ) : null
-          ) : (
-            <button type="button" className="look-plate-shop" onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}>
+          {plateShowsBarShop(flagPhone, Boolean(spotlight)) ? (
+            <button
+              type="button"
+              className="look-plate-shop"
+              onClick={() => (look.tags.length ? openShopSheet(Boolean(spotlight) && !flagPhone) : toast.message("No pieces on this look yet"))}
+            >
               Shop
               <ExternalLink className="size-4" />
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -451,8 +459,19 @@ export function LookPlate({
         open={shopSheetOpen}
         onClose={() => setShopSheetOpen(false)}
         onShopPiece={shop}
-        onShopWhole={showShopWhole ? shopWholeLook : undefined}
+        onShopWhole={
+          shopWholeOpensSheet(flagPhone)
+            ? () => {
+                setSelectedId(null);
+                setShopSheetOpen(true);
+              }
+            : showShopWhole
+              ? shopWholeLook
+              : undefined
+        }
         phoneWholeLook={flagPhone}
+        lookSrc={look.imageSrc}
+        selectedId={selectedId}
       />
 
       <AccountSheet
