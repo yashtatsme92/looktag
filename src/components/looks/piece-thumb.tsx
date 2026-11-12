@@ -56,7 +56,7 @@ export function PieceThumb({ lookSrc, x = 50, y = 50, productSrc, size = "md", a
           src={lookSrc}
           alt=""
           draggable={false}
-          className="pointer-events-none absolute max-w-none"
+          className="pointer-events-none absolute max-w-none object-cover"
           style={
             crop
               ? { left: crop.left, top: crop.top, width: crop.width, height: crop.height }

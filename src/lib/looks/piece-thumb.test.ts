@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { pieceThumbCrop } from "./piece-thumb.ts";
 
@@ -39,5 +40,11 @@ describe("pieceThumbCrop", () => {
     assert.equal(pin.covers, true);
     assert.ok(pin.x >= -0.5 && pin.x <= thumb + 0.5);
     assert.ok(pin.y >= -0.5 && pin.y <= thumb + 0.5);
+  });
+
+  it("covers the thumb instead of stretching with object-fit fill", () => {
+    const source = readFileSync("src/components/looks/piece-thumb.tsx", "utf8");
+    assert.match(source, /object-cover/);
+    assert.doesNotMatch(source, /object-fit:\s*fill|object-fill/);
   });
 });
