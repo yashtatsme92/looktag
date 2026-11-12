@@ -12,6 +12,12 @@ describe("static cache control", () => {
     "/fonts/playfair-display-latin-500-italic.woff2",
     "/splash/wordmark-750x1334.png",
     "/og.jpg",
+    "/favicon.svg",
+    "/favicon.ico",
+    "/__grok/icon-180.png",
+    "/icon-192.png",
+    "/icon-512.png",
+    "/icon-512-maskable.png",
   ]) {
     it(`caches ${path} with revalidation`, () => {
       const value = staticCacheControl(path);

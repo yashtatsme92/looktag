@@ -10,6 +10,14 @@ export const HASHED_ASSET_CACHE = "public, max-age=31536000, immutable";
 
 const STATIC_EXT = /\.(?:avif|webp|jpe?g|png|gif|svg|ico|woff2?)$/i;
 const HASHED_FILE = /\.[0-9a-f]{8,}\.[a-z0-9]+$/i;
+const APP_ICON_PATHS = new Set([
+  "/favicon.ico",
+  "/favicon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-512-maskable.png",
+  "/__grok/icon-180.png",
+]);
 
 export function staticCacheControl(pathname: string): string | null {
   const path = (pathname.split("?")[0] ?? "").split("#")[0] ?? "";
@@ -17,6 +25,7 @@ export function staticCacheControl(pathname: string): string | null {
   if (path.startsWith("/assets/")) return HASHED_ASSET_CACHE;
   const file = path.slice(path.lastIndexOf("/") + 1);
   if (HASHED_FILE.test(file) && STATIC_EXT.test(path)) return HASHED_ASSET_CACHE;
+  if (APP_ICON_PATHS.has(path)) return STATIC_ASSET_CACHE;
   if (!STATIC_EXT.test(path)) return null;
   if (path.startsWith("/looks/") || path.startsWith("/fonts/") || path.startsWith("/splash/") || path === "/og.jpg") {
     return STATIC_ASSET_CACHE;

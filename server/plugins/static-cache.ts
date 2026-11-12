@@ -3,7 +3,7 @@ import { definePlugin } from "nitro";
 import { staticCacheControl } from "../../src/lib/site/static-cache";
 
 /**
- * Long cache for seed photos, fonts, splash art and og.jpg.
+ * Long cache for app icons, seed photos, fonts, splash art and og.jpg.
  * Skips anything that already set Cache-Control (HTML, /api no-store, hashed /assets).
  */
 export default definePlugin(({ hooks }) => {
