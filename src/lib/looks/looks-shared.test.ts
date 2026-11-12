@@ -122,7 +122,7 @@ describe("editorial look seeding", () => {
       const cropLook = { ...existing, id: "crop-roundtrip", crop };
       await insertLookRow(sql, cropLook, EDITORIAL_USER_ID);
       const cropRows = await sql`
-        select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+        select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
                created_at, updated_at, collection_id, crop_json
         from looks where id = ${cropLook.id}
       `;

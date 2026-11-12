@@ -7,6 +7,7 @@ import {
   feedSrcSet,
   largestSource,
 } from "@/lib/media/feed-image";
+import { formatSrcSet, type LookImages } from "@/lib/looks/image-variants";
 import { cn } from "@/lib/utils";
 
 type ImgSlotProps = ImgHTMLAttributes<HTMLImageElement> & {
@@ -15,18 +16,34 @@ type ImgSlotProps = ImgHTMLAttributes<HTMLImageElement> & {
   slotClassName?: string;
   /** Hero and lead photos stay put: no fade (L9). */
   still?: boolean;
-  /** Above-the-fold. Eager, fetchpriority high, one AVIF preload. */
+  /** Storage derivatives from an uploaded or migrated look. Wins over the seed manifest. */
+  images?: LookImages;
+  /** Above-the-fold. Eager, fetchpriority high, one preload. */
   priority?: boolean;
-  /** Use the original file. Detail galleries pass this. */
+  /** Use the seed-photo manifest. Detail galleries pass false. Ignored when `images` is set. */
   feed?: boolean;
   sizes?: string;
 };
+
+export function lookPhotoProps(
+  look: { imageSrc: string; images?: LookImages },
+  options?: { sizes?: string; priority?: boolean; feed?: boolean },
+) {
+  return {
+    src: look.imageSrc,
+    images: look.images,
+    sizes: options?.sizes,
+    priority: options?.priority,
+    feed: options?.feed ?? !look.images,
+  };
+}
 
 export function ImgSlot({
   aspectRatio = "3 / 4",
   className,
   slotClassName,
   still = false,
+  images,
   priority = false,
   feed = true,
   sizes,
@@ -42,21 +59,25 @@ export function ImgSlot({
 }: ImgSlotProps) {
   const [loaded, setLoaded] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
-  const entry = feed ? feedEntryFor(typeof src === "string" ? src : "") : null;
+  const entry = !images && feed ? feedEntryFor(typeof src === "string" ? src : "") : null;
   const box = entry ? feedBox(entry) : null;
-  const imageSizes = sizes ?? (entry ? FEED_GRID_SIZES : undefined);
-  const avif = entry ? feedSrcSet(entry.avif) : "";
-  const webp = entry ? feedSrcSet(entry.webp) : "";
-  const jpeg = entry ? feedSrcSet(entry.jpeg) : "";
-  const fallback = entry ? largestSource(entry.jpeg) : null;
-  const avifHref = entry ? largestSource(entry.avif)?.url : undefined;
+  const imageSizes = sizes ?? (images || entry ? FEED_GRID_SIZES : undefined);
+  const avif = images ? formatSrcSet(images, "avif") : entry ? feedSrcSet(entry.avif) : "";
+  const webp = images ? formatSrcSet(images, "webp") : entry ? feedSrcSet(entry.webp) : "";
+  const jpeg = images ? formatSrcSet(images, "jpeg") : entry ? feedSrcSet(entry.jpeg) : "";
+  const fallbackSrc = images
+    ? images.jpeg.detail || images.detail || src
+    : (entry ? largestSource(entry.jpeg)?.url : undefined) ?? src;
+  const avifHref = images?.avif?.detail || (entry ? largestSource(entry.avif)?.url : undefined);
+  const preloadHref = avifHref || (images && priority ? images.detail : undefined);
+  const preloadSet = avifHref ? avif : webp;
 
-  if (priority && avif && avifHref && imageSizes) {
-    preload(avifHref, {
+  if (priority && preloadHref && preloadSet && imageSizes) {
+    preload(preloadHref, {
       as: "image",
-      type: "image/avif",
+      type: avifHref ? "image/avif" : "image/webp",
       fetchPriority: "high",
-      imageSrcSet: avif,
+      imageSrcSet: preloadSet,
       imageSizes,
     });
   }
@@ -64,18 +85,18 @@ export function ImgSlot({
   useEffect(() => {
     const image = imageRef.current;
     setLoaded(Boolean(image?.complete && image.naturalWidth > 0));
-  }, [src]);
+  }, [fallbackSrc]);
 
   const img = (
     <img
       ref={imageRef}
       {...imageProps}
       alt={alt}
-      src={fallback?.url ?? src}
+      src={fallbackSrc}
       srcSet={jpeg || undefined}
       sizes={jpeg ? imageSizes : undefined}
-      width={width ?? box?.width}
-      height={height ?? box?.height}
+      width={width ?? images?.width ?? box?.width}
+      height={height ?? images?.height ?? box?.height}
       loading={loading ?? (priority ? "eager" : "lazy")}
       decoding={decoding ?? "async"}
       fetchPriority={fetchPriority ?? (priority ? "high" : undefined)}
@@ -93,9 +114,9 @@ export function ImgSlot({
       data-still={still ? "true" : undefined}
       style={{ "--ar": aspectRatio } as CSSProperties}
     >
-      {entry && avif ? (
+      {(images || entry) && (avif || webp) ? (
         <picture>
-          <source type="image/avif" srcSet={avif} sizes={imageSizes} />
+          {avif ? <source type="image/avif" srcSet={avif} sizes={imageSizes} /> : null}
           {webp ? <source type="image/webp" srcSet={webp} sizes={imageSizes} /> : null}
           {img}
         </picture>

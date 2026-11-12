@@ -255,6 +255,12 @@ html.overlay-lock {
   background-color: var(--ph);
 }
 
+.img-slot > picture {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
 .img-slot > img,
 .img-slot > picture > img {
   position: absolute;

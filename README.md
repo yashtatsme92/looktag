@@ -114,6 +114,13 @@ Two layers. Registry: [`src/lib/config.ts`](src/lib/config.ts).
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Traces / metrics / logs | Optional | Signals page only |
 | `LOOKTAG_NATIVE_URL` | Hosted origin for the Capacitor shell | Optional | Local `public/` |
 | `VITE_AUTH_ENABLED` | Account sign-in (via `.grok/app-env.json`) | Optional | `true` |
+| `STORAGE_PROVIDER` | `local` (default), `s3`, or `r2` | `r2` in production once the bucket exists | Local `.data/storage`, served at `/storage` |
+| `S3_ENDPOINT` | R2/S3 API endpoint | **Yes** when `STORAGE_PROVIDER` is `r2` or `s3` | Unused on `local` |
+| `S3_BUCKET` | Bucket name | Optional | `looktag-photos` |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | R2/S3 credentials | **Yes** when `STORAGE_PROVIDER` is `r2` or `s3` | Unused on `local` |
+| `S3_REGION` | Signing region | Optional | `auto` (use that for R2) |
+| `STORAGE_PUBLIC_BASE_URL` | Public image origin, e.g. `https://img.thelooktag.com` | **Yes** on R2 | `/storage` on local |
+| `LOOK_IMAGE_AVIF` | `1` also writes AVIF derivatives | Optional | WebP + JPEG only |
 
 ### Domain and footer
 

@@ -21,9 +21,10 @@ describe("storage provider", () => {
     try {
       const store = localStorage(root);
       const body = new TextEncoder().encode("photo");
-      await store.put("looks/one.jpg", body, "image/jpeg");
+      await store.put("looks/one.jpg", body, "image/jpeg", { cacheControl: "public, max-age=31536000, immutable" });
       const stored = await store.get("looks/one.jpg");
       assert.equal(stored?.contentType, "image/jpeg");
+      assert.equal(stored?.cacheControl, "public, max-age=31536000, immutable");
       assert.equal(new TextDecoder().decode(stored?.body), "photo");
       assert.equal(store.publicUrl("looks/one.jpg"), "/storage/looks/one.jpg");
       await store.delete("looks/one.jpg");

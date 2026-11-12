@@ -11,7 +11,7 @@ import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { FeedLoadError } from "@/components/ds/feed-error";
 import { FeedTabs } from "@/components/ds/feed-tabs";
 import { useCrossfade, useStaggerIn } from "@/components/ds/fade-layer";
-import { ImgSlot } from "@/components/ds/img-slot";
+import { ImgSlot, lookPhotoProps } from "@/components/ds/img-slot";
 import { FEED_PLATE_SIZES } from "@/lib/media/feed-image";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
@@ -554,12 +554,10 @@ export function EchoHome({ looks }: { looks: Look[] }) {
                 }}
               >
                 <ImgSlot
-                  src={look.imageSrc}
+                  {...lookPhotoProps(look, { sizes: FEED_PLATE_SIZES, priority: mode === "feed" && plateIndex === 0 })}
                   alt=""
                   slotClassName="img-slot-fill"
-                  sizes={FEED_PLATE_SIZES}
                   still={mode === "feed" && plateIndex === 0}
-                  priority={mode === "feed" && plateIndex === 0}
                 />
               </Link>
               {mode === "feed" && beatLabel(look) ? <p className="echo-beat">{beatLabel(look)}</p> : null}
@@ -610,7 +608,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
               ) : (
                 <article className="echo-plate echo-tile" key={item.look.id}>
                   <Link to="/looks/$lookId" params={{ lookId: item.look.id }} className="echo-photo" aria-label={item.look.title || "Look"}>
-                    <ImgSlot src={item.look.imageSrc} alt="" slotClassName="img-slot-fill" sizes={FEED_PLATE_SIZES} />
+                    <ImgSlot {...lookPhotoProps(item.look, { sizes: FEED_PLATE_SIZES })} alt="" slotClassName="img-slot-fill" />
                   </Link>
                   <div className="echo-meta">
                     {echoKicker(item.look) ? <p className="echo-kicker">{echoKicker(item.look)}</p> : null}

@@ -6,6 +6,7 @@ import { type Look } from "./types";
 import { lookStats } from "./rank";
 import { normalizeLookTags } from "./offers";
 import { assertLookImageSrc } from "./image-src";
+import { parseStoredLookImages, toPublicImages } from "./image-variants";
 import { upsertProfile } from "./looks-shared";
 
 export const saveLook = createServerFn({ method: "POST" })
@@ -18,17 +19,28 @@ export const saveLook = createServerFn({ method: "POST" })
       assertLookImageSrc(incoming.imageSrc);
       const sql = await getSql();
       const userId = context.userId;
-      const existing = await sql<{ user_id: string }>`
-        select user_id from looks where id = ${incoming.id} limit 1
+      const existing = await sql<{ user_id: string; image_variants_json: string | null }>`
+        select user_id, image_variants_json from looks where id = ${incoming.id} limit 1
       `;
       if (existing[0] && existing[0].user_id !== userId) {
         throw new Error("You can only edit your own looks.");
       }
+      let imageSrc = assertLookImageSrc(incoming.imageSrc);
+      let variantsJson = existing[0]?.image_variants_json ?? null;
+      if (imageSrc.startsWith("data:")) {
+        const { persistDataUrlPhoto } = await import("./photo-store.server");
+        const stored = await persistDataUrlPhoto(incoming.id, imageSrc, variantsJson);
+        imageSrc = stored.imageSrc;
+        variantsJson = stored.variantsJson;
+      }
+      const storedImages = parseStoredLookImages(variantsJson);
       const creator = incoming.creator.trim() || "Creator";
       await upsertProfile(sql, userId, creator);
       const now = Date.now();
       const look: Look = normalizeLookTags({
         ...incoming,
+        imageSrc,
+        images: storedImages ? toPublicImages(storedImages) : undefined,
         userId,
         title,
         creator,
@@ -51,6 +63,7 @@ export const saveLook = createServerFn({ method: "POST" })
             caption = ${look.caption},
             creator_name = ${look.creator},
             image_src = ${look.imageSrc},
+            image_variants_json = ${variantsJson},
             moods_json = ${moodsJson},
             tags_json = ${tagsJson},
             crop_json = ${cropJson},
@@ -64,11 +77,11 @@ export const saveLook = createServerFn({ method: "POST" })
       } else {
         await sql`
           insert into looks (
-            id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+            id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
             pin_count, compared_count, retailer_count, published, created_at, updated_at, collection_id, crop_json
           ) values (
             ${look.id}, ${userId}, ${look.title}, ${look.caption}, ${look.creator},
-            ${look.imageSrc}, ${moodsJson}, ${tagsJson},
+            ${look.imageSrc}, ${variantsJson}, ${moodsJson}, ${tagsJson},
             ${stats.pinCount}, ${stats.comparedCount}, ${stats.retailerCount}, true,
             ${look.createdAt}, ${look.updatedAt}, ${collectionId}, ${cropJson}
           )
@@ -84,6 +97,14 @@ export const deleteLook = createServerFn({ method: "POST" })
   .handler(async ({ context, data: id }) => {
     return withSpan("looktag.looks.delete", async () => {
       const sql = await getSql();
+      const rows = await sql<{ image_variants_json: string | null }>`
+        select image_variants_json from looks where id = ${id} and user_id = ${context.userId} limit 1
+      `;
+      if (rows[0]) {
+        const { deleteStoredLookImages } = await import("./photo-store.server");
+        const { parseStoredLookImages } = await import("./image-variants");
+        await deleteStoredLookImages(parseStoredLookImages(rows[0].image_variants_json));
+      }
       await sql`delete from looks where id = ${id} and user_id = ${context.userId}`;
       return { id };
     });

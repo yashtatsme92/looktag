@@ -49,7 +49,7 @@ export const listAdminHouses = createServerFn({ method: "GET" })
         created_at desc
     `;
     const lookRows = await sql<LookRow>`
-      select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+      select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
              created_at, updated_at, collection_id
       from looks
       where published = true and user_id <> ${EDITORIAL_USER_ID}

@@ -62,6 +62,7 @@ jobs:
           npm run test:e2e:create-phone
           npm run test:e2e:ios-standalone
           npm run test:e2e:create-desktop
+          npm run test:e2e:photo-sizes
           npm run test:e2e:auth-methods
           npm run test:ui
           BASE_URL=http://127.0.0.1:8080 npm run test:e2e:domain

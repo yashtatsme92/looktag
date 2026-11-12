@@ -10,8 +10,8 @@ import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { FeedLoadError } from "@/components/ds/feed-error";
 import { FeedTabs } from "@/components/ds/feed-tabs";
 import { FadeLayer, useStaggerIn } from "@/components/ds/fade-layer";
-import { ImgSlot } from "@/components/ds/img-slot";
-import { FEED_LEAD_SIZES } from "@/lib/media/feed-image";
+import { ImgSlot, lookPhotoProps } from "@/components/ds/img-slot";
+import { FEED_GRID_SIZES, FEED_LEAD_SIZES } from "@/lib/media/feed-image";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, forYouOrder, recordEchoActivation, pieceLine } from "@/lib/home/echo";
@@ -473,7 +473,7 @@ function DesktopLead({
     <div className="wide-leadrow">
       <div className="wide-lead-photo">
         <Link to="/looks/$lookId" params={{ lookId: look.id }} aria-label={look.title || "Look"}>
-          <ImgSlot src={look.imageSrc} alt="" still priority sizes={FEED_LEAD_SIZES} slotClassName="img-slot-fill" />
+          <ImgSlot {...lookPhotoProps(look, { sizes: FEED_LEAD_SIZES, priority: true })} alt="" still slotClassName="img-slot-fill" />
         </Link>
       </div>
       <div className="wide-lead-copy">
@@ -514,7 +514,7 @@ function TabletLead({
   return (
     <article className="wide-leadcard">
       <Link to="/looks/$lookId" params={{ lookId: look.id }} className="wide-tile-hit" aria-label={look.title || "Look"}>
-        <ImgSlot src={look.imageSrc} alt="" still priority sizes={FEED_LEAD_SIZES} slotClassName="img-slot-fill" />
+        <ImgSlot {...lookPhotoProps(look, { sizes: FEED_LEAD_SIZES, priority: true })} alt="" still slotClassName="img-slot-fill" />
       </Link>
       <span className="wide-peel" aria-hidden />
       <div className="wide-tile-cap wide-leadcard-cap">
@@ -563,7 +563,7 @@ function Tile({
     <>
       <article className={cn("wide-tile", lane && "echo-tile")}>
         <Link to="/looks/$lookId" params={{ lookId: look.id }} className="wide-tile-hit" aria-label={look.title || "Look"}>
-          <ImgSlot src={look.imageSrc} alt="" slotClassName="img-slot-fill" />
+          <ImgSlot {...lookPhotoProps(look, { sizes: FEED_GRID_SIZES })} alt="" slotClassName="img-slot-fill" />
         </Link>
         <div className="wide-tile-cap">
           {fresh ? <p className="echo-fresh echo-fresh-ink">New since your last visit</p> : null}

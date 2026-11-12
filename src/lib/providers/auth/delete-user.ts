@@ -20,6 +20,16 @@ export async function deleteLooktagTestUser(userId: string): Promise<{ id: strin
   if (!isLooktagTestEmail(email)) {
     throw new Error("Refusing to delete this account.");
   }
+  const photos = await sql<{ image_variants_json: string | null }>`
+    select image_variants_json from looks where user_id = ${userId}
+  `;
+  if (photos.some((row) => row.image_variants_json)) {
+    const { deleteStoredLookImages } = await import("../../looks/photo-store.server");
+    const { parseStoredLookImages } = await import("../../looks/image-variants");
+    for (const row of photos) {
+      await deleteStoredLookImages(parseStoredLookImages(row.image_variants_json));
+    }
+  }
   await sql`delete from looks where user_id = ${userId}`;
   await sql`delete from profiles where user_id = ${userId}`;
   const ctx = await auth.$context;

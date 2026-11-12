@@ -12,11 +12,29 @@ import {
   seedCatalog,
   creatorPayload,
 } from "./looks-shared";
+import { requestPhotoMigrationEnabled } from "./image-variants";
 
 const cropsBackfilled = new WeakSet<object>();
+let photoMigration: Promise<void> | null = null;
+
+async function maybeMigratePhotos(sql: Awaited<ReturnType<typeof getSql>>) {
+  if (!requestPhotoMigrationEnabled(process.env)) {
+    if (process.env.MIGRATE_LOOK_PHOTOS === "1") {
+      console.error(
+        "[photos] MIGRATE_LOOK_PHOTOS is ignored when NODE_ENV=production. Run scripts/migrate-look-photos.mjs --apply instead.",
+      );
+    }
+    return;
+  }
+  photoMigration ??= import("./migrate-photos.server").then(({ migrateLookPhotos }) =>
+    migrateLookPhotos(sql).then(() => undefined),
+  );
+  await photoMigration;
+}
 
 async function seedAndBackfillLooks(sql: Awaited<ReturnType<typeof getSql>>) {
   await seedCatalog(sql);
+  await maybeMigratePhotos(sql);
   if (cropsBackfilled.has(sql)) return;
   await backfillLookCrops(sql);
   cropsBackfilled.add(sql);
@@ -31,14 +49,14 @@ export const listPublicLooks = createServerFn({ method: "GET" }).handler(async (
     const settings = await withSpan("looktag.settings.read", async () => readSettings());
     const rows = settings.labelsEnabled
       ? await sql<LookRow>`
-          select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+          select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
                  created_at, updated_at, collection_id, crop_json
           from looks
           where published = true
           order by created_at desc
         `
       : await sql<LookRow>`
-          select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+          select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
                  created_at, updated_at, collection_id, crop_json
           from looks
           where published = true
@@ -62,7 +80,7 @@ export const getLookById = createServerFn({ method: "GET" })
           await seedAndBackfillLooks(sql);
         });
         const rows = await sql<LookRow>`
-          select id, user_id, title, caption, creator_name, image_src, moods_json, tags_json,
+          select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
                  created_at, updated_at, collection_id, crop_json
           from looks
           where id = ${id} and published = true

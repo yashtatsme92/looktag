@@ -16,14 +16,13 @@
  *   are a follow-up once the client can hydrate full images via `getLookById` —
  *   omitting `imageSrc` here would blank the Zustand feed.
  *
- * ## Migration / dual-write plan (object storage — not in this change)
+ * ## What is stored
  *
- * 1. Add nullable `image_url` (short https / R2 / S3 URL) alongside `image_src`.
- * 2. Dual-write on save: upload bytes to object storage, store the URL in
- *    `image_url`, keep writing `image_src` until all readers prefer URLs.
- * 3. Backfill existing inline data URLs asynchronously; stop accepting new
- *    inline data URLs once backfill coverage is acceptable.
- * 4. Drop or shrink `image_src` after readers only use `image_url`.
+ * `saveLook` still accepts a data URL on the way in (this bound). Before the row
+ * is written, the bytes are resized to thumb / card / detail and `image_src`
+ * becomes the public detail JPEG URL. Seed paths (`/looks/*.jpg`) stay until
+ * `scripts/migrate-look-photos.mjs --apply` rewrites them. A bare run of that
+ * script is a dry-run. Drafts in the browser are data URLs and are not uploaded until publish.
  */
 
 /** ~3.5 MiB — aligned with the issue's AI/client clamp guidance. */

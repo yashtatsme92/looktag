@@ -22,6 +22,33 @@ import {
   shortCommit,
 } from "./src/lib/build-commit.ts";
 
+/** Dev server for `/storage/*` (Nitro middleware covers production). */
+function localStorageDevPlugin(): Plugin {
+  return {
+    name: "looktag-local-storage",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = req.url?.split("?")[0] ?? "";
+        if (!url.startsWith("/storage/")) return next();
+        try {
+          const { storageFileResponse } = await import("./src/lib/looks/storage-http.ts");
+          const response = await storageFileResponse(url);
+          if (!response) return next();
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => res.setHeader(key, value));
+          if ((req.method ?? "GET").toUpperCase() === "HEAD") {
+            res.end();
+            return;
+          }
+          res.end(Buffer.from(await response.arrayBuffer()));
+        } catch (error) {
+          next(error);
+        }
+      });
+    },
+  };
+}
+
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
   try {
@@ -248,6 +275,7 @@ export default defineConfig(({ command, isPreview }) => ({
   },
   plugins: [
     pgliteBootstrapPlugin(),
+    localStorageDevPlugin(),
     {
       name: "looktag-provider-boot",
       configureServer() {
