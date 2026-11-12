@@ -3959,6 +3959,30 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   outline: none;
 }
 
+/* Tablet caret, at most 12px, aimed at the selected pin. Phone has no pointer. */
+.look-plate-pointer {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  background: #fff;
+}
+
+.look-plate-pointer[data-edge="left"] {
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+
+.look-plate-pointer[data-edge="right"] {
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.look-plate-pointer[data-edge="top"] {
+  clip-path: polygon(0 100%, 50% 0, 100% 100%);
+}
+
+.look-plate-pointer[data-edge="bottom"] {
+  clip-path: polygon(0 0, 50% 100%, 100% 0);
+}
+
 .look-plate-piece-row {
   display: flex;
   align-items: center;
@@ -5964,6 +5988,15 @@ input[type="search"]::-webkit-search-decoration {
 .wide-btn-primary {
   background: #111111;
   color: #f4f4f4;
+}
+
+/* #133: wide-panel Shop rows are outline ghosts below 1280. 1280 and up stay solid. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .wide-prow .wide-btn-primary {
+    background: transparent;
+    color: #111111;
+    border-color: #111111;
+  }
 }
 
 .wide-btn-onphoto {

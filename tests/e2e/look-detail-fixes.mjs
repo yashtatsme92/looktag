@@ -3,6 +3,8 @@
  * Look detail fixes: tablet Shop whole look stays on the sheet, seeded creator
  * pages resolve, piece thumbs centre on the pin, Sun-Bleached Linen accounts
  * for every pin, and pins are a 28px mark with no pulse.
+ * Also: a ≤12px pin-card caret at tablet widths, and ghost wide-panel Shop
+ * buttons at 1024 and 1112 (1280 stays solid).
  */
 import { chromium } from "playwright";
 import { SEED_LOOKS } from "../../src/lib/looks/seed.ts";
@@ -15,6 +17,9 @@ const SUN = "seed-sofia-sun-bleached-linen";
 const widths = [
   { name: "phone", width: 390, height: 844 },
   { name: "tablet", width: 820, height: 1180 },
+  { name: "tablet834", width: 834, height: 1194 },
+  { name: "wide1024", width: 1024, height: 768 },
+  { name: "wide1112", width: 1112, height: 834 },
   { name: "desktop", width: 1280, height: 800 },
 ];
 let failed = false;
@@ -22,6 +27,52 @@ let failed = false;
 function record(name, ok, detail = "") {
   if (!ok) failed = true;
   console.log(`${ok ? "ok" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
+}
+
+async function assertPinPointer(page, label) {
+  await page.locator(".tag-pin").nth(1).click();
+  await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 6_000 });
+  await page.waitForFunction(
+    () => {
+      const card = document.querySelector(".look-plate-piece");
+      const pointer = document.querySelector(".look-plate-pointer");
+      return Boolean(card && pointer && card.getAnimations().every((animation) => animation.playState === "finished"));
+    },
+    null,
+    { timeout: 6_000 },
+  );
+  const measured = await page.evaluate(() => {
+    const pointer = document.querySelector(".look-plate-pointer");
+    const pin = document.querySelector('.tag-pin[aria-pressed="true"]');
+    const card = document.querySelector(".look-plate-piece");
+    const box = pointer.getBoundingClientRect();
+    const edge = pointer.getAttribute("data-edge");
+    const pinBox = pin.getBoundingClientRect();
+    const cardBox = card.getBoundingClientRect();
+    const tip =
+      edge === "left"
+        ? { x: box.left, y: box.top + box.height / 2 }
+        : edge === "right"
+          ? { x: box.right, y: box.top + box.height / 2 }
+          : edge === "top"
+            ? { x: box.left + box.width / 2, y: box.top }
+            : { x: box.left + box.width / 2, y: box.bottom };
+    const pinCentre = { x: pinBox.left + pinBox.width / 2, y: pinBox.top + pinBox.height / 2 };
+    const base = edge === "left" ? box.right : edge === "right" ? box.left : edge === "top" ? box.bottom : box.top;
+    const cardEdge = edge === "left" ? cardBox.left : edge === "right" ? cardBox.right : edge === "top" ? cardBox.top : cardBox.bottom;
+    return {
+      w: box.width,
+      h: box.height,
+      dist: Math.hypot(tip.x - pinCentre.x, tip.y - pinCentre.y),
+      attached: Math.abs(base - cardEdge) <= 2,
+      edge,
+    };
+  });
+  record(
+    `${label}.pointer`,
+    measured.w > 0 && measured.w <= 12 && measured.h > 0 && measured.h <= 12 && measured.dist <= 8 && measured.attached,
+    JSON.stringify(measured),
+  );
 }
 
 async function prime(context) {
@@ -109,6 +160,7 @@ try {
     bar.shop === 1 && bar.whole === 0 && bar.shopText === "Shop" && bar.cursor === "pointer",
     JSON.stringify(bar),
   );
+  await assertPinPointer(page, "tablet820");
   const popup = page.waitForEvent("popup", { timeout: 1500 }).then(() => true).catch(() => false);
   await page.locator(".look-plate-shop").click();
   await page.locator(".look-sheet").waitFor({ timeout: 6_000 });
@@ -138,6 +190,36 @@ try {
   const stayed = page.url().includes("/looks/seed-sunday-coat");
   const stillOpen = (await page.locator(".look-sheet-row").count()) === 4;
   record("tablet.whole-stays-on-sheet", stayed && stillOpen && (await popup) === false, page.url());
+
+  await page.setViewportSize({ width: 834, height: 1194 });
+  await page.goto(`${origin}/looks/seed-sunday-coat`, { waitUntil: "domcontentloaded" });
+  await page.locator(".tag-pin").nth(1).waitFor({ timeout: 12_000 });
+  await assertPinPointer(page, "tablet834");
+
+  for (const viewport of [
+    { name: "wide1024", width: 1024, height: 768 },
+    { name: "wide1112", width: 1112, height: 834 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${origin}/looks/seed-sunday-coat`, { waitUntil: "domcontentloaded" });
+    await page.locator(".wide-prow .wide-btn-primary").first().waitFor({ timeout: 12_000 });
+    const ghost = await page.evaluate(() =>
+      [...document.querySelectorAll(".wide-prow .wide-btn-primary")].map((button) => {
+        const style = getComputedStyle(button);
+        return {
+          background: style.backgroundColor,
+          color: style.color,
+          border: style.borderTopColor,
+        };
+      }),
+    );
+    record(
+      `${viewport.name}.shop-ghost`,
+      ghost.length >= 1 &&
+        ghost.every((button) => button.background === "rgba(0, 0, 0, 0)" && button.color === "rgb(17, 17, 17)" && button.border === "rgb(17, 17, 17)"),
+      JSON.stringify(ghost),
+    );
+  }
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${origin}/looks/${SUN}`, { waitUntil: "domcontentloaded" });

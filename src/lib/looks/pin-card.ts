@@ -73,3 +73,93 @@ export function placePinCard(input: PinCardInput): PinCardPlacement {
   }
   return best ?? { left: margin, top: inset.top, covered: [], coversSelected: false };
 }
+
+export const PIN_POINTER_MAX_PX = 12;
+/** Border-box gap that puts a 12px caret tip 6px from the pin — inside 8px, outside the 16px card halo. */
+export const PIN_POINTER_GAP_PX = 18;
+
+export type CardRect = { left: number; top: number; w: number; h: number };
+export type PinEdge = "top" | "right" | "bottom" | "left";
+
+export type PinPointer = {
+  edge: PinEdge;
+  size: number;
+  /** Top-left of the caret box, in the same coordinate space as the card. */
+  left: number;
+  top: number;
+};
+
+function clamp(value: number, min: number, max: number): number {
+  if (max < min) return (min + max) / 2;
+  return Math.min(max, Math.max(min, value));
+}
+
+export function pinPointerTip(pointer: PinPointer): { x: number; y: number } {
+  if (pointer.edge === "left") return { x: pointer.left, y: pointer.top + pointer.size / 2 };
+  if (pointer.edge === "right") return { x: pointer.left + pointer.size, y: pointer.top + pointer.size / 2 };
+  if (pointer.edge === "top") return { x: pointer.left + pointer.size / 2, y: pointer.top };
+  return { x: pointer.left + pointer.size / 2, y: pointer.top + pointer.size };
+}
+
+/** The card edge the pin sits beyond, so the caret can leave that side. */
+export function pinCardEdge(card: CardRect, pin: { x: number; y: number }): PinEdge {
+  const vx = pin.x - (card.left + card.w / 2);
+  const vy = pin.y - (card.top + card.h / 2);
+  if (Math.abs(vx) * card.h >= Math.abs(vy) * card.w) return vx >= 0 ? "right" : "left";
+  return vy >= 0 ? "bottom" : "top";
+}
+
+function slideToGap(card: CardRect, pin: { x: number; y: number }, edge: PinEdge, gapPx: number): CardRect {
+  const next = { left: card.left, top: card.top, w: card.w, h: card.h };
+  const pad = 8;
+  if (edge === "right" || edge === "left") {
+    next.left = edge === "right" ? pin.x - gapPx - card.w : pin.x + gapPx;
+    next.top = clamp(card.top, pin.y - (card.h - pad), pin.y - pad);
+  } else {
+    next.top = edge === "bottom" ? pin.y - gapPx - card.h : pin.y + gapPx;
+    next.left = clamp(card.left, pin.x - (card.w - pad), pin.x - pad);
+  }
+  return next;
+}
+
+/**
+ * Slides a tablet card until the facing edge is {@link PIN_POINTER_GAP_PX} from the pin,
+ * without covering that pin or any other, and without leaving the plate.
+ * Returns the original rect when the closer spot is blocked.
+ */
+export function nudgeCardForPointer(
+  card: CardRect,
+  pin: { x: number; y: number },
+  limits: { minLeft: number; maxLeft: number; minTop: number; maxTop: number },
+  blockers: Array<{ x: number; y: number }>,
+  blockerRadius = 22,
+  gapPx = PIN_POINTER_GAP_PX,
+): CardRect {
+  const edge = pinCardEdge(card, pin);
+  const target = slideToGap(card, pin, edge, gapPx);
+  target.left = clamp(target.left, limits.minLeft, limits.maxLeft);
+  target.top = clamp(target.top, limits.minTop, limits.maxTop);
+  const selectedClear = !covers(target, { id: "", x: pin.x, y: pin.y }, 17);
+  const othersClear = blockers.every((other) => !covers(target, { id: "", x: other.x, y: other.y }, blockerRadius));
+  if (!selectedClear || !othersClear) return card;
+  if (gap(target, { id: "", x: pin.x, y: pin.y }) > gap(card, { id: "", x: pin.x, y: pin.y }) + 0.5) return card;
+  return target;
+}
+
+/** A caret of at most 12px on the card edge, aimed straight at the pin. */
+export function pinCardPointer(card: CardRect, pin: { x: number; y: number }, max = PIN_POINTER_MAX_PX): PinPointer {
+  const right = card.left + card.w;
+  const bottom = card.top + card.h;
+  const edge = pinCardEdge(card, pin);
+  const dist =
+    edge === "right" ? pin.x - right : edge === "left" ? card.left - pin.x : edge === "bottom" ? pin.y - bottom : card.top - pin.y;
+  const size = Math.min(max, Math.max(0, dist));
+  const half = size / 2;
+  if (edge === "right" || edge === "left") {
+    const along = clamp(pin.y, card.top + half, bottom - half);
+    return { edge, size, left: edge === "right" ? right : card.left - size, top: along - half };
+  }
+  const along = clamp(pin.x, card.left + half, right - half);
+  return { edge, size, left: along - half, top: edge === "bottom" ? bottom : card.top - size };
+}
+

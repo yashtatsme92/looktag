@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { placePinCard, type PinPoint } from "./pin-card.ts";
+import { placePinCard, nudgeCardForPointer, pinCardPointer, pinPointerTip, type PinPoint } from "./pin-card.ts";
 
 const phone = { w: 390, h: 844 };
 const tablet = { w: 834, h: 1112 };
@@ -150,4 +150,53 @@ describe("pin card placement when no slot is clear", () => {
     assert.ok(placed.top + 176 <= phone.h - 16, "stays inside the plate");
   });
 });
+
+describe("tablet pin card pointer", () => {
+  const plate = { w: 834, h: 1126 };
+  const card = { w: 360, h: 148 };
+  const limits = {
+    minLeft: 16,
+    maxLeft: plate.w - card.w - 16,
+    minTop: 72,
+    maxTop: plate.h - 16 - card.h,
+  };
+
+  it("aims a caret of at most 12px at every Sunday Coat pin", () => {
+    const pins = pct(plate, [
+      [48, 41.4],
+      [50, 27.1],
+      [74, 58.1],
+      [48, 88],
+    ]);
+    for (const pin of pins) {
+      const placed = placePinCard({
+        pins,
+        selectedId: pin.id,
+        plate,
+        card,
+        inset: { top: 72, bottom: 190 },
+        margin: 16,
+        pinRadius: 22,
+      });
+      const nudged = nudgeCardForPointer(
+        { left: placed.left, top: placed.top, w: card.w, h: card.h },
+        pin,
+        limits,
+        pins.filter((other) => other.id !== pin.id),
+      );
+      const pointer = pinCardPointer(nudged, pin);
+      const tip = pinPointerTip(pointer);
+      const dist = Math.hypot(tip.x - pin.x, tip.y - pin.y);
+      assert.ok(pointer.size > 0 && pointer.size <= 12, `${pin.id} size ${pointer.size}`);
+      assert.ok(dist <= 8, `${pin.id} tip ${dist.toFixed(2)}px`);
+      for (const other of pins) {
+        const nearestX = Math.max(nudged.left, Math.min(other.x, nudged.left + nudged.w));
+        const nearestY = Math.max(nudged.top, Math.min(other.y, nudged.top + nudged.h));
+        const clearance = Math.hypot(other.x - nearestX, other.y - nearestY);
+        assert.ok(clearance > 16, `${pin.id} halo ${other.id} ${clearance.toFixed(1)}`);
+      }
+    }
+  });
+});
+
 
