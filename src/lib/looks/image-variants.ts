@@ -3,7 +3,7 @@
  * WebP is what the feed asks for; JPEG is the fallback. AVIF is optional.
  */
 
-export const LOOK_IMAGE_EDGES = { thumb: 200, card: 600, detail: 1200 } as const;
+export const LOOK_IMAGE_EDGES = { thumb: 200, card: 800, detail: 1440 } as const;
 export const LOOK_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 export const FEED_PLATE_SIZES = "100vw";
@@ -31,6 +31,7 @@ export type StoredLookImages = {
   width: number;
   height: number;
   files: StoredLookImageFile[];
+  original?: { key: string; contentType: string; w: number; h: number };
 };
 
 export type LookImageSizeUrls = { thumb: string; card: string; detail: string };
@@ -45,6 +46,7 @@ export type LookImages = {
   width: number;
   height: number;
   srcWidth: { thumb: number; card: number; detail: number };
+  original?: string;
 };
 
 export function variantKey(prefix: string, size: LookImageSize, format: LookImageFormat): string {
@@ -120,6 +122,7 @@ export function toPublicImages(stored: StoredLookImages, env?: NodeJS.ProcessEnv
       card: pick("card", "webp")?.w || LOOK_IMAGE_EDGES.card,
       detail: pick("detail", "webp")?.w || LOOK_IMAGE_EDGES.detail,
     },
+    original: stored.original ? publicStorageUrl(stored.original.key, env) : undefined,
   };
 }
 

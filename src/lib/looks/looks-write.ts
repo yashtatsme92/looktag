@@ -29,7 +29,7 @@ export const saveLook = createServerFn({ method: "POST" })
       let variantsJson = existing[0]?.image_variants_json ?? null;
       if (imageSrc.startsWith("data:")) {
         const { persistDataUrlPhoto } = await import("./photo-store.server");
-        const stored = await persistDataUrlPhoto(incoming.id, imageSrc, variantsJson);
+        const stored = await persistDataUrlPhoto(incoming.id, imageSrc, variantsJson, undefined, { crop: incoming.crop });
         imageSrc = stored.imageSrc;
         variantsJson = stored.variantsJson;
       }

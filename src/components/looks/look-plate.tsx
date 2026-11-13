@@ -318,10 +318,11 @@ export function LookPlate({
         title={look.title}
         tags={look.tags}
         crop={look.crop}
+        baked={Boolean(look.images?.original)}
         selectedId={selectedId}
         onSelect={(id) => setSelectedId(id)}
         onHiddenPieces={() => openShopSheet(false)}
-        fit="fill"
+        fit="cover"
         className="look-plate-canvas"
       />
       {spotlight ? <div className="look-plate-vignette" aria-hidden /> : null}

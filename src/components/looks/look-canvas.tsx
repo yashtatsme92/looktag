@@ -4,6 +4,7 @@ import { TagPin } from "@/components/looks/tag-pin";
 import {
   inFrame,
   nudgePinInside,
+  pinInCrop,
 } from "@/lib/looks/pin-map";
 import { centeredCrop, visibleCrop, type CropRect } from "@/lib/looks/crop";
 import type { ProductTag } from "@/lib/looks/types";
@@ -28,6 +29,7 @@ type LookCanvasProps = {
   /** Phone create opens the piece card on a tap, not on the drag that starts a move. */
   selectOnTap?: boolean;
   crop?: CropRect;
+  baked?: boolean;
   /** Opens the whole-look shop when some pins sit outside the crop or under the tab bar. */
   onHiddenPieces?: () => void;
 };
@@ -48,6 +50,7 @@ export function LookCanvas({
   onImageTap,
   selectOnTap,
   crop,
+  baked = false,
   onHiddenPieces,
 }: LookCanvasProps) {
   const frameRef = useRef<HTMLDivElement>(null);
@@ -98,7 +101,7 @@ export function LookCanvas({
   }, [imageSrc]);
 
   const cropWindow =
-    cropped && natural && frame && frame.w > 0 && frame.h > 0
+    cropped && !baked && natural && frame && frame.w > 0 && frame.h > 0
       ? visibleCrop(
           crop ?? centeredCrop(natural.w, natural.h),
           natural.w,
@@ -186,6 +189,7 @@ export function LookCanvas({
   return (
     <div
       ref={frameRef}
+      data-crop={crop ? JSON.stringify(crop) : undefined}
       className={cn(
         "relative overflow-hidden bg-muted",
         !imageSrc && "h-96",
@@ -211,14 +215,15 @@ export function LookCanvas({
           style={
             imageStyle
               ? imageStyle
-              : cropped
+              : cropped && !baked
                 ? { visibility: "hidden" }
                 : undefined
           }
           className={cn(
             "look-photo-img block select-none",
             fit === "natural" && "w-full",
-            fit !== "natural" && !imageStyle && "absolute inset-0 h-full w-full object-cover",
+            fit !== "natural" && !imageStyle && "absolute inset-0 h-full w-full",
+            fit !== "natural" && !imageStyle && (baked ? "object-contain" : "object-cover"),
             fit !== "natural" && imageStyle && "absolute",
           )}
         />
@@ -246,17 +251,20 @@ export function LookCanvas({
         />
       ) : null}
 
-      {showTags && (!cropped || imageStyle)
+      {showTags && (!cropped || imageStyle || baked)
         ? (() => {
             let hidden = 0;
             const pins = tags.flatMap((tag, index) => {
-              const point = cropWindow
+              const point = baked && crop
+                ? pinInCrop({ x: tag.x, y: tag.y }, crop)
+                : cropWindow
                 ? {
                     x: ((tag.x / 100 - cropWindow.x) / cropWindow.w) * 100,
                     y: ((tag.y / 100 - cropWindow.y) / cropWindow.h) * 100,
                   }
                 : { x: tag.x, y: tag.y };
-              if (!inFrame(point) || point.y > maxPinY) {
+              const inside = "inside" in point ? point.inside : true;
+              if (!inside || !inFrame(point) || point.y > maxPinY) {
                 hidden += 1;
                 return [];
               }
