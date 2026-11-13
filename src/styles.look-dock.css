@@ -88,7 +88,7 @@
   padding-bottom: calc(var(--space-sheet-pad, 1rem) + env(safe-area-inset-bottom));
 }
 
-/* Pins: 32px mark / 44px hit (after:). Selected stronger; reduced-motion snaps. */
+/* Pins: 28px mark / 44px hit. Selected is the same size. Reduced-motion snaps. */
 @media (prefers-reduced-motion: reduce) {
   .tag-pin {
     transition: none !important;

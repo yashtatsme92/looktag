@@ -93,7 +93,7 @@ export const rules = [
   "Figtree for UI, Playfair Display for titles. Never a third family.",
   "Outer radius = inner radius + padding. Cards are radius-xl; controls are radius-md.",
   "Elevation is shadow-border, not a 1px solid border on cards.",
-  "Tap targets are 44px. Pins use a 44px hit area over an 32px mark.",
+  "Tap targets are 44px. Pins use a 44px hit area over a 28px mark.",
   "Phone chrome is the product on small screens: header, tab bar, full-bleed feed. From 768px up, Looktag is a website — masthead, portrait lookbook grid, plate-sized photos. Never stretch a look edge to edge. Never show the phone tab bar on tablet or desktop.",
   "Shopper chrome is Looks · Create · You only. Rank and Houses stay as deep links / admin — not tabs (Phase 1).",
   "Titles wrap. Never ellipsis a screen, section, card, or native-header title — drop to two lines instead.",

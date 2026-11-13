@@ -266,11 +266,10 @@ function LookAdmin() {
         <Surface className="relative mt-4 h-40 overflow-hidden p-0">
           <div className="absolute inset-0 bg-muted" />
           <TagPin index={0} x={32} y={48} selected label="Coat" />
-          <TagPin index={1} x={58} y={62} pulse label="Trousers" />
+          <TagPin index={1} x={58} y={62} label="Trousers" />
         </Surface>
         <p className="mt-3 text-caption text-muted-foreground">
-          Pins are 32px marks with a 44px hit area. Selected is ink fill. Idle is paper with a pulse
-          on the public look.
+          Pins are 28px marks with a 44px hit area. Selected is ink fill, the same size. No pulse.
         </p>
       </Section>
 

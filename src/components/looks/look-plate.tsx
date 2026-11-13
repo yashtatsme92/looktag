@@ -17,12 +17,12 @@ import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
 import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
-import { placePinCard } from "@/lib/looks/pin-card";
+import { nudgeCardForPointer, pinCardPointer, placePinCard, type PinPointer } from "@/lib/looks/pin-card";
 import { useOverlay } from "@/lib/overlay/use-overlay";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
-import { firstShopTag } from "@/lib/looks/shop-whole";
+import { firstShopTag, plateShowsBarShop, shopWholeOpensSheet } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
@@ -66,8 +66,8 @@ export function LookPlate({
   const feedFollow = useSettingsStore((s) => s.feedFollow);
   const shopWholeLookPhone = useSettingsStore((s) => s.shopWholeLookPhone);
   const flagPhone = useFlagPhone();
-  /** Below 768px the spotlight never shows Shop whole look; the sheet footer shows it only when the flag is on. */
-  const showSpotlightWhole = !flagPhone;
+  const [followOpen, setFollowOpen] = useState(false);
+  /** Below 768px the sheet footer shows Shop whole look only when the flag is on. Wider layouts keep the sheet. */
   const showShopWhole = !flagPhone || shopWholeLookPhone;
 
   useEffect(() => {
@@ -81,6 +81,7 @@ export function LookPlate({
   const lastIndexRef = useRef(0);
   const [plateSize, setPlateSize] = useState({ w: 0, h: 0 });
   const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null);
+  const [pointer, setPointer] = useState<PinPointer | null>(null);
   const focus = look.tags.find((tag) => tag.id === selectedId) ?? look.tags[0] ?? null;
   const spotlight = selectedId ? (look.tags.find((tag) => tag.id === selectedId) ?? null) : null;
   const spotlightIndex = spotlight ? look.tags.indexOf(spotlight) : -1;
@@ -132,32 +133,79 @@ export function LookPlate({
     const card = cardRef.current;
     if (!plate || !card || !selectedId || plateSize.w === 0) {
       setCardPos(null);
+      setPointer(null);
       return;
     }
     const plateRect = plate.getBoundingClientRect();
-    const pinNodes = plate.querySelectorAll<HTMLElement>(".tag-pin");
-    const pins = look.tags.flatMap((tag, index) => {
-      const rect = pinNodes[index]?.getBoundingClientRect();
-      if (!rect) return [];
-      return [{ id: tag.id, x: rect.left + rect.width / 2 - plateRect.left, y: rect.top + rect.height / 2 - plateRect.top }];
+    const pins = [...plate.querySelectorAll<HTMLElement>(".tag-pin[data-tag-id]")].flatMap((node) => {
+      const id = node.dataset.tagId;
+      if (!id) return [];
+      const rect = node.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return [];
+      return [{ id, x: rect.left + rect.width / 2 - plateRect.left, y: rect.top + rect.height / 2 - plateRect.top }];
     });
     const meta = plate.querySelector<HTMLElement>(".look-plate-meta");
     const bar = plate.querySelector<HTMLElement>(".look-plate-bar");
     const cardRect = card.getBoundingClientRect();
+    const inset = {
+      top: (bar?.getBoundingClientRect().bottom ?? plateRect.top + 72) - plateRect.top + 4,
+      bottom: meta ? plateRect.bottom - meta.getBoundingClientRect().top + 8 : 190,
+    };
     const placed = placePinCard({
       pins,
       selectedId,
       plate: { w: plateRect.width, h: plateRect.height },
       card: { w: cardRect.width, h: cardRect.height },
-      inset: {
-        top: (bar?.getBoundingClientRect().bottom ?? plateRect.top + 72) - plateRect.top + 4,
-        bottom: meta ? plateRect.bottom - meta.getBoundingClientRect().top + 8 : 190,
-      },
+      inset,
       margin: 16,
       pinRadius: 22,
       fixedX: plateRect.width < 768,
     });
-    setCardPos({ top: plateRect.top + placed.top, left: plateRect.left + placed.left });
+    const selectedNode = plate.querySelector<HTMLElement>('.tag-pin[aria-pressed="true"]');
+    const selectedRect = selectedNode?.getBoundingClientRect();
+    let rect = { left: placed.left, top: placed.top, w: cardRect.width, h: cardRect.height };
+    let nextPointer: PinPointer | null = null;
+    if (selectedRect && plateRect.width >= 768) {
+      const selectedPin = {
+        x: selectedRect.left + selectedRect.width / 2 - plateRect.left,
+        y: selectedRect.top + selectedRect.height / 2 - plateRect.top,
+      };
+      const margin = 16;
+      rect = nudgeCardForPointer(
+        rect,
+        selectedPin,
+        {
+          minLeft: margin,
+          maxLeft: Math.max(margin, plateRect.width - rect.w - margin),
+          minTop: inset.top,
+          maxTop: Math.max(inset.top, plateRect.height - margin - rect.h),
+        },
+        pins.filter((pin) => pin.id !== selectedId),
+      );
+      const geometry = pinCardPointer(rect, selectedPin);
+      if (geometry.size >= 1) {
+        const borderLeft = parseFloat(getComputedStyle(card).borderLeftWidth) || 0;
+        const borderTop = parseFloat(getComputedStyle(card).borderTopWidth) || 0;
+        const toLocal = (x: number, y: number) => ({ x: x - rect.left - borderLeft, y: y - rect.top - borderTop });
+        const origin = toLocal(geometry.left, geometry.top);
+        const leader = geometry.leader
+          ? (() => {
+              const start = toLocal(geometry.leader.x1, geometry.leader.y1);
+              const end = toLocal(geometry.leader.x2, geometry.leader.y2);
+              return { x1: start.x, y1: start.y, x2: end.x, y2: end.y };
+            })()
+          : null;
+        nextPointer = {
+          edge: geometry.edge,
+          size: geometry.size,
+          left: origin.x,
+          top: origin.y,
+          leader,
+        };
+      }
+    }
+    setCardPos({ top: plateRect.top + rect.top, left: plateRect.left + rect.left });
+    setPointer(nextPointer);
   }, [selectedId, look.tags, plateSize.w, plateSize.h]);
 
   useOverlay(Boolean(selectedId) && !sheetOpen && !shopSheetOpen, cardRef, () => setSelectedId(null), {
@@ -250,9 +298,9 @@ export function LookPlate({
     shop(first.tag);
   }
 
-  /** `Shop this look`: the sheet lists every piece, so the pin card gives way to it. */
-  function openShopSheet() {
-    setSelectedId(null);
+  /** `Shop this look`: the sheet lists every piece. Tablet keeps the pin card open underneath it. */
+  function openShopSheet(keepSelection = false) {
+    if (!keepSelection) setSelectedId(null);
     setShopSheetOpen(true);
   }
 
@@ -261,6 +309,7 @@ export function LookPlate({
       className="look-plate"
       ref={plateRef}
       data-sheet={shopSheetOpen ? "open" : undefined}
+      data-follow={followOpen ? "open" : undefined}
       onKeyDown={onPlateKeyDown}
       onPointerDown={onPlatePointerDown}
     >
@@ -271,11 +320,12 @@ export function LookPlate({
         crop={look.crop}
         selectedId={selectedId}
         onSelect={(id) => setSelectedId(id)}
+        onHiddenPieces={() => openShopSheet(false)}
         fit="fill"
         className="look-plate-canvas"
       />
       {spotlight ? <div className="look-plate-vignette" aria-hidden /> : null}
-      {spotlight && typeof document !== "undefined"
+      {spotlight && !followOpen && typeof document !== "undefined"
         ? createPortal(
             <div
               ref={cardRef}
@@ -307,6 +357,28 @@ export function LookPlate({
                 if (Math.abs(dx) > 48) stepSpotlight(dx < 0 ? 1 : -1);
               }}
             >
+              {pointer ? (
+                <>
+                  {pointer.leader ? (
+                    <span
+                      className="look-plate-pointer-leader"
+                      aria-hidden
+                      style={{
+                        left: pointer.leader.x1,
+                        top: pointer.leader.y1,
+                        width: Math.hypot(pointer.leader.x2 - pointer.leader.x1, pointer.leader.y2 - pointer.leader.y1),
+                        transform: `rotate(${Math.atan2(pointer.leader.y2 - pointer.leader.y1, pointer.leader.x2 - pointer.leader.x1)}rad)`,
+                      }}
+                    />
+                  ) : null}
+                  <span
+                    className="look-plate-pointer"
+                    data-edge={pointer.edge}
+                    aria-hidden
+                    style={{ width: pointer.size, height: pointer.size, left: pointer.left, top: pointer.top }}
+                  />
+                </>
+              ) : null}
               <div className="look-plate-piece-row">
                 <PieceThumb
                   lookSrc={look.imageSrc}
@@ -397,9 +469,21 @@ export function LookPlate({
       <div className="look-plate-meta">
         {kicker || (feedFollow && look.userId) ? (
           <span className="echo-kicker-row">
-            {kicker ? <p className="look-plate-kicker">{kicker}</p> : null}
+            {kicker ? (
+              look.userId ? (
+                <Link to="/creators/$userId" params={{ userId: look.userId }} className="look-plate-kicker">
+                  {kicker}
+                </Link>
+              ) : (
+                <p className="look-plate-kicker">{kicker}</p>
+              )
+            ) : null}
             {feedFollow && look.userId ? (
-              <FollowButton creatorId={look.userId} name={look.creator || "this creator"} />
+              <FollowButton
+                creatorId={look.userId}
+                name={look.creator || "this creator"}
+                onSheetChange={setFollowOpen}
+              />
             ) : null}
           </span>
         ) : null}
@@ -427,22 +511,16 @@ export function LookPlate({
               Echo
             </button>
           </div>
-          {spotlight ? (
-            showSpotlightWhole ? (
-              <button
-                type="button"
-                className="look-plate-shop-whole"
-                onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}
-              >
-                Shop whole look
-              </button>
-            ) : null
-          ) : (
-            <button type="button" className="look-plate-shop" onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}>
+          {plateShowsBarShop(flagPhone, Boolean(spotlight)) ? (
+            <button
+              type="button"
+              className="look-plate-shop"
+              onClick={() => (look.tags.length ? openShopSheet(Boolean(spotlight) && !flagPhone) : toast.message("No pieces on this look yet"))}
+            >
               Shop
               <ExternalLink className="size-4" />
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -451,8 +529,19 @@ export function LookPlate({
         open={shopSheetOpen}
         onClose={() => setShopSheetOpen(false)}
         onShopPiece={shop}
-        onShopWhole={showShopWhole ? shopWholeLook : undefined}
+        onShopWhole={
+          shopWholeOpensSheet(flagPhone)
+            ? () => {
+                setSelectedId(null);
+                setShopSheetOpen(true);
+              }
+            : showShopWhole
+              ? shopWholeLook
+              : undefined
+        }
         phoneWholeLook={flagPhone}
+        lookSrc={look.imageSrc}
+        selectedId={selectedId}
       />
 
       <AccountSheet

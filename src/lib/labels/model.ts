@@ -1,4 +1,4 @@
-import { EDITORIAL_USER_ID, type Look } from "../looks/types.ts";
+import { isEditorialLook, type Look } from "../looks/types.ts";
 
 /** Portal-curated houses wear this mark on their profile. */
 export const SCOUTED_FLAG = "Scouted";
@@ -482,7 +482,7 @@ export function suggestLooks(input: {
   }
 
   const influencers: SuggestedLook[] = input.looks
-    .filter((look) => look.userId && look.userId !== EDITORIAL_USER_ID && !labelIds.has(look.userId))
+    .filter((look) => look.userId && !isEditorialLook(look) && !labelIds.has(look.userId))
     .map((look) => ({ look, source: "influencer" as const, score: score(look, "influencer") }));
 
   const houses: SuggestedLook[] = input.looks
@@ -519,7 +519,7 @@ export function looksForYou(looks: Look[], labels: FashionLabel[], likings: stri
   const suggested = suggestLooks({ looks, labels, likings, limit: looks.length });
   if (suggested.length > 0) return suggested.map((row) => row.look);
   if (likings.length === 0) {
-    return looks.filter((look) => look.userId !== EDITORIAL_USER_ID);
+    return looks.filter((look) => !isEditorialLook(look));
   }
   return [...looks].sort(
     (a, b) => moodOverlap(b.moods, likings) - moodOverlap(a.moods, likings),

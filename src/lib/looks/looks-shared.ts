@@ -2,6 +2,7 @@ import { ADMIN_USER_ID, isAdminEmail } from "@/lib/admin/access";
 import { type Sql } from "@/lib/db";
 import { makeHandle, parseHandle } from "./handle";
 import { EDITORIAL_USER_ID, type Look, type ProductTag } from "./types";
+import { ensureSeededCreators } from "./seed-creators.ts";
 import { lookStats, rankScore, type RankWeights } from "./rank";
 import { normalizeLookTags } from "./offers";
 import type { CropRect } from "./crop";
@@ -157,7 +158,7 @@ async function insertEditorialSeed(sql: Sql, look: Look) {
     select id from inserted_look`,
     [
       look.id,
-      EDITORIAL_USER_ID,
+      look.userId || EDITORIAL_USER_ID,
       look.title.trim(),
       look.caption,
       look.creator.trim() || "Creator",
@@ -196,6 +197,7 @@ export async function ensureEditorialLooks(sql: Sql) {
 
 export async function seedCatalog(sql: Sql) {
   await ensureEditorialLooks(sql);
+  await ensureSeededCreators(sql, SEED_LOOKS);
   await ensureFashionLabels(sql);
   await recordRepoSeedLedger(sql);
 }
@@ -268,7 +270,7 @@ export async function loadAccount(sql: Sql, userId: string): Promise<AccountDeta
 }
 
 export async function creatorPayload(sql: Sql, userId: string, weights: RankWeights) {
-  if (!userId || userId === EDITORIAL_USER_ID) return null;
+  if (!userId) return null;
   const profiles = await sql<{ user_id: string; display_name: string; handle: string; city: string; bio: string }>`
     select user_id, display_name, handle, city, bio from profiles where user_id = ${userId} limit 1
   `;

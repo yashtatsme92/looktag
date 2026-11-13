@@ -3,10 +3,10 @@
  * Delete looks that are not in the seed ledger. Image, crop, and offers are
  * columns on that row, not separate tables. Dry run unless `--confirm`.
  *
- * User-owned looks (any user id other than `editorial` or a `label-*` house)
- * are never deleted unless `--include-user-looks` and `--confirm` are both
- * passed. That deletes real published looks. The dry run prints a count per
- * user id and a warning. It never prints emails.
+ * User-owned looks (any user id other than `editorial`, a seeded creator, or a
+ * `label-*` house) are never deleted unless `--include-user-looks` and
+ * `--confirm` are both passed. That deletes real published looks. The dry run
+ * prints a count per user id and a warning. It never prints emails.
  *
  * Non-seed houses are reported as audit-only. This script does not delete them.
  *
@@ -90,7 +90,7 @@ export function isLocalDatabase(databaseUrl, env = {}) {
  */
 export function isUserOwnedLook(userId) {
   const id = String(userId ?? "").trim();
-  if (!id || id === "editorial" || id.startsWith("label-")) return false;
+  if (!id || id === "editorial" || id.startsWith("seed-") || id.startsWith("label-")) return false;
   return true;
 }
 

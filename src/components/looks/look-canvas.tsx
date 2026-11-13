@@ -3,6 +3,7 @@ import { ImagePlus } from "lucide-react";
 import { TagPin } from "@/components/looks/tag-pin";
 import {
   inFrame,
+  nudgePinInside,
 } from "@/lib/looks/pin-map";
 import { centeredCrop, visibleCrop, type CropRect } from "@/lib/looks/crop";
 import type { ProductTag } from "@/lib/looks/types";
@@ -27,6 +28,8 @@ type LookCanvasProps = {
   /** Phone create opens the piece card on a tap, not on the drag that starts a move. */
   selectOnTap?: boolean;
   crop?: CropRect;
+  /** Opens the whole-look shop when some pins sit outside the crop or under the tab bar. */
+  onHiddenPieces?: () => void;
 };
 
 export function LookCanvas({
@@ -45,6 +48,7 @@ export function LookCanvas({
   onImageTap,
   selectOnTap,
   crop,
+  onHiddenPieces,
 }: LookCanvasProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
@@ -243,30 +247,57 @@ export function LookCanvas({
       ) : null}
 
       {showTags && (!cropped || imageStyle)
-        ? tags.map((tag, index) => {
-            const point = cropWindow
-              ? {
-                  x: ((tag.x / 100 - cropWindow.x) / cropWindow.w) * 100,
-                  y: ((tag.y / 100 - cropWindow.y) / cropWindow.h) * 100,
-                }
-              : { x: tag.x, y: tag.y };
-            if (!inFrame(point) || point.y > maxPinY) return null;
+        ? (() => {
+            let hidden = 0;
+            const pins = tags.flatMap((tag, index) => {
+              const point = cropWindow
+                ? {
+                    x: ((tag.x / 100 - cropWindow.x) / cropWindow.w) * 100,
+                    y: ((tag.y / 100 - cropWindow.y) / cropWindow.h) * 100,
+                  }
+                : { x: tag.x, y: tag.y };
+              if (!inFrame(point) || point.y > maxPinY) {
+                hidden += 1;
+                return [];
+              }
+              const nudge = frame
+                ? nudgePinInside(point.x, point.y, frame.w, frame.h)
+                : { dx: 0, dy: 0, leader: false };
+              return [
+                <TagPin
+                  key={tag.id}
+                  id={tag.id}
+                  index={index}
+                  x={point.x}
+                  y={point.y}
+                  imageX={tag.x}
+                  imageY={tag.y}
+                  selected={selectedId === tag.id}
+                  nudge={nudge}
+                  label={tag.name || `Item ${index + 1}`}
+                  onSelect={() => onSelect?.(tag.id)}
+                  onPointerDown={(event) => handlePinPointerDown(tag.id, event)}
+                />,
+              ];
+            });
             return (
-              <TagPin
-                key={tag.id}
-                index={index}
-                x={point.x}
-                y={point.y}
-                imageX={tag.x}
-                imageY={tag.y}
-                selected={selectedId === tag.id}
-                pulse={!editable}
-                label={tag.name || `Item ${index + 1}`}
-                onSelect={() => onSelect?.(tag.id)}
-                onPointerDown={(event) => handlePinPointerDown(tag.id, event)}
-              />
+              <>
+                {pins}
+                {!editable && hidden > 0 ? (
+                  <button
+                    type="button"
+                    className="pin-more"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onHiddenPieces?.();
+                    }}
+                  >
+                    +{hidden} {hidden === 1 ? "piece" : "pieces"}
+                  </button>
+                ) : null}
+              </>
             );
-          })
+          })()
         : null}
     </div>
   );

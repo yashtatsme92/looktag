@@ -3,7 +3,7 @@
  * Every image surface keeps its native aspect ratio (never object-fit: fill) and pins
  * stay on their stored image coordinates, at phone, tablet and desktop widths.
  * Surfaces: look detail, feed card, house grid, create crop / pin / Details steps.
- * Not covered: creator grid (seeded creators 404, #104) and the Save thumbnail (guest sheet has none).
+ * Not covered: the Save thumbnail (guest sheet has none). Creator grids resolve (#104).
  */
 import { chromium } from "playwright";
 import { CREATE_DRAFT_KEY } from "../../src/lib/looks/create-draft.ts";

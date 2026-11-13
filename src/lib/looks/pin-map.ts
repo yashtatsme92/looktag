@@ -72,6 +72,42 @@ export function inFrame(point: Point, pad = 8) {
   return point.x >= -pad && point.x <= 100 + pad && point.y >= -pad && point.y <= 100 + pad;
 }
 
+/** Map a stored pin (0–100 on the photo) through the visible crop window into frame percent. */
+export function pinInCrop(
+  tag: { x: number; y: number },
+  crop: { x: number; y: number; w: number; h: number } | null | undefined,
+): { x: number; y: number; inside: boolean } {
+  if (!crop || !(crop.w > 0) || !(crop.h > 0)) {
+    const inside = tag.x >= 0 && tag.x <= 100 && tag.y >= 0 && tag.y <= 100;
+    return { x: tag.x, y: tag.y, inside };
+  }
+  const x = ((tag.x / 100 - crop.x) / crop.w) * 100;
+  const y = ((tag.y / 100 - crop.y) / crop.h) * 100;
+  const inside = x >= -0.5 && x <= 100.5 && y >= -0.5 && y <= 100.5;
+  return { x, y, inside };
+}
+
+/**
+ * Shift a pin that sits within `edgePx` of the frame so the dot is fully inside.
+ * The returned delta is in pixels from the true point. A non-zero delta wants a leader.
+ */
+export function nudgePinInside(
+  xPercent: number,
+  yPercent: number,
+  frameW: number,
+  frameH: number,
+  edgePx = 16,
+): { dx: number; dy: number; leader: boolean } {
+  if (!(frameW > 0) || !(frameH > 0)) return { dx: 0, dy: 0, leader: false };
+  const px = (xPercent / 100) * frameW;
+  const py = (yPercent / 100) * frameH;
+  const nx = Math.min(frameW - edgePx, Math.max(edgePx, px));
+  const ny = Math.min(frameH - edgePx, Math.max(edgePx, py));
+  const dx = nx - px;
+  const dy = ny - py;
+  return { dx, dy, leader: Math.hypot(dx, dy) > 0.5 };
+}
+
 /**
  * Vertical object-position (0..1) that centres the pins' span in a cover window, so a
  * photo cropped into a short card still shows every pin. Falls back to the shared default.

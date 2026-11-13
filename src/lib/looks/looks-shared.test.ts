@@ -65,7 +65,7 @@ describe("editorial look seeding", () => {
       logLevel: "silent",
     });
     try {
-      const { insertLookRow, parseLook, seedCatalog } = (await vite.ssrLoadModule(
+      const { insertLookRow, parseLook, seedCatalog, creatorPayload } = (await vite.ssrLoadModule(
         "/src/lib/looks/looks-shared.ts",
       )) as typeof import("./looks-shared.ts");
       const { EDITORIAL_USER_ID } = (await vite.ssrLoadModule(
@@ -88,23 +88,34 @@ describe("editorial look seeding", () => {
 
       await seedCatalog(sql);
       await backfillLookCrops(sql);
-      const afterFirstSeed = await sql`
-        select * from looks where user_id = ${EDITORIAL_USER_ID} order by id
-      `;
+      const seedIds = new Set(SEED_LOOKS.map((look) => look.id));
+      const afterFirstSeed = (await sql`select * from looks order by id`).filter((row) => seedIds.has(String(row.id)));
       assert.equal(afterFirstSeed.length, SEED_LOOKS.length);
       assert.deepEqual(
         afterFirstSeed.map((row) => row.id),
         SEED_LOOKS.map((look) => look.id).sort(),
       );
+      for (const look of SEED_LOOKS) {
+        assert.equal(afterFirstSeed.find((row) => row.id === look.id)?.user_id, look.userId);
+      }
       const migratedExisting = afterFirstSeed.find((row) => row.id === existing.id);
       assert.ok(migratedExisting?.crop_json);
-      assert.deepEqual(migratedExisting, { ...before[0], crop_json: migratedExisting.crop_json });
+      assert.deepEqual(migratedExisting, { ...before[0], crop_json: migratedExisting.crop_json, user_id: existing.userId });
+
+      const weights = { look: 1, pin: 1, compared: 1 };
+      for (const userId of [...new Set(SEED_LOOKS.map((look) => look.userId))]) {
+        const payload = await creatorPayload(sql, userId, weights);
+        assert.ok(payload, userId);
+        assert.ok(payload.looks.length > 0, userId);
+      }
+      const editorial = await creatorPayload(sql, EDITORIAL_USER_ID, weights);
+      assert.ok(editorial);
+      assert.equal(editorial.creator.displayName, "Editorial");
+      assert.equal(editorial.creator.handle, "editorial");
 
       await seedCatalog(toSql(pg));
       await backfillLookCrops(toSql(pg));
-      const afterSecondSeed = await sql`
-        select * from looks where user_id = ${EDITORIAL_USER_ID} order by id
-      `;
+      const afterSecondSeed = (await sql`select * from looks order by id`).filter((row) => seedIds.has(String(row.id)));
       assert.deepEqual(afterSecondSeed, afterFirstSeed);
 
       const deleted = SEED_LOOKS[1];
@@ -112,9 +123,7 @@ describe("editorial look seeding", () => {
       await sql`delete from looks where id = ${deleted.id}`;
       await seedCatalog(toSql(pg));
       await backfillLookCrops(toSql(pg));
-      const afterDeleteReseed = await sql`
-        select id from looks where user_id = ${EDITORIAL_USER_ID} order by id
-      `;
+      const afterDeleteReseed = (await sql`select id from looks order by id`).filter((row) => seedIds.has(String(row.id)));
       assert.equal(afterDeleteReseed.length, SEED_LOOKS.length - 1);
       assert.equal(afterDeleteReseed.some((row) => row.id === deleted.id), false);
 
@@ -136,10 +145,11 @@ describe("editorial look seeding", () => {
         }),
       );
       for (const { sql: otherSql } of databases.slice(1)) {
-        const rows = await otherSql`
-          select id from looks where user_id = ${EDITORIAL_USER_ID} order by id
-        `;
+        const rows = (await otherSql`select id, user_id from looks order by id`).filter((row) =>
+          seedIds.has(String(row.id)),
+        );
         assert.equal(rows.length, SEED_LOOKS.length);
+        assert.ok(rows.every((row) => String(row.user_id).startsWith("seed-")));
       }
     } finally {
       await vite.close();
@@ -194,9 +204,8 @@ describe("editorial look seeding", () => {
 
       await seedCatalog(sql);
       await backfillLookCrops(sql);
-      const afterUpgrade = await sql`
-        select * from looks where user_id = ${EDITORIAL_USER_ID} order by id
-      `;
+      const seedIds = new Set(SEED_LOOKS.map((look) => look.id));
+      const afterUpgrade = (await sql`select * from looks order by id`).filter((row) => seedIds.has(String(row.id)));
       assert.equal(afterUpgrade.length, SEED_LOOKS.length - 1);
       assert.equal(afterUpgrade.some((row) => row.id === deleted.id), false);
       assert.equal(
@@ -205,14 +214,16 @@ describe("editorial look seeding", () => {
       );
       for (const row of existingRows) {
         const migrated = afterUpgrade.find((candidate) => candidate.id === row.id);
+        const expectedUser = SEED_LOOKS.find((look) => look.id === row.id)?.userId;
+        assert.equal(migrated?.user_id, expectedUser);
         assert.ok(migrated?.crop_json);
-        assert.deepEqual({ ...migrated, crop_json: row.crop_json }, row);
+        assert.deepEqual({ ...migrated, crop_json: row.crop_json, user_id: row.user_id }, row);
       }
 
       await seedCatalog(toSql(pg));
       await backfillLookCrops(toSql(pg));
       assert.deepEqual(
-        await sql`select * from looks where user_id = ${EDITORIAL_USER_ID} order by id`,
+        (await sql`select * from looks order by id`).filter((row) => seedIds.has(String(row.id))),
         afterUpgrade,
       );
     } finally {
@@ -272,9 +283,10 @@ describe("editorial look seeding", () => {
       );
 
       await seedCatalog(sql);
-      const allLooks = await sql<{ id: string }>`
-        select id from looks where user_id = ${EDITORIAL_USER_ID} order by id
-      `;
+      const seedIds = new Set(SEED_LOOKS.map((look) => look.id));
+      const allLooks = (await sql<{ id: string; user_id: string }>`select id, user_id from looks order by id`).filter(
+        (row) => seedIds.has(row.id),
+      );
       const ledgerBeforeDelete = await sql`
         select kind, id, seeded_at from seeded_items order by kind, id
       `;
@@ -282,6 +294,7 @@ describe("editorial look seeding", () => {
         allLooks.map((row) => row.id),
         SEED_LOOKS.map((look) => look.id).sort(),
       );
+      assert.ok(allLooks.every((row) => row.user_id.startsWith("seed-")));
       assert.equal(
         ledgerBeforeDelete.filter((row) => row.kind === "editorial_look").length,
         34,

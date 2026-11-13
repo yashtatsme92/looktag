@@ -2,34 +2,42 @@ import type { PointerEvent } from "react";
 import { cn } from "@/lib/utils";
 
 type TagPinProps = {
+  id?: string;
   index: number;
   x: number;
   y: number;
   imageX?: number;
   imageY?: number;
   selected?: boolean;
-  pulse?: boolean;
   label?: string;
+  /** Pixel shift of the 28px dot so it stays inside the frame. The button stays on the stored point. */
+  nudge?: { dx: number; dy: number; leader: boolean };
   onSelect?: () => void;
   onPointerDown?: (event: PointerEvent<HTMLButtonElement>) => void;
 };
 
 export function TagPin({
+  id,
   index,
   x,
   y,
   imageX,
   imageY,
   selected,
-  pulse,
   label,
+  nudge,
   onSelect,
   onPointerDown,
 }: TagPinProps) {
+  const dx = nudge?.dx ?? 0;
+  const dy = nudge?.dy ?? 0;
+  const leader = Boolean(nudge?.leader);
+  const length = Math.hypot(dx, dy);
   return (
     <button
       type="button"
       data-tag-pin
+      data-tag-id={id}
       data-image-x={imageX}
       data-image-y={imageY}
       aria-label={label ?? `Item ${index + 1}`}
@@ -39,16 +47,22 @@ export function TagPin({
         onSelect?.();
       }}
       onPointerDown={onPointerDown}
-      className={cn(
-        "tag-pin absolute z-40 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border text-[0.6875rem] font-medium tabular-nums shadow-sm transition-[transform,background-color,color,border-color,box-shadow,opacity] duration-150 after:absolute after:top-1/2 after:left-1/2 after:size-11 after:-translate-x-1/2 after:-translate-y-1/2",
-        selected
-          ? "scale-110 border-primary bg-primary text-primary-foreground shadow-[var(--shadow-border-hover)] ring-2 ring-primary/25"
-          : "border-primary/15 bg-card/90 text-foreground/70 opacity-80 hover:border-primary hover:opacity-100",
-        pulse && !selected && "pin-pulse",
-      )}
+      className={cn("tag-pin", selected && "is-selected")}
       style={{ left: `${x}%`, top: `${y}%` }}
     >
-      {index + 1}
+      {leader ? (
+        <span
+          className="tag-pin-leader"
+          aria-hidden
+          style={{ width: length, transform: `rotate(${Math.atan2(dy, dx)}rad)` }}
+        />
+      ) : null}
+      <span
+        className="tag-pin-dot"
+        style={dx || dy ? { transform: `translate(${dx}px, ${dy}px)` } : undefined}
+      >
+        {index + 1}
+      </span>
     </button>
   );
 }

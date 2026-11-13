@@ -52,7 +52,7 @@ export const listAdminHouses = createServerFn({ method: "GET" })
       select id, user_id, title, caption, creator_name, image_src, image_variants_json, moods_json, tags_json,
              created_at, updated_at, collection_id
       from looks
-      where published = true and user_id <> ${EDITORIAL_USER_ID}
+      where published = true and user_id <> ${EDITORIAL_USER_ID} and user_id not like 'seed-%'
     `;
     const labels = rows.map(parseLabel);
     const ranked = rankLabels(labels, lookRows.map(parseLook), rankWeights(await readSettings()));
