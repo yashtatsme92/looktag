@@ -3983,6 +3983,16 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   clip-path: polygon(0 0, 50% 100%, 100% 0);
 }
 
+.look-plate-pointer-leader {
+  position: absolute;
+  z-index: 1;
+  height: 2px;
+  background: #fff;
+  box-shadow: 0 0 0 0.5px rgb(17 17 17 / 45%);
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+
 .look-plate-piece-row {
   display: flex;
   align-items: center;

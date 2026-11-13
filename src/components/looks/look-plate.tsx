@@ -81,7 +81,7 @@ export function LookPlate({
   const lastIndexRef = useRef(0);
   const [plateSize, setPlateSize] = useState({ w: 0, h: 0 });
   const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null);
-  const [pointer, setPointer] = useState<Pick<PinPointer, "edge" | "size"> & { left: number; top: number } | null>(null);
+  const [pointer, setPointer] = useState<PinPointer | null>(null);
   const focus = look.tags.find((tag) => tag.id === selectedId) ?? look.tags[0] ?? null;
   const spotlight = selectedId ? (look.tags.find((tag) => tag.id === selectedId) ?? null) : null;
   const spotlightIndex = spotlight ? look.tags.indexOf(spotlight) : -1;
@@ -137,11 +137,12 @@ export function LookPlate({
       return;
     }
     const plateRect = plate.getBoundingClientRect();
-    const pinNodes = plate.querySelectorAll<HTMLElement>(".tag-pin");
-    const pins = look.tags.flatMap((tag, index) => {
-      const rect = pinNodes[index]?.getBoundingClientRect();
-      if (!rect) return [];
-      return [{ id: tag.id, x: rect.left + rect.width / 2 - plateRect.left, y: rect.top + rect.height / 2 - plateRect.top }];
+    const pins = [...plate.querySelectorAll<HTMLElement>(".tag-pin[data-tag-id]")].flatMap((node) => {
+      const id = node.dataset.tagId;
+      if (!id) return [];
+      const rect = node.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return [];
+      return [{ id, x: rect.left + rect.width / 2 - plateRect.left, y: rect.top + rect.height / 2 - plateRect.top }];
     });
     const meta = plate.querySelector<HTMLElement>(".look-plate-meta");
     const bar = plate.querySelector<HTMLElement>(".look-plate-bar");
@@ -163,7 +164,7 @@ export function LookPlate({
     const selectedNode = plate.querySelector<HTMLElement>('.tag-pin[aria-pressed="true"]');
     const selectedRect = selectedNode?.getBoundingClientRect();
     let rect = { left: placed.left, top: placed.top, w: cardRect.width, h: cardRect.height };
-    let nextPointer: { edge: PinPointer["edge"]; size: number; left: number; top: number } | null = null;
+    let nextPointer: PinPointer | null = null;
     if (selectedRect && plateRect.width >= 768) {
       const selectedPin = {
         x: selectedRect.left + selectedRect.width / 2 - plateRect.left,
@@ -185,17 +186,21 @@ export function LookPlate({
       if (geometry.size >= 1) {
         const borderLeft = parseFloat(getComputedStyle(card).borderLeftWidth) || 0;
         const borderTop = parseFloat(getComputedStyle(card).borderTopWidth) || 0;
-        let boxLeft = geometry.left - rect.left;
-        let boxTop = geometry.top - rect.top;
-        if (geometry.edge === "right") boxLeft -= 1;
-        else if (geometry.edge === "left") boxLeft += 1;
-        else if (geometry.edge === "bottom") boxTop -= 1;
-        else boxTop += 1;
+        const toLocal = (x: number, y: number) => ({ x: x - rect.left - borderLeft, y: y - rect.top - borderTop });
+        const origin = toLocal(geometry.left, geometry.top);
+        const leader = geometry.leader
+          ? (() => {
+              const start = toLocal(geometry.leader.x1, geometry.leader.y1);
+              const end = toLocal(geometry.leader.x2, geometry.leader.y2);
+              return { x1: start.x, y1: start.y, x2: end.x, y2: end.y };
+            })()
+          : null;
         nextPointer = {
           edge: geometry.edge,
           size: geometry.size,
-          left: boxLeft - borderLeft,
-          top: boxTop - borderTop,
+          left: origin.x,
+          top: origin.y,
+          leader,
         };
       }
     }
@@ -353,12 +358,26 @@ export function LookPlate({
               }}
             >
               {pointer ? (
-                <span
-                  className="look-plate-pointer"
-                  data-edge={pointer.edge}
-                  aria-hidden
-                  style={{ width: pointer.size, height: pointer.size, left: pointer.left, top: pointer.top }}
-                />
+                <>
+                  {pointer.leader ? (
+                    <span
+                      className="look-plate-pointer-leader"
+                      aria-hidden
+                      style={{
+                        left: pointer.leader.x1,
+                        top: pointer.leader.y1,
+                        width: Math.hypot(pointer.leader.x2 - pointer.leader.x1, pointer.leader.y2 - pointer.leader.y1),
+                        transform: `rotate(${Math.atan2(pointer.leader.y2 - pointer.leader.y1, pointer.leader.x2 - pointer.leader.x1)}rad)`,
+                      }}
+                    />
+                  ) : null}
+                  <span
+                    className="look-plate-pointer"
+                    data-edge={pointer.edge}
+                    aria-hidden
+                    style={{ width: pointer.size, height: pointer.size, left: pointer.left, top: pointer.top }}
+                  />
+                </>
               ) : null}
               <div className="look-plate-piece-row">
                 <PieceThumb

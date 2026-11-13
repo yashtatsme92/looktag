@@ -197,6 +197,31 @@ describe("tablet pin card pointer", () => {
       }
     }
   });
+
+  it("moves a corner card beside a mid-right pin", () => {
+    const pin = { x: 580, y: 520 };
+    const nudged = nudgeCardForPointer({ left: 16, top: 128, w: 360, h: 160 }, pin, limits, []);
+    const nearestX = Math.max(nudged.left, Math.min(pin.x, nudged.left + nudged.w));
+    const nearestY = Math.max(nudged.top, Math.min(pin.y, nudged.top + nudged.h));
+    const clearance = Math.hypot(pin.x - nearestX, pin.y - nearestY);
+    assert.ok(clearance <= 20, `gap ${clearance}`);
+    const aligned = (pin.x >= nudged.left && pin.x <= nudged.left + nudged.w) || (pin.y >= nudged.top && pin.y <= nudged.top + nudged.h);
+    assert.equal(aligned, true);
+    const tip = pinPointerTip(pinCardPointer(nudged, pin));
+    assert.ok(Math.hypot(tip.x - pin.x, tip.y - pin.y) <= 8);
+  });
+
+  it("walks the caret onto a pin the top bar keeps the card away from", () => {
+    const card = { left: 180, top: 128, w: 360, h: 160 };
+    const pin = { x: 320, y: 70 };
+    const nudged = nudgeCardForPointer(card, pin, { ...limits, minTop: 128 }, []);
+    assert.equal(nudged.top, 128);
+    const pointer = pinCardPointer(nudged, pin);
+    const tip = pinPointerTip(pointer);
+    assert.ok(pointer.size > 0 && pointer.size <= 12);
+    assert.ok(Math.hypot(tip.x - pin.x, tip.y - pin.y) <= 8, `tip ${tip.x},${tip.y}`);
+    assert.ok(pointer.leader, "clamped card keeps a leader");
+  });
 });
 
 

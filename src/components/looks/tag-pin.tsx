@@ -2,6 +2,7 @@ import type { PointerEvent } from "react";
 import { cn } from "@/lib/utils";
 
 type TagPinProps = {
+  id?: string;
   index: number;
   x: number;
   y: number;
@@ -16,6 +17,7 @@ type TagPinProps = {
 };
 
 export function TagPin({
+  id,
   index,
   x,
   y,
@@ -35,6 +37,7 @@ export function TagPin({
     <button
       type="button"
       data-tag-pin
+      data-tag-id={id}
       data-image-x={imageX}
       data-image-y={imageY}
       aria-label={label ?? `Item ${index + 1}`}

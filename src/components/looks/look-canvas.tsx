@@ -266,6 +266,7 @@ export function LookCanvas({
               return [
                 <TagPin
                   key={tag.id}
+                  id={tag.id}
                   index={index}
                   x={point.x}
                   y={point.y}

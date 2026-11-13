@@ -3,8 +3,9 @@
  * Look detail fixes: tablet Shop whole look stays on the sheet, seeded creator
  * pages resolve, piece thumbs centre on the pin, Sun-Bleached Linen accounts
  * for every pin, and pins are a 28px mark with no pulse.
- * Also: a ≤12px pin-card caret at tablet widths, and ghost wide-panel Shop
- * buttons at 1024 and 1112 (1280 stays solid).
+ * Also: at 820 every Sunday Coat pin, and at 834 every pin on every seeded
+ * look, has its card beside it and a ≤12px caret whose tip is within 8px.
+ * Ghost wide-panel Shop buttons at 1024 and 1112 (1280 stays solid).
  */
 import { chromium } from "playwright";
 import { SEED_LOOKS } from "../../src/lib/looks/seed.ts";
@@ -29,22 +30,12 @@ function record(name, ok, detail = "") {
   console.log(`${ok ? "ok" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
-async function assertPinPointer(page, label) {
-  await page.locator(".tag-pin").nth(1).click();
-  await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 6_000 });
-  await page.waitForFunction(
-    () => {
-      const card = document.querySelector(".look-plate-piece");
-      const pointer = document.querySelector(".look-plate-pointer");
-      return Boolean(card && pointer && card.getAnimations().every((animation) => animation.playState === "finished"));
-    },
-    null,
-    { timeout: 6_000 },
-  );
-  const measured = await page.evaluate(() => {
+async function measurePinPointer(page) {
+  return page.evaluate(() => {
     const pointer = document.querySelector(".look-plate-pointer");
     const pin = document.querySelector('.tag-pin[aria-pressed="true"]');
     const card = document.querySelector(".look-plate-piece");
+    if (!pointer || !pin || !card) return null;
     const box = pointer.getBoundingClientRect();
     const edge = pointer.getAttribute("data-edge");
     const pinBox = pin.getBoundingClientRect();
@@ -58,21 +49,73 @@ async function assertPinPointer(page, label) {
             ? { x: box.left + box.width / 2, y: box.top }
             : { x: box.left + box.width / 2, y: box.bottom };
     const pinCentre = { x: pinBox.left + pinBox.width / 2, y: pinBox.top + pinBox.height / 2 };
-    const base = edge === "left" ? box.right : edge === "right" ? box.left : edge === "top" ? box.bottom : box.top;
-    const cardEdge = edge === "left" ? cardBox.left : edge === "right" ? cardBox.right : edge === "top" ? cardBox.top : cardBox.bottom;
+    const nearestX = Math.max(cardBox.left, Math.min(pinCentre.x, cardBox.right));
+    const nearestY = Math.max(cardBox.top, Math.min(pinCentre.y, cardBox.bottom));
+    const gap = Math.hypot(pinCentre.x - nearestX, pinCentre.y - nearestY);
+    const xAligned = pinCentre.x >= cardBox.left - 12 && pinCentre.x <= cardBox.right + 12;
+    const yAligned = pinCentre.y >= cardBox.top - 12 && pinCentre.y <= cardBox.bottom + 12;
     return {
+      label: pin.getAttribute("aria-label") ?? "",
       w: box.width,
       h: box.height,
       dist: Math.hypot(tip.x - pinCentre.x, tip.y - pinCentre.y),
-      attached: Math.abs(base - cardEdge) <= 2,
+      gap,
+      beside: gap >= 16 && gap <= 96 && (xAligned || yAligned),
       edge,
+      card: { x: Math.round(cardBox.left), y: Math.round(cardBox.top) },
+      pin: { x: Math.round(pinCentre.x), y: Math.round(pinCentre.y) },
     };
   });
-  record(
-    `${label}.pointer`,
-    measured.w > 0 && measured.w <= 12 && measured.h > 0 && measured.h <= 12 && measured.dist <= 8 && measured.attached,
-    JSON.stringify(measured),
-  );
+}
+
+/** Every visible pin: the card sits beside it and the ≤12px caret tip is within 8px. */
+async function assertEveryPinPointer(page, label) {
+  const count = await page.locator(".tag-pin").count();
+  record(`${label}.pins`, count > 0, String(count));
+  for (let index = 0; index < count; index += 1) {
+    await page.locator(".tag-pin").nth(index).evaluate((node) => node.click());
+    const ready = await page
+      .waitForFunction(
+        (pinIndex) => {
+          const pins = [...document.querySelectorAll(".tag-pin")];
+          const pin = pins[pinIndex];
+          const card = document.querySelector(".look-plate-piece");
+          const pointer = document.querySelector(".look-plate-pointer");
+          if (!pin || pin.getAttribute("aria-pressed") !== "true" || !card || !pointer) return false;
+          return card.getAnimations().every((animation) => animation.playState === "finished");
+        },
+        index,
+        { timeout: 6_000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    const measured = ready ? await measurePinPointer(page) : null;
+    const ok = Boolean(
+      measured &&
+        measured.w > 0 &&
+        measured.w <= 12 &&
+        measured.h > 0 &&
+        measured.h <= 12 &&
+        measured.dist <= 8 &&
+        measured.beside,
+    );
+    record(`${label}.pin${index}`, ok, JSON.stringify(measured));
+  }
+}
+
+async function openLook(page, id) {
+  const url = `${origin}/looks/${id}`;
+  let last;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+      await page.locator(".tag-pin, .pin-more").first().waitFor({ timeout: 20_000 });
+      return;
+    } catch (error) {
+      last = error;
+    }
+  }
+  throw last;
 }
 
 async function prime(context) {
@@ -160,7 +203,8 @@ try {
     bar.shop === 1 && bar.whole === 0 && bar.shopText === "Shop" && bar.cursor === "pointer",
     JSON.stringify(bar),
   );
-  await assertPinPointer(page, "tablet820");
+  await assertEveryPinPointer(page, "tablet820");
+  await page.locator(".tag-pin").nth(1).evaluate((node) => node.click());
   const popup = page.waitForEvent("popup", { timeout: 1500 }).then(() => true).catch(() => false);
   await page.locator(".look-plate-shop").click();
   await page.locator(".look-sheet").waitFor({ timeout: 6_000 });
@@ -192,9 +236,10 @@ try {
   record("tablet.whole-stays-on-sheet", stayed && stillOpen && (await popup) === false, page.url());
 
   await page.setViewportSize({ width: 834, height: 1194 });
-  await page.goto(`${origin}/looks/seed-sunday-coat`, { waitUntil: "domcontentloaded" });
-  await page.locator(".tag-pin").nth(1).waitFor({ timeout: 12_000 });
-  await assertPinPointer(page, "tablet834");
+  for (const look of SEED_LOOKS) {
+    await openLook(page, look.id);
+    await assertEveryPinPointer(page, `tablet834.${look.id}`);
+  }
 
   for (const viewport of [
     { name: "wide1024", width: 1024, height: 768 },
