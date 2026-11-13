@@ -190,6 +190,8 @@ export function LookCanvas({
     <div
       ref={frameRef}
       data-crop={crop ? JSON.stringify(crop) : undefined}
+      data-visible-crop={JSON.stringify(cropWindow ?? (baked ? crop : null))}
+      data-baked={baked ? "true" : undefined}
       className={cn(
         "relative overflow-hidden bg-muted",
         !imageSrc && "h-96",
@@ -268,7 +270,7 @@ export function LookCanvas({
                 hidden += 1;
                 return [];
               }
-              const nudge = frame
+              const nudge = frame && !baked
                 ? nudgePinInside(point.x, point.y, frame.w, frame.h)
                 : { dx: 0, dy: 0, leader: false };
               return [

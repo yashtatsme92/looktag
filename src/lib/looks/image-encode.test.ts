@@ -6,7 +6,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { localStorage } from "../providers/storage/local.ts";
 import { encodeLookVariants } from "./image-encode.server.ts";
-import { storeLookPhoto } from "./photo-store.server.ts";
+import { persistDataUrlPhoto, storeLookPhoto } from "./photo-store.server.ts";
 import { LOOK_IMAGE_EDGES, type LookImageSize } from "./image-variants.ts";
 
 describe("encodeLookVariants", () => {
@@ -71,6 +71,30 @@ describe("encodeLookVariants", () => {
       assert.ok(saved.stored.original);
       assert.deepEqual((await store.get(saved.stored.original!.key))?.body, bytes);
       assert.equal(saved.stored.files.find((file) => file.size === "detail")?.h, 1440);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("persists the centered crop when an upload omits a custom crop", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "looktag-default-crop-"));
+    try {
+      const bytes = await sharp({
+        create: { width: 1200, height: 1200, channels: 3, background: { r: 180, g: 40, b: 40 } },
+      })
+        .jpeg()
+        .toBuffer();
+      const store = localStorage(path.join(root, "storage"));
+      const saved = await persistDataUrlPhoto(
+        "square-look",
+        `data:image/jpeg;base64,${bytes.toString("base64")}`,
+        null,
+        store,
+        { avif: false },
+      );
+      assert.deepEqual(saved.crop, { x: 0.125, y: 0, w: 0.75, h: 1 });
+      assert.ok(saved.images.original);
+      assert.equal(saved.images.width / saved.images.height, 3 / 4);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

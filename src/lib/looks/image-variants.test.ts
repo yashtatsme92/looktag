@@ -51,6 +51,7 @@ describe("look photo keys", () => {
     };
     assert.deepEqual(parseStoredLookImages(JSON.stringify(stored))?.prefix, stored.prefix);
     assert.equal(parseStoredLookImages('{"prefix":"../x"}'), null);
+    assert.equal(parseStoredLookImages('{"hash":"x","prefix":"looks/x","files":[],"original":{"key":"../x"}}'), null);
     const images = toPublicImages(stored, { STORAGE_PUBLIC_BASE_URL: "https://img.thelooktag.com" });
     assert.equal(images.card, "https://img.thelooktag.com/looks/aa/abc/card.webp");
     assert.equal(images.jpeg.detail, "https://img.thelooktag.com/looks/aa/abc/detail.jpg");

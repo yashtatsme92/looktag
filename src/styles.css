@@ -1054,10 +1054,6 @@ html[data-theme="moss"] {
     max-height: min(78dvh, 46rem);
   }
 
-  .look-photo-img {
-    object-position: 50% 20%;
-  }
-
   .look-studio-photo {
     display: block;
     width: auto;
@@ -3605,16 +3601,17 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 }
 
 .echo-photo {
-  position: absolute;
-  inset: 0;
+  position: relative;
   display: block;
+  width: min(100%, 32rem);
+  aspect-ratio: 3 / 4;
+  margin-inline: auto;
 }
 
 .echo-photo img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center 30%;
+  object-fit: contain;
 }
 
 .echo-peel {
@@ -3649,21 +3646,12 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 }
 
 .echo-meta {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  position: relative;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  padding: 12rem 1.5rem 92px;
-  background: linear-gradient(
-    to top,
-    rgb(17 17 17 / 60%) 0%,
-    rgb(17 17 17 / 30%) 40%,
-    rgb(17 17 17 / 10%) 70%,
-    transparent 100%
-  );
+  padding: 1.5rem 1.5rem 92px;
+  background: #111111;
   pointer-events: none;
 }
 
@@ -3790,17 +3778,16 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 .look-plate {
   position: absolute;
   inset: 0;
-  background: #111111;
-  color: white;
+  overflow-y: auto;
+  background: #ffffff;
+  color: #111111;
 }
 
-.look-plate-canvas,
-.look-plate-canvas > div,
-.look-plate .look-canvas {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  width: 100%;
+.look-plate-canvas {
+  position: relative;
+  width: min(100%, 32rem);
+  aspect-ratio: 3 / 4;
+  margin-inline: auto;
 }
 
 .look-plate-bar {
@@ -3843,13 +3830,10 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 }
 
 .look-plate-meta {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  position: relative;
   z-index: 20;
   padding: 1.5rem 1.25rem 1.1rem;
-  background: linear-gradient(to top, rgb(0 0 0 / 72%) 0%, rgb(0 0 0 / 0%) 100%);
+  background: #ffffff;
   pointer-events: none;
 }
 
@@ -3859,7 +3843,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 
 .look-plate-kicker {
   margin: 0 0 0.4rem;
-  color: rgb(255 255 255 / 0.78);
+  color: #6b6b6b;
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -3873,6 +3857,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   font-size: 1.75rem;
   font-weight: 500;
   line-height: 1.1;
+  color: #111111;
 }
 
 .look-plate-rule {
@@ -3880,12 +3865,12 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   width: 100%;
   height: 1px;
   margin-bottom: 0.75rem;
-  background: rgb(255 255 255 / 25%);
+  background: #e0e0e0;
 }
 
 .look-plate-pieces {
   margin: 0;
-  color: rgb(255 255 255 / 80%);
+  color: #6b6b6b;
   font-size: 0.8125rem;
 }
 
@@ -3895,7 +3880,7 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   gap: 0.4rem;
   min-height: 2.75rem;
   margin-top: 0.15rem;
-  color: rgb(255 255 255 / 90%);
+  color: #111111;
   font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -3924,10 +3909,14 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 /* Pin spotlight (Look 2): soft vignette + piece card over the plate. */
 .look-plate-vignette {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 50%;
+  width: min(100%, 32rem);
+  aspect-ratio: 3 / 4;
   z-index: 15;
   background: radial-gradient(ellipse at 50% 42%, transparent 16%, rgb(17 17 17 / 38%) 100%);
   pointer-events: none;
+  transform: translateX(-50%);
 }
 
 .look-plate-piece {
@@ -4442,7 +4431,6 @@ html:not(.boot-done) .look-feed-refresh {
 
 .look-slide img {
   outline: none;
-  object-position: 50% 20%;
 }
 
 .look-slide-meta {
@@ -4988,7 +4976,7 @@ html[data-chrome="phone"] [data-pin-nudge],
   }
 
   html:not(.native-app) .look-slide {
-    aspect-ratio: 2 / 3;
+    aspect-ratio: 3 / 4;
     height: auto;
     min-height: 0;
     max-height: none;
@@ -5003,7 +4991,6 @@ html[data-chrome="phone"] [data-pin-nudge],
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: 50% 20%;
   }
 
   .boot-splash-art {
@@ -5832,7 +5819,7 @@ input[type="search"]::-webkit-search-decoration {
 
 .wide-leadcard {
   position: relative;
-  height: 44.75rem;
+  aspect-ratio: 3 / 4;
   margin-bottom: 1rem;
   overflow: hidden;
   border-radius: 24px;
@@ -5846,6 +5833,10 @@ input[type="search"]::-webkit-search-decoration {
   overflow: hidden;
   border-radius: 24px;
   background: #111111;
+}
+
+.wide-lead-photo {
+  aspect-ratio: 3 / 4;
 }
 
 .wide-lead-photo a,
@@ -5867,7 +5858,6 @@ input[type="search"]::-webkit-search-decoration {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 30%;
 }
 
 .wide-tile {
@@ -6103,7 +6093,7 @@ input[type="search"]::-webkit-search-decoration {
   align-items: stretch;
 }
 
-/* The photo card fills its frame (cover crop) and never grows past the viewport: top bar + Back row + gap are taken off the height. */
+/* Keep the 3:4 photo plate within the available viewport height. */
 .wide-look {
   --wide-look-h: clamp(28rem, calc(100dvh - 9.75rem), 47rem);
 }
@@ -6115,7 +6105,9 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 .wide-plate {
-  height: var(--wide-look-h);
+  aspect-ratio: 3 / 4;
+  height: auto;
+  align-self: start;
 }
 
 html:not(.native-app) .wide-plate .look-photo-cover {
@@ -6123,7 +6115,7 @@ html:not(.native-app) .wide-plate .look-photo-cover {
   height: 100%;
   max-height: none;
   margin: 0;
-  aspect-ratio: auto;
+  aspect-ratio: 3 / 4;
 }
 
 .wide-panel {
@@ -6680,7 +6672,6 @@ html.native-app .house-manage[data-editor="open"] .house-save {
 
   .wide-lead-photo {
     grid-column: span 2;
-    height: 42rem;
   }
 
   .wide-lead-copy {
@@ -6697,9 +6688,6 @@ html.native-app .house-manage[data-editor="open"] .house-save {
     gap: 1.5rem;
   }
 
-  .wide-lead-photo img {
-    object-position: center 20%;
-  }
 }
 
 @media (min-width: 1440px) {
@@ -6709,17 +6697,10 @@ html.native-app .house-manage[data-editor="open"] .house-save {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .wide-lead-photo {
-    height: 46.5rem;
-  }
-
   .wide-lead-copy {
     grid-column: span 2;
   }
 
-  .wide-lead-photo img {
-    object-position: center 30%;
-  }
 }
 
 .ops-board {
@@ -7254,13 +7235,7 @@ html.native-app .house-manage[data-editor="open"] .house-save {
   margin-bottom: 1.25rem;
   border-radius: 24px;
   object-fit: cover;
-  object-position: center 20%;
   background: #111111;
-}
-
-.house-hero.img-slot > img,
-.house-hero.img-slot > picture > img {
-  object-position: center 20%;
 }
 
 .house-line {

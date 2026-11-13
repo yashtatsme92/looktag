@@ -79,7 +79,11 @@ export function parseStoredLookImages(raw: string | null | undefined): StoredLoo
     if (!parsed || typeof parsed.hash !== "string" || typeof parsed.prefix !== "string" || !Array.isArray(parsed.files)) {
       return null;
     }
-    if (parsed.prefix.includes("..") || parsed.files.some((file) => !file?.key || String(file.key).includes(".."))) {
+    if (
+      parsed.prefix.includes("..") ||
+      parsed.files.some((file) => !file?.key || String(file.key).includes("..")) ||
+      (parsed.original && (!parsed.original.key || parsed.original.key.includes("..")))
+    ) {
       return null;
     }
     return parsed as StoredLookImages;
