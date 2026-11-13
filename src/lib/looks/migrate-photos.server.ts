@@ -141,7 +141,7 @@ export async function migrateLookPhotos(
     const crop = await cropFor(bytes, row.crop_json);
     const hash = contentHash(bytes, crop);
     const existing = parseStoredLookImages(row.image_variants_json);
-    if (existing?.hash === hash) {
+    if (existing?.hash === hash && existing.original) {
       result.skipped += 1;
       continue;
     }

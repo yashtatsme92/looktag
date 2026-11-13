@@ -11,6 +11,7 @@ import { resolveOrigin, clearUploadedDrafts, withPage } from "./helpers.mjs";
 
 const origin = resolveOrigin();
 const viewports = [
+  { width: 375, height: 812 },
   { width: 390, height: 844 },
   { width: 834, height: 1194 },
   { width: 1280, height: 800 },
@@ -77,6 +78,7 @@ function measurePhotos(scope) {
       rect: { left: r.left, top: r.top, w: r.width, h: r.height },
       nw: img.naturalWidth,
       nh: img.naturalHeight,
+      src: img.currentSrc,
       fit: getComputedStyle(img).objectFit,
       frame: { left: f.left, right: f.right, top: f.top, bottom: f.bottom },
       frameSize: { w: f.width, h: f.height },
@@ -97,7 +99,11 @@ function checkNative(label, m) {
   const ratio = m.rect.w / m.rect.h;
   const natural = m.nw / m.nh;
   if (m.baked) {
-    record(`${label}.native-ratio`, Math.abs(ratio / natural - 1) <= RATIO_TOLERANCE, `${ratio.toFixed(3)} vs ${natural.toFixed(3)}`);
+    record(
+      `${label}.native-ratio`,
+      Number.isFinite(natural) && Math.abs(ratio / natural - 1) <= RATIO_TOLERANCE,
+      `${ratio.toFixed(3)} vs ${natural.toFixed(3)} (${m.nw}x${m.nh} ${m.src})`,
+    );
   }
   record(`${label}.not-fill`, m.fit !== "fill", m.fit);
   record(
@@ -130,11 +136,19 @@ function checkPins(label, m, expectedCount) {
 
 async function waitForCropped(page, scope) {
   await page.waitForFunction(
-    (sel) =>
-      [...(document.querySelector(sel) ?? document).querySelectorAll("img")].some((img) => {
-        const r = img.getBoundingClientRect();
-        return r.width > 0 && img.complete && img.naturalWidth > 0 && getComputedStyle(img).visibility !== "hidden";
-      }),
+    (sel) => {
+      const root = document.querySelector(sel) ?? document;
+      const photos = [...root.querySelectorAll(".look-photo-cover img, .wide-plate-canvas img, .create-plate-canvas img")];
+      return photos.length > 0 && photos.every((img) => {
+        const rect = img.getBoundingClientRect();
+        return (
+          rect.width > 0 &&
+          img.complete &&
+          img.naturalWidth > 0 &&
+          getComputedStyle(img).visibility !== "hidden"
+        );
+      });
+    },
     scope,
     { timeout: 15_000 },
   );
@@ -173,10 +187,11 @@ async function lookDetail(browser, viewport) {
         record(`${label}.photo-found`, photos.length > 0);
         photos.forEach((m, i) => {
           if (m.lookSurface) {
+            if ([375, 390].includes(viewport.width)) record(`${label}.${i}.baked`, m.baked);
             checkThreeFour(`${label}.${i}`, m);
             checkNative(`${label}.${i}`, m);
             checkPins(`${label}.${i}`, m);
-            if (viewport.width === 390 && ["seed-brown-study", "seed-sofia-dune-path-midi"].includes(slug)) {
+            if ([375, 390].includes(viewport.width) && ["seed-brown-study", "seed-sofia-dune-path-midi"].includes(slug)) {
               record(`${label}.${i}.hidden-pin-chip`, m.pinMore === "+1 piece", m.pinMore || "missing");
             }
           }

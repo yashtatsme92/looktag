@@ -45,7 +45,10 @@ function LookPage() {
   const lookFromStore = useLook(lookId);
   const { user } = useCurrentUserState();
   const chrome = useChromeLayout();
-  const look = lookFromStore ?? (ssrLook && ssrLook.id === lookId ? ssrLook : undefined);
+  const look =
+    ssrLook?.id === lookId && ssrLook.images?.original && !lookFromStore?.images?.original
+      ? ssrLook
+      : lookFromStore ?? (ssrLook && ssrLook.id === lookId ? ssrLook : undefined);
 
   if (!look) {
     return (

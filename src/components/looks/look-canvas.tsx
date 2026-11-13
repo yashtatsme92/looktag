@@ -12,6 +12,7 @@ import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
 
 const PIN_RADIUS_PX = 16;
+const PIN_DOT_RADIUS_PX = 14;
 
 type LookCanvasProps = {
   imageSrc: string;
@@ -80,7 +81,8 @@ export function LookCanvas({
         return;
       }
       const limit = ((navRect.top - rect.top - PIN_RADIUS_PX) / rect.height) * 100;
-      setMaxPinY(Math.round(Math.min(100, limit) * 2) / 2);
+      const maxVisibleY = !editable && window.innerWidth < 768 ? 98 : 100;
+      setMaxPinY(Math.round(Math.min(maxVisibleY, limit) * 2) / 2);
     };
     update();
     window.addEventListener("scroll", update, { passive: true });
@@ -89,7 +91,7 @@ export function LookCanvas({
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, [imageSrc, frame?.h]);
+  }, [editable, imageSrc, frame?.h]);
 
   useEffect(() => {
     const el = frameRef.current;
@@ -280,7 +282,9 @@ export function LookCanvas({
                   }
                 : { x: tag.x, y: tag.y };
               const inside = "inside" in point ? point.inside : true;
-              if (!inside || !inFrame(point) || point.y > maxPinY) {
+              const edgeClearanceY = frame && frame.h > 0 ? (PIN_DOT_RADIUS_PX / frame.h) * 100 : 2;
+              const clippedAtBottom = !editable && point.y > 100 - edgeClearanceY;
+              if (!inside || !inFrame(point) || clippedAtBottom || point.y > maxPinY) {
                 hidden += 1;
                 return [];
               }

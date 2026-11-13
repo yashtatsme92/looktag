@@ -34,10 +34,11 @@ async function maybeMigratePhotos(sql: Awaited<ReturnType<typeof getSql>>) {
 
 async function seedAndBackfillLooks(sql: Awaited<ReturnType<typeof getSql>>) {
   await seedCatalog(sql);
+  if (!cropsBackfilled.has(sql)) {
+    await backfillLookCrops(sql);
+    cropsBackfilled.add(sql);
+  }
   await maybeMigratePhotos(sql);
-  if (cropsBackfilled.has(sql)) return;
-  await backfillLookCrops(sql);
-  cropsBackfilled.add(sql);
 }
 
 export const listPublicLooks = createServerFn({ method: "GET" }).handler(async () => {
