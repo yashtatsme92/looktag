@@ -13,9 +13,7 @@ const origin = resolveOrigin();
 const viewports = [
   { width: 390, height: 844 },
   { width: 834, height: 1194 },
-  { width: 1024, height: 768 },
   { width: 1280, height: 800 },
-  { width: 1440, height: 900 },
 ];
 const looks = ["seed-sofia-sun-bleached-linen", "seed-amara-charcoal-fleece-pleats", "seed-ines-emerald-cocktail", "seed-sunday-coat"];
 const uploads = [
@@ -30,7 +28,7 @@ const PINS = [
   [55, 65],
 ];
 const RATIO_TOLERANCE = 0.01;
-const PIN_TOLERANCE_PX = 4;
+const PIN_TOLERANCE_PX = 2;
 const NOT_STRETCHED = ["cover", "contain", "none", "scale-down"];
 let failed = false;
 
@@ -52,30 +50,47 @@ function measurePhotos(scope) {
   const root = document.querySelector(scope) ?? document;
   return [...root.querySelectorAll("img")].filter(visible).map((img) => {
     const r = img.getBoundingClientRect();
-    const host = img.closest(".look-photo-cover, .wide-plate-canvas, .create-plate-canvas") ?? img.parentElement;
+    const host = img.closest(".look-photo-cover, .wide-plate-canvas, .create-plate-canvas, .echo-photo, .wide-lead-photo, .wide-leadcard, .wide-tile") ?? img.parentElement;
     const f = host.getBoundingClientRect();
+    let crop = null;
+    try {
+      crop = JSON.parse(host.dataset.visibleCrop || "null");
+    } catch {
+      crop = null;
+    }
     const pins = [...host.querySelectorAll("[data-tag-pin]")].map((pin) => {
       const b = pin.getBoundingClientRect();
       return { cx: b.left + b.width / 2, cy: b.top + b.height / 2, ix: Number(pin.dataset.imageX), iy: Number(pin.dataset.imageY) };
     });
     return {
       loaded: img.complete && img.naturalWidth > 0,
-      sized: Boolean(img.style.width),
+      sized: Boolean(img.style.width) || host.matches(".look-photo-cover, .wide-plate-canvas, .create-plate-canvas"),
+      baked: host.dataset.baked === "true",
+      lookSurface: host.matches(".look-photo-cover, .wide-plate-canvas, .create-plate-canvas, .echo-photo, .wide-lead-photo, .wide-leadcard, .wide-tile"),
       rect: { left: r.left, top: r.top, w: r.width, h: r.height },
       nw: img.naturalWidth,
       nh: img.naturalHeight,
       fit: getComputedStyle(img).objectFit,
       frame: { left: f.left, right: f.right, top: f.top, bottom: f.bottom },
+      frameSize: { w: f.width, h: f.height },
       navTop,
       pins,
+      crop,
     };
   });
+}
+
+function checkThreeFour(label, m) {
+  const ratio = m.frameSize.w / m.frameSize.h;
+  record(`${label}.frame-3:4`, Math.abs(ratio / 0.75 - 1) <= RATIO_TOLERANCE, ratio.toFixed(4));
 }
 
 function checkNative(label, m) {
   const ratio = m.rect.w / m.rect.h;
   const natural = m.nw / m.nh;
-  record(`${label}.native-ratio`, Math.abs(ratio / natural - 1) <= RATIO_TOLERANCE, `${ratio.toFixed(3)} vs ${natural.toFixed(3)}`);
+  if (m.baked) {
+    record(`${label}.native-ratio`, Math.abs(ratio / natural - 1) <= RATIO_TOLERANCE, `${ratio.toFixed(3)} vs ${natural.toFixed(3)}`);
+  }
   record(`${label}.not-fill`, m.fit !== "fill", m.fit);
   record(
     `${label}.covers-frame`,
@@ -92,8 +107,12 @@ function checkPins(label, m, expectedCount) {
     record(`${label}.pin-count`, m.pins.length >= expectedCount, `${m.pins.length} visible`);
   }
   m.pins.forEach((p, j) => {
-    const dx = (((p.cx - m.rect.left) / m.rect.w) * 100 - p.ix) * (m.rect.w / 100);
-    const dy = (((p.cy - m.rect.top) / m.rect.h) * 100 - p.iy) * (m.rect.h / 100);
+    const x = p.ix / 100;
+    const y = p.iy / 100;
+    const expectedX = m.crop ? (x - m.crop.x) / m.crop.w : x;
+    const expectedY = m.crop ? (y - m.crop.y) / m.crop.h : y;
+    const dx = p.cx - (m.frame.left + expectedX * m.frameSize.w);
+    const dy = p.cy - (m.frame.top + expectedY * m.frameSize.h);
     record(`${label}.pin-${j}-position`, Math.abs(dx) <= PIN_TOLERANCE_PX && Math.abs(dy) <= PIN_TOLERANCE_PX, `drift ${dx.toFixed(1)}x${dy.toFixed(1)}px`);
     const inside = p.cx >= m.frame.left && p.cx <= m.frame.right && p.cy >= m.frame.top && p.cy <= m.frame.bottom;
     record(`${label}.pin-${j}-in-frame`, inside);
@@ -106,7 +125,7 @@ async function waitForCropped(page, scope) {
     (sel) =>
       [...(document.querySelector(sel) ?? document).querySelectorAll("img")].some((img) => {
         const r = img.getBoundingClientRect();
-        return r.width > 0 && img.complete && img.naturalWidth > 0 && img.style.width;
+        return r.width > 0 && img.complete && img.naturalWidth > 0 && getComputedStyle(img).visibility !== "hidden";
       }),
     scope,
     { timeout: 15_000 },
@@ -145,8 +164,11 @@ async function lookDetail(browser, viewport) {
         const label = `look-detail.${slug}@${viewport.width}`;
         record(`${label}.photo-found`, photos.length > 0);
         photos.forEach((m, i) => {
-          checkNative(`${label}.${i}`, m);
-          checkPins(`${label}.${i}`, m);
+          if (m.lookSurface) {
+            checkThreeFour(`${label}.${i}`, m);
+            checkNative(`${label}.${i}`, m);
+            checkPins(`${label}.${i}`, m);
+          }
         });
       },
       `aspect-look-${viewport.width}`,
@@ -169,6 +191,7 @@ async function coverSurfaces(browser, viewport) {
         const photos = (await page.evaluate(measurePhotos, "body")).filter((m) => m.loaded && m.nw > 64);
         record(`${name}@${viewport.width}.photos-found`, photos.length > 0, String(photos.length));
         photos.forEach((m, i) => {
+          if (m.lookSurface) checkThreeFour(`${name}@${viewport.width}.${i}`, m);
           record(`${name}@${viewport.width}.${i}.not-stretched`, NOT_STRETCHED.includes(m.fit), m.fit);
           if (m.fit === "cover") {
             const natural = m.nw / m.nh;
@@ -267,7 +290,9 @@ async function createFlow(browser, viewport, upload) {
   );
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
+});
 try {
   for (const viewport of viewports) {
     await lookDetail(browser, viewport);

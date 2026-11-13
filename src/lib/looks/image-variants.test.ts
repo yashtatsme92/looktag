@@ -29,8 +29,8 @@ describe("look photo keys", () => {
     assert.equal(variantKey(prefix, "card", "jpeg"), `${prefix}/card.jpg`);
     assert.equal(variantKey(prefix, "thumb", "webp"), `${prefix}/thumb.webp`);
     assert.equal(LOOK_IMAGE_EDGES.thumb, 200);
-    assert.equal(LOOK_IMAGE_EDGES.card, 600);
-    assert.equal(LOOK_IMAGE_EDGES.detail, 1200);
+    assert.equal(LOOK_IMAGE_EDGES.card, 800);
+    assert.equal(LOOK_IMAGE_EDGES.detail, 1440);
     assert.match(LOOK_IMAGE_CACHE_CONTROL, /immutable/);
   });
 
@@ -51,6 +51,7 @@ describe("look photo keys", () => {
     };
     assert.deepEqual(parseStoredLookImages(JSON.stringify(stored))?.prefix, stored.prefix);
     assert.equal(parseStoredLookImages('{"prefix":"../x"}'), null);
+    assert.equal(parseStoredLookImages('{"hash":"x","prefix":"looks/x","files":[],"original":{"key":"../x"}}'), null);
     const images = toPublicImages(stored, { STORAGE_PUBLIC_BASE_URL: "https://img.thelooktag.com" });
     assert.equal(images.card, "https://img.thelooktag.com/looks/aa/abc/card.webp");
     assert.equal(images.jpeg.detail, "https://img.thelooktag.com/looks/aa/abc/detail.jpg");

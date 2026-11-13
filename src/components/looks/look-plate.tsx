@@ -79,7 +79,7 @@ export function LookPlate({
   const cardRef = useRef<HTMLDivElement>(null);
   const pinOpenerRef = useRef<HTMLElement | null>(null);
   const lastIndexRef = useRef(0);
-  const [plateSize, setPlateSize] = useState({ w: 0, h: 0 });
+  const [plateSize, setPlateSize] = useState({ w: 0, h: 0, top: 0 });
   const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null);
   const [pointer, setPointer] = useState<PinPointer | null>(null);
   const focus = look.tags.find((tag) => tag.id === selectedId) ?? look.tags[0] ?? null;
@@ -110,11 +110,20 @@ export function LookPlate({
   useEffect(() => {
     const node = plateRef.current;
     if (!node) return;
-    const read = () => setPlateSize({ w: node.clientWidth, h: node.clientHeight });
+    const frame = node.querySelector<HTMLElement>(".look-plate-canvas");
+    if (!frame) return;
+    const read = () => {
+      const rect = frame.getBoundingClientRect();
+      setPlateSize({ w: rect.width, h: rect.height, top: rect.top });
+    };
     read();
     const ro = new ResizeObserver(read);
-    ro.observe(node);
-    return () => ro.disconnect();
+    ro.observe(frame);
+    window.addEventListener("scroll", read, { passive: true });
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("scroll", read);
+    };
   }, []);
 
   /** Move focus into the card when it opens, and keep it clear of every other pin. */
@@ -136,20 +145,21 @@ export function LookPlate({
       setPointer(null);
       return;
     }
-    const plateRect = plate.getBoundingClientRect();
-    const pins = [...plate.querySelectorAll<HTMLElement>(".tag-pin[data-tag-id]")].flatMap((node) => {
+    const imageFrame = plate.querySelector<HTMLElement>(".look-plate-canvas");
+    if (!imageFrame) return;
+    const plateRect = imageFrame.getBoundingClientRect();
+    const pins = [...imageFrame.querySelectorAll<HTMLElement>(".tag-pin[data-tag-id]")].flatMap((node) => {
       const id = node.dataset.tagId;
       if (!id) return [];
       const rect = node.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return [];
       return [{ id, x: rect.left + rect.width / 2 - plateRect.left, y: rect.top + rect.height / 2 - plateRect.top }];
     });
-    const meta = plate.querySelector<HTMLElement>(".look-plate-meta");
     const bar = plate.querySelector<HTMLElement>(".look-plate-bar");
     const cardRect = card.getBoundingClientRect();
     const inset = {
       top: (bar?.getBoundingClientRect().bottom ?? plateRect.top + 72) - plateRect.top + 4,
-      bottom: meta ? plateRect.bottom - meta.getBoundingClientRect().top + 8 : 190,
+      bottom: 16,
     };
     const placed = placePinCard({
       pins,
@@ -161,7 +171,7 @@ export function LookPlate({
       pinRadius: 22,
       fixedX: plateRect.width < 768,
     });
-    const selectedNode = plate.querySelector<HTMLElement>('.tag-pin[aria-pressed="true"]');
+    const selectedNode = imageFrame.querySelector<HTMLElement>('.tag-pin[aria-pressed="true"]');
     const selectedRect = selectedNode?.getBoundingClientRect();
     let rect = { left: placed.left, top: placed.top, w: cardRect.width, h: cardRect.height };
     let nextPointer: PinPointer | null = null;
@@ -206,7 +216,7 @@ export function LookPlate({
     }
     setCardPos({ top: plateRect.top + rect.top, left: plateRect.left + rect.left });
     setPointer(nextPointer);
-  }, [selectedId, look.tags, plateSize.w, plateSize.h]);
+  }, [selectedId, look.tags, plateSize.w, plateSize.h, plateSize.top]);
 
   useOverlay(Boolean(selectedId) && !sheetOpen && !shopSheetOpen, cardRef, () => setSelectedId(null), {
     returnTo: () => {
@@ -318,10 +328,11 @@ export function LookPlate({
         title={look.title}
         tags={look.tags}
         crop={look.crop}
+        baked={Boolean(look.images?.original)}
         selectedId={selectedId}
         onSelect={(id) => setSelectedId(id)}
         onHiddenPieces={() => openShopSheet(false)}
-        fit="fill"
+        fit="cover"
         className="look-plate-canvas"
       />
       {spotlight ? <div className="look-plate-vignette" aria-hidden /> : null}

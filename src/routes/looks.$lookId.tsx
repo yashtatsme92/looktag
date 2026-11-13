@@ -64,7 +64,7 @@ function LookPage() {
 
   return (
     <AppShell title={look.title} backTo="/" flush header="hidden">
-      {chrome === "desktop" ? (
+      {chrome !== "phone" ? (
         <WideLook look={look} userState={state} canEdit={mine} />
       ) : (
         <LookPlate look={look} userState={state} canEdit={mine} />
