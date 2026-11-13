@@ -329,6 +329,8 @@ export function LookPlate({
         tags={look.tags}
         crop={look.crop}
         baked={Boolean(look.images?.original)}
+        images={look.images}
+        sizes="(min-width: 768px) 50vw, 100vw"
         selectedId={selectedId}
         onSelect={(id) => setSelectedId(id)}
         onHiddenPieces={() => openShopSheet(false)}

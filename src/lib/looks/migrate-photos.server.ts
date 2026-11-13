@@ -1,11 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import sharp from "sharp";
 import type { Sql } from "../providers/db/types.ts";
 import type { ObjectStorage } from "../providers/storage/types.ts";
 import { storage } from "../providers/storage/index.ts";
 import { decodeDataImage, deleteStoredLookImages, storeLookPhoto } from "./photo-store.server.ts";
 import { contentHash } from "./image-keys.ts";
 import { parseStoredLookImages } from "./image-variants.ts";
+import { centeredCrop, type CropRect } from "./crop.ts";
 
 export type PhotoMigrationBackup = {
   version: 1;
@@ -33,6 +35,7 @@ type LookPhotoRow = {
   id: string;
   image_src: string;
   image_variants_json: string | null;
+  crop_json: string | null;
   published: boolean;
 };
 
@@ -120,7 +123,7 @@ export async function migrateLookPhotos(
   if (rollback) return rollbackPhotos(sql, store, backupPath, dryRun, result);
 
   const rows = await sql<LookPhotoRow>`
-    select id, image_src, image_variants_json, published from looks
+    select id, image_src, image_variants_json, crop_json, published from looks
   `;
   const backup = dryRun ? emptyBackup() : await readBackup(backupPath);
   let backupDirty = false;
@@ -135,7 +138,8 @@ export async function migrateLookPhotos(
       result.skipped += 1;
       continue;
     }
-    const hash = contentHash(bytes);
+    const crop = await cropFor(bytes, row.crop_json);
+    const hash = contentHash(bytes, crop);
     const existing = parseStoredLookImages(row.image_variants_json);
     if (existing?.hash === hash) {
       result.skipped += 1;
@@ -150,7 +154,7 @@ export async function migrateLookPhotos(
       backup.looks[row.id] = { imageSrc: row.image_src, imageVariantsJson: row.image_variants_json };
       backupDirty = true;
     }
-    const saved = await storeLookPhoto(row.id, bytes, store, { avif: options?.avif });
+    const saved = await storeLookPhoto(row.id, bytes, store, { avif: options?.avif, crop });
     if (existing && existing.prefix !== saved.stored.prefix) await deleteStoredLookImages(existing, store);
     await sql`
       update looks
@@ -158,6 +162,36 @@ export async function migrateLookPhotos(
       where id = ${row.id}
     `;
     result.uploaded += 1;
+  }
+
+  async function cropFor(bytes: Uint8Array, raw: string | null): Promise<CropRect> {
+    const metadata = await sharp(bytes, { failOn: "none" }).metadata();
+    const swapsDimensions = metadata.orientation !== undefined && [5, 6, 7, 8].includes(metadata.orientation);
+    const width = swapsDimensions ? (metadata.height ?? 0) : (metadata.width ?? 0);
+    const height = swapsDimensions ? (metadata.width ?? 0) : (metadata.height ?? 0);
+    if (width < 1 || height < 1) throw new Error("Source image dimensions could not be read.");
+    if (raw) {
+      try {
+        const value = JSON.parse(raw) as Partial<CropRect>;
+        if (
+          Number.isFinite(value.x) &&
+          Number.isFinite(value.y) &&
+          Number.isFinite(value.w) &&
+          Number.isFinite(value.h) &&
+          value.x! >= 0 &&
+          value.y! >= 0 &&
+          value.w! > 0 &&
+          value.h! > 0 &&
+          value.x! + value.w! <= 1 &&
+          value.y! + value.h! <= 1
+        ) {
+          return { x: value.x!, y: value.y!, w: value.w!, h: value.h! };
+        }
+      } catch {
+        // Invalid legacy crop values use the same centered default as uploads.
+      }
+    }
+    return centeredCrop(width, height);
   }
 
   if (backupDirty) await writeBackup(backupPath, backup);

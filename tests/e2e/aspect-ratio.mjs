@@ -15,7 +15,14 @@ const viewports = [
   { width: 834, height: 1194 },
   { width: 1280, height: 800 },
 ];
-const looks = ["seed-sofia-sun-bleached-linen", "seed-amara-charcoal-fleece-pleats", "seed-ines-emerald-cocktail", "seed-sunday-coat"];
+const looks = [
+  "seed-sofia-sun-bleached-linen",
+  "seed-amara-charcoal-fleece-pleats",
+  "seed-ines-emerald-cocktail",
+  "seed-sunday-coat",
+  "seed-brown-study",
+  "seed-sofia-dune-path-midi",
+];
 const uploads = [
   { name: "2x3", w: 800, h: 1200 },
   { name: "9x16", w: 720, h: 1280 },
@@ -75,6 +82,7 @@ function measurePhotos(scope) {
       frameSize: { w: f.width, h: f.height },
       navTop,
       pins,
+      pinMore: host.querySelector(".pin-more")?.textContent?.trim() ?? "",
       crop,
     };
   });
@@ -168,6 +176,9 @@ async function lookDetail(browser, viewport) {
             checkThreeFour(`${label}.${i}`, m);
             checkNative(`${label}.${i}`, m);
             checkPins(`${label}.${i}`, m);
+            if (viewport.width === 390 && ["seed-brown-study", "seed-sofia-dune-path-midi"].includes(slug)) {
+              record(`${label}.${i}.hidden-pin-chip`, m.pinMore === "+1 piece", m.pinMore || "missing");
+            }
           }
         });
       },

@@ -2,8 +2,7 @@ import sharp from "sharp";
 import { storage } from "../providers/storage/index.ts";
 import type { ObjectStorage } from "../providers/storage/types.ts";
 import { encodeLookVariants } from "./image-encode.server.ts";
-import { createHash } from "node:crypto";
-import { lookPhotoPrefix } from "./image-keys.ts";
+import { contentHash, lookPhotoPrefix } from "./image-keys.ts";
 import { centeredCrop, type CropRect } from "./crop.ts";
 import {
   LOOK_IMAGE_CACHE_CONTROL,
@@ -42,7 +41,7 @@ export async function storeLookPhoto(
   const width = swapsDimensions ? (metadata.height ?? 0) : (metadata.width ?? 0);
   const height = swapsDimensions ? (metadata.width ?? 0) : (metadata.height ?? 0);
   const crop = options?.crop ?? centeredCrop(width, height);
-  const hash = createHash("sha256").update(bytes).update(JSON.stringify(crop)).digest("hex");
+  const hash = contentHash(bytes, crop);
   const prefix = lookPhotoPrefix(lookId, hash);
   const encoded = await encodeLookVariants(bytes, { ...options, crop });
   const sourceFormat =
@@ -88,7 +87,7 @@ export async function persistDataUrlPhoto(
   const width = swapsDimensions ? (metadata.height ?? 0) : (metadata.width ?? 0);
   const height = swapsDimensions ? (metadata.width ?? 0) : (metadata.height ?? 0);
   const crop = options?.crop ?? centeredCrop(width, height);
-  const hash = createHash("sha256").update(bytes).update(JSON.stringify(crop)).digest("hex");
+  const hash = contentHash(bytes, crop);
   const previous = parseStoredLookImages(previousRaw);
   if (previous?.hash === hash) {
     const images = toPublicImages(previous);

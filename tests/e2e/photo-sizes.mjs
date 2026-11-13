@@ -21,7 +21,7 @@ function record(name, ok, detail = "") {
 const root = await mkdtemp(path.join(tmpdir(), "looktag-photo-e2e-"));
 const photo = path.join(root, "look.jpg");
 const jpeg = await sharp({
-  create: { width: 900, height: 1200, channels: 3, background: { r: 180, g: 60, b: 40 } },
+  create: { width: 900, height: 1350, channels: 3, background: { r: 180, g: 60, b: 40 } },
 })
   .jpeg()
   .toBuffer();
@@ -56,9 +56,23 @@ try {
       await chooser.setFiles(photo);
       await page.locator(".create-crop-step").waitFor();
       await page.getByRole("button", { name: "Use photo" }).click();
-      await page.locator(".create-btn-done").click();
+      await page.getByRole("button", { name: "Add pin" }).click();
+      await page.locator(".create-piece-name").fill("Round-trip coat");
+      await page.locator(".create-piece").getByRole("button", { name: "Done" }).click();
+      await page.locator(".create-pin-actions").getByRole("button", { name: "Done" }).click();
+      await page.getByRole("heading", { name: "Details" }).waitFor();
+      const cropStep = await page.locator(".create-details-photo .create-plate-canvas")
+        .getAttribute("data-crop")
+        .then((raw) => JSON.parse(raw || "null"));
+      record(
+        "photo.crop.centered-3:4",
+        Boolean(cropStep && Math.abs(cropStep.x) < 0.002 && Math.abs(cropStep.y - 1 / 18) < 0.002 &&
+          Math.abs(cropStep.w - 1) < 0.002 && Math.abs(cropStep.h - 8 / 9) < 0.002),
+        JSON.stringify(cropStep),
+      );
       await page.locator("#create-title").fill("Sized coat");
       await page.getByRole("button", { name: "Continue" }).click();
+      await page.getByRole("heading", { name: "Ready" }).waitFor();
       await page.getByRole("button", { name: "Publish", exact: true }).click();
       await page.waitForURL(/\/looks\//, { timeout: 30_000 });
       const id = new URL(page.url()).pathname.split("/").filter(Boolean).pop() ?? "";
@@ -73,6 +87,14 @@ try {
       record(
         "photo.api.images",
         Boolean(images?.thumb && images?.card && images?.detail && images?.jpeg?.thumb && images?.jpeg?.card && images?.jpeg?.detail),
+      );
+      record("photo.api.original", typeof images?.original === "string" && images.original.length > 0);
+      record(
+        "photo.round-trip.crop-and-pin",
+        Math.abs(detail.body?.crop?.y - 1 / 18) < 0.002 &&
+          Math.abs(detail.body?.crop?.h - 8 / 9) < 0.002 &&
+          detail.body?.tags?.length === 1 &&
+          detail.body.tags[0]?.name === "Round-trip coat",
       );
       record(
         "photo.api.no-data-url",
@@ -102,6 +124,28 @@ try {
       const listed = Array.isArray(list.body) ? list.body.find((look) => look.id === id) : null;
       record("photo.list", list.status === 200 && listed?.images?.card === images?.card);
 
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.locator(".wide-plate-canvas[data-baked='true']").waitFor({ timeout: 15_000 });
+      const pinMapping = await page.locator(".wide-plate-canvas").evaluate((frame) => {
+        const pin = frame.querySelector("[data-tag-pin]");
+        const crop = JSON.parse(frame.dataset.crop || "null");
+        if (!pin || !crop) return null;
+        const frameBox = frame.getBoundingClientRect();
+        const pinBox = pin.getBoundingClientRect();
+        const u = Number(pin.dataset.imageX) / 100;
+        const v = Number(pin.dataset.imageY) / 100;
+        return {
+          ratio: frameBox.width / frameBox.height,
+          dx: pinBox.left + pinBox.width / 2 - (frameBox.left + ((u - crop.x) / crop.w) * frameBox.width),
+          dy: pinBox.top + pinBox.height / 2 - (frameBox.top + ((v - crop.y) / crop.h) * frameBox.height),
+        };
+      });
+      record(
+        "photo.round-trip.reopened-baked-pin",
+        Boolean(pinMapping && Math.abs(pinMapping.ratio / 0.75 - 1) <= 0.01 &&
+          Math.abs(pinMapping.dx) <= 2 && Math.abs(pinMapping.dy) <= 2),
+        JSON.stringify(pinMapping),
+      );
       await page.goto(origin, { waitUntil: "domcontentloaded" });
       const source = page.locator("picture source[type='image/webp']").first();
       await source.waitFor({ state: "attached", timeout: 15_000 });

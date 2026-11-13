@@ -8,6 +8,7 @@ import { localStorage } from "../providers/storage/local.ts";
 import { openMemoryPglite } from "../providers/db/pglite.ts";
 import { migrateLookPhotos, parseMigrateCli } from "./migrate-photos.server.ts";
 import type { Sql } from "../db.ts";
+import { contentHash } from "./image-keys.ts";
 
 async function memorySql(): Promise<Sql> {
   const pg = await openMemoryPglite();
@@ -16,6 +17,7 @@ async function memorySql(): Promise<Sql> {
       id text primary key,
       image_src text not null,
       image_variants_json text,
+      crop_json text,
       published boolean not null default true
     )
   `);
@@ -61,7 +63,11 @@ describe("migrateLookPhotos", () => {
     process.env.STORAGE_PUBLIC_BASE_URL = "https://img.example.test";
     try {
       const sql = await memorySql();
-      await sql`insert into looks (id, image_src, published) values (${"seed"}, ${"/looks/tiny.jpg"}, ${true})`;
+      const crop = { x: 0.125, y: 0, w: 0.75, h: 1 };
+      await sql`
+        insert into looks (id, image_src, crop_json, published)
+        values (${"seed"}, ${"/looks/tiny.jpg"}, ${JSON.stringify(crop)}, ${true})
+      `;
       await sql`insert into looks (id, image_src, published) values (${"upload"}, ${dataUrl}, ${true})`;
       await sql`insert into looks (id, image_src, published) values (${"draft"}, ${dataUrl}, ${false})`;
 
@@ -93,7 +99,8 @@ describe("migrateLookPhotos", () => {
       `;
       assert.match(seeded[0]?.image_src ?? "", /^https:\/\/img\.example\.test\/looks\/.+\.jpg$/);
       assert.equal(seeded[0]?.image_src.includes("seed"), false);
-      const stored = JSON.parse(seeded[0]?.image_variants_json ?? "{}") as { files: { key: string }[] };
+      const stored = JSON.parse(seeded[0]?.image_variants_json ?? "{}") as { hash: string; files: { key: string }[] };
+      assert.equal(stored.hash, contentHash(jpeg, crop));
       assert.ok(stored.files.length >= 6);
       for (const file of stored.files) {
         const object = await store.get(file.key);

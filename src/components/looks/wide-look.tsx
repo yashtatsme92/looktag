@@ -165,6 +165,8 @@ export function WideLook({
               tags={look.tags}
               crop={look.crop}
               baked={Boolean(look.images?.original)}
+              images={look.images}
+              sizes="(min-width: 1024px) 40vw, 50vw"
               selectedId={selectedId}
               onSelect={setSelectedId}
               onHiddenPieces={() => setShopSheetOpen(true)}

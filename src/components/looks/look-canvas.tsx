@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { ImagePlus } from "lucide-react";
+import { formatSrcSet, type LookImages } from "@/lib/looks/image-variants";
 import { TagPin } from "@/components/looks/tag-pin";
 import {
   inFrame,
@@ -30,6 +31,8 @@ type LookCanvasProps = {
   selectOnTap?: boolean;
   crop?: CropRect;
   baked?: boolean;
+  images?: LookImages;
+  sizes?: string;
   /** Opens the whole-look shop when some pins sit outside the crop or under the tab bar. */
   onHiddenPieces?: () => void;
 };
@@ -51,6 +54,8 @@ export function LookCanvas({
   selectOnTap,
   crop,
   baked = false,
+  images,
+  sizes = "(min-width: 1024px) 40vw, (min-width: 768px) 50vw, 100vw",
   onHiddenPieces,
 }: LookCanvasProps) {
   const frameRef = useRef<HTMLDivElement>(null);
@@ -59,6 +64,9 @@ export function LookCanvas({
   const [frame, setFrame] = useState<{ w: number; h: number } | null>(null);
   const [maxPinY, setMaxPinY] = useState(100);
   const cropped = fit !== "natural";
+  const avifSrcSet = images ? formatSrcSet(images, "avif") : "";
+  const webpSrcSet = images ? formatSrcSet(images, "webp") : "";
+  const jpegSrcSet = images ? formatSrcSet(images, "jpeg") : "";
 
   useEffect(() => {
     const el = frameRef.current;
@@ -204,31 +212,37 @@ export function LookCanvas({
       onClick={handleFrameClick}
     >
       {imageSrc ? (
-        <img
-          src={imageSrc}
-          alt={title || "Look"}
-          draggable={false}
-          onLoad={(event) => {
-            const img = event.currentTarget;
-            if (img.naturalWidth && img.naturalHeight) {
-              setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+        <picture className={images ? "contents" : undefined}>
+          {avifSrcSet ? <source type="image/avif" srcSet={avifSrcSet} sizes={sizes} /> : null}
+          {webpSrcSet ? <source type="image/webp" srcSet={webpSrcSet} sizes={sizes} /> : null}
+          <img
+            src={imageSrc}
+            srcSet={jpegSrcSet || undefined}
+            sizes={jpegSrcSet ? sizes : undefined}
+            alt={title || "Look"}
+            draggable={false}
+            onLoad={(event) => {
+              const img = event.currentTarget;
+              if (img.naturalWidth && img.naturalHeight) {
+                setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+              }
+            }}
+            style={
+              imageStyle
+                ? imageStyle
+                : cropped && !baked
+                  ? { visibility: "hidden" }
+                  : undefined
             }
-          }}
-          style={
-            imageStyle
-              ? imageStyle
-              : cropped && !baked
-                ? { visibility: "hidden" }
-                : undefined
-          }
-          className={cn(
-            "look-photo-img block select-none",
-            fit === "natural" && "w-full",
-            fit !== "natural" && !imageStyle && "absolute inset-0 h-full w-full",
-            fit !== "natural" && !imageStyle && (baked ? "object-contain" : "object-cover"),
-            fit !== "natural" && imageStyle && "absolute",
-          )}
-        />
+            className={cn(
+              "look-photo-img block select-none",
+              fit === "natural" && "w-full",
+              fit !== "natural" && !imageStyle && "absolute inset-0 h-full w-full",
+              fit !== "natural" && !imageStyle && (baked ? "object-contain" : "object-cover"),
+              fit !== "natural" && imageStyle && "absolute",
+            )}
+          />
+        </picture>
       ) : (
         <button
           type="button"
