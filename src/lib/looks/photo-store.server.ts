@@ -1,3 +1,4 @@
+import { PublicError } from "../errors/public-error.ts";
 import { storage } from "../providers/storage/index.ts";
 import type { ObjectStorage } from "../providers/storage/types.ts";
 import { encodeLookVariants } from "./image-encode.server.ts";
@@ -14,9 +15,9 @@ import {
 
 export function decodeDataImage(src: string): Uint8Array {
   const match = /^data:image\/(?:jpeg|jpg|png|webp)(?:;charset=[-\w.]+)?;base64,([a-z0-9+/=\s]+)$/i.exec(src);
-  if (!match?.[1]) throw new Error("Use a JPEG, PNG, or WebP photo.");
+  if (!match?.[1]) throw new PublicError("Use a JPEG, PNG, or WebP photo.");
   const bytes = Buffer.from(match[1].replace(/\s/g, ""), "base64");
-  if (bytes.length < 16) throw new Error("Use a JPEG, PNG, or WebP photo.");
+  if (bytes.length < 16) throw new PublicError("Use a JPEG, PNG, or WebP photo.");
   return bytes;
 }
 

@@ -20,6 +20,7 @@ import { FooterLinksSection } from "@/components/admin/footer-links-section";
 import { FEATURE_FLAGS, flagStatus } from "@/lib/settings/flags";
 import { housesSwitchCopy } from "@/lib/labels/model";
 import { useSettingsStore } from "@/lib/settings/store";
+import { userMessage } from "@/lib/errors/user-message";
 
 export function AdminHubBody({ linked }: { linked: boolean }) {
   const enabled = useSettingsStore((s) => s.labelsEnabled);
@@ -51,7 +52,7 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
     } catch (error) {
       setOptimisticEnabled(null);
       setHousesPhase("error");
-      setHousesError(error instanceof Error ? error.message : "Could not save.");
+      setHousesError(userMessage(error, "Could not save."));
     } finally {
       setBusy(false);
       setOptimisticEnabled(null);
@@ -80,7 +81,7 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
         return nextState;
       });
       setFlagState((state) => ({ ...state, [key]: "error" }));
-      setFlagError(error instanceof Error ? error.message : "Could not save.");
+      setFlagError(userMessage(error, "Could not save."));
     }
   }
 

@@ -30,6 +30,7 @@ import {
   type FashionLabel,
   type FashionStyle,
 } from "@/lib/labels/model";
+import { userMessage } from "@/lib/errors/user-message";
 
 export const Route = createFileRoute("/house")({ component: HouseSession });
 
@@ -246,7 +247,7 @@ function HouseStudio({
         toast.success(house ? "House updated" : "Application sent. Admin will review it.");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save the house.");
+      toast.error(userMessage(error, "Could not save the house."));
     } finally {
       setBusy(false);
     }
@@ -283,7 +284,7 @@ function HouseStudio({
         return saved.id;
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save the line.");
+      toast.error(userMessage(error, "Could not save the line."));
     } finally {
       setLineBusy(false);
     }
@@ -297,7 +298,7 @@ function HouseStudio({
       setStyles((current) => current.filter((item) => item.collectionId !== id));
       toast.success("Line removed");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not remove the line.");
+      toast.error(userMessage(error, "Could not remove the line."));
     }
   }
 
@@ -305,7 +306,7 @@ function HouseStudio({
     try {
       setCollections(await moveMyCollection({ data: { id, direction } }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not reorder the line.");
+      toast.error(userMessage(error, "Could not reorder the line."));
     }
   }
 
@@ -324,7 +325,7 @@ function HouseStudio({
       }
       setCollections(next);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not reorder the line.");
+      toast.error(userMessage(error, "Could not reorder the line."));
     }
   }
 
@@ -351,7 +352,7 @@ function HouseStudio({
       if (!coverSrc) setCoverSrc(saved.imageSrc);
       toast.success("Style saved");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save the style.");
+      toast.error(userMessage(error, "Could not save the style."));
     } finally {
       setStyleBusy(false);
     }
@@ -368,7 +369,7 @@ function HouseStudio({
       }
       setStylePhotos(next);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not read that photo.");
+      toast.error(userMessage(error, "Could not read that photo."));
     }
   }
 
@@ -383,7 +384,7 @@ function HouseStudio({
       }
       toast.success("Style removed");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not remove the style.");
+      toast.error(userMessage(error, "Could not remove the style."));
     }
   }
 
@@ -391,7 +392,7 @@ function HouseStudio({
     try {
       setStyles(await moveMyStyle({ data: { id, direction } }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not reorder the style.");
+      toast.error(userMessage(error, "Could not reorder the style."));
     }
   }
 
@@ -413,7 +414,7 @@ function HouseStudio({
       }
       setStyles(next);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not reorder the style.");
+      toast.error(userMessage(error, "Could not reorder the style."));
     }
   }
 

@@ -29,6 +29,7 @@ import { replayBootSplash } from "@/lib/pwa/boot";
 import { requestInstallSheet } from "@/lib/pwa/display";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
+import { userMessage } from "@/lib/errors/user-message";
 
 export const Route = createFileRoute("/admin_/look")({ component: AdminLookPage });
 
@@ -69,7 +70,7 @@ function LookAdmin() {
     } catch (error) {
       setPicked(null);
       setPalettePhase("error");
-      setPaletteError(error instanceof Error ? error.message : "Could not save palette.");
+      setPaletteError(userMessage(error, "Could not save palette."));
     }
   }
 

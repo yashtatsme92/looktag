@@ -19,6 +19,7 @@ import { parseHandle, suggestHandle } from "@/lib/looks/handle";
 import { signupMethodCount, visibleOauthProviders } from "@/lib/settings/model";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
+import { userMessage } from "@/lib/errors/user-message";
 
 type LoginSearch = {
   next?: string;
@@ -217,7 +218,7 @@ function Login() {
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(userMessage(err, "Something went wrong."));
       setBusy(false);
     }
   }
@@ -253,7 +254,7 @@ function Login() {
       })
       .catch((err) => {
         window.clearTimeout(unlock);
-        setError(err instanceof Error ? err.message : "Sign-in did not complete.");
+        setError(userMessage(err, "Sign-in did not complete."));
         setBusy(false);
       });
   }
