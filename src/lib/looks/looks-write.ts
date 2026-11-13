@@ -1,3 +1,4 @@
+import { FRIENDLY_ERRORS, PublicError, isPublicError } from "../errors/public-error.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
@@ -15,7 +16,7 @@ export const saveLook = createServerFn({ method: "POST" })
   .handler(async ({ context, data: incoming }) => {
     return withSpan("looktag.looks.save", async (span) => {
       const title = incoming.title.trim();
-      if (!title) throw new Error("Give the look a name.");
+      if (!title) throw new PublicError("Give the look a name.");
       assertLookImageSrc(incoming.imageSrc);
       const sql = await getSql();
       const userId = context.userId;
@@ -23,13 +24,23 @@ export const saveLook = createServerFn({ method: "POST" })
         select user_id, image_variants_json from looks where id = ${incoming.id} limit 1
       `;
       if (existing[0] && existing[0].user_id !== userId) {
-        throw new Error("You can only edit your own looks.");
+        throw new PublicError("You can only edit your own looks.");
       }
       let imageSrc = assertLookImageSrc(incoming.imageSrc);
       let variantsJson = existing[0]?.image_variants_json ?? null;
       if (imageSrc.startsWith("data:")) {
         const { persistDataUrlPhoto } = await import("./photo-store.server");
-        const stored = await persistDataUrlPhoto(incoming.id, imageSrc, variantsJson);
+        let stored: Awaited<ReturnType<typeof persistDataUrlPhoto>>;
+        try {
+          stored = await persistDataUrlPhoto(incoming.id, imageSrc, variantsJson);
+        } catch (error) {
+          // "Use a JPEG, PNG, or WebP photo." stays as is; storage / encoder
+          // failures get the upload sentence. The cause is logged by
+          // serverFnErrorMiddleware and recorded on this span.
+          if (isPublicError(error)) throw error;
+          span.recordException(error);
+          throw new PublicError(FRIENDLY_ERRORS.photoUpload, { status: 503, cause: error });
+        }
         imageSrc = stored.imageSrc;
         variantsJson = stored.variantsJson;
       }

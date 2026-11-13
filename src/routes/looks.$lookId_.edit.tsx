@@ -10,6 +10,7 @@ import { isUnauthorized } from "@/lib/looks/api";
 import { leaveEditMode } from "@/lib/nav/back";
 import { ownsLook, type Look } from "@/lib/looks/types";
 import { useLook, useLooksStore } from "@/lib/looks/store";
+import { userMessage } from "@/lib/errors/user-message";
 
 export const Route = createFileRoute("/looks/$lookId_/edit")({ component: EditLook });
 
@@ -109,7 +110,7 @@ function EditLook() {
               toast.error("Sign in to edit this look.");
               return;
             }
-            toast.error(error instanceof Error ? error.message : "Could not save the look.");
+            toast.error(userMessage(error, "Could not save the look."));
           }
         }}
       />

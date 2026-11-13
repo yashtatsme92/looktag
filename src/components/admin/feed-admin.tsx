@@ -27,6 +27,7 @@ import type { OptimisticPhase } from "@/lib/loading/optimistic";
 import { settleLoad } from "@/lib/loading/test-delay";
 import type { AppSettings } from "@/lib/settings/model";
 import { useSettingsStore } from "@/lib/settings/store";
+import { userMessage } from "@/lib/errors/user-message";
 
 function berlinStamp(at: number): string {
   const when = new Intl.DateTimeFormat("en-GB", {
@@ -174,7 +175,7 @@ export function FeedAdmin() {
         return next;
       });
       setStatusPhase("error");
-      setStatusError(error instanceof Error ? error.message : "Could not save.");
+      setStatusError(userMessage(error, "Could not save."));
     } finally {
       setBusy(false);
     }
@@ -249,7 +250,7 @@ export function FeedAdmin() {
       setDraft(null);
     } catch (error) {
       setStatusPhase("error");
-      setStatusError(error instanceof Error ? error.message : "Could not save.");
+      setStatusError(userMessage(error, "Could not save."));
     } finally {
       setBusy(false);
     }

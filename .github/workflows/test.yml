@@ -18,6 +18,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: node scripts/check-provider-imports.mjs
+      - run: node --test scripts/check-server-output.test.mjs
       - run: node --experimental-strip-types --test 'src/lib/**/*.test.ts' 'src/config/**/*.test.ts'
       - run: npm run test:integration
 
@@ -107,6 +108,10 @@ jobs:
           BETTER_AUTH_SECRET: ci-prod-secret-0123456789abcdef01
           BETTER_AUTH_URL: http://127.0.0.1:4173
           LOOKTAG_ALLOW_EPHEMERAL_DB: "1"
+      - name: Runtime image can load every server package (STORAGE_PROVIDER=s3 upload)
+        # The image ships only .output. This copies it to an empty dir and saves
+        # a photo through the bundled S3 adapter against a local stub.
+        run: node scripts/check-server-output.mjs
       - name: Database-backed route returns 200
         env:
           VITE_AUTH_ENABLED: "true"

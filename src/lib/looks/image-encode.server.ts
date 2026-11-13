@@ -1,3 +1,4 @@
+import { PublicError } from "../errors/public-error.ts";
 import sharp from "sharp";
 import { LOOK_IMAGE_EDGES, LOOK_IMAGE_SIZES, type LookImageFormat, type LookImageSize } from "./image-variants.ts";
 
@@ -30,7 +31,7 @@ export async function encodeLookVariants(
   const meta = await base.metadata();
   const width = meta.width ?? 0;
   const height = meta.height ?? 0;
-  if (width < 1 || height < 1) throw new Error("Use a JPEG, PNG, or WebP photo.");
+  if (width < 1 || height < 1) throw new PublicError("Use a JPEG, PNG, or WebP photo.");
   const wantAvif = avifEnabled(process.env, options?.avif);
   const files: EncodedLookFile[] = [];
   for (const size of LOOK_IMAGE_SIZES) {

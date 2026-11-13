@@ -1,3 +1,4 @@
+import { PublicError } from "../errors/public-error.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { withSpan } from "@/lib/observability/instrument";
@@ -44,7 +45,7 @@ export const applyHouse = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     return withSpan("looktag.houses.apply", async (span) => {
       const name = data.name.trim();
-      if (name.length < 2) throw new Error("Give the house a name.");
+      if (name.length < 2) throw new PublicError("Give the house a name.");
       const sql = await getSql();
       await ensureFashionLabels(sql);
       const existing = await sql<LabelRow>`
@@ -84,11 +85,11 @@ export const updateMyHouse = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     return withSpan("looktag.houses.update", async (span) => {
       const name = data.name.trim();
-      if (name.length < 2) throw new Error("Give the house a name.");
+      if (name.length < 2) throw new PublicError("Give the house a name.");
       const sql = await getSql();
       await ensureFashionLabels(sql);
       const house = await ownedHouse(sql, context.userId);
-      if (!house) throw new Error("Register a house first.");
+      if (!house) throw new PublicError("Register a house first.");
       const nextStatus = house.status === "rejected" ? "pending" : house.status;
       const website = data.website === undefined ? (house.website ?? "") : normalizeHouseWebsite(data.website);
       const coverSrc = data.coverSrc === undefined ? (house.coverSrc ?? "") : houseCoverDraft(data.coverSrc);
@@ -129,12 +130,12 @@ export const saveMyCollection = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     return withSpan("looktag.houses.collection_save", async (span) => {
       const name = data.name.trim();
-      if (name.length < 2) throw new Error("Give the line a name.");
+      if (name.length < 2) throw new PublicError("Give the line a name.");
       const sql = await getSql();
       await ensureFashionLabels(sql);
       const house = await ownedHouse(sql, context.userId);
-      if (!house) throw new Error("Register a house first.");
-      if (house.status !== "approved") throw new Error("Your House isn't live yet.");
+      if (!house) throw new PublicError("Register a house first.");
+      if (house.status !== "approved") throw new PublicError("Your House isn't live yet.");
       const caption = data.caption.trim();
       const season = data.season.trim();
       if (data.id) {
@@ -185,8 +186,8 @@ export const deleteMyCollection = createServerFn({ method: "POST" })
       const sql = await getSql();
       await ensureFashionLabels(sql);
       const house = await ownedHouse(sql, context.userId);
-      if (!house) throw new Error("Register a house first.");
-      if (house.status !== "approved") throw new Error("Your House isn't live yet.");
+      if (!house) throw new PublicError("Register a house first.");
+      if (house.status !== "approved") throw new PublicError("Your House isn't live yet.");
       span.setAttribute("looktag.collection.id", data.id);
       await deleteLineStyles(sql, house.id, data.id);
       await sql`
@@ -209,8 +210,8 @@ export const moveMyCollection = createServerFn({ method: "POST" })
       const sql = await getSql();
       await ensureFashionLabels(sql);
       const house = await ownedHouse(sql, context.userId);
-      if (!house) throw new Error("Register a house first.");
-      if (house.status !== "approved") throw new Error("Your House isn't live yet.");
+      if (!house) throw new PublicError("Register a house first.");
+      if (house.status !== "approved") throw new PublicError("Your House isn't live yet.");
       const current = await collectionsForLabel(sql, house.id);
       const next = moveLineOrder(current, data.id, data.direction);
       if (!next) return current;
@@ -228,8 +229,8 @@ export const moveMyCollection = createServerFn({ method: "POST" })
 
 async function liveHouse(sql: Awaited<ReturnType<typeof getSql>>, userId: string) {
   const house = await ownedHouse(sql, userId);
-  if (!house) throw new Error("Register a house first.");
-  if (house.status !== "approved") throw new Error("Your House isn't live yet.");
+  if (!house) throw new PublicError("Register a house first.");
+  if (house.status !== "approved") throw new PublicError("Your House isn't live yet.");
   return house;
 }
 

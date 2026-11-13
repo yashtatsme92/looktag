@@ -1,3 +1,4 @@
+import { PublicError } from "../errors/public-error.ts";
 import type { Sql } from "@/lib/db";
 import {
   houseCoverDraft,
@@ -116,7 +117,7 @@ export async function saveStyleForHouse(
     where id = ${input.collectionId} and label_id = ${labelId}
     limit 1
   `;
-  if (!collections[0]) throw new Error("That line is not on your House.");
+  if (!collections[0]) throw new PublicError("That line is not on your House.");
   const imagesJson = JSON.stringify(draft.images);
   if (input.id) {
     await sql`
@@ -129,7 +130,7 @@ export async function saveStyleForHouse(
       where id = ${input.id} and label_id = ${labelId}
     `;
     const saved = await styleById(sql, labelId, input.id);
-    if (!saved) throw new Error("That style is not on your House.");
+    if (!saved) throw new PublicError("That style is not on your House.");
     await fillEmptyCover(sql, labelId, draft.imageSrc);
     return saved;
   }
@@ -152,7 +153,7 @@ export async function saveStyleForHouse(
   `;
   await fillEmptyCover(sql, labelId, draft.imageSrc);
   const saved = await styleById(sql, labelId, id);
-  if (!saved) throw new Error("Could not save the style.");
+  if (!saved) throw new PublicError("Could not save the style.");
   return saved;
 }
 

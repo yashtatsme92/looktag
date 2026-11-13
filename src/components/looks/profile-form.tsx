@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getMyAccount, updateMyProfile, type AccountDetails } from "@/lib/looks/api";
+import { userMessage } from "@/lib/errors/user-message";
 
 export function ProfileForm({
   seed,
@@ -91,7 +92,7 @@ export function ProfileForm({
       onSaved?.(saved);
       toast.success("Profile saved");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save your profile.");
+      toast.error(userMessage(error, "Could not save your profile."));
     } finally {
       setBusy(false);
     }

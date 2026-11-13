@@ -44,6 +44,7 @@ import {
 } from "@/lib/settings/model";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
+import { userMessage } from "@/lib/errors/user-message";
 
 export const Route = createFileRoute("/admin_/studio")({ component: StudioAdminPage });
 
@@ -132,7 +133,7 @@ function StudioAdmin() {
     } catch (error) {
       setPendingSettings(null);
       setSavePhase("error");
-      setSaveError(error instanceof Error ? error.message : "Could not save.");
+      setSaveError(userMessage(error, "Could not save."));
     }
   }
 
@@ -394,7 +395,7 @@ function StudioAdmin() {
                               setScoutPhase((current) => ({ ...current, [house.id]: "error" }));
                               setScoutError((current) => ({
                                 ...current,
-                                [house.id]: error instanceof Error ? error.message : "Could not update Scouted.",
+                                [house.id]: userMessage(error, "Could not update Scouted."),
                               }));
                             });
                         }}

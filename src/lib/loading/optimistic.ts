@@ -1,4 +1,5 @@
 import { useRef, useSyncExternalStore } from "react";
+import { userMessage } from "../errors/user-message.ts";
 
 export type OptimisticPhase = "idle" | "saving" | "saved" | "error";
 
@@ -54,7 +55,7 @@ export function createOptimisticSave(savedMs = 1500) {
         if (token !== generation) return;
         revert();
         phase = "error";
-        error = caught instanceof Error ? caught.message : "Could not save.";
+        error = userMessage(caught, "Could not save.");
         publish();
       }
     },
