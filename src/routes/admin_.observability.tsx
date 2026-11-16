@@ -32,6 +32,7 @@ import {
   type TraceGraph,
 } from "@/lib/observability/graph";
 import type { PublicSignal, TelemetrySummary } from "@/lib/observability/model";
+import { userMessage } from "@/lib/errors/user-message";
 
 export const Route = createFileRoute("/admin_/observability")({
   component: ObservabilityRoute,
@@ -174,7 +175,7 @@ function ObservabilityPage() {
       setHeaders(config.headersMasked);
       toast.success(config.destination ? "OTLP destination saved" : "Signals stay on-device until you add a collector");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save");
+      toast.error(userMessage(error, "Could not save"));
     } finally {
       setSaving(false);
     }
@@ -187,7 +188,7 @@ function ObservabilityPage() {
       const config = await saveObservabilityFilters({ data: { filters: next } });
       setFilters(config.filters);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save filters");
+      toast.error(userMessage(error, "Could not save filters"));
     } finally {
       setSavingFilters(false);
     }
@@ -211,7 +212,7 @@ function ObservabilityPage() {
       if (result.ok) toast.success(result.message);
       else toast.error(result.message);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Probe failed");
+      toast.error(userMessage(error, "Probe failed"));
     } finally {
       setProbing(false);
     }

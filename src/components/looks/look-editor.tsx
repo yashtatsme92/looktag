@@ -49,6 +49,7 @@ import { isHttpUrl, isProductUrl } from "@/lib/looks/retailers";
 import { emptyTag, type Look, type ProductOffer, type ProductTag } from "@/lib/looks/types";
 import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { cn } from "@/lib/utils";
+import { userMessage } from "@/lib/errors/user-message";
 
 type LookEditorProps = {
   look: Look;
@@ -258,7 +259,7 @@ export function LookEditor({
       }, 150);
     } catch (error) {
       if (uploadTokenRef.current !== token) return;
-      const message = error instanceof Error ? error.message : "Could not read that photo.";
+      const message = userMessage(error, "Could not read that photo.");
       setPhotoError(message);
       setUploadProgress(null);
       toast.error(message);
@@ -387,7 +388,7 @@ export function LookEditor({
         setFindMessage(FIND_PIECES_COPY.quota);
         return;
       }
-      const message = error instanceof Error ? error.message : "Could not read that photo.";
+      const message = userMessage(error, "Could not read that photo.");
       if (isAiUnavailableMessage(message)) setProviderError(true);
       else setFindMessage(message);
     } finally {
@@ -414,7 +415,7 @@ export function LookEditor({
         },
       });
       if (!result.ok) {
-        toast.error(result.error);
+        toast.error(userMessage(result.error, "Search did not complete."));
         return;
       }
       updateTag(
@@ -442,7 +443,7 @@ export function LookEditor({
         toast.error("Sign in to search shops.");
         return;
       }
-      toast.error(error instanceof Error ? error.message : "Search did not complete.");
+      toast.error(userMessage(error, "Search did not complete."));
     } finally {
       setSearchingId(null);
     }

@@ -10,6 +10,7 @@ import { funnelUserState, recordLookCreated } from "@/lib/looks/funnel";
 import { useLooksStore } from "@/lib/looks/store";
 import { CREATE_DRAFT_KEY, persistCreateDraft } from "@/lib/looks/create-draft";
 import { emptyLook, type Look } from "@/lib/looks/types";
+import { userMessage } from "@/lib/errors/user-message";
 
 export const Route = createFileRoute("/create")({ component: CreateLook });
 
@@ -134,7 +135,7 @@ function CreateLook() {
               await navigate({ to: "/login", search: { next: "/create" } });
               return;
             }
-            toast.error(error instanceof Error ? error.message : "Could not save the look.");
+            toast.error(userMessage(error, "Could not save the look."));
           }
         }}
       />

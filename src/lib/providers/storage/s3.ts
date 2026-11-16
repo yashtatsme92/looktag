@@ -11,9 +11,16 @@ type S3Module = {
 
 let sdk: Promise<S3Module> | null = null;
 
+/**
+ * Keep this a literal `import("@aws-sdk/client-s3")`. The production image
+ * ships only `.output/`, and Nitro copies a package into
+ * `.output/server/node_modules` only when the bundler can see the specifier.
+ * A variable specifier (`import(name)` + `@vite-ignore`) built fine but threw
+ * "Cannot find package '@aws-sdk/client-s3'" on every upload in production.
+ * `scripts/check-server-output.mjs` guards this in CI.
+ */
 function loadSdk(): Promise<S3Module> {
-  const specifier = "@aws-sdk/client-s3";
-  sdk ??= import(/* @vite-ignore */ specifier) as Promise<S3Module>;
+  sdk ??= import("@aws-sdk/client-s3") as unknown as Promise<S3Module>;
   return sdk;
 }
 

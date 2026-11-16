@@ -8,6 +8,7 @@ import { clearPendingSave, rememberPendingSave } from "@/lib/looks/pending-save"
 import { visibleOauthProviders } from "@/lib/settings/model";
 import { useSettingsStore } from "@/lib/settings/store";
 import "./account-sheet.css";
+import { userMessage } from "@/lib/errors/user-message";
 
 export function AccountSheet({
   open,
@@ -95,7 +96,7 @@ export function AccountSheet({
       window.clearTimeout(unlock);
       setBusy(false);
       continuing.current = false;
-      setError(err instanceof Error ? err.message : "Sign-in did not complete.");
+      setError(userMessage(err, "Sign-in did not complete."));
     });
   }
 

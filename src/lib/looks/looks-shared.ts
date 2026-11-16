@@ -1,3 +1,4 @@
+import { PublicError } from "../errors/public-error.ts";
 import { ADMIN_USER_ID, isAdminEmail } from "@/lib/admin/access";
 import { type Sql } from "@/lib/db";
 import { makeHandle, parseHandle } from "./handle";
@@ -210,11 +211,11 @@ export type ProfileExtras = {
 
 export async function claimHandle(sql: Sql, userId: string, preferred: string): Promise<string> {
   const parsed = parseHandle(preferred);
-  if (!parsed.ok) throw new Error(parsed.error);
+  if (!parsed.ok) throw new PublicError(parsed.error);
   const taken = await sql<{ user_id: string }>`
     select user_id from profiles where handle = ${parsed.value} and user_id <> ${userId} limit 1
   `;
-  if (taken[0]) throw new Error("That handle is already taken.");
+  if (taken[0]) throw new PublicError("That handle is already taken.");
   return parsed.value;
 }
 

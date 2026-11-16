@@ -1,3 +1,4 @@
+import { PublicError } from "../errors/public-error.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { hashPassword, verifyPassword } from "@/lib/providers/auth";
 import { authMiddleware } from "@/lib/auth/middleware";
@@ -59,36 +60,36 @@ export const updateMyProfile = createServerFn({ method: "POST" })
         bio: data.bio,
         newPassword: data.newPassword,
       });
-      if (!parsed.ok) throw new Error(parsed.error);
+      if (!parsed.ok) throw new PublicError(parsed.error);
       const sql = await getSql();
       const current = await loadAccount(sql, context.userId);
-      if (!current) throw new Error("Could not load your account.");
+      if (!current) throw new PublicError("Could not load your account.");
 
       let email = parsed.value.email;
       if (current.emailLocked) email = current.email;
       if (email !== current.email) {
         if (isAdminEmail(email) && context.userId !== ADMIN_USER_ID) {
-          throw new Error("That email is reserved.");
+          throw new PublicError("That email is reserved.");
         }
         const taken = await sql<{ id: string }>`
           select id from "user" where email = ${email} and id <> ${context.userId} limit 1
         `;
-        if (taken[0]) throw new Error("That email is already in use.");
+        if (taken[0]) throw new PublicError("That email is already in use.");
       }
 
       if (parsed.value.newPassword) {
-        if (!current.hasPassword) throw new Error("This account signs in without a password.");
+        if (!current.hasPassword) throw new PublicError("This account signs in without a password.");
         const currentPassword = (data.currentPassword ?? "").trim();
-        if (!currentPassword) throw new Error("Enter your current password to change it.");
+        if (!currentPassword) throw new PublicError("Enter your current password to change it.");
         const accounts = await sql<{ password: string | null }>`
           select password from "account"
           where "userId" = ${context.userId} and "providerId" = 'credential'
           limit 1
         `;
         const hash = accounts[0]?.password;
-        if (!hash) throw new Error("This account signs in without a password.");
+        if (!hash) throw new PublicError("This account signs in without a password.");
         const ok = await verifyPassword({ hash, password: currentPassword });
-        if (!ok) throw new Error("Current password is not right.");
+        if (!ok) throw new PublicError("Current password is not right.");
         const nextHash = await hashPassword(parsed.value.newPassword);
         const now = new Date();
         await sql`

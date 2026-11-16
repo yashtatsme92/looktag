@@ -1,3 +1,4 @@
+import { PublicError } from "../errors/public-error.ts";
 /**
  * Server-side bounds for look `imageSrc` values persisted in Postgres.
  *
@@ -94,6 +95,6 @@ export function parseLookImageSrc(imageSrc: unknown): LookImageSrcParse {
 /** Throw the same user-facing errors `saveLook` already uses. */
 export function assertLookImageSrc(imageSrc: unknown): string {
   const parsed = parseLookImageSrc(imageSrc);
-  if (!parsed.ok) throw new Error(parsed.error);
+  if (!parsed.ok) throw new PublicError(parsed.error);
   return parsed.value;
 }

@@ -17,6 +17,9 @@ RUN npm ci
 COPY . .
 ENV NITRO_PRESET=node-server
 RUN npm run build
+# Fail the image build (not the first upload) if .output cannot load a server
+# package on its own, e.g. the S3 SDK for STORAGE_PROVIDER=s3.
+RUN node scripts/check-server-output.mjs
 
 FROM node:22-bookworm-slim
 WORKDIR /app

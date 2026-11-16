@@ -1,3 +1,4 @@
+import { PublicError } from "../errors/public-error.ts";
 import sharp from "sharp";
 import { centeredCrop, type CropRect } from "./crop.ts";
 import { LOOK_IMAGE_EDGES, LOOK_IMAGE_SIZES, type LookImageFormat, type LookImageSize } from "./image-variants.ts";
@@ -32,7 +33,7 @@ export async function encodeLookVariants(
   const swapsDimensions = meta.orientation !== undefined && [5, 6, 7, 8].includes(meta.orientation);
   const width = swapsDimensions ? (meta.height ?? 0) : (meta.width ?? 0);
   const height = swapsDimensions ? (meta.width ?? 0) : (meta.height ?? 0);
-  if (width < 1 || height < 1) throw new Error("Use a JPEG, PNG, or WebP photo.");
+  if (width < 1 || height < 1) throw new PublicError("Use a JPEG, PNG, or WebP photo.");
   const crop = options?.crop ?? centeredCrop(width, height);
   const cropLeft = Math.min(width - 1, Math.max(0, Math.round(crop.x * width)));
   const cropTop = Math.min(height - 1, Math.max(0, Math.round(crop.y * height)));
