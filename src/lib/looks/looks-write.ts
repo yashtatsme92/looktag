@@ -28,11 +28,12 @@ export const saveLook = createServerFn({ method: "POST" })
       }
       let imageSrc = assertLookImageSrc(incoming.imageSrc);
       let variantsJson = existing[0]?.image_variants_json ?? null;
+      let crop = incoming.crop;
       if (imageSrc.startsWith("data:")) {
         const { persistDataUrlPhoto } = await import("./photo-store.server");
         let stored: Awaited<ReturnType<typeof persistDataUrlPhoto>>;
         try {
-          stored = await persistDataUrlPhoto(incoming.id, imageSrc, variantsJson);
+          stored = await persistDataUrlPhoto(incoming.id, imageSrc, variantsJson, undefined, { crop: incoming.crop });
         } catch (error) {
           // "Use a JPEG, PNG, or WebP photo." stays as is; storage / encoder
           // failures get the upload sentence. The cause is logged by
@@ -43,6 +44,7 @@ export const saveLook = createServerFn({ method: "POST" })
         }
         imageSrc = stored.imageSrc;
         variantsJson = stored.variantsJson;
+        crop = stored.crop;
       }
       const storedImages = parseStoredLookImages(variantsJson);
       const creator = incoming.creator.trim() || "Creator";
@@ -51,6 +53,7 @@ export const saveLook = createServerFn({ method: "POST" })
       const look: Look = normalizeLookTags({
         ...incoming,
         imageSrc,
+        crop,
         images: storedImages ? toPublicImages(storedImages) : undefined,
         userId,
         title,

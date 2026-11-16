@@ -443,7 +443,7 @@ async function openSunday(page) {
 }
 
 async function openShop(page, width) {
-  if (width >= 1024) await page.getByRole("button", { name: "Shop whole look" }).click();
+  if (width >= 768) await page.getByRole("button", { name: "Shop whole look" }).click();
   else await page.locator(".look-plate-shop").click();
   await page.locator(".look-sheet").waitFor({ timeout: 5_000 });
 }

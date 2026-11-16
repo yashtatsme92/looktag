@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /**
- * Look detail fixes: tablet Shop whole look stays on the sheet, seeded creator
- * pages resolve, piece thumbs centre on the pin, Sun-Bleached Linen accounts
- * for every pin, and pins are a 28px mark with no pulse.
- * Also: at 820 every Sunday Coat pin, and at 834 every pin on every seeded
- * look, has its card beside it and a ≤12px caret whose tip is within 8px.
+ * Look detail fixes: seeded creator pages resolve, piece marks stay 28px,
+ * Sun-Bleached Linen accounts for every pin, and pins are a 28px mark with no pulse.
+ * Phone keeps LookPlate. Tablet (820 and 834) and desktop use WideLook: a 3:4 plate,
+ * pins mapped through the crop within 2px, and Shop whole look opens the sheet.
  * Ghost wide-panel Shop buttons at 1024 and 1112 (1280 stays solid).
  */
 import { chromium } from "playwright";
@@ -68,38 +67,66 @@ async function measurePinPointer(page) {
   });
 }
 
-/** Every visible pin: the card sits beside it and the ≤12px caret tip is within 8px. */
-async function assertEveryPinPointer(page, label) {
-  const count = await page.locator(".tag-pin").count();
-  record(`${label}.pins`, count > 0, String(count));
-  for (let index = 0; index < count; index += 1) {
-    await page.locator(".tag-pin").nth(index).evaluate((node) => node.click());
-    const ready = await page
-      .waitForFunction(
-        (pinIndex) => {
-          const pins = [...document.querySelectorAll(".tag-pin")];
-          const pin = pins[pinIndex];
-          const card = document.querySelector(".look-plate-piece");
-          const pointer = document.querySelector(".look-plate-pointer");
-          if (!pin || pin.getAttribute("aria-pressed") !== "true" || !card || !pointer) return false;
-          return card.getAnimations().every((animation) => animation.playState === "finished");
-        },
-        index,
-        { timeout: 6_000 },
-      )
-      .then(() => true)
-      .catch(() => false);
-    const measured = ready ? await measurePinPointer(page) : null;
-    const ok = Boolean(
-      measured &&
-        measured.w > 0 &&
-        measured.w <= 12 &&
-        measured.h > 0 &&
-        measured.h <= 12 &&
-        measured.dist <= 8 &&
-        measured.beside,
-    );
-    record(`${label}.pin${index}`, ok, JSON.stringify(measured));
+async function assertWidePlate(page, label) {
+  const measured = await page.evaluate(() => {
+    const plate = document.querySelector(".wide-plate");
+    const frame = plate?.querySelector(".wide-plate-canvas");
+    const image = frame?.querySelector("img");
+    if (!plate || !frame || !image) return null;
+    const box = frame.getBoundingClientRect();
+    const naturalW = image.naturalWidth;
+    const naturalH = image.naturalHeight;
+    let crop = frame.dataset.crop ? JSON.parse(frame.dataset.crop) : null;
+    if (!crop && naturalW > 0 && naturalH > 0) {
+      if (naturalW / naturalH > 3 / 4) {
+        const w = (naturalH * 3) / 4 / naturalW;
+        crop = { x: (1 - w) / 2, y: 0, w, h: 1 };
+      } else {
+        const h = (naturalW * 4) / 3 / naturalH;
+        crop = { x: 0, y: (1 - h) / 2, w: 1, h };
+      }
+    }
+    const pins = [...frame.querySelectorAll("[data-tag-pin]")].map((pin) => {
+      const rect = pin.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const u = Number(pin.dataset.imageX) / 100;
+      const v = Number(pin.dataset.imageY) / 100;
+      const expectedX = crop && crop.w > 0 ? (u - crop.x) / crop.w : u;
+      const expectedY = crop && crop.h > 0 ? (v - crop.y) / crop.h : v;
+      return {
+        dx: cx - (box.left + expectedX * box.width),
+        dy: cy - (box.top + expectedY * box.height),
+      };
+    });
+    return {
+      wide: Boolean(document.querySelector(".wide-look")),
+      phonePlate: document.querySelectorAll(".look-plate").length,
+      ratio: box.width / box.height,
+      fit: getComputedStyle(image).objectFit,
+      position: getComputedStyle(image).objectPosition,
+      pins,
+    };
+  });
+  record(
+    `${label}.wide`,
+    Boolean(measured?.wide) && measured.phonePlate === 0,
+    JSON.stringify(measured && { wide: measured.wide, phonePlate: measured.phonePlate }),
+  );
+  record(
+    `${label}.ratio`,
+    Boolean(measured) && Math.abs(measured.ratio / 0.75 - 1) <= 0.01,
+    String(measured?.ratio),
+  );
+  record(`${label}.not-stretched`, measured?.fit === "cover" || measured?.fit === "contain", measured?.fit ?? "");
+  record(
+    `${label}.object-position`,
+    !measured?.position || measured.position === "50% 50%" || measured.position === "center",
+    measured?.position ?? "",
+  );
+  record(`${label}.pins`, (measured?.pins.length ?? 0) > 0, String(measured?.pins.length ?? 0));
+  for (const [index, pin] of (measured?.pins ?? []).entries()) {
+    record(`${label}.pin${index}`, Math.abs(pin.dx) <= 2 && Math.abs(pin.dy) <= 2, JSON.stringify(pin));
   }
 }
 
@@ -190,55 +217,30 @@ try {
 
   await page.setViewportSize({ width: 820, height: 1180 });
   await page.goto(`${origin}/looks/seed-sunday-coat`, { waitUntil: "domcontentloaded" });
-  await page.locator(".tag-pin").nth(1).click();
-  await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 6_000 });
-  const bar = await page.evaluate(() => ({
-    shop: document.querySelectorAll(".look-plate-shop").length,
-    whole: document.querySelectorAll(".look-plate-shop-whole").length,
-    shopText: document.querySelector(".look-plate-shop")?.textContent?.replace(/\s+/g, " ").trim() ?? "",
-    cursor: getComputedStyle(document.querySelector(".look-plate-piece")).cursor,
-  }));
-  record(
-    "tablet.bar-keeps-shop",
-    bar.shop === 1 && bar.whole === 0 && bar.shopText === "Shop" && bar.cursor === "pointer",
-    JSON.stringify(bar),
-  );
-  await assertEveryPinPointer(page, "tablet820");
-  await page.locator(".tag-pin").nth(1).evaluate((node) => node.click());
-  const popup = page.waitForEvent("popup", { timeout: 1500 }).then(() => true).catch(() => false);
-  await page.locator(".look-plate-shop").click();
+  await page.locator(".wide-plate .tag-pin").first().waitFor({ timeout: 12_000 });
+  await assertWidePlate(page, "tablet820");
+  await page.getByRole("button", { name: "Shop whole look" }).click();
   await page.locator(".look-sheet").waitFor({ timeout: 6_000 });
   await page.waitForTimeout(500);
   const sheet = await page.evaluate(() => {
     const rows = [...document.querySelectorAll(".look-sheet-row")];
-    const shops = [...document.querySelectorAll(".look-sheet-shop")];
     return {
       rows: rows.length,
-      shops: shops.length,
+      shops: document.querySelectorAll(".look-sheet-shop").length,
       thumbs: document.querySelectorAll(".look-sheet-thumb").length,
-      ghost: shops.every((button) => {
-        const style = getComputedStyle(button);
-        return style.backgroundColor === "rgba(0, 0, 0, 0)" && style.color === "rgb(17, 17, 17)";
-      }),
-      whole: document.querySelector(".look-sheet-whole")?.innerText.replace(/\s+/g, " ").trim() ?? "",
-      icon: Boolean(document.querySelector(".look-sheet-whole svg")),
+      url: location.pathname,
     };
   });
   record(
     "tablet.sheet-lists-pieces",
-    sheet.rows === 4 && sheet.shops === 4 && sheet.thumbs === 4 && sheet.ghost && sheet.whole === "Shop whole look" && !sheet.icon,
+    sheet.rows === 4 && sheet.shops === 4 && sheet.thumbs === 4 && sheet.url.includes("/looks/seed-sunday-coat"),
     JSON.stringify(sheet),
   );
-  await page.locator(".look-sheet-whole").click();
-  await page.waitForTimeout(400);
-  const stayed = page.url().includes("/looks/seed-sunday-coat");
-  const stillOpen = (await page.locator(".look-sheet-row").count()) === 4;
-  record("tablet.whole-stays-on-sheet", stayed && stillOpen && (await popup) === false, page.url());
 
   await page.setViewportSize({ width: 834, height: 1194 });
   for (const look of SEED_LOOKS) {
     await openLook(page, look.id);
-    await assertEveryPinPointer(page, `tablet834.${look.id}`);
+    await assertWidePlate(page, `tablet834.${look.id}`);
   }
 
   for (const viewport of [

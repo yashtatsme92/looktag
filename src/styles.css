@@ -1054,10 +1054,6 @@ html[data-theme="moss"] {
     max-height: min(78dvh, 46rem);
   }
 
-  .look-photo-img {
-    object-position: 50% 20%;
-  }
-
   .look-studio-photo {
     display: block;
     width: auto;
@@ -3576,10 +3572,14 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
 
 .echo-plate {
   position: relative;
-  height: 100%;
-  min-height: 100%;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 3 / 4;
   flex: none;
   scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
 }
 
 .echo-hint {
@@ -3614,7 +3614,6 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 30%;
 }
 
 .echo-peel {
@@ -3801,6 +3800,22 @@ html[data-chrome="phone"] .native-main:has(.look-studio[data-plate="bleed"]) {
   inset: 0;
   height: 100%;
   width: 100%;
+}
+
+.look-plate[data-framed="34"] {
+  overflow-y: auto;
+}
+
+.look-plate[data-framed="34"] .look-plate-canvas {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+}
+
+.look-plate[data-framed="34"] .look-plate-meta {
+  position: relative;
 }
 
 .look-plate-bar {
@@ -4431,9 +4446,11 @@ html:not(.boot-done) .look-feed-refresh {
 .look-slide {
   position: relative;
   box-sizing: border-box;
-  height: 100%;
-  min-height: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: 3 / 4;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   overflow: hidden;
@@ -4442,7 +4459,9 @@ html:not(.boot-done) .look-feed-refresh {
 
 .look-slide img {
   outline: none;
-  object-position: 50% 20%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .look-slide-meta {
@@ -4988,7 +5007,7 @@ html[data-chrome="phone"] [data-pin-nudge],
   }
 
   html:not(.native-app) .look-slide {
-    aspect-ratio: 2 / 3;
+    aspect-ratio: 3 / 4;
     height: auto;
     min-height: 0;
     max-height: none;
@@ -5003,7 +5022,6 @@ html[data-chrome="phone"] [data-pin-nudge],
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: 50% 20%;
   }
 
   .boot-splash-art {
@@ -5832,7 +5850,8 @@ input[type="search"]::-webkit-search-decoration {
 
 .wide-leadcard {
   position: relative;
-  height: 44.75rem;
+  aspect-ratio: 3 / 4;
+  height: auto;
   margin-bottom: 1rem;
   overflow: hidden;
   border-radius: 24px;
@@ -5846,6 +5865,11 @@ input[type="search"]::-webkit-search-decoration {
   overflow: hidden;
   border-radius: 24px;
   background: #111111;
+}
+
+.wide-lead-photo {
+  aspect-ratio: 3 / 4;
+  height: auto;
 }
 
 .wide-lead-photo a,
@@ -5867,7 +5891,6 @@ input[type="search"]::-webkit-search-decoration {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 30%;
 }
 
 .wide-tile {
@@ -6115,7 +6138,10 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 .wide-plate {
-  height: var(--wide-look-h);
+  width: min(100%, calc(var(--wide-look-h) * 0.75));
+  height: auto;
+  aspect-ratio: 3 / 4;
+  justify-self: start;
 }
 
 html:not(.native-app) .wide-plate .look-photo-cover {
@@ -6123,7 +6149,7 @@ html:not(.native-app) .wide-plate .look-photo-cover {
   height: 100%;
   max-height: none;
   margin: 0;
-  aspect-ratio: auto;
+  aspect-ratio: 3 / 4;
 }
 
 .wide-panel {
@@ -6158,6 +6184,32 @@ html:not(.native-app) .wide-plate .look-photo-cover {
 
 .wide-panel-ft {
   border-top: 1px solid #ececec;
+}
+
+/* Tablet reuses WideLook as one column: a 3:4 plate, then the shop band. These
+   rules follow the desktop plate so they win at 768–1023. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  html:not(.native-app) .native-main-flush:has(.wide-look) {
+    height: auto;
+    overflow: auto;
+    background: #f4f4f4;
+    color: #111111;
+  }
+
+  html:not(.native-app) .wide-look .wide-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html:not(.native-app) .wide-look .wide-plate {
+    width: min(100%, 32rem);
+    margin-inline: auto;
+    justify-self: center;
+  }
+
+  html:not(.native-app) .wide-look .wide-panel {
+    height: auto;
+    min-height: 0;
+  }
 }
 
 .wide-sech {
@@ -6680,7 +6732,6 @@ html.native-app .house-manage[data-editor="open"] .house-save {
 
   .wide-lead-photo {
     grid-column: span 2;
-    height: 42rem;
   }
 
   .wide-lead-copy {
@@ -6696,10 +6747,6 @@ html.native-app .house-manage[data-editor="open"] .house-save {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1.5rem;
   }
-
-  .wide-lead-photo img {
-    object-position: center 20%;
-  }
 }
 
 @media (min-width: 1440px) {
@@ -6709,16 +6756,8 @@ html.native-app .house-manage[data-editor="open"] .house-save {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .wide-lead-photo {
-    height: 46.5rem;
-  }
-
   .wide-lead-copy {
     grid-column: span 2;
-  }
-
-  .wide-lead-photo img {
-    object-position: center 30%;
   }
 }
 
@@ -7254,13 +7293,7 @@ html.native-app .house-manage[data-editor="open"] .house-save {
   margin-bottom: 1.25rem;
   border-radius: 24px;
   object-fit: cover;
-  object-position: center 20%;
   background: #111111;
-}
-
-.house-hero.img-slot > img,
-.house-hero.img-slot > picture > img {
-  object-position: center 20%;
 }
 
 .house-line {

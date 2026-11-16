@@ -6,7 +6,8 @@ import { ChevronLeft, Radio, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
-import { LookCanvas } from "@/components/looks/look-canvas";
+import { LOOK_PLATE_SIZES } from "@/lib/looks/image-variants";
+import { photoFrameMode } from "@/lib/looks/photo-frame";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { ECHO_FROM_KEY, echoKicker, forYouOrder, pieceLine, recordEchoActivation } from "@/lib/home/echo";
@@ -20,6 +21,7 @@ import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
+import { LookCanvas } from "@/components/looks/look-canvas";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
 import { PieceThumb } from "@/components/looks/piece-thumb";
 import { FadeLayer, useStaggerIn } from "@/components/ds/fade-layer";
@@ -164,6 +166,10 @@ export function WideLook({
               title={look.title}
               tags={look.tags}
               crop={look.crop}
+              baked={photoFrameMode(look.images) === "baked"}
+              strictCrop={photoFrameMode(look.images) === "crop"}
+              images={photoFrameMode(look.images) === "baked" ? look.images : undefined}
+              sizes={LOOK_PLATE_SIZES}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onHiddenPieces={() => setShopSheetOpen(true)}

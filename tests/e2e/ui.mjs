@@ -130,13 +130,14 @@ async function flowHomeSnap(page) {
     };
   });
   record("flow.home.snap-type", before.snapType === "y mandatory" && before.align === "start" && before.top < 2, `${before.snapType} ${before.align} top ${before.top}`);
+  const step = await page.locator(".echo-plate").first().evaluate((el) => el.getBoundingClientRect().height);
   await page.locator(".echo-snap").evaluate((el, height) => {
     el.dispatchEvent(new WheelEvent("wheel", { deltaY: height, bubbles: true, cancelable: true }));
-  }, before.height);
-  await page.waitForFunction(() => {
+  }, step);
+  await page.waitForFunction((height) => {
     const snap = document.querySelector(".echo-snap");
-    return Boolean(snap && Math.abs(snap.scrollTop - snap.clientHeight) < 6);
-  }, null, { timeout: 3_000 }).catch(() => undefined);
+    return Boolean(snap && Math.abs(snap.scrollTop - height) < 6);
+  }, step, { timeout: 3_000 }).catch(() => undefined);
   const after = await page.evaluate(() => {
     const snap = document.querySelector(".echo-snap");
     const port = snap.getBoundingClientRect();
@@ -147,16 +148,19 @@ async function flowHomeSnap(page) {
         return rect.bottom > port.top + 8 && rect.top < port.bottom - 8;
       })
       .map((el) => el.textContent.trim());
+    const plate = document.querySelector(".echo-photo");
+    const photo = plate?.getBoundingClientRect();
     return {
       scrollTop: Math.round(snap.scrollTop),
-      height: snap.clientHeight,
+      step: document.querySelector(".echo-plate")?.getBoundingClientRect().height ?? 0,
       visible,
       navTop: Math.round(nav.getBoundingClientRect().top),
+      ratio: photo && photo.height > 0 ? photo.width / photo.height : 0,
     };
   });
   record(
     "flow.home.snap-one",
-    Math.abs(after.scrollTop - after.height) < 6 && after.visible.length === 1 && after.visible[0] !== before.titles[0],
+    Math.abs(after.scrollTop - after.step) < 6 && after.visible[0] !== before.titles[0] && Math.abs(after.ratio / 0.75 - 1) <= 0.01,
     JSON.stringify(after),
   );
   record("flow.home.snap-chrome", after.navTop === before.navTop, `${before.navTop} -> ${after.navTop}`);
@@ -1202,7 +1206,23 @@ async function flowPinCardClear(page) {
   );
 
   await page.setViewportSize({ width: 834, height: 1112 });
-  await pinsClear("tablet");
+  await goto(page, path);
+  await page.locator(".wide-plate").waitFor({ timeout: 10_000 });
+  const tabletPlate = await page.evaluate(() => {
+    const frame = document.querySelector(".wide-plate-canvas");
+    const box = frame?.getBoundingClientRect();
+    return {
+      wide: Boolean(document.querySelector(".wide-look")),
+      phone: document.querySelectorAll(".look-plate").length,
+      ratio: box && box.height > 0 ? box.width / box.height : 0,
+      pins: document.querySelectorAll(".wide-plate .tag-pin").length,
+    };
+  });
+  record(
+    "flow.pins4.tablet-wide",
+    tabletPlate.wide && tabletPlate.phone === 0 && Math.abs(tabletPlate.ratio / 0.75 - 1) <= 0.01 && tabletPlate.pins === 4,
+    JSON.stringify(tabletPlate),
+  );
 
   // Desktop panel: Style-linked row, and Shop whole look opens a single window.
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -1224,8 +1244,8 @@ async function flowPinCardClear(page) {
     row.title === "Column Dress" && row.sub === "Atelier Noir" && row.viewH === 44 && !row.shop && !row.underlined,
     JSON.stringify(row),
   );
-  // Shop whole look on the wide layouts (>=1024) opens the Shop sheet in place. Phone and the 834 tablet keep the LookPlate behaviour.
-  for (const [name, width, height] of [["1024", 1024, 768], ["desktop", 1280, 800]]) {
+  // Shop whole look on tablet and desktop opens the Shop sheet in place. Phone keeps LookPlate.
+  for (const [name, width, height] of [["tablet", 834, 1112], ["1024", 1024, 768], ["desktop", 1280, 800]]) {
     await page.setViewportSize({ width, height });
     await goto(page, path);
     await page.getByRole("button", { name: "Shop whole look" }).click();
@@ -2011,7 +2031,7 @@ async function flowShopWholePhoneFlag(page) {
     await page.setViewportSize({ width, height });
     const result = await probe("/looks/seed-sunday-coat");
     wideOn.push(result);
-    const expected = width < 1024
+    const expected = width < 768
       ? result.sheetWhole &&
         result.footerText === "Shop whole look" &&
         !result.footerExternalIcon &&
@@ -2035,7 +2055,7 @@ async function flowShopWholePhoneFlag(page) {
     await page.setViewportSize({ width, height });
     const result = await probe("/looks/seed-sunday-coat");
     const main = wideOn[wideWidths.findIndex((size) => size.width === width)];
-    const unchanged = width < 1024
+    const unchanged = width < 768
       ? result.footerText === "Shop whole look" &&
       !result.footerExternalIcon &&
       result.border === "rgb(17, 17, 17)"

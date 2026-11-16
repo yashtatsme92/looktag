@@ -8,6 +8,8 @@ import { AccountSheet } from "@/components/home/account-sheet";
 import { FollowButton } from "@/components/home/follow-button";
 import { HangtagIcon } from "@/components/home/hangtag-icon";
 import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
+import { LOOK_PLATE_SIZES } from "@/lib/looks/image-variants";
+import { photoFrameMode } from "@/lib/looks/photo-frame";
 import { LookCanvas } from "@/components/looks/look-canvas";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
 import { PieceThumb } from "@/components/looks/piece-thumb";
@@ -304,10 +306,14 @@ export function LookPlate({
     setShopSheetOpen(true);
   }
 
+  const frameMode = photoFrameMode(look.images);
+  const framed = frameMode !== "legacy";
+
   return (
     <div
       className="look-plate"
       ref={plateRef}
+      data-framed={framed ? "34" : undefined}
       data-sheet={shopSheetOpen ? "open" : undefined}
       data-follow={followOpen ? "open" : undefined}
       onKeyDown={onPlateKeyDown}
@@ -318,10 +324,14 @@ export function LookPlate({
         title={look.title}
         tags={look.tags}
         crop={look.crop}
+        baked={frameMode === "baked"}
+        strictCrop={frameMode === "crop"}
+        images={frameMode === "baked" ? look.images : undefined}
+        sizes={LOOK_PLATE_SIZES}
         selectedId={selectedId}
         onSelect={(id) => setSelectedId(id)}
         onHiddenPieces={() => openShopSheet(false)}
-        fit="fill"
+        fit={framed ? "cover" : "fill"}
         className="look-plate-canvas"
       />
       {spotlight ? <div className="look-plate-vignette" aria-hidden /> : null}

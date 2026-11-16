@@ -1,14 +1,30 @@
+import type { CropRect } from "./crop.ts";
+
 /**
  * Sized look photos. Keys are content-hashed and do not include the look id.
  * WebP is what the feed asks for; JPEG is the fallback. AVIF is optional.
+ *
+ * Variants are exact 3:4. `LOOK_IMAGE_EDGES` is the height of each box so
+ * existing longest-edge readers still see the vertical size.
  */
 
-export const LOOK_IMAGE_EDGES = { thumb: 200, card: 600, detail: 1200 } as const;
+export const LOOK_IMAGE_BOXES = {
+  thumb: { w: 150, h: 200 },
+  card: { w: 600, h: 800 },
+  detail: { w: 1080, h: 1440 },
+} as const;
+export const LOOK_IMAGE_EDGES = {
+  thumb: LOOK_IMAGE_BOXES.thumb.h,
+  card: LOOK_IMAGE_BOXES.card.h,
+  detail: LOOK_IMAGE_BOXES.detail.h,
+} as const;
 export const LOOK_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 export const FEED_PLATE_SIZES = "100vw";
 export const FEED_LEAD_SIZES = "(min-width: 1024px) 66vw, 100vw";
 export const FEED_GRID_SIZES = "(min-width: 1440px) 25vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw";
+/** Look page: card (600w) covers phone and a ~40vw desktop plate; detail is only for wider slots. */
+export const LOOK_PLATE_SIZES = "(min-width: 1600px) 50vw, (min-width: 1024px) 40vw, 100vw";
 
 export const LOOK_IMAGE_SIZES = ["thumb", "card", "detail"] as const;
 export const LOOK_IMAGE_FORMATS = ["avif", "webp", "jpeg"] as const;
@@ -31,6 +47,10 @@ export type StoredLookImages = {
   width: number;
   height: number;
   files: StoredLookImageFile[];
+  /** Untouched upload. Variants are cut from `crop` before they are resized. */
+  original?: { key: string; contentType: string; w: number; h: number };
+  /** Crop used to bake variants. Pins stay on the original; this is not rewritten by the backfill. */
+  crop?: CropRect;
 };
 
 export type LookImageSizeUrls = { thumb: string; card: string; detail: string };
@@ -45,6 +65,7 @@ export type LookImages = {
   width: number;
   height: number;
   srcWidth: { thumb: number; card: number; detail: number };
+  original?: string;
 };
 
 export function variantKey(prefix: string, size: LookImageSize, format: LookImageFormat): string {
@@ -77,7 +98,11 @@ export function parseStoredLookImages(raw: string | null | undefined): StoredLoo
     if (!parsed || typeof parsed.hash !== "string" || typeof parsed.prefix !== "string" || !Array.isArray(parsed.files)) {
       return null;
     }
-    if (parsed.prefix.includes("..") || parsed.files.some((file) => !file?.key || String(file.key).includes(".."))) {
+    if (
+      parsed.prefix.includes("..") ||
+      parsed.files.some((file) => !file?.key || String(file.key).includes("..")) ||
+      (parsed.original && (!parsed.original.key || parsed.original.key.includes("..")))
+    ) {
       return null;
     }
     return parsed as StoredLookImages;
@@ -116,10 +141,11 @@ export function toPublicImages(stored: StoredLookImages, env?: NodeJS.ProcessEnv
     width: stored.width,
     height: stored.height,
     srcWidth: {
-      thumb: pick("thumb", "webp")?.w || LOOK_IMAGE_EDGES.thumb,
-      card: pick("card", "webp")?.w || LOOK_IMAGE_EDGES.card,
-      detail: pick("detail", "webp")?.w || LOOK_IMAGE_EDGES.detail,
+      thumb: pick("thumb", "webp")?.w || LOOK_IMAGE_BOXES.thumb.w,
+      card: pick("card", "webp")?.w || LOOK_IMAGE_BOXES.card.w,
+      detail: pick("detail", "webp")?.w || LOOK_IMAGE_BOXES.detail.w,
     },
+    original: stored.original ? publicStorageUrl(stored.original.key, env) : undefined,
   };
 }
 
@@ -147,4 +173,27 @@ export function fallbackImageSrc(images: LookImages): string {
 /** Local measurement hook only. A production request must not migrate photos. */
 export function requestPhotoMigrationEnabled(env: { MIGRATE_LOOK_PHOTOS?: string; NODE_ENV?: string }): boolean {
   return env.MIGRATE_LOOK_PHOTOS === "1" && env.NODE_ENV !== "production";
+}
+
+/**
+ * Seed JPEGs stay on the feed manifest (same bytes as today). Storage srcset
+ * is only for uploads whose imageSrc is no longer a `/looks/` file.
+ */
+export function isLocalSeedPhoto(src: string | null | undefined): boolean {
+  return Boolean(src && src.startsWith("/looks/") && !src.includes("..") && !src.includes("/feed/"));
+}
+
+/** Record that a seed still has its full file, without replacing the feed derivatives. */
+export function localSeedImages(src: string): LookImages | undefined {
+  if (!isLocalSeedPhoto(src)) return undefined;
+  return {
+    thumb: src,
+    card: src,
+    detail: src,
+    jpeg: { thumb: src, card: src, detail: src },
+    width: 2,
+    height: 3,
+    srcWidth: { thumb: 1152, card: 1152, detail: 1152 },
+    original: src,
+  };
 }

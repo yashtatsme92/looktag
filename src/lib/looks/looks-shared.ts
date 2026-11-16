@@ -8,7 +8,7 @@ import { lookStats, rankScore, type RankWeights } from "./rank";
 import { normalizeLookTags } from "./offers";
 import type { CropRect } from "./crop";
 import { SEED_LOOKS } from "./seed";
-import { parseStoredLookImages, toPublicImages } from "./image-variants";
+import { localSeedImages, parseStoredLookImages, toPublicImages } from "./image-variants";
 import { recordRepoSeedLedger } from "./seed-ledger";
 import { ensureFashionLabels } from "@/lib/labels/api";
 
@@ -93,6 +93,7 @@ export function parseLook(row: LookRow): Look {
     crop = undefined;
   }
   const storedImages = parseStoredLookImages(row.image_variants_json);
+  const images = storedImages ? toPublicImages(storedImages) : localSeedImages(row.image_src);
   return normalizeLookTags({
     id: row.id,
     userId: row.user_id,
@@ -100,7 +101,7 @@ export function parseLook(row: LookRow): Look {
     caption: row.caption,
     creator: row.creator_name,
     imageSrc: row.image_src,
-    images: storedImages ? toPublicImages(storedImages) : undefined,
+    images,
     crop,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),

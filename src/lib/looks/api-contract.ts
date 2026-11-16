@@ -57,6 +57,7 @@ export const lookImagesSchema = z.object({
     card: z.number(),
     detail: z.number(),
   }),
+  original: z.string().optional(),
 });
 
 export const lookResponseSchema = z.object({

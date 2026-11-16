@@ -80,10 +80,10 @@ async function armDelay(page, ms) {
 }
 
 async function shopSurface(page, width) {
-  const desktop = width >= 1024;
+  const wide = width >= 768;
   await page.goto(`${origin}/looks/seed-sofia-sun-bleached-linen`, { waitUntil: "domcontentloaded" });
   await ready(page);
-  if (!desktop) {
+  if (!wide) {
     await page.locator(".look-plate-shop").waitFor({ timeout: 8_000 });
     await page.locator(".look-plate-shop").click();
     await page.locator(".look-sheet").waitFor({ timeout: 4_000 });

@@ -112,7 +112,7 @@ async function sharedLook(page, viewport) {
     JSON.stringify(meta),
   );
 
-  if (viewport === "desktop") {
+  if (viewport !== "phone") {
     const panel = page.getByRole("complementary", { name: "Shop" });
     await panel.locator(".wide-prow-hit").first().click();
     await panel

@@ -58,6 +58,12 @@ import { cn } from "@/lib/utils";
 
 type EchoMode = "feed" | "lane" | "creator" | "following";
 
+function plateStep(el: HTMLElement) {
+  const plate = el.querySelector<HTMLElement>(".echo-plate");
+  const height = plate?.getBoundingClientRect().height ?? 0;
+  return height > 1 ? height : el.clientHeight;
+}
+
 export function EchoHome({ looks }: { looks: Look[] }) {
   const deck = useMemo(() => looks.filter((look) => look.imageSrc), [looks]);
   const [mode, setMode] = useState<EchoMode>("feed");
@@ -219,7 +225,8 @@ export function EchoHome({ looks }: { looks: Look[] }) {
       if (saved?.scrollY != null && saved.scrollY > 1) target = saved.scrollY;
     }
     feedTargetRef.current = target;
-    indexRef.current = el.clientHeight > 0 ? Math.round(target / el.clientHeight) : 0;
+    const step = plateStep(el);
+    indexRef.current = step > 0 ? Math.round(target / step) : 0;
     el.scrollTop = target;
     let touched = false;
     const mark = () => {
@@ -228,7 +235,8 @@ export function EchoHome({ looks }: { looks: Look[] }) {
     const onScroll = () => {
       if (touched || Math.abs(el.scrollTop - target) <= 1) return;
       el.scrollTop = target;
-      indexRef.current = el.clientHeight > 0 ? Math.round(target / el.clientHeight) : 0;
+      const nextStep = plateStep(el);
+      indexRef.current = nextStep > 0 ? Math.round(target / nextStep) : 0;
     };
     el.addEventListener("pointerdown", mark, { capture: true });
     el.addEventListener("wheel", mark, { capture: true });
@@ -267,7 +275,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
       }
       locked = true;
       indexRef.current = next;
-      el.scrollTo({ top: next * el.clientHeight, behavior: "smooth" });
+      el.scrollTo({ top: next * plateStep(el), behavior: "smooth" });
       window.setTimeout(() => {
         locked = false;
       }, 520);
@@ -338,11 +346,12 @@ export function EchoHome({ looks }: { looks: Look[] }) {
 
   function onScroll(event: UIEvent<HTMLDivElement>) {
     const el = event.currentTarget;
-    const raw = el.clientHeight > 0 ? el.scrollTop / el.clientHeight : 0;
+    const step = plateStep(el);
+    const raw = step > 0 ? el.scrollTop / step : 0;
     const nearest = Math.round(raw);
     if (Math.abs(raw - nearest) > 0.08) return;
     const count = mode === "following" ? followMix.length : plates.length;
-    const next = echoSnapIndex(el.scrollTop, el.clientHeight, count);
+    const next = echoSnapIndex(el.scrollTop, step, count);
     if (next === indexRef.current) return;
     indexRef.current = next;
   }

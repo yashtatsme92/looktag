@@ -7,7 +7,7 @@ import {
   feedSrcSet,
   largestSource,
 } from "@/lib/media/feed-image";
-import { formatSrcSet, type LookImages } from "@/lib/looks/image-variants";
+import { formatSrcSet, isLocalSeedPhoto, type LookImages } from "@/lib/looks/image-variants";
 import { cn } from "@/lib/utils";
 
 type ImgSlotProps = ImgHTMLAttributes<HTMLImageElement> & {
@@ -29,12 +29,16 @@ export function lookPhotoProps(
   look: { imageSrc: string; images?: LookImages },
   options?: { sizes?: string; priority?: boolean; feed?: boolean },
 ) {
+  // Seed files keep the feed manifest so the home page does not download the
+  // full JPEG or a larger storage variant than main does today.
+  const seed = isLocalSeedPhoto(look.imageSrc);
+  const images = seed ? undefined : look.images;
   return {
     src: look.imageSrc,
-    images: look.images,
+    images,
     sizes: options?.sizes,
     priority: options?.priority,
-    feed: options?.feed ?? !look.images,
+    feed: options?.feed ?? (seed || !images),
   };
 }
 
@@ -66,7 +70,7 @@ export function ImgSlot({
   const webp = images ? formatSrcSet(images, "webp") : entry ? feedSrcSet(entry.webp) : "";
   const jpeg = images ? formatSrcSet(images, "jpeg") : entry ? feedSrcSet(entry.jpeg) : "";
   const fallbackSrc = images
-    ? images.jpeg.detail || images.detail || src
+    ? images.jpeg.card || images.card || images.jpeg.detail || images.detail || src
     : (entry ? largestSource(entry.jpeg)?.url : undefined) ?? src;
   const avifHref = images?.avif?.detail || (entry ? largestSource(entry.avif)?.url : undefined);
   const preloadHref = avifHref || (images && priority ? images.detail : undefined);

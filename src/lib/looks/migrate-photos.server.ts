@@ -183,7 +183,9 @@ async function rollbackPhotos(
     const previous = parseStoredLookImages(original.imageVariantsJson);
     const keys = new Set<string>();
     for (const file of current?.files ?? []) keys.add(file.key);
+    if (current?.original?.key) keys.add(current.original.key);
     for (const file of previous?.files ?? []) keys.delete(file.key);
+    if (previous?.original?.key) keys.delete(previous.original.key);
     if (dryRun) {
       result.plan.push({ id, action: "restore", imageSrc: original.imageSrc, keys: [...keys] });
       result.restored += 1;

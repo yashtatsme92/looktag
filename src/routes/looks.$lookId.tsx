@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { funnelUserState } from "@/lib/looks/funnel";
 import { getLookById } from "@/lib/looks/api";
+import { displayedLook } from "@/lib/looks/photo-frame";
 import { useLook } from "@/lib/looks/store";
 import { ownsLook } from "@/lib/looks/types";
 import { recordShareView } from "@/lib/share/api";
@@ -45,7 +46,7 @@ function LookPage() {
   const lookFromStore = useLook(lookId);
   const { user } = useCurrentUserState();
   const chrome = useChromeLayout();
-  const look = lookFromStore ?? (ssrLook && ssrLook.id === lookId ? ssrLook : undefined);
+  const look = displayedLook(lookFromStore, ssrLook, lookId);
 
   if (!look) {
     return (
@@ -64,7 +65,7 @@ function LookPage() {
 
   return (
     <AppShell title={look.title} backTo="/" flush header="hidden">
-      {chrome === "desktop" ? (
+      {chrome !== "phone" ? (
         <WideLook look={look} userState={state} canEdit={mine} />
       ) : (
         <LookPlate look={look} userState={state} canEdit={mine} />

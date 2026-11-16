@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { ImagePlus } from "lucide-react";
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { TagPin } from "@/components/looks/tag-pin";
-import {
-  inFrame,
-  nudgePinInside,
-} from "@/lib/looks/pin-map";
 import { centeredCrop, visibleCrop, type CropRect } from "@/lib/looks/crop";
+import { LOOK_PLATE_SIZES, formatSrcSet, type LookImages } from "@/lib/looks/image-variants";
+import { inFrame, nudgePinInside, pinInCrop } from "@/lib/looks/pin-map";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +26,12 @@ type LookCanvasProps = {
   /** Phone create opens the piece card on a tap, not on the drag that starts a move. */
   selectOnTap?: boolean;
   crop?: CropRect;
+  /** The file is already the 3:4 crop. Show it 1:1 and map pins through `crop`. */
+  baked?: boolean;
+  /** Frame is the stored crop but the file is still the original. Hide pins outside that crop. */
+  strictCrop?: boolean;
+  images?: LookImages;
+  sizes?: string;
   /** Opens the whole-look shop when some pins sit outside the crop or under the tab bar. */
   onHiddenPieces?: () => void;
 };
@@ -48,6 +52,10 @@ export function LookCanvas({
   onImageTap,
   selectOnTap,
   crop,
+  baked = false,
+  strictCrop = false,
+  images,
+  sizes = LOOK_PLATE_SIZES,
   onHiddenPieces,
 }: LookCanvasProps) {
   const frameRef = useRef<HTMLDivElement>(null);
@@ -56,6 +64,9 @@ export function LookCanvas({
   const [frame, setFrame] = useState<{ w: number; h: number } | null>(null);
   const [maxPinY, setMaxPinY] = useState(100);
   const cropped = fit !== "natural";
+  const avifSrcSet = images ? formatSrcSet(images, "avif") : "";
+  const webpSrcSet = images ? formatSrcSet(images, "webp") : "";
+  const jpegSrcSet = images ? formatSrcSet(images, "jpeg") : "";
 
   useEffect(() => {
     const el = frameRef.current;
@@ -98,7 +109,7 @@ export function LookCanvas({
   }, [imageSrc]);
 
   const cropWindow =
-    cropped && natural && frame && frame.w > 0 && frame.h > 0
+    cropped && !baked && natural && frame && frame.w > 0 && frame.h > 0
       ? visibleCrop(
           crop ?? centeredCrop(natural.w, natural.h),
           natural.w,
@@ -186,6 +197,8 @@ export function LookCanvas({
   return (
     <div
       ref={frameRef}
+      data-crop={crop ? JSON.stringify(crop) : undefined}
+      data-baked={baked ? "true" : undefined}
       className={cn(
         "relative overflow-hidden bg-muted",
         !imageSrc && "h-96",
@@ -198,30 +211,37 @@ export function LookCanvas({
       onClick={handleFrameClick}
     >
       {imageSrc ? (
-        <img
-          src={imageSrc}
-          alt={title || "Look"}
-          draggable={false}
-          onLoad={(event) => {
-            const img = event.currentTarget;
-            if (img.naturalWidth && img.naturalHeight) {
-              setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+        <picture className={images ? "contents" : undefined}>
+          {avifSrcSet ? <source type="image/avif" srcSet={avifSrcSet} sizes={sizes} /> : null}
+          {webpSrcSet ? <source type="image/webp" srcSet={webpSrcSet} sizes={sizes} /> : null}
+          <img
+            src={baked && images?.jpeg.detail ? images.jpeg.detail : imageSrc}
+            srcSet={jpegSrcSet || undefined}
+            sizes={jpegSrcSet ? sizes : undefined}
+            alt={title || "Look"}
+            draggable={false}
+            onLoad={(event) => {
+              const img = event.currentTarget;
+              if (img.naturalWidth && img.naturalHeight) {
+                setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+              }
+            }}
+            style={
+              imageStyle
+                ? imageStyle
+                : cropped && !baked
+                  ? { visibility: "hidden" }
+                  : undefined
             }
-          }}
-          style={
-            imageStyle
-              ? imageStyle
-              : cropped
-                ? { visibility: "hidden" }
-                : undefined
-          }
-          className={cn(
-            "look-photo-img block select-none",
-            fit === "natural" && "w-full",
-            fit !== "natural" && !imageStyle && "absolute inset-0 h-full w-full object-cover",
-            fit !== "natural" && imageStyle && "absolute",
-          )}
-        />
+            className={cn(
+              "look-photo-img block select-none",
+              fit === "natural" && "w-full",
+              fit !== "natural" && !imageStyle && "absolute inset-0 h-full w-full",
+              fit !== "natural" && !imageStyle && (baked ? "object-contain" : "object-cover"),
+              fit !== "natural" && imageStyle && "absolute",
+            )}
+          />
+        </picture>
       ) : (
         <button
           type="button"
@@ -246,23 +266,27 @@ export function LookCanvas({
         />
       ) : null}
 
-      {showTags && (!cropped || imageStyle)
+      {showTags && (!cropped || imageStyle || baked)
         ? (() => {
             let hidden = 0;
             const pins = tags.flatMap((tag, index) => {
-              const point = cropWindow
-                ? {
-                    x: ((tag.x / 100 - cropWindow.x) / cropWindow.w) * 100,
-                    y: ((tag.y / 100 - cropWindow.y) / cropWindow.h) * 100,
-                  }
-                : { x: tag.x, y: tag.y };
-              if (!inFrame(point) || point.y > maxPinY) {
+              const stored = (baked || strictCrop) && crop ? pinInCrop({ x: tag.x, y: tag.y }, crop) : null;
+              const point = baked && stored
+                ? { x: stored.x, y: stored.y }
+                : cropWindow
+                  ? {
+                      x: ((tag.x / 100 - cropWindow.x) / cropWindow.w) * 100,
+                      y: ((tag.y / 100 - cropWindow.y) / cropWindow.h) * 100,
+                    }
+                  : { x: tag.x, y: tag.y };
+              const inside = stored ? stored.inside : true;
+              if (!inside || !inFrame(point) || point.y > maxPinY) {
                 hidden += 1;
                 return [];
               }
-              const nudge = frame
-                ? nudgePinInside(point.x, point.y, frame.w, frame.h)
-                : { dx: 0, dy: 0, leader: false };
+              const nudge = stored || !frame
+                ? { dx: 0, dy: 0, leader: false }
+                : nudgePinInside(point.x, point.y, frame.w, frame.h);
               return [
                 <TagPin
                   key={tag.id}

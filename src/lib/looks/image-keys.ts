@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
+import type { CropRect } from "./crop.ts";
 
-/** sha256 hex of the original bytes. The key uses the first 32 chars. */
-export function contentHash(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
+/**
+ * sha256 hex of the original bytes. A crop is mixed in only when passed, so
+ * the #220 migrate check (`contentHash(bytes)`) stays idempotent.
+ */
+export function contentHash(bytes: Uint8Array, crop?: CropRect): string {
+  const hash = createHash("sha256").update(bytes);
+  if (crop) hash.update(JSON.stringify([crop.x, crop.y, crop.w, crop.h]));
+  return hash.digest("hex");
 }
 
 /**

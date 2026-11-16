@@ -56,6 +56,9 @@ try {
       await chooser.setFiles(photo);
       await page.locator(".create-crop-step").waitFor();
       await page.getByRole("button", { name: "Use photo" }).click();
+      await page.getByRole("button", { name: "Add pin" }).click();
+      await page.locator(".create-piece-name").fill("Round trip coat");
+      await page.locator(".create-piece").getByRole("button", { name: "Done" }).click();
       await page.locator(".create-btn-done").click();
       await page.locator("#create-title").fill("Sized coat");
       await page.getByRole("button", { name: "Continue" }).click();
@@ -72,7 +75,13 @@ try {
       record("photo.api.status", detail.status === 200, String(detail.status));
       record(
         "photo.api.images",
-        Boolean(images?.thumb && images?.card && images?.detail && images?.jpeg?.thumb && images?.jpeg?.card && images?.jpeg?.detail),
+        Boolean(images?.thumb && images?.card && images?.detail && images?.jpeg?.thumb && images?.jpeg?.card && images?.jpeg?.detail && images?.original),
+        JSON.stringify({ original: images?.original, width: images?.width, height: images?.height }),
+      );
+      record(
+        "photo.api.original-3x4",
+        Boolean(images?.original) && images.width > 0 && Math.abs(images.width / images.height / 0.75 - 1) <= 0.01,
+        `${images?.width}x${images?.height}`,
       );
       record(
         "photo.api.no-data-url",
@@ -85,15 +94,71 @@ try {
         Boolean,
       );
       record("photo.urls", urls.length === 6, String(urls.length));
+      const sized = {};
       for (const url of urls) {
         const absolute = new URL(url, origin).toString();
         const res = await page.request.get(absolute);
         const cache = res.headers()["cache-control"] || "";
         const type = res.headers()["content-type"] || "";
-        const bytes = (await res.body()).byteLength;
+        const body = await res.body();
+        const bytes = body.byteLength;
         const ok = res.status() === 200 && /immutable/.test(cache) && /image\/(webp|jpeg)/.test(type) && bytes > 32;
         record(`photo.fetch ${url.split("/").slice(-2).join("/")}`, ok, `${res.status()} ${type} ${bytes} ${cache}`);
+        if (ok) sized[url] = await sharp(body).metadata();
       }
+      const cardMeta = sized[images.card];
+      const thumbMeta = sized[images.thumb];
+      const detailMeta = sized[images.detail];
+      record("photo.card.600x800", cardMeta?.width === 600 && cardMeta?.height === 800, `${cardMeta?.width}x${cardMeta?.height}`);
+      record("photo.thumb.150x200", thumbMeta?.width === 150 && thumbMeta?.height === 200, `${thumbMeta?.width}x${thumbMeta?.height}`);
+      record(
+        "photo.detail.no-upscale",
+        detailMeta?.width === 900 && detailMeta?.height === 1200,
+        `${detailMeta?.width}x${detailMeta?.height}`,
+      );
+      const originalRes = await page.request.get(new URL(images.original, origin).toString());
+      const originalMeta = await sharp(await originalRes.body()).metadata();
+      record(
+        "photo.original.kept",
+        originalRes.status() === 200 && originalMeta.width === 900 && originalMeta.height === 1200,
+        `${originalRes.status()} ${originalMeta.width}x${originalMeta.height}`,
+      );
+
+      await page.goto(`${origin}/looks/${id}`, { waitUntil: "domcontentloaded" });
+      await page.locator("[data-tag-pin]").first().waitFor({ timeout: 12_000 });
+      const reopened = await page.evaluate(() => {
+        const frame = document.querySelector("[data-crop]");
+        const pin = document.querySelector("[data-tag-pin]");
+        if (!frame || !pin) return null;
+        const box = frame.getBoundingClientRect();
+        const rect = pin.getBoundingClientRect();
+        const crop = JSON.parse(frame.dataset.crop);
+        const u = Number(pin.dataset.imageX) / 100;
+        const v = Number(pin.dataset.imageY) / 100;
+        const expectedX = (u - crop.x) / crop.w;
+        const expectedY = (v - crop.y) / crop.h;
+        return {
+          baked: frame.dataset.baked,
+          name: pin.getAttribute("aria-label") || "",
+          imageX: Number(pin.dataset.imageX),
+          imageY: Number(pin.dataset.imageY),
+          dx: rect.left + rect.width / 2 - (box.left + expectedX * box.width),
+          dy: rect.top + rect.height / 2 - (box.top + expectedY * box.height),
+          ratio: box.width / box.height,
+        };
+      });
+      record(
+        "photo.reopen.pin",
+        Boolean(reopened) &&
+          reopened.baked === "true" &&
+          /Round trip coat/.test(reopened.name) &&
+          Math.abs(reopened.imageX - 42) < 0.2 &&
+          Math.abs(reopened.imageY - 36) < 0.2 &&
+          Math.abs(reopened.dx) <= 2 &&
+          Math.abs(reopened.dy) <= 2 &&
+          Math.abs(reopened.ratio / 0.75 - 1) <= 0.01,
+        JSON.stringify(reopened),
+      );
 
       const list = await page.evaluate(async () => {
         const res = await fetch("/api/v1/looks");

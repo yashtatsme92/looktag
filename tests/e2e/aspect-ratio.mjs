@@ -101,6 +101,49 @@ function checkPins(label, m, expectedCount) {
   });
 }
 
+/** The visible photo box is 3:4. object-position stays centered — no focal crop. */
+async function checkFrames(page, label) {
+  const frames = await page.evaluate(() => {
+    const selectors = [
+      ".echo-photo",
+      ".look-slide",
+      ".wide-lead-photo",
+      ".wide-leadcard",
+      ".wide-tile",
+      ".wide-plate",
+      ".look-plate[data-framed='34'] .look-plate-canvas",
+      ".house-card",
+    ];
+    return selectors.flatMap((selector) =>
+      [...document.querySelectorAll(selector)].map((el) => {
+        const box = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        if (box.width < 40 || box.height < 40 || style.display === "none" || style.visibility === "hidden") return null;
+        const image = el.matches("img") ? el : el.querySelector("img");
+        const position = image ? getComputedStyle(image).objectPosition : "";
+        const fit = image ? getComputedStyle(image).objectFit : "";
+        return { selector, ratio: box.width / box.height, position, fit };
+      }),
+    ).filter(Boolean);
+  });
+  record(`${label}.frames-found`, frames.length > 0, String(frames.length));
+  frames.forEach((frame, index) => {
+    record(
+      `${label}.frame-${index}`,
+      Math.abs(frame.ratio / 0.75 - 1) <= RATIO_TOLERANCE,
+      `${frame.selector} ${frame.ratio.toFixed(3)}`,
+    );
+    if (frame.position) {
+      record(
+        `${label}.frame-${index}.position`,
+        frame.position === "50% 50%" || frame.position === "center center" || frame.position === "center",
+        frame.position,
+      );
+    }
+    if (frame.fit) record(`${label}.frame-${index}.fit`, frame.fit !== "fill", frame.fit);
+  });
+}
+
 async function waitForCropped(page, scope) {
   await page.waitForFunction(
     (sel) =>
@@ -148,6 +191,7 @@ async function lookDetail(browser, viewport) {
           checkNative(`${label}.${i}`, m);
           checkPins(`${label}.${i}`, m);
         });
+        await checkFrames(page, label);
       },
       `aspect-look-${viewport.width}`,
       { viewport },
@@ -176,6 +220,7 @@ async function coverSurfaces(browser, viewport) {
             record(`${name}@${viewport.width}.${i}.box-sane`, box > 0.2 && box < 5 && Number.isFinite(natural));
           }
         });
+        await checkFrames(page, `${name}@${viewport.width}`);
       };
       await visit(pages[0], "feed-card");
       await visit(pages[1], "house-grid");
