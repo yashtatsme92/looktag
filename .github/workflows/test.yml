@@ -113,6 +113,8 @@ jobs:
       - name: Runtime image can load every server package (STORAGE_PROVIDER=s3 upload)
         # The image ships only .output. This copies it to an empty dir and saves
         # a photo through the bundled S3 adapter against a local stub.
+        env:
+          LOOKTAG_ALLOW_EPHEMERAL_DB: "1"
         run: node scripts/check-server-output.mjs
       - name: Database-backed route returns 200
         env:
