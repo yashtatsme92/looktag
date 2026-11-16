@@ -485,11 +485,18 @@ async function screenLook(page) {
 /** Esc closes the account sheet and leaves the pin card (and its place on the plate) alone. */
 async function flowEscAccountSheet(page, label) {
   await goto(page, "/looks/seed-sunday-coat");
-  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
-  await page.locator(".look-plate .tag-pin").nth(1).click();
+  await page.getByRole("heading", { name: "Sunday Coat", exact: true }).waitFor({ timeout: 10_000 });
+  const wide = page.viewportSize().width >= 768;
+  const pin = page.locator(wide ? ".wide-plate-canvas .tag-pin" : ".look-plate .tag-pin").nth(1);
+  await pin.click();
   const card = page.getByRole("dialog", { name: "Selected piece" });
-  await card.waitFor({ timeout: 4_000 });
-  await page.getByRole("button", { name: "Save look" }).click();
+  if (wide) {
+    await page.locator(".wide-prow.is-on").waitFor({ timeout: 4_000 });
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+  } else {
+    await card.waitFor({ timeout: 4_000 });
+    await page.getByRole("button", { name: "Save look" }).click();
+  }
   const sheet = page.locator("[data-vaul-drawer]");
   await sheet.waitFor({ timeout: 5_000 });
   await page.keyboard.press("Escape");
@@ -497,17 +504,52 @@ async function flowEscAccountSheet(page, label) {
     .waitForFunction(() => document.querySelectorAll("[data-vaul-drawer]").length === 0, null, { timeout: 4_000 })
     .then(() => true)
     .catch(() => false);
-  record(`flow.look.esc-account-sheet-${label}`, sheetClosed && (await card.count()) === 1, `sheetClosed=${sheetClosed} card=${await card.count()}`);
+  const statePreserved = wide
+    ? (await page.locator(".wide-prow.is-on").count()) === 1 && (await pin.getAttribute("aria-pressed")) === "true"
+    : (await card.count()) === 1;
+  record(`flow.look.esc-account-sheet-${label}`, sheetClosed && statePreserved, `sheetClosed=${sheetClosed} statePreserved=${statePreserved}`);
 }
 
 /** For every pin on the seed look: select it and check the card hides neither that pin nor any other. */
 async function flowSelectedPinClear(page, label) {
   await goto(page, "/looks/seed-sunday-coat");
-  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
-  const total = await page.locator(".look-plate .tag-pin").count();
+  await page.getByRole("heading", { name: "Sunday Coat", exact: true }).waitFor({ timeout: 10_000 });
+  const wide = page.viewportSize().width >= 768;
+  const pinSelector = wide ? ".wide-plate-canvas .tag-pin" : ".look-plate .tag-pin";
+  const total = await page.locator(pinSelector).count();
+  if (wide) {
+    const selections = [];
+    for (let i = 0; i < total; i += 1) {
+      await page.locator(pinSelector).nth(i).click();
+      const activeRow = page.locator(".wide-prow.is-on");
+      await activeRow.waitFor({ timeout: 4_000 });
+      selections.push(
+        await page.evaluate((index) => {
+          const pins = [...document.querySelectorAll(".wide-plate-canvas .tag-pin")];
+          return {
+            selectedPin: pins[index]?.getAttribute("aria-pressed") === "true",
+            activeRows: document.querySelectorAll(".wide-prow.is-on").length,
+            visiblePins: pins.filter((pin) => {
+              const rect = pin.getBoundingClientRect();
+              return rect.width > 0 && rect.height > 0;
+            }).length,
+            dialogs: document.querySelectorAll('[role="dialog"][aria-label="Selected piece"]').length,
+          };
+        }, i),
+      );
+    }
+    record(
+      `flow.look.wide-pin-selects-row-${label}`,
+      total >= 4 &&
+        selections.length === total &&
+        selections.every((result) => result.selectedPin && result.activeRows === 1 && result.visiblePins === total && result.dialogs === 0),
+      JSON.stringify(selections),
+    );
+    return;
+  }
   const rows = [];
   for (let i = 0; i < total; i += 1) {
-    await page.locator(".look-plate .tag-pin").nth(i).evaluate((node) => node.click());
+    await page.locator(pinSelector).nth(i).evaluate((node) => node.click());
     await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 4_000 });
     await waitForPinCardPlacement(page);
     rows.push(
@@ -1100,10 +1142,10 @@ const CREATED_LOOK = {
   ...DRAFT,
   title: "Four pins",
   tags: [
-    { id: "pin-style", x: 48, y: 40, name: "Wool Coat", brand: "", price: "", currency: "EUR", url: "", retailerId: "", offers: [], styleId: "style-noir-column" },
-    { id: "pin-b", x: 50, y: 70, name: "Wide Trouser", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/weekday-wide-trouser-black-we121a0aa-q11.html", retailerId: "zalando", offers: [] },
-    { id: "pin-c", x: 40, y: 24, name: "Leather Boot", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/dr-martens-leather-boot-black-dr211b00j-q11.html", retailerId: "zalando", offers: [] },
-    { id: "pin-d", x: 62, y: 16, name: "Knit Scarf", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/pieces-knit-scarf-beige-pe351g0k2-b11.html", retailerId: "zalando", offers: [] },
+    { id: "pin-style", x: 48, y: 24, name: "Wool Coat", brand: "", price: "", currency: "EUR", url: "", retailerId: "", offers: [], styleId: "style-noir-column" },
+    { id: "pin-b", x: 80, y: 32, name: "Wide Trouser", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/weekday-wide-trouser-black-we121a0aa-q11.html", retailerId: "zalando", offers: [] },
+    { id: "pin-c", x: 40, y: 72, name: "Leather Boot", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/dr-martens-leather-boot-black-dr211b00j-q11.html", retailerId: "zalando", offers: [] },
+    { id: "pin-d", x: 62, y: 80, name: "Knit Scarf", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/pieces-knit-scarf-beige-pe351g0k2-b11.html", retailerId: "zalando", offers: [] },
   ],
 };
 
@@ -1150,6 +1192,24 @@ async function flowPinCardClear(page) {
 
   async function pinsClear(label) {
     await goto(page, path);
+    const wide = page.viewportSize().width >= 768;
+    if (wide) {
+      await page.locator(".wide-prow-hit").first().waitFor({ timeout: 10_000 });
+      const selectedRows = [];
+      for (let index = 0; index < 4; index += 1) {
+        const pin = page.locator(".wide-plate-canvas .tag-pin").nth(index);
+        await pin.click();
+        await page.locator(".wide-prow.is-on").waitFor({ timeout: 4_000 });
+        selectedRows.push(await pin.getAttribute("aria-pressed") === "true");
+      }
+      record(
+        `flow.pins4.wide-row-select-${label}`,
+        selectedRows.length === 4 && selectedRows.every(Boolean) &&
+          (await page.locator(".wide-prow.is-on").count()) === 1,
+        JSON.stringify(selectedRows),
+      );
+      return;
+    }
     await waitForStableLookPins(page, 4);
     const card = page.getByRole("dialog", { name: "Selected piece" });
     const rows = [];
