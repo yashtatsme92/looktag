@@ -363,27 +363,26 @@ async function flowLookShopSheet(page) {
   record("flow.look.shop-sheet-dismiss", closedByEsc && (await sheet.count()) === 0, `esc=${closedByEsc}`);
 }
 
-/** Tablet: the Shop sheet is centred and about 600px wide; Esc with the account sheet open keeps the pin card. */
+/** Tablet details use the wide shop panel rather than the phone Shop sheet. */
 async function flowLookShopSheetTablet(page) {
   await goto(page, "/looks/seed-sunday-coat");
-  await page.locator(".look-plate-shop").click();
-  const sheet = page.getByRole("dialog", { name: "Shop this look" });
-  await sheet.waitFor({ timeout: 4_000 });
-  await page.waitForTimeout(450);
-  const m = await page.evaluate(() => {
-    const r = document.querySelector(".look-sheet").getBoundingClientRect();
+  const panel = page.locator(".wide-panel");
+  await panel.waitFor({ timeout: 4_000 });
+  const m = await panel.evaluate((node) => {
+    const r = node.getBoundingClientRect();
     return { left: r.left, right: r.right, width: r.width, vw: window.innerWidth };
   });
   record(
-    "flow.look.shop-sheet-tablet-width",
-    m.width >= 560 && m.width <= 604 && Math.abs(m.left - (m.vw - m.right)) <= 1,
+    "flow.look.shop-panel-tablet-width",
+    m.width > 0 && m.right <= m.vw,
     JSON.stringify(m),
   );
-  const sheetText = await sheet.innerText();
-  record("flow.look.shop-sheet-tablet-no-price-copy", hasNoPriceCopy(sheetText), sheetText.replace(/\s+/g, " "));
-  await page.keyboard.press("Escape");
-  await sheet.waitFor({ state: "detached", timeout: 3_000 }).catch(() => undefined);
-  record("flow.look.shop-sheet-tablet-esc", (await sheet.count()) === 0);
+  const panelText = await panel.innerText();
+  record("flow.look.shop-panel-tablet-no-price-copy", hasNoPriceCopy(panelText), panelText.replace(/\s+/g, " "));
+  record(
+    "flow.look.shop-panel-tablet-not-modal",
+    (await page.getByRole("dialog", { name: "Shop this look" }).count()) === 0,
+  );
 }
 
 async function screenLook(page) {
@@ -1330,7 +1329,7 @@ async function screenDesktopLook(page) {
   await page.waitForFunction(
     () => {
       const image = document.querySelector(".wide-plate img");
-      return Boolean(image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0 && image.style.width);
+      return Boolean(image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0);
     },
     null,
     { timeout: 10_000 },
@@ -1338,6 +1337,8 @@ async function screenDesktopLook(page) {
   const portraitCrop = await page.evaluate(() => {
     const plate = document.querySelector(".wide-plate");
     const image = plate.querySelector("img");
+    const baked = plate.dataset.baked === "true";
+    const storedCrop = JSON.parse(plate.dataset.crop || "null");
     const width = image.naturalWidth;
     const height = image.naturalHeight;
     const imageRatio = width / height;
@@ -1352,39 +1353,63 @@ async function screenDesktopLook(page) {
       visibleWidth = 1;
       visibleHeight = 1 / ratio;
     }
-    const expected = {
+    const expected = baked
+      ? { x: 0, y: 0, w: 1, h: 1 }
+      : {
       x: Math.max(0, Math.min(1 - visibleWidth, base.x + base.w / 2 - visibleWidth / 2)),
       y: Math.max(0, Math.min(1 - visibleHeight, base.y + base.h / 2 - visibleHeight / 2)),
       w: visibleWidth,
       h: visibleHeight,
     };
-    const actual = {
-      x: -parseFloat(image.style.left) / parseFloat(image.style.width),
-      y: -parseFloat(image.style.top) / parseFloat(image.style.height),
-      w: 100 / parseFloat(image.style.width),
-      h: 100 / parseFloat(image.style.height),
-    };
+    const hasImageTransform = Boolean(image.style.width && image.style.height);
+    const actual = !hasImageTransform
+      ? { x: 0, y: 0, w: 1, h: 1 }
+      : {
+          x: -parseFloat(image.style.left) / parseFloat(image.style.width),
+          y: -parseFloat(image.style.top) / parseFloat(image.style.height),
+          w: 100 / parseFloat(image.style.width),
+          h: 100 / parseFloat(image.style.height),
+        };
     const seedPins = [[48, 38], [50, 26], [74, 52], [48, 88]];
+    const pinCrop = baked && storedCrop ? storedCrop : expected;
     const expectedPinCount = seedPins.filter(([x, y]) =>
-      x / 100 >= expected.x &&
-      x / 100 <= expected.x + expected.w &&
-      y / 100 >= expected.y &&
-      y / 100 <= expected.y + expected.h,
+      x / 100 >= pinCrop.x &&
+      x / 100 <= pinCrop.x + pinCrop.w &&
+      y / 100 >= pinCrop.y &&
+      y / 100 <= pinCrop.y + pinCrop.h,
     ).length;
+    const pinMapError = baked && storedCrop
+      ? Math.max(
+          0,
+          ...[...plate.querySelectorAll("[data-tag-pin]")].map((pin) => {
+            const x = (Number(pin.dataset.imageX) / 100 - storedCrop.x) / storedCrop.w * 100;
+            const y = (Number(pin.dataset.imageY) / 100 - storedCrop.y) / storedCrop.h * 100;
+            return Math.max(Math.abs(parseFloat(pin.style.left) - x), Math.abs(parseFloat(pin.style.top) - y));
+          }),
+        )
+      : 0;
     return {
       natural: { width, height },
+      baked,
+      fit: getComputedStyle(image).objectFit,
+      frameRatio: plate.getBoundingClientRect().width / plate.getBoundingClientRect().height,
+      imageRatio,
       actual,
       expected,
       expectedPinCount,
       actualPinCount: plate.querySelectorAll(".tag-pin").length,
+      pinMapError,
       headBandVisible: expected.y <= 0.1 && expected.y + expected.h > 0.1,
     };
   });
   record(
     "screen.desktop.crop-v-rect-1194",
     portraitCrop.natural.height > portraitCrop.natural.width &&
+      Math.abs(portraitCrop.imageRatio - portraitCrop.frameRatio) < 0.002 &&
+      (!portraitCrop.baked || portraitCrop.fit === "contain") &&
       portraitCrop.headBandVisible &&
       portraitCrop.expectedPinCount === portraitCrop.actualPinCount &&
+      portraitCrop.pinMapError < 0.2 &&
       ["x", "y", "w", "h"].every((key) => Math.abs(portraitCrop.actual[key] - portraitCrop.expected[key]) < 0.002),
     JSON.stringify(portraitCrop),
   );
