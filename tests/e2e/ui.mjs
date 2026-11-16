@@ -1336,9 +1336,10 @@ async function screenDesktopLook(page) {
   );
   const portraitCrop = await page.evaluate(() => {
     const plate = document.querySelector(".wide-plate");
-    const image = plate.querySelector("img");
-    const baked = plate.dataset.baked === "true";
-    const storedCrop = JSON.parse(plate.dataset.crop || "null");
+    const canvas = plate.querySelector(".wide-plate-canvas");
+    const image = canvas.querySelector("img");
+    const baked = canvas.dataset.baked === "true";
+    const storedCrop = JSON.parse(canvas.dataset.crop || "null");
     const width = image.naturalWidth;
     const height = image.naturalHeight;
     const imageRatio = width / height;
@@ -1405,8 +1406,9 @@ async function screenDesktopLook(page) {
   record(
     "screen.desktop.crop-v-rect-1194",
     portraitCrop.natural.height > portraitCrop.natural.width &&
-      Math.abs(portraitCrop.imageRatio - portraitCrop.frameRatio) < 0.002 &&
-      (!portraitCrop.baked || portraitCrop.fit === "contain") &&
+    Math.abs(portraitCrop.frameRatio - 3 / 4) < 0.002 &&
+    (!portraitCrop.baked ||
+      (portraitCrop.fit === "contain" && Math.abs(portraitCrop.imageRatio - 3 / 4) < 0.002)) &&
       portraitCrop.headBandVisible &&
       portraitCrop.expectedPinCount === portraitCrop.actualPinCount &&
       portraitCrop.pinMapError < 0.2 &&
