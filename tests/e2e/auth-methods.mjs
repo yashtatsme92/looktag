@@ -136,6 +136,10 @@ async function assertAccountSheet(browser, viewport) {
       const buttonRadius = await google.evaluate((el) => getComputedStyle(el).borderRadius);
       assert.equal(Math.round(box?.height ?? 0), 44, `Google button height at ${viewport.width}px`);
       assert.equal(buttonRadius, "12px", `Google button radius at ${viewport.width}px`);
+      await page.mouse.move(0, 0);
+      await google.evaluate(async (el) => {
+        await Promise.all(el.getAnimations().map((animation) => animation.finished));
+      });
       const googleStyle = await google.evaluate((el) => {
         const style = getComputedStyle(el);
         return {
