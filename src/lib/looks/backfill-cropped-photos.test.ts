@@ -95,6 +95,7 @@ describe("backfillCroppedLookPhotos", () => {
       assert.deepEqual(dry.plan[0]?.sourceDimensions, { width: 1152, height: 1728 });
       assert.deepEqual(dry.plan[0]?.variants, {
         thumb: { width: 150, height: 200 },
+        feed: { width: 450, height: 600 },
         card: { width: 600, height: 800 },
         detail: { width: 1080, height: 1440 },
       });

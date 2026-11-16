@@ -61,9 +61,15 @@ export async function encodeLookVariants(
       fit: "inside",
       withoutEnlargement: true,
     });
-    const webp = await resized.clone().webp({ quality: 74, effort: 3 }).toBuffer({ resolveWithObject: true });
+    const webp = await resized
+      .clone()
+      .webp({ quality: size === "detail" ? 38 : 74, effort: 3 })
+      .toBuffer({ resolveWithObject: true });
     files.push(file(size, "webp", webp));
-    const jpeg = await resized.clone().jpeg({ quality: 76, mozjpeg: true }).toBuffer({ resolveWithObject: true });
+    const jpeg = await resized
+      .clone()
+      .jpeg({ quality: size === "detail" ? 60 : 76, mozjpeg: true })
+      .toBuffer({ resolveWithObject: true });
     files.push(file(size, "jpeg", jpeg));
     if (wantAvif) {
       const avif = await resized.clone().avif({ quality: 48, effort: 2 }).toBuffer({ resolveWithObject: true });

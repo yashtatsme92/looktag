@@ -29,6 +29,7 @@ describe("look photo keys", () => {
     assert.equal(variantKey(prefix, "card", "jpeg"), `${prefix}/card.jpg`);
     assert.equal(variantKey(prefix, "thumb", "webp"), `${prefix}/thumb.webp`);
     assert.equal(LOOK_IMAGE_EDGES.thumb, 200);
+    assert.equal(LOOK_IMAGE_EDGES.feed, 600);
     assert.equal(LOOK_IMAGE_EDGES.card, 800);
     assert.equal(LOOK_IMAGE_EDGES.detail, 1440);
     assert.match(LOOK_IMAGE_CACHE_CONTROL, /immutable/);
@@ -42,9 +43,11 @@ describe("look photo keys", () => {
       height: 1000,
       files: [
         { size: "thumb", format: "webp", key: "looks/aa/abc/thumb.webp", w: 160, h: 200 },
+        { size: "feed", format: "webp", key: "looks/aa/abc/feed.webp", w: 360, h: 480 },
         { size: "card", format: "webp", key: "looks/aa/abc/card.webp", w: 480, h: 600 },
         { size: "detail", format: "webp", key: "looks/aa/abc/detail.webp", w: 800, h: 1000 },
         { size: "thumb", format: "jpeg", key: "looks/aa/abc/thumb.jpg", w: 160, h: 200 },
+        { size: "feed", format: "jpeg", key: "looks/aa/abc/feed.jpg", w: 360, h: 480 },
         { size: "card", format: "jpeg", key: "looks/aa/abc/card.jpg", w: 480, h: 600 },
         { size: "detail", format: "jpeg", key: "looks/aa/abc/detail.jpg", w: 800, h: 1000 },
       ],
@@ -58,6 +61,7 @@ describe("look photo keys", () => {
     assert.equal(images.avif, undefined);
     assert.equal(fallbackImageSrc(images), images.jpeg.detail);
     assert.match(formatSrcSet(images, "webp"), /card\.webp 480w/);
+    assert.match(formatSrcSet(images, "webp"), /feed\.webp 360w/);
     assert.equal(publicStorageUrl("looks/aa/abc/card.webp", {}), "/storage/looks/aa/abc/card.webp");
     assert.throws(() => publicStorageUrl("../secret", {}), /Invalid storage key/);
     assert.equal(requestPhotoMigrationEnabled({ MIGRATE_LOOK_PHOTOS: "1", NODE_ENV: "development" }), true);

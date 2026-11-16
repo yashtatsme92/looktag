@@ -36,16 +36,19 @@ const productTagSchema = z.object({
 
 export const lookImagesSchema = z.object({
   thumb: z.string(),
+  feed: z.string(),
   card: z.string(),
   detail: z.string(),
   jpeg: z.object({
     thumb: z.string(),
+    feed: z.string(),
     card: z.string(),
     detail: z.string(),
   }),
   avif: z
     .object({
       thumb: z.string(),
+      feed: z.string(),
       card: z.string(),
       detail: z.string(),
     })
@@ -54,6 +57,7 @@ export const lookImagesSchema = z.object({
   height: z.number(),
   srcWidth: z.object({
     thumb: z.number(),
+    feed: z.number(),
     card: z.number(),
     detail: z.number(),
   }),

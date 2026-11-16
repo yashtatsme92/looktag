@@ -6,8 +6,9 @@ import path from "node:path";
 import sharp from "sharp";
 import { localStorage } from "../providers/storage/local.ts";
 import { encodeLookVariants } from "./image-encode.server.ts";
-import { persistDataUrlPhoto, storeLookPhoto } from "./photo-store.server.ts";
-import { LOOK_IMAGE_EDGES, type LookImageSize } from "./image-variants.ts";
+import { persistDataUrlPhoto, persistStoredPhotoCrop, storeLookPhoto } from "./photo-store.server.ts";
+import { parseStoredLookImages } from "./image-variants.ts";
+import { LOOK_IMAGE_EDGES, LOOK_IMAGE_SIZES, type LookImageSize } from "./image-variants.ts";
 
 describe("encodeLookVariants", () => {
   it("bakes portrait, landscape and square photos into exact 3:4 variants without upscaling", async () => {
@@ -26,10 +27,11 @@ describe("encodeLookVariants", () => {
       assert.equal(encoded.width / encoded.height, 3 / 4);
       const dimensions: Record<LookImageSize, [number, number]> = {
         thumb: [150, 200],
+        feed: [450, 600],
         card: [600, 800],
         detail: [...source.detail],
       };
-      for (const size of ["thumb", "card", "detail"] as const) {
+      for (const size of LOOK_IMAGE_SIZES) {
         for (const format of ["webp", "jpeg", "avif"] as const) {
           const file = encoded.files.find((candidate) => candidate.size === size && candidate.format === format);
           assert.ok(file);
@@ -95,6 +97,31 @@ describe("encodeLookVariants", () => {
       assert.deepEqual(saved.crop, { x: 0.125, y: 0, w: 0.75, h: 1 });
       assert.ok(saved.images.original);
       assert.equal(saved.images.width / saved.images.height, 3 / 4);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("re-crops from the preserved original and replaces the old variants", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "looktag-recrop-"));
+    try {
+      const bytes = await sharp({
+        create: { width: 1200, height: 1800, channels: 3, background: { r: 180, g: 40, b: 40 } },
+      })
+        .jpeg()
+        .toBuffer();
+      const store = localStorage(path.join(root, "storage"));
+      const firstCrop = { x: 0.125, y: 1 / 6, w: 0.75, h: 2 / 3 };
+      const nextCrop = { x: 0.125, y: 0.1, w: 0.75, h: 2 / 3 };
+      const first = await storeLookPhoto("test-look", bytes, store, { avif: false, crop: firstCrop });
+      const next = await persistStoredPhotoCrop("test-look", JSON.stringify(first.stored), nextCrop, store);
+      assert.ok(next);
+      assert.deepEqual(next.crop, nextCrop);
+      const manifest = parseStoredLookImages(next.variantsJson);
+      assert.ok(manifest?.original);
+      assert.deepEqual((await store.get(manifest.original.key))?.body, bytes);
+      assert.equal(await store.get(first.stored.original!.key), null);
+      assert.equal(manifest.files.find((file) => file.size === "detail")?.h, 1200);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -98,3 +98,28 @@ export async function persistDataUrlPhoto(
   if (previous && previous.prefix !== saved.stored.prefix) await deleteStoredLookImages(previous, store);
   return { imageSrc: saved.imageSrc, images: saved.images, variantsJson: JSON.stringify(saved.stored), crop };
 }
+
+export async function persistStoredPhotoCrop(
+  lookId: string,
+  previousRaw: string | null,
+  crop: CropRect | undefined,
+  store: ObjectStorage = storage(),
+): Promise<{ imageSrc: string; images: LookImages; variantsJson: string; crop: CropRect } | null> {
+  const previous = parseStoredLookImages(previousRaw);
+  if (!previous?.original) return null;
+  const original = await store.get(previous.original.key);
+  if (!original) throw new PublicError("Could not read the original look photo.");
+  const metadata = await sharp(original.body, { failOn: "none" }).metadata();
+  const swapsDimensions = metadata.orientation !== undefined && [5, 6, 7, 8].includes(metadata.orientation);
+  const width = swapsDimensions ? (metadata.height ?? 0) : (metadata.width ?? 0);
+  const height = swapsDimensions ? (metadata.width ?? 0) : (metadata.height ?? 0);
+  const nextCrop = crop ?? centeredCrop(width, height);
+  const saved = await storeLookPhoto(lookId, original.body, store, { crop: nextCrop });
+  if (previous.prefix !== saved.stored.prefix) await deleteStoredLookImages(previous, store);
+  return {
+    imageSrc: saved.imageSrc,
+    images: saved.images,
+    variantsJson: JSON.stringify(saved.stored),
+    crop: nextCrop,
+  };
+}

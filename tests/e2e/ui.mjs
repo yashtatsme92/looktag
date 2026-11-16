@@ -2011,7 +2011,7 @@ async function flowShopWholePhoneFlag(page) {
     await page.setViewportSize({ width, height });
     const result = await probe("/looks/seed-sunday-coat");
     wideOn.push(result);
-    const expected = width < 1024
+    const expected = width < 768
       ? result.sheetWhole &&
         result.footerText === "Shop whole look" &&
         !result.footerExternalIcon &&
@@ -2035,7 +2035,7 @@ async function flowShopWholePhoneFlag(page) {
     await page.setViewportSize({ width, height });
     const result = await probe("/looks/seed-sunday-coat");
     const main = wideOn[wideWidths.findIndex((size) => size.width === width)];
-    const unchanged = width < 1024
+    const unchanged = width < 768
       ? result.footerText === "Shop whole look" &&
       !result.footerExternalIcon &&
       result.border === "rgb(17, 17, 17)"

@@ -20,8 +20,8 @@ export const saveLook = createServerFn({ method: "POST" })
       assertLookImageSrc(incoming.imageSrc);
       const sql = await getSql();
       const userId = context.userId;
-      const existing = await sql<{ user_id: string; image_variants_json: string | null }>`
-        select user_id, image_variants_json from looks where id = ${incoming.id} limit 1
+      const existing = await sql<{ user_id: string; image_variants_json: string | null; crop_json: string | null }>`
+        select user_id, image_variants_json, crop_json from looks where id = ${incoming.id} limit 1
       `;
       if (existing[0] && existing[0].user_id !== userId) {
         throw new PublicError("You can only edit your own looks.");
@@ -45,6 +45,17 @@ export const saveLook = createServerFn({ method: "POST" })
         imageSrc = stored.imageSrc;
         variantsJson = stored.variantsJson;
         crop = stored.crop;
+      } else if (
+        existing[0] &&
+        JSON.stringify(readCrop(existing[0].crop_json)) !== JSON.stringify(incoming.crop ?? null)
+      ) {
+        const { persistStoredPhotoCrop } = await import("./photo-store.server");
+        const stored = await persistStoredPhotoCrop(incoming.id, variantsJson, incoming.crop);
+        if (stored) {
+          imageSrc = stored.imageSrc;
+          variantsJson = stored.variantsJson;
+          crop = stored.crop;
+        }
       }
       const storedImages = parseStoredLookImages(variantsJson);
       const creator = incoming.creator.trim() || "Creator";
@@ -104,6 +115,30 @@ export const saveLook = createServerFn({ method: "POST" })
       return look;
     });
   });
+
+function readCrop(raw: string | null): Look["crop"] {
+  if (!raw) return undefined;
+  try {
+    const crop = JSON.parse(raw) as Partial<NonNullable<Look["crop"]>>;
+    if (
+      Number.isFinite(crop.x) &&
+      Number.isFinite(crop.y) &&
+      Number.isFinite(crop.w) &&
+      Number.isFinite(crop.h) &&
+      crop.x! >= 0 &&
+      crop.y! >= 0 &&
+      crop.w! > 0 &&
+      crop.h! > 0 &&
+      crop.x! + crop.w! <= 1 &&
+      crop.y! + crop.h! <= 1
+    ) {
+      return { x: crop.x!, y: crop.y!, w: crop.w!, h: crop.h! };
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
 
 export const deleteLook = createServerFn({ method: "POST" })
   .validator((id: string) => id)
