@@ -568,7 +568,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
                       {kicker}
                     </button>
                     {feedFollowOn && mode === "feed" && plateIndex === 0 && look.userId ? (
-                      <FollowButton creatorId={look.userId} name={kicker} />
+                      <FollowButton creatorId={look.userId} name={kicker} variant="text-light" />
                     ) : null}
                   </span>
                 ) : null}

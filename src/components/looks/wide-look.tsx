@@ -185,7 +185,7 @@ export function WideLook({
                   <p className="wide-kicker">{echoKicker(look)}</p>
                 )}
                 {look.userId ? (
-                  <FollowButton creatorId={look.userId} name={look.creator || "this creator"} tone="paper" />
+                  <FollowButton creatorId={look.userId} name={look.creator || "this creator"} variant="text-ink" />
                 ) : null}
               </span>
               <h1>{look.title || "Untitled look"}</h1>

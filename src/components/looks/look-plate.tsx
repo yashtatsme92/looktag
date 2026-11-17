@@ -495,7 +495,7 @@ export function LookPlate({
               <FollowButton
                 creatorId={look.userId}
                 name={look.creator || "this creator"}
-                tone="meta"
+                variant="text-ink"
                 onSheetChange={setFollowOpen}
               />
             ) : null}
@@ -503,7 +503,7 @@ export function LookPlate({
         ) : null}
         <h1 className="look-plate-title">{look.title || "Untitled look"}</h1>
         <span className="look-plate-rule" />
-        <div className="flex items-end justify-between gap-3">
+        <div className="look-plate-actions">
           <div>
             {pieceLine(look) ? (
               <p className="look-plate-pieces">{pieceLine(look)}</p>
@@ -528,7 +528,7 @@ export function LookPlate({
           {plateShowsBarShop(flagPhone, Boolean(spotlight)) ? (
             <button
               type="button"
-              className="look-plate-shop"
+              className="look-plate-shop look-plate-shop-ink look-plate-shop-full"
               onClick={() => (look.tags.length ? openShopSheet(Boolean(spotlight) && !flagPhone) : toast.message("No pieces on this look yet"))}
             >
               Shop

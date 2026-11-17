@@ -4,9 +4,8 @@
  *
  * At 390×844 the look photo is a square-cornered 3:4 frame flush with the top
  * of the viewport (under the status bar, not inset below it). Follow in the
- * white meta band is primary or ghost, never the translucent photo overlay
- * that reads as disabled. Safari emulation and iOS standalone with safe-area
- * insets both run. Importing this module does not launch a browser.
+ * white meta band is plain ink text beside the creator name, not a filled
+ * chip. Safari emulation and iOS standalone with safe-area insets both run. Importing this module does not launch a browser.
  */
 import { pathToFileURL } from "node:url";
 import { chromium, devices } from "playwright";
@@ -36,7 +35,7 @@ export async function readLookDetail(page) {
   return page.evaluate(() => {
     const plate = document.querySelector(".look-plate");
     const photo = document.querySelector(".look-plate .look-plate-canvas");
-    const follow = document.querySelector(".look-plate-meta button.echo-follow, .look-plate-meta button.house-primary, .look-plate-meta button.house-ghost, .look-plate-meta button.look-follow");
+    const follow = document.querySelector(".look-plate-meta button.follow-text");
     const back = document.querySelector(".look-plate-bar button[aria-label='Back']");
     const chip = document.querySelector(".look-plate .pin-more");
     const main = document.querySelector("#native-main");
@@ -66,6 +65,7 @@ export async function readLookDetail(page) {
             bg: followStyle.backgroundColor,
             color: followStyle.color,
             opacity: followStyle.opacity,
+            border: followStyle.borderTopWidth,
           }
         : null,
       back: backRect && backStyle
@@ -93,7 +93,7 @@ export async function assertPhoneLookDetail(page, label, { safeTop = 0 } = {}) {
 
   await page.goto(`${origin}${LOOK}`, { waitUntil: "domcontentloaded" });
   await page.locator(".look-plate-canvas").waitFor({ timeout: 15_000 });
-  await page.locator(".look-plate-meta").getByRole("button", { name: /^Follow$|^Following$/ }).waitFor({ timeout: 15_000 });
+  await page.locator(".look-plate-meta").getByRole("button", { name: /^Follow$|^Following ✓$/ }).waitFor({ timeout: 15_000 });
   await page.waitForFunction(() => {
     const img = document.querySelector(".look-plate-canvas img");
     return Boolean(img && img.complete && img.naturalWidth > 0);
@@ -129,14 +129,12 @@ export async function assertPhoneLookDetail(page, label, { safeTop = 0 } = {}) {
 
   const followBg = parseColor(m.follow?.bg);
   const followFg = parseColor(m.follow?.color);
-  const primary =
-    followBg && followBg.a > 0.9 && followBg.r < 40 && followFg && followFg.r > 200 && followFg.a > 0.9;
-  const ghost = followBg && followBg.a < 0.2 && followFg && followFg.r < 40 && followFg.a > 0.9;
-  const washed = followBg && followBg.a >= 0.2 && followBg.a <= 0.8;
+  const plain =
+    followBg && followBg.a < 0.05 && followFg && followFg.r < 40 && followFg.a > 0.9 && parseFloat(m.follow.border) === 0;
   check(
-    "follow-primary-or-ghost",
-    Boolean(m.follow) && !m.follow.disabled && Number(m.follow.opacity) > 0.9 && (primary || ghost) && !washed,
-    m.follow ? `${m.follow.text} bg ${m.follow.bg} fg ${m.follow.color}` : "missing",
+    "follow-text",
+    Boolean(m.follow) && m.follow.text === "Follow" && !m.follow.disabled && Number(m.follow.opacity) > 0.9 && plain,
+    m.follow ? `${m.follow.text} bg ${m.follow.bg} fg ${m.follow.color} border ${m.follow.border}` : "missing",
   );
 
   const creatorHref = await page.locator("a.look-plate-kicker").getAttribute("href");
@@ -146,15 +144,14 @@ export async function assertPhoneLookDetail(page, label, { safeTop = 0 } = {}) {
       localStorage.setItem("looktag-followed-creators-v1", JSON.stringify([id]));
     }, creatorId);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.locator(".look-plate-meta").getByRole("button", { name: "Following" }).waitFor({ timeout: 15_000 });
+    await page.locator(".look-plate-meta").getByRole("button", { name: "Following ✓" }).waitFor({ timeout: 15_000 });
     const followed = await readLookDetail(page);
     const bg = parseColor(followed?.follow?.bg);
     const fg = parseColor(followed?.follow?.color);
-    const ghostOn = bg && bg.a < 0.2 && fg && fg.r < 40 && fg.a > 0.9;
-    const washedOn = bg && bg.a >= 0.2 && bg.a <= 0.8;
+    const stillPlain = bg && bg.a < 0.05 && fg && fg.r < 40 && fg.a > 0.9 && parseFloat(followed?.follow?.border) === 0;
     check(
-      "follow-ghost-when-following",
-      Boolean(followed?.follow) && !followed.follow.disabled && ghostOn && !washedOn,
+      "follow-text-when-following",
+      Boolean(followed?.follow) && followed.follow.text === "Following ✓" && !followed.follow.disabled && stillPlain,
       followed?.follow ? `${followed.follow.text} bg ${followed.follow.bg} fg ${followed.follow.color}` : "missing",
     );
   }

@@ -8,15 +8,13 @@ import { CREATOR_FOLLOWS_KEY, omitSelfFollow, readStoredIds, toggleStoredId, vie
 export function FollowButton({
   creatorId,
   name,
-  primary = false,
-  tone = "photo",
+  variant = "text-ink",
   onSheetChange,
 }: {
   creatorId: string;
   name: string;
-  primary?: boolean;
-  /** photo: overlay on a picture. paper: ink on a light card. meta: look-detail band (primary, or ghost once following). */
-  tone?: "photo" | "paper" | "meta";
+  /** text-light: white on a photo. text-ink: ink on paper. profile: filled, then a ghost once following. */
+  variant?: "text-light" | "text-ink" | "profile";
   onSheetChange?: (open: boolean) => void;
 }) {
   const { user } = useCurrentUserState();
@@ -38,6 +36,15 @@ export function FollowButton({
   }, [creatorId, user?.id]);
   if (self) return null;
   const on = ids.includes(creatorId);
+  const label = on ? "Following ✓" : "Follow";
+  const className =
+    variant === "profile"
+      ? on
+        ? "follow-profile follow-profile-ghost"
+        : "follow-profile follow-profile-filled"
+      : variant === "text-light"
+        ? "follow-text follow-text-light"
+        : "follow-text follow-text-ink";
   function click() {
     if (!viewerCanFollow(user?.id, creatorId)) return;
     runSettled((sessionUser) => {
@@ -54,22 +61,8 @@ export function FollowButton({
   }
   return (
     <>
-      <button
-        type="button"
-        className={
-          tone === "meta"
-            ? on
-              ? "house-ghost look-follow"
-              : "house-primary look-follow"
-            : primary
-              ? "house-primary house-follow"
-              : tone === "paper"
-                ? "echo-follow echo-follow-ink"
-                : "echo-follow"
-        }
-        onClick={click}
-      >
-        {on ? "Following" : "Follow"}
+      <button type="button" className={className} onClick={click}>
+        {label}
       </button>
       <AccountSheet
         open={sheet}

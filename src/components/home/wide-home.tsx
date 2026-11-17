@@ -588,7 +588,9 @@ function Tile({
 
 function Kicker({ text, onCreator, light = false, follow = "" }: { text: string; onCreator: () => void; light?: boolean; follow?: string }) {
   const parts = text.split(" · ");
-  const followBtn = follow ? <FollowButton creatorId={follow} name={text || "this creator"} tone={light ? "photo" : "paper"} /> : null;
+  const followBtn = follow ? (
+    <FollowButton creatorId={follow} name={text || "this creator"} variant={light ? "text-light" : "text-ink"} />
+  ) : null;
   if (parts.length < 2) {
     return (
       <span className="echo-kicker-row">

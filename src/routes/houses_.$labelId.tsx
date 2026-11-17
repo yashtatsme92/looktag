@@ -111,8 +111,12 @@ function HouseHeader({
           </p>
         ) : null}
         {line ? <p className="house-line">{line}</p> : null}
-        <button type="button" className="house-primary house-follow" onClick={onFollow}>
-          {following ? "Following" : "Follow"}
+        <button
+          type="button"
+          className={following ? "follow-profile follow-profile-ghost house-follow" : "follow-profile follow-profile-filled house-follow"}
+          onClick={onFollow}
+        >
+          {following ? "Following ✓" : "Follow"}
         </button>
       </div>
     </div>

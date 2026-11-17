@@ -190,7 +190,7 @@ function CreatorPage() {
   return (
     <AppShell title={mine ? "You" : creator.displayName} largeTitle={mine} backTo={mine ? undefined : "/rank"}>
       <ScreenTitle kicker={`@${creator.handle}`}>{creator.displayName}</ScreenTitle>
-      {!mine && feedFollow ? <FollowButton creatorId={userId} name={creator.displayName} primary /> : null}
+      {!mine && feedFollow ? <FollowButton creatorId={userId} name={creator.displayName} variant="profile" /> : null}
       {mine ? (
         <div className="mb-4 rounded-xl bg-card p-4 shadow-[var(--shadow-border)]">
           <p className="text-[0.65rem] tracking-[0.14em] text-muted-foreground uppercase">
