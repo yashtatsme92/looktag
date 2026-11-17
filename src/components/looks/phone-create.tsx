@@ -234,6 +234,8 @@ function PinPlate({
   mode,
 }: PhoneCreateProps) {
   const unavailable = findState === "unavailable";
+  // Inert until the AI status call settles, so the button never flips from enabled to disabled.
+  const findInert = unavailable || finding || findState === "checking";
   const selected = look.tags.find((tag) => tag.id === selectedId) ?? null;
   const hint = finding ? FIND_PIECES_COPY.finding : suggestNote || "Tap the look to place a pin";
 
@@ -293,10 +295,11 @@ function PinPlate({
               type="button"
               className="create-find"
               onClick={() => {
-                if (unavailable || finding) return;
+                if (findInert) return;
                 onFind();
               }}
-              aria-disabled={unavailable || finding ? "true" : undefined}
+              aria-disabled={findInert ? "true" : undefined}
+              aria-busy={findState === "checking" || finding ? "true" : undefined}
               aria-describedby={unavailable || findMessage ? "create-find-note" : undefined}
             >
               <ScanSearch className="size-4" />

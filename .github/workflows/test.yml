@@ -113,9 +113,9 @@ jobs:
       - name: Runtime image can load every server package (STORAGE_PROVIDER=s3 upload)
         # The image ships only .output. This copies it to an empty dir and saves
         # a photo through the bundled S3 adapter against a local stub.
-        env:
-          LOOKTAG_ALLOW_EPHEMERAL_DB: "1"
-        run: node scripts/check-server-output.mjs
+        # No LOOKTAG_ALLOW_EPHEMERAL_DB here on purpose: the Docker build runs this
+        # with no DB env, so CI must too (2.5.48 Render build failure).
+        run: env -u LOOKTAG_ALLOW_EPHEMERAL_DB -u DATABASE_URL node scripts/check-server-output.mjs
       - name: Database-backed route returns 200
         env:
           VITE_AUTH_ENABLED: "true"

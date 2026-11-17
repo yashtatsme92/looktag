@@ -34,6 +34,18 @@ test("unknown status stays enabled", () => {
   assert.equal(findPiecesState({ ...base, aiAvailable: null }), "free");
 });
 
+test("status call in flight is checking (inert), not gated or free", () => {
+  assert.equal(findPiecesState({ ...base, aiAvailable: null, statusPending: true }), "checking");
+  assert.equal(findPiecesState({ ...base, aiAvailable: null, statusPending: true, signedIn: false }), "checking");
+  assert.equal(findPiecesState({ ...base, aiAvailable: false, statusPending: true }), "unavailable");
+  assert.equal(findPiecesState({ ...base, providerError: true, statusPending: true }), "unavailable");
+});
+
+test("settled status: failed call (null) stays enabled, guest is gated", () => {
+  assert.equal(findPiecesState({ ...base, aiAvailable: null, statusPending: false }), "free");
+  assert.equal(findPiecesState({ ...base, aiAvailable: null, statusPending: false, signedIn: false }), "gated");
+});
+
 test("auth disabled never gates", () => {
   assert.equal(findPiecesState({ ...base, authEnabled: false, signedIn: false }), "free");
 });

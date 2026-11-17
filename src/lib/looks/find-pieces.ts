@@ -2,7 +2,11 @@
  * "Find pieces in photo" availability (#203 Product lock a).
  * Pure so unit tests can drive every state.
  */
-export type FindPiecesState = "free" | "gated" | "unavailable" | "quota";
+/**
+ * "checking": the AI status call is still in flight. The button stays visible but inert so a tap
+ * can't open the sign-in sheet (or start a search) for a feature that may turn out unavailable.
+ */
+export type FindPiecesState = "checking" | "free" | "gated" | "unavailable" | "quota";
 
 export const FIND_PIECES_COPY = {
   gatedTitle: "Sign in to find pieces",
@@ -13,14 +17,17 @@ export const FIND_PIECES_COPY = {
 } as const;
 
 export function findPiecesState(input: {
-  /** null while the status call is in flight. */
+  /** null when unknown (status call failed): stays enabled. */
   aiAvailable: boolean | null;
+  /** True until the first status call settles. */
+  statusPending?: boolean;
   authEnabled: boolean;
   signedIn: boolean;
   quotaHit: boolean;
   providerError?: boolean;
 }): FindPiecesState {
   if (input.aiAvailable === false || input.providerError) return "unavailable";
+  if (input.statusPending) return "checking";
   if (input.authEnabled && !input.signedIn) return "gated";
   if (input.quotaHit) return "quota";
   return "free";
