@@ -63,6 +63,7 @@ jobs:
           node tests/e2e/feed-bandwidth.mjs
           npm run test:e2e:aspect
           npm run test:e2e:feed-snap
+          npm run test:e2e:look-detail-phone
           npm run test:e2e:create-phone
           npm run test:e2e:ios-standalone
           npm run test:e2e:create-desktop

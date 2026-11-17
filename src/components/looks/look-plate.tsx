@@ -495,6 +495,7 @@ export function LookPlate({
               <FollowButton
                 creatorId={look.userId}
                 name={look.creator || "this creator"}
+                tone="meta"
                 onSheetChange={setFollowOpen}
               />
             ) : null}

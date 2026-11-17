@@ -15,7 +15,8 @@ export function FollowButton({
   creatorId: string;
   name: string;
   primary?: boolean;
-  tone?: "photo" | "paper";
+  /** photo: overlay on a picture. paper: ink on a light card. meta: look-detail band (primary, or ghost once following). */
+  tone?: "photo" | "paper" | "meta";
   onSheetChange?: (open: boolean) => void;
 }) {
   const { user } = useCurrentUserState();
@@ -55,7 +56,17 @@ export function FollowButton({
     <>
       <button
         type="button"
-        className={primary ? "house-primary house-follow" : tone === "paper" ? "echo-follow echo-follow-ink" : "echo-follow"}
+        className={
+          tone === "meta"
+            ? on
+              ? "house-ghost look-follow"
+              : "house-primary look-follow"
+            : primary
+              ? "house-primary house-follow"
+              : tone === "paper"
+                ? "echo-follow echo-follow-ink"
+                : "echo-follow"
+        }
         onClick={click}
       >
         {on ? "Following" : "Follow"}
