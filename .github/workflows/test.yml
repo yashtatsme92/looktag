@@ -41,8 +41,6 @@ jobs:
           export BETTER_AUTH_URL=http://127.0.0.1:8080
           # Broker counts as configured only with an explicit issuer (Apple/X e2e).
           export GROK_AUTH_ISSUER=https://auth.grok.me
-          # Exercise baked seeded photos in the ephemeral PGlite test app; the backfill CLI is never run in CI.
-          export MIGRATE_LOOK_PHOTOS=1
           npm run dev > /tmp/looktag-e2e-dev.log 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
@@ -113,9 +111,7 @@ jobs:
       - name: Runtime image can load every server package (STORAGE_PROVIDER=s3 upload)
         # The image ships only .output. This copies it to an empty dir and saves
         # a photo through the bundled S3 adapter against a local stub.
-        # No LOOKTAG_ALLOW_EPHEMERAL_DB here on purpose: the Docker build runs this
-        # with no DB env, so CI must too (2.5.48 Render build failure).
-        run: env -u LOOKTAG_ALLOW_EPHEMERAL_DB -u DATABASE_URL node scripts/check-server-output.mjs
+        run: node scripts/check-server-output.mjs
       - name: Database-backed route returns 200
         env:
           VITE_AUTH_ENABLED: "true"

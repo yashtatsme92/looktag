@@ -87,73 +87,12 @@ async function openPins(page) {
   );
 }
 
-function isAiStatusCall(url) {
-  const match = /\/_serverFn\/([^/?#]+)/.exec(url);
-  if (!match) return false;
-  try {
-    return /aiStatus/.test(Buffer.from(match[1], "base64url").toString("utf8"));
-  } catch {
-    return false;
-  }
-}
-
-async function waitForFindState(page) {
-  await page.waitForFunction(
-    () => {
-      const state = document.querySelector("[data-find-state]")?.getAttribute("data-find-state");
-      return Boolean(state) && state !== "checking";
-    },
-    null,
-    { timeout: 10_000 },
-  );
-}
-
-/**
- * Main (2.5.48) e2e-guest failure: a slow AI status call left Find enabled as "gated", the test
- * tapped it, then status landed as unavailable and the button went aria-disabled mid-click.
- * Hold the status call: Find must stay inert (no sign-in sheet) and only settle once it lands.
- */
-async function slowStatus(page) {
-  let release;
-  const held = new Promise((done) => (release = done));
-  let heldCount = 0;
-  await page.route(
-    (url) => isAiStatusCall(url.href),
-    async (route) => {
-      heldCount += 1;
-      await held;
-      await route.continue();
-    },
-  );
-  await openPins(page);
-  const find = page.getByRole("button", { name: "Find pieces in photo" });
-  await find.waitFor();
-  const state = () => page.locator("[data-find-state]").getAttribute("data-find-state");
-  record("create-desktop.slow-status.held", heldCount > 0, String(heldCount));
-  record("create-desktop.slow-status.checking", (await state()) === "checking", String(await state()));
-  record("create-desktop.slow-status.inert", (await find.getAttribute("aria-disabled")) === "true");
-  await find.click({ force: true });
-  const sheet = page.getByRole("dialog", { name: "Sign in to find pieces" });
-  await page.waitForTimeout(300);
-  record("create-desktop.slow-status.tap-no-sheet", !(await sheet.isVisible()));
-  release();
-  await waitForFindState(page);
-  const settled = await state();
-  record("create-desktop.slow-status.settles", ["unavailable", "gated", "free", "quota"].includes(settled), settled);
-  record(
-    "create-desktop.slow-status.settled-disabled-matches",
-    ((await find.getAttribute("aria-disabled")) === "true") === (settled === "unavailable"),
-    String(await find.getAttribute("aria-disabled")),
-  );
-  await clearUploadedDrafts(page);
-}
-
 async function flow(page, width, height) {
   const tag = `@${width}`;
   const desktop = width >= 1024;
   await openPins(page);
-  // The button is inert ("checking") until the AI status call settles; wait for the real state.
-  await waitForFindState(page);
+  // Let the AI status call land.
+  await page.waitForTimeout(800);
 
   const find = page.getByRole("button", { name: "Find pieces in photo" });
   record(`create-desktop.find.visible${tag}`, await find.isVisible());
@@ -293,9 +232,6 @@ try {
       viewport: { width, height },
     });
   }
-  await withPage(browser, origin, slowStatus, "create-desktop-slow-status", {
-    viewport: { width: 834, height: 1112 },
-  });
   await withPage(browser, origin, seDetails, "create-desktop-se", { viewport: { width: 375, height: 667 } });
 } finally {
   await browser.close();

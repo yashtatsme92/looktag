@@ -112,10 +112,9 @@ async function sharedLook(page, viewport) {
     JSON.stringify(meta),
   );
 
-  if (viewport !== "phone") {
+  if (viewport === "desktop") {
     const panel = page.getByRole("complementary", { name: "Shop" });
-    if (viewport === "tablet") await pins.first().click();
-    else await panel.locator(".wide-prow-hit").first().click();
+    await panel.locator(".wide-prow-hit").first().click();
     await panel
       .locator(".wide-prow.is-on")
       .waitFor({ timeout: 5_000 })

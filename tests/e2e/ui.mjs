@@ -363,26 +363,27 @@ async function flowLookShopSheet(page) {
   record("flow.look.shop-sheet-dismiss", closedByEsc && (await sheet.count()) === 0, `esc=${closedByEsc}`);
 }
 
-/** Tablet details use the wide shop panel rather than the phone Shop sheet. */
+/** Tablet: the Shop sheet is centred and about 600px wide; Esc with the account sheet open keeps the pin card. */
 async function flowLookShopSheetTablet(page) {
   await goto(page, "/looks/seed-sunday-coat");
-  const panel = page.locator(".wide-panel");
-  await panel.waitFor({ timeout: 4_000 });
-  const m = await panel.evaluate((node) => {
-    const r = node.getBoundingClientRect();
+  await page.locator(".look-plate-shop").click();
+  const sheet = page.getByRole("dialog", { name: "Shop this look" });
+  await sheet.waitFor({ timeout: 4_000 });
+  await page.waitForTimeout(450);
+  const m = await page.evaluate(() => {
+    const r = document.querySelector(".look-sheet").getBoundingClientRect();
     return { left: r.left, right: r.right, width: r.width, vw: window.innerWidth };
   });
   record(
-    "flow.look.shop-panel-tablet-width",
-    m.width > 0 && m.right <= m.vw,
+    "flow.look.shop-sheet-tablet-width",
+    m.width >= 560 && m.width <= 604 && Math.abs(m.left - (m.vw - m.right)) <= 1,
     JSON.stringify(m),
   );
-  const panelText = await panel.innerText();
-  record("flow.look.shop-panel-tablet-no-price-copy", hasNoPriceCopy(panelText), panelText.replace(/\s+/g, " "));
-  record(
-    "flow.look.shop-panel-tablet-not-modal",
-    (await page.getByRole("dialog", { name: "Shop this look" }).count()) === 0,
-  );
+  const sheetText = await sheet.innerText();
+  record("flow.look.shop-sheet-tablet-no-price-copy", hasNoPriceCopy(sheetText), sheetText.replace(/\s+/g, " "));
+  await page.keyboard.press("Escape");
+  await sheet.waitFor({ state: "detached", timeout: 3_000 }).catch(() => undefined);
+  record("flow.look.shop-sheet-tablet-esc", (await sheet.count()) === 0);
 }
 
 async function screenLook(page) {
@@ -485,18 +486,11 @@ async function screenLook(page) {
 /** Esc closes the account sheet and leaves the pin card (and its place on the plate) alone. */
 async function flowEscAccountSheet(page, label) {
   await goto(page, "/looks/seed-sunday-coat");
-  await page.getByRole("heading", { name: "Sunday Coat", exact: true }).waitFor({ timeout: 10_000 });
-  const wide = page.viewportSize().width >= 768;
-  const pin = page.locator(wide ? ".wide-plate-canvas .tag-pin" : ".look-plate .tag-pin").nth(1);
-  await pin.click();
+  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
+  await page.locator(".look-plate .tag-pin").nth(1).click();
   const card = page.getByRole("dialog", { name: "Selected piece" });
-  if (wide) {
-    await page.locator(".wide-prow.is-on").waitFor({ timeout: 4_000 });
-    await page.getByRole("button", { name: "Save", exact: true }).click();
-  } else {
-    await card.waitFor({ timeout: 4_000 });
-    await page.getByRole("button", { name: "Save look" }).click();
-  }
+  await card.waitFor({ timeout: 4_000 });
+  await page.getByRole("button", { name: "Save look" }).click();
   const sheet = page.locator("[data-vaul-drawer]");
   await sheet.waitFor({ timeout: 5_000 });
   await page.keyboard.press("Escape");
@@ -504,52 +498,17 @@ async function flowEscAccountSheet(page, label) {
     .waitForFunction(() => document.querySelectorAll("[data-vaul-drawer]").length === 0, null, { timeout: 4_000 })
     .then(() => true)
     .catch(() => false);
-  const statePreserved = wide
-    ? (await page.locator(".wide-prow.is-on").count()) === 1 && (await pin.getAttribute("aria-pressed")) === "true"
-    : (await card.count()) === 1;
-  record(`flow.look.esc-account-sheet-${label}`, sheetClosed && statePreserved, `sheetClosed=${sheetClosed} statePreserved=${statePreserved}`);
+  record(`flow.look.esc-account-sheet-${label}`, sheetClosed && (await card.count()) === 1, `sheetClosed=${sheetClosed} card=${await card.count()}`);
 }
 
 /** For every pin on the seed look: select it and check the card hides neither that pin nor any other. */
 async function flowSelectedPinClear(page, label) {
   await goto(page, "/looks/seed-sunday-coat");
-  await page.getByRole("heading", { name: "Sunday Coat", exact: true }).waitFor({ timeout: 10_000 });
-  const wide = page.viewportSize().width >= 768;
-  const pinSelector = wide ? ".wide-plate-canvas .tag-pin" : ".look-plate .tag-pin";
-  const total = await page.locator(pinSelector).count();
-  if (wide) {
-    const selections = [];
-    for (let i = 0; i < total; i += 1) {
-      await page.locator(pinSelector).nth(i).click();
-      const activeRow = page.locator(".wide-prow.is-on");
-      await activeRow.waitFor({ timeout: 4_000 });
-      selections.push(
-        await page.evaluate((index) => {
-          const pins = [...document.querySelectorAll(".wide-plate-canvas .tag-pin")];
-          return {
-            selectedPin: pins[index]?.getAttribute("aria-pressed") === "true",
-            activeRows: document.querySelectorAll(".wide-prow.is-on").length,
-            visiblePins: pins.filter((pin) => {
-              const rect = pin.getBoundingClientRect();
-              return rect.width > 0 && rect.height > 0;
-            }).length,
-            dialogs: document.querySelectorAll('[role="dialog"][aria-label="Selected piece"]').length,
-          };
-        }, i),
-      );
-    }
-    record(
-      `flow.look.wide-pin-selects-row-${label}`,
-      total >= 4 &&
-        selections.length === total &&
-        selections.every((result) => result.selectedPin && result.activeRows === 1 && result.visiblePins === total && result.dialogs === 0),
-      JSON.stringify(selections),
-    );
-    return;
-  }
+  await page.getByRole("heading", { name: "Sunday Coat" }).waitFor({ timeout: 10_000 });
+  const total = await page.locator(".look-plate .tag-pin").count();
   const rows = [];
   for (let i = 0; i < total; i += 1) {
-    await page.locator(pinSelector).nth(i).evaluate((node) => node.click());
+    await page.locator(".look-plate .tag-pin").nth(i).evaluate((node) => node.click());
     await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 4_000 });
     await waitForPinCardPlacement(page);
     rows.push(
@@ -1142,10 +1101,10 @@ const CREATED_LOOK = {
   ...DRAFT,
   title: "Four pins",
   tags: [
-    { id: "pin-style", x: 48, y: 24, name: "Wool Coat", brand: "", price: "", currency: "EUR", url: "", retailerId: "", offers: [], styleId: "style-noir-column" },
-    { id: "pin-b", x: 80, y: 32, name: "Wide Trouser", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/weekday-wide-trouser-black-we121a0aa-q11.html", retailerId: "zalando", offers: [] },
-    { id: "pin-c", x: 40, y: 72, name: "Leather Boot", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/dr-martens-leather-boot-black-dr211b00j-q11.html", retailerId: "zalando", offers: [] },
-    { id: "pin-d", x: 62, y: 80, name: "Knit Scarf", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/pieces-knit-scarf-beige-pe351g0k2-b11.html", retailerId: "zalando", offers: [] },
+    { id: "pin-style", x: 48, y: 40, name: "Wool Coat", brand: "", price: "", currency: "EUR", url: "", retailerId: "", offers: [], styleId: "style-noir-column" },
+    { id: "pin-b", x: 50, y: 70, name: "Wide Trouser", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/weekday-wide-trouser-black-we121a0aa-q11.html", retailerId: "zalando", offers: [] },
+    { id: "pin-c", x: 40, y: 24, name: "Leather Boot", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/dr-martens-leather-boot-black-dr211b00j-q11.html", retailerId: "zalando", offers: [] },
+    { id: "pin-d", x: 62, y: 16, name: "Knit Scarf", brand: "", price: "", currency: "EUR", url: "https://www.zalando.de/pieces-knit-scarf-beige-pe351g0k2-b11.html", retailerId: "zalando", offers: [] },
   ],
 };
 
@@ -1192,24 +1151,6 @@ async function flowPinCardClear(page) {
 
   async function pinsClear(label) {
     await goto(page, path);
-    const wide = page.viewportSize().width >= 768;
-    if (wide) {
-      await page.locator(".wide-prow-hit").first().waitFor({ timeout: 10_000 });
-      const selectedRows = [];
-      for (let index = 0; index < 4; index += 1) {
-        const pin = page.locator(".wide-plate-canvas .tag-pin").nth(index);
-        await pin.click();
-        await page.locator(".wide-prow.is-on").waitFor({ timeout: 4_000 });
-        selectedRows.push(await pin.getAttribute("aria-pressed") === "true");
-      }
-      record(
-        `flow.pins4.wide-row-select-${label}`,
-        selectedRows.length === 4 && selectedRows.every(Boolean) &&
-          (await page.locator(".wide-prow.is-on").count()) === 1,
-        JSON.stringify(selectedRows),
-      );
-      return;
-    }
     await waitForStableLookPins(page, 4);
     const card = page.getByRole("dialog", { name: "Selected piece" });
     const rows = [];
@@ -1389,17 +1330,14 @@ async function screenDesktopLook(page) {
   await page.waitForFunction(
     () => {
       const image = document.querySelector(".wide-plate img");
-      return Boolean(image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0);
+      return Boolean(image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0 && image.style.width);
     },
     null,
     { timeout: 10_000 },
   );
   const portraitCrop = await page.evaluate(() => {
     const plate = document.querySelector(".wide-plate");
-    const canvas = plate.querySelector(".wide-plate-canvas");
-    const image = canvas.querySelector("img");
-    const baked = canvas.dataset.baked === "true";
-    const storedCrop = JSON.parse(canvas.dataset.crop || "null");
+    const image = plate.querySelector("img");
     const width = image.naturalWidth;
     const height = image.naturalHeight;
     const imageRatio = width / height;
@@ -1414,64 +1352,39 @@ async function screenDesktopLook(page) {
       visibleWidth = 1;
       visibleHeight = 1 / ratio;
     }
-    const expected = baked
-      ? { x: 0, y: 0, w: 1, h: 1 }
-      : {
+    const expected = {
       x: Math.max(0, Math.min(1 - visibleWidth, base.x + base.w / 2 - visibleWidth / 2)),
       y: Math.max(0, Math.min(1 - visibleHeight, base.y + base.h / 2 - visibleHeight / 2)),
       w: visibleWidth,
       h: visibleHeight,
     };
-    const hasImageTransform = Boolean(image.style.width && image.style.height);
-    const actual = !hasImageTransform
-      ? { x: 0, y: 0, w: 1, h: 1 }
-      : {
-          x: -parseFloat(image.style.left) / parseFloat(image.style.width),
-          y: -parseFloat(image.style.top) / parseFloat(image.style.height),
-          w: 100 / parseFloat(image.style.width),
-          h: 100 / parseFloat(image.style.height),
-        };
+    const actual = {
+      x: -parseFloat(image.style.left) / parseFloat(image.style.width),
+      y: -parseFloat(image.style.top) / parseFloat(image.style.height),
+      w: 100 / parseFloat(image.style.width),
+      h: 100 / parseFloat(image.style.height),
+    };
     const seedPins = [[48, 38], [50, 26], [74, 52], [48, 88]];
-    const pinCrop = baked && storedCrop ? storedCrop : expected;
     const expectedPinCount = seedPins.filter(([x, y]) =>
-      x / 100 >= pinCrop.x &&
-      x / 100 <= pinCrop.x + pinCrop.w &&
-      y / 100 >= pinCrop.y &&
-      y / 100 <= pinCrop.y + pinCrop.h,
+      x / 100 >= expected.x &&
+      x / 100 <= expected.x + expected.w &&
+      y / 100 >= expected.y &&
+      y / 100 <= expected.y + expected.h,
     ).length;
-    const pinMapError = baked && storedCrop
-      ? Math.max(
-          0,
-          ...[...plate.querySelectorAll("[data-tag-pin]")].map((pin) => {
-            const x = (Number(pin.dataset.imageX) / 100 - storedCrop.x) / storedCrop.w * 100;
-            const y = (Number(pin.dataset.imageY) / 100 - storedCrop.y) / storedCrop.h * 100;
-            return Math.max(Math.abs(parseFloat(pin.style.left) - x), Math.abs(parseFloat(pin.style.top) - y));
-          }),
-        )
-      : 0;
     return {
       natural: { width, height },
-      baked,
-      fit: getComputedStyle(image).objectFit,
-      frameRatio: plate.getBoundingClientRect().width / plate.getBoundingClientRect().height,
-      imageRatio,
       actual,
       expected,
       expectedPinCount,
       actualPinCount: plate.querySelectorAll(".tag-pin").length,
-      pinMapError,
       headBandVisible: expected.y <= 0.1 && expected.y + expected.h > 0.1,
     };
   });
   record(
     "screen.desktop.crop-v-rect-1194",
     portraitCrop.natural.height > portraitCrop.natural.width &&
-    Math.abs(portraitCrop.frameRatio - 3 / 4) < 0.002 &&
-    (!portraitCrop.baked ||
-      (portraitCrop.fit === "contain" && Math.abs(portraitCrop.imageRatio - 3 / 4) < 0.002)) &&
       portraitCrop.headBandVisible &&
       portraitCrop.expectedPinCount === portraitCrop.actualPinCount &&
-      portraitCrop.pinMapError < 0.2 &&
       ["x", "y", "w", "h"].every((key) => Math.abs(portraitCrop.actual[key] - portraitCrop.expected[key]) < 0.002),
     JSON.stringify(portraitCrop),
   );
@@ -2098,7 +2011,7 @@ async function flowShopWholePhoneFlag(page) {
     await page.setViewportSize({ width, height });
     const result = await probe("/looks/seed-sunday-coat");
     wideOn.push(result);
-    const expected = width < 768
+    const expected = width < 1024
       ? result.sheetWhole &&
         result.footerText === "Shop whole look" &&
         !result.footerExternalIcon &&
@@ -2122,7 +2035,7 @@ async function flowShopWholePhoneFlag(page) {
     await page.setViewportSize({ width, height });
     const result = await probe("/looks/seed-sunday-coat");
     const main = wideOn[wideWidths.findIndex((size) => size.width === width)];
-    const unchanged = width < 768
+    const unchanged = width < 1024
       ? result.footerText === "Shop whole look" &&
       !result.footerExternalIcon &&
       result.border === "rgb(17, 17, 17)"

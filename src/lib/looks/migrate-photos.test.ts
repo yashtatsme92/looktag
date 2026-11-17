@@ -8,7 +8,6 @@ import { localStorage } from "../providers/storage/local.ts";
 import { openMemoryPglite } from "../providers/db/pglite.ts";
 import { migrateLookPhotos, parseMigrateCli } from "./migrate-photos.server.ts";
 import type { Sql } from "../db.ts";
-import { contentHash } from "./image-keys.ts";
 
 async function memorySql(): Promise<Sql> {
   const pg = await openMemoryPglite();
@@ -17,7 +16,6 @@ async function memorySql(): Promise<Sql> {
       id text primary key,
       image_src text not null,
       image_variants_json text,
-      crop_json text,
       published boolean not null default true
     )
   `);
@@ -63,21 +61,7 @@ describe("migrateLookPhotos", () => {
     process.env.STORAGE_PUBLIC_BASE_URL = "https://img.example.test";
     try {
       const sql = await memorySql();
-      const crop = { x: 0.125, y: 0, w: 0.75, h: 1 };
-      const legacyImages = {
-        hash: contentHash(jpeg, crop),
-        prefix: "looks/seed/legacy",
-        width: 40,
-        height: 50,
-        files: [],
-      };
-      await sql`
-        insert into looks (id, image_src, crop_json, published)
-        values (${"seed"}, ${"/looks/tiny.jpg"}, ${JSON.stringify(crop)}, ${true})
-      `;
-      await sql`
-        update looks set image_variants_json = ${JSON.stringify(legacyImages)} where id = ${"seed"}
-      `;
+      await sql`insert into looks (id, image_src, published) values (${"seed"}, ${"/looks/tiny.jpg"}, ${true})`;
       await sql`insert into looks (id, image_src, published) values (${"upload"}, ${dataUrl}, ${true})`;
       await sql`insert into looks (id, image_src, published) values (${"draft"}, ${dataUrl}, ${false})`;
 
@@ -109,15 +93,8 @@ describe("migrateLookPhotos", () => {
       `;
       assert.match(seeded[0]?.image_src ?? "", /^https:\/\/img\.example\.test\/looks\/.+\.jpg$/);
       assert.equal(seeded[0]?.image_src.includes("seed"), false);
-      const stored = JSON.parse(seeded[0]?.image_variants_json ?? "{}") as {
-        hash: string;
-        files: { key: string }[];
-        original?: { key: string };
-      };
-      assert.equal(stored.hash, contentHash(jpeg, crop));
+      const stored = JSON.parse(seeded[0]?.image_variants_json ?? "{}") as { files: { key: string }[] };
       assert.ok(stored.files.length >= 6);
-      assert.ok(stored.original);
-      assert.ok((await store.get(stored.original!.key))?.body.byteLength);
       for (const file of stored.files) {
         const object = await store.get(file.key);
         assert.ok(object?.body.byteLength, file.key);
@@ -154,7 +131,7 @@ describe("migrateLookPhotos", () => {
         select image_src, image_variants_json from looks where id = ${"seed"}
       `;
       assert.equal(restored[0]?.image_src, "/looks/tiny.jpg");
-      assert.equal(restored[0]?.image_variants_json, JSON.stringify(legacyImages));
+      assert.equal(restored[0]?.image_variants_json, null);
       for (const file of stored.files) assert.equal(await store.get(file.key), null);
     } finally {
       if (previousBase === undefined) delete process.env.STORAGE_PUBLIC_BASE_URL;

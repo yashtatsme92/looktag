@@ -1,10 +1,8 @@
 import { PublicError } from "../errors/public-error.ts";
-import sharp from "sharp";
 import { storage } from "../providers/storage/index.ts";
 import type { ObjectStorage } from "../providers/storage/types.ts";
 import { encodeLookVariants } from "./image-encode.server.ts";
 import { contentHash, lookPhotoPrefix } from "./image-keys.ts";
-import { centeredCrop, type CropRect } from "./crop.ts";
 import {
   LOOK_IMAGE_CACHE_CONTROL,
   fallbackImageSrc,
@@ -25,7 +23,6 @@ export function decodeDataImage(src: string): Uint8Array {
 
 export async function deleteStoredLookImages(stored: StoredLookImages | null, store: ObjectStorage = storage()): Promise<void> {
   if (!stored) return;
-  if (stored.original?.key) await store.delete(stored.original.key);
   for (const file of stored.files) {
     await store.delete(file.key);
   }
@@ -35,32 +32,17 @@ export async function storeLookPhoto(
   lookId: string,
   bytes: Uint8Array,
   store: ObjectStorage = storage(),
-  options?: { avif?: boolean; crop?: CropRect },
+  options?: { avif?: boolean },
 ): Promise<{ imageSrc: string; images: LookImages; stored: StoredLookImages }> {
-  const metadata = await sharp(bytes, { failOn: "none" }).metadata();
-  const swapsDimensions = metadata.orientation !== undefined && [5, 6, 7, 8].includes(metadata.orientation);
-  const width = swapsDimensions ? (metadata.height ?? 0) : (metadata.width ?? 0);
-  const height = swapsDimensions ? (metadata.width ?? 0) : (metadata.height ?? 0);
-  const crop = options?.crop ?? centeredCrop(width, height);
-  const hash = contentHash(bytes, crop);
+  const hash = contentHash(bytes);
   const prefix = lookPhotoPrefix(lookId, hash);
-  const encoded = await encodeLookVariants(bytes, { ...options, crop });
-  const sourceFormat =
-    metadata.format === "png" || metadata.format === "webp"
-      ? metadata.format
-      : metadata.format === "heif"
-        ? "avif"
-      : "jpeg";
-  const originalContentType = `image/${sourceFormat}`;
-  const originalKey = `${prefix}/original.${sourceFormat === "jpeg" ? "jpg" : sourceFormat}`;
-  await store.put(originalKey, bytes, originalContentType, { cacheControl: LOOK_IMAGE_CACHE_CONTROL });
+  const encoded = await encodeLookVariants(bytes, options);
   const stored: StoredLookImages = {
     hash,
     prefix,
     width: encoded.width,
     height: encoded.height,
     files: [],
-    original: { key: originalKey, contentType: originalContentType, w: metadata.width ?? encoded.width, h: metadata.height ?? encoded.height },
   };
   for (const file of encoded.files) {
     const key = variantKey(prefix, file.size, file.format);
@@ -80,46 +62,15 @@ export async function persistDataUrlPhoto(
   dataUrl: string,
   previousRaw: string | null,
   store: ObjectStorage = storage(),
-  options?: { avif?: boolean; crop?: CropRect },
-): Promise<{ imageSrc: string; images: LookImages; variantsJson: string; crop: CropRect }> {
+): Promise<{ imageSrc: string; images: LookImages; variantsJson: string }> {
   const bytes = decodeDataImage(dataUrl);
-  const metadata = await sharp(bytes, { failOn: "none" }).metadata();
-  const swapsDimensions = metadata.orientation !== undefined && [5, 6, 7, 8].includes(metadata.orientation);
-  const width = swapsDimensions ? (metadata.height ?? 0) : (metadata.width ?? 0);
-  const height = swapsDimensions ? (metadata.width ?? 0) : (metadata.height ?? 0);
-  const crop = options?.crop ?? centeredCrop(width, height);
-  const hash = contentHash(bytes, crop);
+  const hash = contentHash(bytes);
   const previous = parseStoredLookImages(previousRaw);
   if (previous?.hash === hash) {
     const images = toPublicImages(previous);
-    return { imageSrc: fallbackImageSrc(images), images, variantsJson: JSON.stringify(previous), crop };
+    return { imageSrc: fallbackImageSrc(images), images, variantsJson: JSON.stringify(previous) };
   }
-  const saved = await storeLookPhoto(lookId, bytes, store, { ...options, crop });
+  const saved = await storeLookPhoto(lookId, bytes, store);
   if (previous && previous.prefix !== saved.stored.prefix) await deleteStoredLookImages(previous, store);
-  return { imageSrc: saved.imageSrc, images: saved.images, variantsJson: JSON.stringify(saved.stored), crop };
-}
-
-export async function persistStoredPhotoCrop(
-  lookId: string,
-  previousRaw: string | null,
-  crop: CropRect | undefined,
-  store: ObjectStorage = storage(),
-): Promise<{ imageSrc: string; images: LookImages; variantsJson: string; crop: CropRect } | null> {
-  const previous = parseStoredLookImages(previousRaw);
-  if (!previous?.original) return null;
-  const original = await store.get(previous.original.key);
-  if (!original) throw new PublicError("Could not read the original look photo.");
-  const metadata = await sharp(original.body, { failOn: "none" }).metadata();
-  const swapsDimensions = metadata.orientation !== undefined && [5, 6, 7, 8].includes(metadata.orientation);
-  const width = swapsDimensions ? (metadata.height ?? 0) : (metadata.width ?? 0);
-  const height = swapsDimensions ? (metadata.width ?? 0) : (metadata.height ?? 0);
-  const nextCrop = crop ?? centeredCrop(width, height);
-  const saved = await storeLookPhoto(lookId, original.body, store, { crop: nextCrop });
-  if (previous.prefix !== saved.stored.prefix) await deleteStoredLookImages(previous, store);
-  return {
-    imageSrc: saved.imageSrc,
-    images: saved.images,
-    variantsJson: JSON.stringify(saved.stored),
-    crop: nextCrop,
-  };
+  return { imageSrc: saved.imageSrc, images: saved.images, variantsJson: JSON.stringify(saved.stored) };
 }

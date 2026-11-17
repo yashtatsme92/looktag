@@ -15,10 +15,10 @@ export type FeedEntry = {
 };
 
 /** Phone plates are full-bleed. Wide tiles shrink as the grid fills in. */
-export const FEED_GRID_SIZES = "(min-width: 1024px) 25vw, (min-width: 768px) 46vw, 100vw";
+export const FEED_GRID_SIZES = "(min-width: 1440px) 25vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw";
 
 /** Desktop lead is two of three columns. Tablet lead is the full content width. */
-export const FEED_LEAD_SIZES = "(min-width: 1024px) 63vw, 94vw";
+export const FEED_LEAD_SIZES = "(min-width: 1024px) 66vw, 100vw";
 
 export const FEED_PLATE_SIZES = "100vw";
 

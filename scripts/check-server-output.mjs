@@ -236,16 +236,6 @@ async function main() {
         HOME: process.env.HOME,
         NODE_ENV: "production",
         STORAGE_PROVIDER: "s3",
-        // The stub probe runs in a throwaway copy of .output with no DATABASE_URL (the image
-        // build has none), so it opts its own child into ephemeral PGLite. This is scoped to the
-        // probe process only: the image ENV and the server's boot guard are untouched, so
-        // production still refuses to start without DATABASE_URL. `--live` uses the env as set.
-        ...(live
-          ? {
-              ...(process.env.DATABASE_URL ? { DATABASE_URL: process.env.DATABASE_URL } : {}),
-              ...(process.env.LOOKTAG_ALLOW_EPHEMERAL_DB === "1" ? { LOOKTAG_ALLOW_EPHEMERAL_DB: "1" } : {}),
-            }
-          : { LOOKTAG_ALLOW_EPHEMERAL_DB: "1" }),
         ...(live
           ? {
               S3_ENDPOINT: process.env.S3_ENDPOINT,
@@ -289,3 +279,4 @@ async function main() {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   await main();
 }
+

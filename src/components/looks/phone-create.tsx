@@ -73,19 +73,15 @@ type PhoneCreateProps = {
 };
 
 export function PhoneCreate(props: PhoneCreateProps) {
-  const { step, look, mode } = props;
+  const { step } = props;
   useKeyboardDock();
-  const editorLook =
-    mode === "edit" && look.images?.original
-      ? { ...look, imageSrc: look.images.original }
-      : look;
   return (
     <>
       {step === "photo" ? <PhotoEntry {...props} /> : null}
-      {step === "crop" ? <CropStep {...props} look={editorLook} /> : null}
-      {step === "pins" || step === "piece" ? <PinPlate {...props} look={editorLook} /> : null}
-      {step === "details" ? <DetailsStep {...props} look={editorLook} /> : null}
-      {step === "publish" || step === "name" ? <ReadyStep {...props} look={editorLook} /> : null}
+      {step === "crop" ? <CropStep {...props} /> : null}
+      {step === "pins" || step === "piece" ? <PinPlate {...props} /> : null}
+      {step === "details" ? <DetailsStep {...props} /> : null}
+      {step === "publish" || step === "name" ? <ReadyStep {...props} /> : null}
     </>
   );
 }
@@ -234,8 +230,6 @@ function PinPlate({
   mode,
 }: PhoneCreateProps) {
   const unavailable = findState === "unavailable";
-  // Inert until the AI status call settles, so the button never flips from enabled to disabled.
-  const findInert = unavailable || finding || findState === "checking";
   const selected = look.tags.find((tag) => tag.id === selectedId) ?? null;
   const hint = finding ? FIND_PIECES_COPY.finding : suggestNote || "Tap the look to place a pin";
 
@@ -295,11 +289,10 @@ function PinPlate({
               type="button"
               className="create-find"
               onClick={() => {
-                if (findInert) return;
+                if (unavailable || finding) return;
                 onFind();
               }}
-              aria-disabled={findInert ? "true" : undefined}
-              aria-busy={findState === "checking" || finding ? "true" : undefined}
+              aria-disabled={unavailable || finding ? "true" : undefined}
               aria-describedby={unavailable || findMessage ? "create-find-note" : undefined}
             >
               <ScanSearch className="size-4" />

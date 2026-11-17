@@ -48,6 +48,7 @@ export function CropStage({
   const [visible, setVisible] = useState<CropRect | null>(initialCrop ?? null);
   const [zoom, setZoom] = useState(1);
   const [frameSize, setFrameSize] = useState({ w: 1, h: 1 });
+  const [stageSize, setStageSize] = useState({ w: 1, h: 1 });
   const maxZoom = size && baseRef.current ? zoomMaxForCrop(size.w, size.h, baseRef.current) : 1;
   const ready = Boolean(size && visible);
 
@@ -64,6 +65,8 @@ export function CropStage({
     const stage = stageRef.current;
     if (!stage) return;
     const readSize = () => {
+      const stageRect = stage.getBoundingClientRect();
+      setStageSize({ w: stageRect.width || 1, h: stageRect.height || 1 });
       const frame = frameRef.current;
       if (frame) {
         setFrameSize({ w: frame.offsetWidth || 1, h: frame.offsetHeight || 1 });
@@ -179,8 +182,28 @@ export function CropStage({
           top: `${((-visible.y / visible.h) * 100).toFixed(5)}%`,
         }
       : undefined;
-  const pinScale = 1;
-  const pinMarkerScale = 1;
+  const pinPositions = showPins && visible
+    ? tags.map((tag) => ({
+        x: ((tag.x / 100 - visible.x) / visible.w) * 100,
+        y: ((tag.y / 100 - visible.y) / visible.h) * 100,
+      }))
+    : [];
+  const horizontalSpan = pinPositions.length
+    ? Math.max(1, ...pinPositions.map((point) => point.x)) -
+      Math.min(0, ...pinPositions.map((point) => point.x))
+    : 1;
+  const verticalSpan = pinPositions.length
+    ? Math.max(1, ...pinPositions.map((point) => point.y)) -
+      Math.min(0, ...pinPositions.map((point) => point.y))
+    : 1;
+  const pinScale = pinPositions.length
+    ? Math.min(
+        1,
+        Math.max(0.01, (stageSize.w - 60) / (frameSize.w * horizontalSpan)),
+        Math.max(0.01, (stageSize.h - 188) / (frameSize.h * verticalSpan)),
+      )
+    : 1;
+  const pinMarkerScale = 1 / pinScale;
 
   return (
     <div ref={stageRef} className="crop-stage" aria-busy={!ready}>
@@ -195,7 +218,7 @@ export function CropStage({
         <div
           ref={frameRef}
           className="crop-frame"
-          data-crop={visible ? JSON.stringify(visible) : undefined}
+          style={showPins ? { transform: `scale(${pinScale})` } : undefined}
           role="group"
           aria-label="Crop area, use arrow keys to move"
           tabIndex={0}

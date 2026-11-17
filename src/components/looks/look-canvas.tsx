@@ -1,18 +1,15 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { ImagePlus } from "lucide-react";
-import { formatSrcSet, type LookImages } from "@/lib/looks/image-variants";
 import { TagPin } from "@/components/looks/tag-pin";
 import {
   inFrame,
   nudgePinInside,
-  pinInCrop,
 } from "@/lib/looks/pin-map";
 import { centeredCrop, visibleCrop, type CropRect } from "@/lib/looks/crop";
 import type { ProductTag } from "@/lib/looks/types";
 import { cn } from "@/lib/utils";
 
 const PIN_RADIUS_PX = 16;
-const PIN_DOT_RADIUS_PX = 14;
 
 type LookCanvasProps = {
   imageSrc: string;
@@ -31,9 +28,6 @@ type LookCanvasProps = {
   /** Phone create opens the piece card on a tap, not on the drag that starts a move. */
   selectOnTap?: boolean;
   crop?: CropRect;
-  baked?: boolean;
-  images?: LookImages;
-  sizes?: string;
   /** Opens the whole-look shop when some pins sit outside the crop or under the tab bar. */
   onHiddenPieces?: () => void;
 };
@@ -54,9 +48,6 @@ export function LookCanvas({
   onImageTap,
   selectOnTap,
   crop,
-  baked = false,
-  images,
-  sizes = "(min-width: 1024px) 40vw, (min-width: 768px) 50vw, 100vw",
   onHiddenPieces,
 }: LookCanvasProps) {
   const frameRef = useRef<HTMLDivElement>(null);
@@ -65,9 +56,6 @@ export function LookCanvas({
   const [frame, setFrame] = useState<{ w: number; h: number } | null>(null);
   const [maxPinY, setMaxPinY] = useState(100);
   const cropped = fit !== "natural";
-  const avifSrcSet = images ? formatSrcSet(images, "avif") : "";
-  const webpSrcSet = images ? formatSrcSet(images, "webp") : "";
-  const jpegSrcSet = images ? formatSrcSet(images, "jpeg") : "";
 
   useEffect(() => {
     const el = frameRef.current;
@@ -81,8 +69,7 @@ export function LookCanvas({
         return;
       }
       const limit = ((navRect.top - rect.top - PIN_RADIUS_PX) / rect.height) * 100;
-      const maxVisibleY = !editable && window.innerWidth < 768 ? 98 : 100;
-      setMaxPinY(Math.round(Math.min(maxVisibleY, limit) * 2) / 2);
+      setMaxPinY(Math.round(Math.min(100, limit) * 2) / 2);
     };
     update();
     window.addEventListener("scroll", update, { passive: true });
@@ -91,7 +78,7 @@ export function LookCanvas({
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, [editable, imageSrc, frame?.h]);
+  }, [imageSrc, frame?.h]);
 
   useEffect(() => {
     const el = frameRef.current;
@@ -111,7 +98,7 @@ export function LookCanvas({
   }, [imageSrc]);
 
   const cropWindow =
-    cropped && !baked && natural && frame && frame.w > 0 && frame.h > 0
+    cropped && natural && frame && frame.w > 0 && frame.h > 0
       ? visibleCrop(
           crop ?? centeredCrop(natural.w, natural.h),
           natural.w,
@@ -199,9 +186,6 @@ export function LookCanvas({
   return (
     <div
       ref={frameRef}
-      data-crop={crop ? JSON.stringify(crop) : undefined}
-      data-visible-crop={JSON.stringify(cropWindow ?? (baked ? crop : null))}
-      data-baked={baked ? "true" : undefined}
       className={cn(
         "relative overflow-hidden bg-muted",
         !imageSrc && "h-96",
@@ -214,37 +198,30 @@ export function LookCanvas({
       onClick={handleFrameClick}
     >
       {imageSrc ? (
-        <picture className={images ? "contents" : undefined}>
-          {avifSrcSet ? <source type="image/avif" srcSet={avifSrcSet} sizes={sizes} /> : null}
-          {webpSrcSet ? <source type="image/webp" srcSet={webpSrcSet} sizes={sizes} /> : null}
-          <img
-            src={imageSrc}
-            srcSet={jpegSrcSet || undefined}
-            sizes={jpegSrcSet ? sizes : undefined}
-            alt={title || "Look"}
-            draggable={false}
-            onLoad={(event) => {
-              const img = event.currentTarget;
-              if (img.naturalWidth && img.naturalHeight) {
-                setNatural({ w: img.naturalWidth, h: img.naturalHeight });
-              }
-            }}
-            style={
-              imageStyle
-                ? imageStyle
-                : cropped && !baked
-                  ? { visibility: "hidden" }
-                  : undefined
+        <img
+          src={imageSrc}
+          alt={title || "Look"}
+          draggable={false}
+          onLoad={(event) => {
+            const img = event.currentTarget;
+            if (img.naturalWidth && img.naturalHeight) {
+              setNatural({ w: img.naturalWidth, h: img.naturalHeight });
             }
-            className={cn(
-              "look-photo-img block select-none",
-              fit === "natural" && "w-full",
-              fit !== "natural" && !imageStyle && "absolute inset-0 h-full w-full",
-              fit !== "natural" && !imageStyle && (baked ? "object-contain" : "object-cover"),
-              fit !== "natural" && imageStyle && "absolute",
-            )}
-          />
-        </picture>
+          }}
+          style={
+            imageStyle
+              ? imageStyle
+              : cropped
+                ? { visibility: "hidden" }
+                : undefined
+          }
+          className={cn(
+            "look-photo-img block select-none",
+            fit === "natural" && "w-full",
+            fit !== "natural" && !imageStyle && "absolute inset-0 h-full w-full object-cover",
+            fit !== "natural" && imageStyle && "absolute",
+          )}
+        />
       ) : (
         <button
           type="button"
@@ -269,26 +246,21 @@ export function LookCanvas({
         />
       ) : null}
 
-      {showTags && (!cropped || imageStyle || baked)
+      {showTags && (!cropped || imageStyle)
         ? (() => {
             let hidden = 0;
             const pins = tags.flatMap((tag, index) => {
-              const point = baked && crop
-                ? pinInCrop({ x: tag.x, y: tag.y }, crop)
-                : cropWindow
+              const point = cropWindow
                 ? {
                     x: ((tag.x / 100 - cropWindow.x) / cropWindow.w) * 100,
                     y: ((tag.y / 100 - cropWindow.y) / cropWindow.h) * 100,
                   }
                 : { x: tag.x, y: tag.y };
-              const inside = "inside" in point ? point.inside : true;
-              const edgeClearanceY = frame && frame.h > 0 ? (PIN_DOT_RADIUS_PX / frame.h) * 100 : 2;
-              const clippedAtBottom = !editable && point.y > 100 - edgeClearanceY;
-              if (!inside || !inFrame(point) || clippedAtBottom || point.y > maxPinY) {
+              if (!inFrame(point) || point.y > maxPinY) {
                 hidden += 1;
                 return [];
               }
-              const nudge = frame && !baked
+              const nudge = frame
                 ? nudgePinInside(point.x, point.y, frame.w, frame.h)
                 : { dx: 0, dy: 0, leader: false };
               return [
