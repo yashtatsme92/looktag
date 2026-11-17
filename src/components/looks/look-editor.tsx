@@ -117,6 +117,7 @@ export function LookEditor({
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountIntent, setAccountIntent] = useState<CreateResumeIntent>("publish");
   const [aiOn, setAiOn] = useState<boolean | null>(null);
+  const [aiStatusPending, setAiStatusPending] = useState(true);
   const [quotaHit, setQuotaHit] = useState(false);
   const [providerError, setProviderError] = useState(false);
   const [findMessage, setFindMessage] = useState<string | null>(null);
@@ -140,6 +141,9 @@ export function LookEditor({
       })
       .catch(() => {
         if (alive) setAiOn(null);
+      })
+      .finally(() => {
+        if (alive) setAiStatusPending(false);
       });
     return () => {
       alive = false;
@@ -148,6 +152,7 @@ export function LookEditor({
 
   const findState = findPiecesState({
     aiAvailable: aiOn,
+    statusPending: aiStatusPending,
     authEnabled,
     signedIn: Boolean(user),
     quotaHit,
@@ -337,7 +342,7 @@ export function LookEditor({
   }
 
   function requestFind() {
-    if (findState === "unavailable") return;
+    if (findState === "unavailable" || findState === "checking") return;
     if (findState === "gated") {
       openAccount("find");
       return;

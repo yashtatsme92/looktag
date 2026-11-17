@@ -106,6 +106,14 @@ describe("pinInCrop", () => {
     assert.ok(sandals.y > 100);
   });
 
+  it("maps a pin near the crop edge and keeps it within the 3:4 image", () => {
+    const edge = pinInCrop({ x: 99.5, y: 94 }, crop);
+    assert.equal(edge.inside, true);
+    assert.ok(edge.x <= 100 && edge.y <= 100);
+    assert.ok(Math.abs((edge.x / 100) * 390 - 388.05) < 2);
+    assert.ok(Math.abs((edge.y / 100) * 520 - 518.7) < 2);
+  });
+
   it("treats a missing crop as the full photo", () => {
     assert.equal(pinInCrop({ x: 10, y: 10 }, null).inside, true);
     assert.equal(pinInCrop({ x: -2, y: 10 }, null).inside, false);
