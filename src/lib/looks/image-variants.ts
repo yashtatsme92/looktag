@@ -3,14 +3,14 @@
  * WebP is what the feed asks for; JPEG is the fallback. AVIF is optional.
  */
 
-export const LOOK_IMAGE_EDGES = { thumb: 200, card: 600, detail: 1200 } as const;
+export const LOOK_IMAGE_EDGES = { thumb: 200, feed: 600, card: 800, detail: 1440 } as const;
 export const LOOK_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 export const FEED_PLATE_SIZES = "100vw";
 export const FEED_LEAD_SIZES = "(min-width: 1024px) 66vw, 100vw";
 export const FEED_GRID_SIZES = "(min-width: 1440px) 25vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw";
 
-export const LOOK_IMAGE_SIZES = ["thumb", "card", "detail"] as const;
+export const LOOK_IMAGE_SIZES = ["thumb", "feed", "card", "detail"] as const;
 export const LOOK_IMAGE_FORMATS = ["avif", "webp", "jpeg"] as const;
 
 export type LookImageSize = (typeof LOOK_IMAGE_SIZES)[number];
@@ -31,20 +31,23 @@ export type StoredLookImages = {
   width: number;
   height: number;
   files: StoredLookImageFile[];
+  original?: { key: string; contentType: string; w: number; h: number };
 };
 
-export type LookImageSizeUrls = { thumb: string; card: string; detail: string };
+export type LookImageSizeUrls = { thumb: string; feed: string; card: string; detail: string };
 
 /** Returned on the look and from `/api/v1/looks`. Top-level sizes are WebP. */
 export type LookImages = {
   thumb: string;
+  feed: string;
   card: string;
   detail: string;
   jpeg: LookImageSizeUrls;
   avif?: LookImageSizeUrls;
   width: number;
   height: number;
-  srcWidth: { thumb: number; card: number; detail: number };
+  srcWidth: { thumb: number; feed: number; card: number; detail: number };
+  original?: string;
 };
 
 export function variantKey(prefix: string, size: LookImageSize, format: LookImageFormat): string {
@@ -77,7 +80,11 @@ export function parseStoredLookImages(raw: string | null | undefined): StoredLoo
     if (!parsed || typeof parsed.hash !== "string" || typeof parsed.prefix !== "string" || !Array.isArray(parsed.files)) {
       return null;
     }
-    if (parsed.prefix.includes("..") || parsed.files.some((file) => !file?.key || String(file.key).includes(".."))) {
+    if (
+      parsed.prefix.includes("..") ||
+      parsed.files.some((file) => !file?.key || String(file.key).includes("..")) ||
+      (parsed.original && (!parsed.original.key || parsed.original.key.includes("..")))
+    ) {
       return null;
     }
     return parsed as StoredLookImages;
@@ -91,24 +98,28 @@ export function toPublicImages(stored: StoredLookImages, env?: NodeJS.ProcessEnv
     stored.files.find((file) => file.size === size && file.format === format);
   const jpeg = {
     thumb: urlOf(pick("thumb", "jpeg"), env),
+    feed: urlOf(pick("feed", "jpeg"), env),
     card: urlOf(pick("card", "jpeg"), env),
     detail: urlOf(pick("detail", "jpeg"), env),
   };
   const webp = {
     thumb: urlOf(pick("thumb", "webp"), env),
+    feed: urlOf(pick("feed", "webp"), env),
     card: urlOf(pick("card", "webp"), env),
     detail: urlOf(pick("detail", "webp"), env),
   };
   const avifFiles = LOOK_IMAGE_SIZES.map((size) => pick(size, "avif"));
-  const avif = avifFiles.every(Boolean)
+  const avif = avifFiles.some(Boolean)
     ? {
-        thumb: urlOf(avifFiles[0], env),
-        card: urlOf(avifFiles[1], env),
-        detail: urlOf(avifFiles[2], env),
+        thumb: urlOf(pick("thumb", "avif"), env),
+        feed: urlOf(pick("feed", "avif"), env),
+        card: urlOf(pick("card", "avif"), env),
+        detail: urlOf(pick("detail", "avif"), env),
       }
     : undefined;
   return {
     thumb: webp.thumb,
+    feed: webp.feed,
     card: webp.card,
     detail: webp.detail,
     jpeg,
@@ -117,9 +128,11 @@ export function toPublicImages(stored: StoredLookImages, env?: NodeJS.ProcessEnv
     height: stored.height,
     srcWidth: {
       thumb: pick("thumb", "webp")?.w || LOOK_IMAGE_EDGES.thumb,
+      feed: pick("feed", "webp")?.w || LOOK_IMAGE_EDGES.feed,
       card: pick("card", "webp")?.w || LOOK_IMAGE_EDGES.card,
       detail: pick("detail", "webp")?.w || LOOK_IMAGE_EDGES.detail,
     },
+    original: stored.original ? publicStorageUrl(stored.original.key, env) : undefined,
   };
 }
 

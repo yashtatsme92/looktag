@@ -45,7 +45,10 @@ function LookPage() {
   const lookFromStore = useLook(lookId);
   const { user } = useCurrentUserState();
   const chrome = useChromeLayout();
-  const look = lookFromStore ?? (ssrLook && ssrLook.id === lookId ? ssrLook : undefined);
+  const look =
+    ssrLook?.id === lookId && ssrLook.images?.original && !lookFromStore?.images?.original
+      ? ssrLook
+      : lookFromStore ?? (ssrLook && ssrLook.id === lookId ? ssrLook : undefined);
 
   if (!look) {
     return (
@@ -64,7 +67,7 @@ function LookPage() {
 
   return (
     <AppShell title={look.title} backTo="/" flush header="hidden">
-      {chrome === "desktop" ? (
+      {chrome !== "phone" ? (
         <WideLook look={look} userState={state} canEdit={mine} />
       ) : (
         <LookPlate look={look} userState={state} canEdit={mine} />
