@@ -205,7 +205,6 @@ export function LookCanvas({
       className={cn(
         "relative overflow-hidden bg-muted",
         !imageSrc && "h-96",
-        fit !== "fill" && "rounded-xl",
         fit === "cover" && "look-photo-cover",
         fit === "fill" && "h-full w-full rounded-none",
         editable && imageSrc && "cursor-crosshair",
