@@ -4,7 +4,7 @@
  * pages resolve, piece thumbs centre on the pin, Sun-Bleached Linen accounts
  * for every pin, and pins are a 28px mark with no pulse.
  * Also: at 820 every Sunday Coat pin, and at 834 every pin on every seeded
- * look, selects its matching piece in the wide shop panel.
+ * look, has its card beside it and a ≤12px caret whose tip is within 8px.
  * Ghost wide-panel Shop buttons at 1024 and 1112 (1280 stays solid).
  */
 import { chromium } from "playwright";
@@ -30,23 +30,76 @@ function record(name, ok, detail = "") {
   console.log(`${ok ? "ok" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
-/** Every visible pin selects the piece row with the matching pin number. */
-async function assertWidePinRows(page, label) {
+async function measurePinPointer(page) {
+  return page.evaluate(() => {
+    const pointer = document.querySelector(".look-plate-pointer");
+    const pin = document.querySelector('.tag-pin[aria-pressed="true"]');
+    const card = document.querySelector(".look-plate-piece");
+    if (!pointer || !pin || !card) return null;
+    const box = pointer.getBoundingClientRect();
+    const edge = pointer.getAttribute("data-edge");
+    const pinBox = pin.getBoundingClientRect();
+    const cardBox = card.getBoundingClientRect();
+    const tip =
+      edge === "left"
+        ? { x: box.left, y: box.top + box.height / 2 }
+        : edge === "right"
+          ? { x: box.right, y: box.top + box.height / 2 }
+          : edge === "top"
+            ? { x: box.left + box.width / 2, y: box.top }
+            : { x: box.left + box.width / 2, y: box.bottom };
+    const pinCentre = { x: pinBox.left + pinBox.width / 2, y: pinBox.top + pinBox.height / 2 };
+    const nearestX = Math.max(cardBox.left, Math.min(pinCentre.x, cardBox.right));
+    const nearestY = Math.max(cardBox.top, Math.min(pinCentre.y, cardBox.bottom));
+    const gap = Math.hypot(pinCentre.x - nearestX, pinCentre.y - nearestY);
+    const xAligned = pinCentre.x >= cardBox.left - 12 && pinCentre.x <= cardBox.right + 12;
+    const yAligned = pinCentre.y >= cardBox.top - 12 && pinCentre.y <= cardBox.bottom + 12;
+    return {
+      label: pin.getAttribute("aria-label") ?? "",
+      w: box.width,
+      h: box.height,
+      dist: Math.hypot(tip.x - pinCentre.x, tip.y - pinCentre.y),
+      gap,
+      beside: gap >= 16 && gap <= 96 && (xAligned || yAligned),
+      edge,
+      card: { x: Math.round(cardBox.left), y: Math.round(cardBox.top) },
+      pin: { x: Math.round(pinCentre.x), y: Math.round(pinCentre.y) },
+    };
+  });
+}
+
+/** Every visible pin: the card sits beside it and the ≤12px caret tip is within 8px. */
+async function assertEveryPinPointer(page, label) {
   const count = await page.locator(".tag-pin").count();
   record(`${label}.pins`, count > 0, String(count));
   for (let index = 0; index < count; index += 1) {
-    const pin = page.locator(".tag-pin").nth(index);
-    const pinNumber = (await pin.locator(".tag-pin-dot").innerText()).trim();
-    await pin.click();
-    const selectedRow = page.locator(
-      `.wide-prow.is-on .wide-prow-hit[aria-label^="Spotlight piece ${pinNumber},"]`,
+    await page.locator(".tag-pin").nth(index).evaluate((node) => node.click());
+    const ready = await page
+      .waitForFunction(
+        (pinIndex) => {
+          const pins = [...document.querySelectorAll(".tag-pin")];
+          const pin = pins[pinIndex];
+          const card = document.querySelector(".look-plate-piece");
+          const pointer = document.querySelector(".look-plate-pointer");
+          if (!pin || pin.getAttribute("aria-pressed") !== "true" || !card || !pointer) return false;
+          return card.getAnimations().every((animation) => animation.playState === "finished");
+        },
+        index,
+        { timeout: 6_000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    const measured = ready ? await measurePinPointer(page) : null;
+    const ok = Boolean(
+      measured &&
+        measured.w > 0 &&
+        measured.w <= 12 &&
+        measured.h > 0 &&
+        measured.h <= 12 &&
+        measured.dist <= 8 &&
+        measured.beside,
     );
-    const selected = await selectedRow.waitFor({ timeout: 6_000 }).then(() => true).catch(() => false);
-    record(
-      `${label}.pin${index}-selects-row`,
-      selected && (await page.locator(".wide-prow.is-on").count()) === 1,
-      `pin=${pinNumber}`,
-    );
+    record(`${label}.pin${index}`, ok, JSON.stringify(measured));
   }
 }
 
@@ -137,14 +190,23 @@ try {
 
   await page.setViewportSize({ width: 820, height: 1180 });
   await page.goto(`${origin}/looks/seed-sunday-coat`, { waitUntil: "domcontentloaded" });
-  await page.locator(".wide-prow-hit").first().waitFor({ timeout: 12_000 });
   await page.locator(".tag-pin").nth(1).click();
-  await page.locator('.wide-prow.is-on .wide-prow-hit[aria-label^="Spotlight piece 2,"]').waitFor({ timeout: 6_000 });
+  await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 6_000 });
+  const bar = await page.evaluate(() => ({
+    shop: document.querySelectorAll(".look-plate-shop").length,
+    whole: document.querySelectorAll(".look-plate-shop-whole").length,
+    shopText: document.querySelector(".look-plate-shop")?.textContent?.replace(/\s+/g, " ").trim() ?? "",
+    cursor: getComputedStyle(document.querySelector(".look-plate-piece")).cursor,
+  }));
   record(
-    "tablet.wide-panel-pin-selects-piece",
-    (await page.locator(".wide-prow.is-on").count()) === 1,
+    "tablet.bar-keeps-shop",
+    bar.shop === 1 && bar.whole === 0 && bar.shopText === "Shop" && bar.cursor === "pointer",
+    JSON.stringify(bar),
   );
-  await page.locator(".wide-panel-ft button").click();
+  await assertEveryPinPointer(page, "tablet820");
+  await page.locator(".tag-pin").nth(1).evaluate((node) => node.click());
+  const popup = page.waitForEvent("popup", { timeout: 1500 }).then(() => true).catch(() => false);
+  await page.locator(".look-plate-shop").click();
   await page.locator(".look-sheet").waitFor({ timeout: 6_000 });
   await page.waitForTimeout(500);
   const sheet = await page.evaluate(() => {
@@ -154,24 +216,29 @@ try {
       rows: rows.length,
       shops: shops.length,
       thumbs: document.querySelectorAll(".look-sheet-thumb").length,
-      whole: Boolean(document.querySelector(".look-sheet-whole")),
       ghost: shops.every((button) => {
         const style = getComputedStyle(button);
         return style.backgroundColor === "rgba(0, 0, 0, 0)" && style.color === "rgb(17, 17, 17)";
       }),
+      whole: document.querySelector(".look-sheet-whole")?.innerText.replace(/\s+/g, " ").trim() ?? "",
+      icon: Boolean(document.querySelector(".look-sheet-whole svg")),
     };
   });
   record(
-    "tablet.wide-sheet-lists-pieces",
-    sheet.rows === 4 && sheet.shops === 4 && sheet.thumbs === 4 && sheet.ghost && !sheet.whole,
+    "tablet.sheet-lists-pieces",
+    sheet.rows === 4 && sheet.shops === 4 && sheet.thumbs === 4 && sheet.ghost && sheet.whole === "Shop whole look" && !sheet.icon,
     JSON.stringify(sheet),
   );
+  await page.locator(".look-sheet-whole").click();
+  await page.waitForTimeout(400);
+  const stayed = page.url().includes("/looks/seed-sunday-coat");
+  const stillOpen = (await page.locator(".look-sheet-row").count()) === 4;
+  record("tablet.whole-stays-on-sheet", stayed && stillOpen && (await popup) === false, page.url());
 
   await page.setViewportSize({ width: 834, height: 1194 });
   for (const look of SEED_LOOKS) {
     await openLook(page, look.id);
-    await page.locator(".wide-prow-hit").first().waitFor({ timeout: 12_000 });
-    await assertWidePinRows(page, `tablet834.${look.id}`);
+    await assertEveryPinPointer(page, `tablet834.${look.id}`);
   }
 
   for (const viewport of [

@@ -73,19 +73,15 @@ type PhoneCreateProps = {
 };
 
 export function PhoneCreate(props: PhoneCreateProps) {
-  const { step, look, mode } = props;
+  const { step } = props;
   useKeyboardDock();
-  const editorLook =
-    mode === "edit" && look.images?.original
-      ? { ...look, imageSrc: look.images.original }
-      : look;
   return (
     <>
       {step === "photo" ? <PhotoEntry {...props} /> : null}
-      {step === "crop" ? <CropStep {...props} look={editorLook} /> : null}
-      {step === "pins" || step === "piece" ? <PinPlate {...props} look={editorLook} /> : null}
-      {step === "details" ? <DetailsStep {...props} look={editorLook} /> : null}
-      {step === "publish" || step === "name" ? <ReadyStep {...props} look={editorLook} /> : null}
+      {step === "crop" ? <CropStep {...props} /> : null}
+      {step === "pins" || step === "piece" ? <PinPlate {...props} /> : null}
+      {step === "details" ? <DetailsStep {...props} /> : null}
+      {step === "publish" || step === "name" ? <ReadyStep {...props} /> : null}
     </>
   );
 }

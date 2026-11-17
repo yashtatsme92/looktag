@@ -236,9 +236,6 @@ async function main() {
         HOME: process.env.HOME,
         NODE_ENV: "production",
         STORAGE_PROVIDER: "s3",
-        ...(process.env.LOOKTAG_ALLOW_EPHEMERAL_DB === "1"
-          ? { LOOKTAG_ALLOW_EPHEMERAL_DB: "1" }
-          : {}),
         ...(live
           ? {
               S3_ENDPOINT: process.env.S3_ENDPOINT,
@@ -282,3 +279,4 @@ async function main() {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   await main();
 }
+
