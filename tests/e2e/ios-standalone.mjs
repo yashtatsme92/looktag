@@ -6,6 +6,7 @@
  * env(safe-area-inset-*), so the top inset is checked on the shipped CSS rules.
  */
 import { chromium } from "playwright";
+import { assertForYouSnap, applySafeAreaInsets, FEED_SAFE_AREA } from "./feed-snap.mjs";
 import { resolveOrigin, withPage } from "./helpers.mjs";
 
 const origin = resolveOrigin();
@@ -179,6 +180,18 @@ try {
       { viewport: { width: c.width, height: c.height } },
     );
   }
+  await withPage(
+    browser,
+    origin,
+    async (page) => {
+      await emulateStandalone(page, 34);
+      await applySafeAreaInsets(page, FEED_SAFE_AREA);
+      const failures = await assertForYouSnap(page, "ios-standalone.feed-snap", { safeTop: FEED_SAFE_AREA.top });
+      if (failures.length) failed = true;
+    },
+    "ios-standalone-feed-snap",
+    { viewport: { width: 390, height: 844 } },
+  );
 } finally {
   await browser.close();
 }

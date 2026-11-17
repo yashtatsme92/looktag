@@ -75,6 +75,7 @@ function measurePhotos(scope) {
       sized: Boolean(img.style.width) || host.matches(".look-photo-cover, .wide-plate-canvas, .create-plate-canvas"),
       baked: host.dataset.baked === "true",
       lookSurface: host.matches(".look-photo-cover, .wide-plate-canvas, .create-plate-canvas, .echo-photo, .wide-lead-photo, .wide-leadcard, .wide-tile"),
+      echoPhoto: host.matches(".echo-photo"),
       rect: { left: r.left, top: r.top, w: r.width, h: r.height },
       nw: img.naturalWidth,
       nh: img.naturalHeight,
@@ -212,12 +213,25 @@ async function coverSurfaces(browser, viewport) {
       const pages = ["/", "/houses"];
       const visit = async (path, name) => {
         await page.goto(`${origin}${path}`, { waitUntil: "domcontentloaded" });
+        // Home is phone Echo until the client measures the viewport. Wide tiles
+        // are the 3:4 surfaces; don't score the full-bleed phone snap first.
+        await page.waitForFunction((width) => {
+          const chrome = document.documentElement.getAttribute("data-chrome");
+          if (width >= 1024) return chrome === "desktop";
+          if (width >= 768) return chrome === "tablet";
+          return chrome === "phone";
+        }, viewport.width, { timeout: 15_000 });
+        if (path === "/" && viewport.width >= 768) {
+          await page.locator(".wide-home").waitFor({ timeout: 15_000 });
+        }
         await waitForNetworkReady(page);
         await page.waitForTimeout(300);
         const photos = (await page.evaluate(measurePhotos, "body")).filter((m) => m.loaded && m.nw > 64);
         record(`${name}@${viewport.width}.photos-found`, photos.length > 0, String(photos.length));
         photos.forEach((m, i) => {
-          if (m.lookSurface) checkThreeFour(`${name}@${viewport.width}.${i}`, m);
+          // Phone For You snap is full-bleed, not a 3:4 tile (2.5.47). Tablet and desktop tiles stay 3:4.
+          const phoneEcho = m.echoPhoto && viewport.width < 768;
+          if (m.lookSurface && !phoneEcho) checkThreeFour(`${name}@${viewport.width}.${i}`, m);
           record(`${name}@${viewport.width}.${i}.not-stretched`, NOT_STRETCHED.includes(m.fit), m.fit);
           if (m.fit === "cover") {
             const natural = m.nw / m.nh;
