@@ -1287,11 +1287,6 @@ html[data-theme="moss"] {
     cursor: not-allowed;
   }
 
-  /* Checking AI status: inert, but not "not allowed" yet. */
-  .create-find[aria-busy="true"] {
-    cursor: progress;
-  }
-
   .create-pin-find {
     flex-direction: column;
     align-items: center;
