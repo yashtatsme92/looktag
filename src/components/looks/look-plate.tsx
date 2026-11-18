@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Keyboar
 import { publicUrl } from "@/lib/site/public-url";
 import { createPortal } from "react-dom";
 import { useNavigate, useRouter, Link } from "@tanstack/react-router";
-import { ChevronLeft, ExternalLink, Pencil, Radio, Share2, X } from "lucide-react";
+import { ChevronLeft, Pencil, Radio, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { FollowButton } from "@/components/home/follow-button";
@@ -532,7 +532,6 @@ export function LookPlate({
               onClick={() => (look.tags.length ? openShopSheet(Boolean(spotlight) && !flagPhone) : toast.message("No pieces on this look yet"))}
             >
               Shop
-              <ExternalLink className="size-4" />
             </button>
           ) : null}
         </div>
