@@ -1,3 +1,5 @@
+import { couldNot } from "../errors/copy.ts";
+
 const AI_EDGE = 960;
 const AI_QUALITY = 0.72;
 
@@ -44,7 +46,7 @@ function readFileBytes(file: File, onRatio: (ratio: number) => void): Promise<Ui
       onRatio(1);
       resolve(new Uint8Array(reader.result as ArrayBuffer));
     };
-    reader.onerror = () => reject(new Error("Could not read that photo."));
+    reader.onerror = () => reject(new Error(couldNot("read that photo")));
     reader.readAsArrayBuffer(file);
   });
 }
@@ -52,7 +54,7 @@ function readFileBytes(file: File, onRatio: (ratio: number) => void): Promise<Ui
 export async function imageSrcToDataUrl(src: string): Promise<string> {
   if (src.startsWith("data:")) return compressDataUrl(src, AI_EDGE, AI_QUALITY);
   const response = await fetch(src);
-  if (!response.ok) throw new Error("Could not read that photo.");
+  if (!response.ok) throw new Error(couldNot("read that photo"));
   const blob = await response.blob();
   return bitmapToJpeg(await loadImage(blob), AI_EDGE, AI_QUALITY);
 }
@@ -91,7 +93,7 @@ function loadUrl(url: string, revoke = false): Promise<HTMLImageElement> {
     };
     img.onerror = () => {
       if (revoke) URL.revokeObjectURL(url);
-      reject(new Error("Could not read that photo."));
+      reject(new Error(couldNot("read that photo")));
     };
     img.src = url;
   });

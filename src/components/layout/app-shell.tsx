@@ -15,6 +15,7 @@ import { requestInstallSheet, startInstallCapture } from "@/lib/pwa/display";
 import { useStandaloneDisplay } from "@/lib/pwa/use-display";
 import { useSettingsStore } from "@/lib/settings/store";
 import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
+import { COPY, offlineNow } from "@/lib/errors/copy";
 
 export type AppShellProps = {
   children: ReactNode;
@@ -89,6 +90,7 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
   const chrome = useChromeLayout();
   const screenRef = useRef<HTMLDivElement>(null);
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
+  const [offline, setOffline] = useState(false);
 
   useLayoutEffect(() => {
     setPortalEl(screenRef.current);
@@ -100,6 +102,17 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
     hydrateSettings();
     startInstallCapture();
   }, [hydrateLooks, hydrateCatalog, hydrateSettings]);
+
+  useEffect(() => {
+    const sync = () => setOffline(offlineNow());
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
 
   const root = largeTitle ?? isTabRoot(pathname);
   const resolvedTitle = title ?? inferTitle(pathname);
@@ -134,7 +147,15 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
               root={root}
             />
           )}
-          <main id="native-main" data-scroll-restoration-id="native-main" className={flush ? "native-main native-main-flush" : "native-main"}>{children}<SiteFooter /></main>
+          <main id="native-main" data-scroll-restoration-id="native-main" className={flush ? "native-main native-main-flush" : "native-main"}>
+            {offline ? (
+              <p className="offline-banner" role="status" aria-live="polite">
+                {COPY.offline}
+              </p>
+            ) : null}
+            {children}
+            <SiteFooter />
+          </main>
           {isFocusedRoute(pathname) ? null : <TabBar />}
           <InstallSheet />
         </div>

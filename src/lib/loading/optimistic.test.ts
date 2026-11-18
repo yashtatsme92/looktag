@@ -58,7 +58,7 @@ test("useOptimisticSave reverts when the write fails", async () => {
   );
   assert.equal(on, false);
   assert.equal(save.phase, "error");
-  assert.equal(save.error, "Could not update Scouted.");
+  assert.equal(save.error, "We couldn't update Scouted. Please try again.");
 });
 
 test("useOptimisticSave keeps the last write when toggled twice", async () => {

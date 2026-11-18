@@ -17,7 +17,7 @@ describe("ai provider", () => {
     process.env.AI_PROVIDER = "stub";
     try {
       const vision = await describeImage("secret", { messages: [] });
-      assert.deepEqual(vision, { ok: false, error: "AI is not available in this environment." });
+      assert.deepEqual(vision, { ok: false, error: "We can't find pieces in the photo right now. You can still pin them yourself." });
       assert.equal(await searchProducts({ apiKey: "secret", model: "m", prompt: "p", domains: [] }), null);
     } finally {
       if (previous === undefined) delete process.env.AI_PROVIDER;

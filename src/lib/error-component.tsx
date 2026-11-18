@@ -2,6 +2,7 @@ import type { ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect } from "react";
 import { TriangleAlert } from "lucide-react";
 import { captureException } from "@/lib/providers/errors";
+import { COPY } from "@/lib/errors/copy";
 import { userMessage } from "@/lib/errors/user-message";
 
 export function AppErrorComponent({ error }: ErrorComponentProps) {
@@ -18,6 +19,7 @@ export function AppErrorComponent({ error }: ErrorComponentProps) {
   return (
     <main
       data-screen="error"
+      role="alert"
       className={
         "flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center " +
         "bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50"
@@ -27,9 +29,19 @@ export function AppErrorComponent({ error }: ErrorComponentProps) {
         <TriangleAlert className="size-10" strokeWidth={2} />
       </span>
       <h1 className="text-lg font-semibold">Something went wrong</h1>
-      <p className="max-w-md text-sm break-words text-zinc-500 dark:text-zinc-400">
-        {userMessage(error, "An unexpected error occurred. Try reloading the page.")}
-      </p>
+      <p className="max-w-md text-sm break-words text-zinc-500 dark:text-zinc-400">{userMessage(error)}</p>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white"
+          onClick={() => window.location.reload()}
+        >
+          {COPY.reload}
+        </button>
+        <a href="/" className="inline-flex h-11 items-center justify-center rounded-md px-4 text-sm font-medium underline-offset-4 hover:underline">
+          {COPY.backToLooks}
+        </a>
+      </div>
     </main>
   );
 }

@@ -23,7 +23,7 @@ test("AI off is unavailable for guests and members", () => {
   assert.equal(findPiecesState({ ...base, aiAvailable: false }), "unavailable");
   assert.equal(findPiecesState({ ...base, aiAvailable: false, signedIn: false }), "unavailable");
   assert.equal(findPiecesState({ ...base, providerError: true }), "unavailable");
-  assert.equal(FIND_PIECES_COPY.unavailable, "AI find isn’t available right now.");
+  assert.equal(FIND_PIECES_COPY.unavailable, "We can't find pieces in the photo right now. You can still pin them yourself.");
 });
 
 test("over quota is quota, never unavailable", () => {

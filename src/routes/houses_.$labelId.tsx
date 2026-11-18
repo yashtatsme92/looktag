@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
+import { InlineLoadError } from "@/components/errors/load-error";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { Button } from "@/components/ui/button";
 import { FadeLayer } from "@/components/ds/fade-layer";
@@ -216,7 +217,7 @@ function HouseProfile() {
     >
       <FadeLayer stateKey={stateKey}>
         {houseLoad.error ? (
-          <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
+          <InlineLoadError />
         ) : houseLoad.skeleton ? (
           <article className="house-profile">
             {label ? <HouseHeader label={label} cover={cover} following={following} onFollow={follow} /> : null}

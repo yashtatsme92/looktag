@@ -9,6 +9,7 @@ import { visibleOauthProviders } from "@/lib/settings/model";
 import { useSettingsStore } from "@/lib/settings/store";
 import "./account-sheet.css";
 import { userMessage } from "@/lib/errors/user-message";
+import { COPY, offlineNow } from "@/lib/errors/copy";
 
 export function AccountSheet({
   open,
@@ -80,6 +81,11 @@ export function AccountSheet({
     if (intent === "save" && pendingSave) rememberPendingSave(pendingSave);
     continuing.current = true;
     setError("");
+    if (offlineNow()) {
+      setError(COPY.offline);
+      continuing.current = false;
+      return;
+    }
     setBusy(true);
     const unlock = window.setTimeout(() => {
       setBusy(false);
@@ -96,7 +102,7 @@ export function AccountSheet({
       window.clearTimeout(unlock);
       setBusy(false);
       continuing.current = false;
-      setError(userMessage(err, "Sign-in did not complete."));
+      setError(userMessage(err, COPY.signInFailed));
     });
   }
 

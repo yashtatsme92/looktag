@@ -5,6 +5,7 @@ import { AccountSheet } from "@/components/home/account-sheet";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { Skeleton, SkeletonGrid } from "@/components/ds/skeleton";
 import { toast } from "sonner";
+import { COPY } from "@/lib/errors/copy";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { signOut } from "@/lib/auth/client";
 import type { AppUser } from "@/lib/auth/use-current-user";
@@ -91,7 +92,14 @@ function SavedPane({
   const savedLoad = useCachedLoad(saved, `you:saved:${saved.map((look) => look.id).join(",") || "empty"}`);
   if (savedLoad.skeleton) return <SkeletonGrid count={4} captions />;
   if (savedLoad.error) {
-    return <p className="you-empty-body">Couldn't load this. Try again</p>;
+    return (
+      <div className="you-empty-body" role="alert" aria-live="polite">
+        <p>{COPY.loadSaved}</p>
+        <button type="button" className="house-ghost mt-3" onClick={() => window.location.reload()}>
+          {COPY.tryAgain}
+        </button>
+      </div>
+    );
   }
   if (saved.length === 0) {
     return (

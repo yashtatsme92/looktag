@@ -1,3 +1,4 @@
+import { COPY } from "../errors/copy.ts";
 import { describeImage } from "@/lib/providers/ai";
 
 const MAX_ITEMS = 3;
@@ -48,7 +49,7 @@ Rules:
         .filter((row): row is VisionItem => Boolean(row))
     : [];
   if (items.length === 0) {
-    return { ok: false, error: "The photo did not yield any wearable pieces. Try a clearer full-body shot." };
+    return { ok: false, error: COPY.photoNoPieces };
   }
   return { ok: true, items };
 }
@@ -89,7 +90,7 @@ Rules:
   const parsed = extractJson(result.text);
   const item = asVisionItem(parsed);
   if (!item) {
-    return { ok: false, error: "Could not tell what is under that pin. Try a name, then search again." };
+    return { ok: false, error: COPY.pinUnknown };
   }
   return { ok: true, item };
 }

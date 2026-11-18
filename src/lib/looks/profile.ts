@@ -1,5 +1,6 @@
 import { parseHandle } from "./handle.ts";
 import { DEFAULT_ADMIN_EMAIL } from "../admin/access.ts";
+import { COPY } from "../errors/copy.ts";
 
 export type ProfileFields = {
   name: string;
@@ -51,7 +52,7 @@ export function parseProfileFields(input: {
       },
     };
   }
-  if (!EMAIL_RE.test(email)) return { ok: false, error: "Use a valid email." };
+  if (!EMAIL_RE.test(email)) return { ok: false, error: COPY.validEmail };
 
   const newPassword = (input.newPassword ?? "").trim();
   if (newPassword && newPassword.length < 8) {

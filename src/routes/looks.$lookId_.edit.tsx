@@ -66,6 +66,7 @@ function EditLook() {
     return (
       <AppShell title="Edit" backTo="/">
         <h1 className="font-display text-4xl">Look not found</h1>
+        <p className="mt-3 text-muted-foreground">It may have been deleted.</p>
         <Button asChild className="mt-6">
           <Link to="/">Back to looks</Link>
         </Button>

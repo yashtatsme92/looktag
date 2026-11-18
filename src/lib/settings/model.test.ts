@@ -188,7 +188,7 @@ describe("pickSettingsPatch", () => {
   it("rejects unknown splash ids on writes", () => {
     assert.throws(
       () => pickSettingsPatch({ splashId: "neon" as never }),
-      /Invalid splash design/,
+      /That splash design isn't valid/,
     );
   });
 

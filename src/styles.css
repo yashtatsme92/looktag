@@ -277,6 +277,30 @@ html.overlay-lock {
   opacity: 1;
 }
 
+.img-slot-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--muted-foreground, #71717a);
+}
+
+.offline-banner {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  background: #111;
+  color: #fff;
+}
+
 .img-slot.img-slot-fill {
   width: 100%;
   height: 100%;

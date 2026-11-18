@@ -1,3 +1,4 @@
+import { COPY, looksLikeCode, mapAuthCode, mapKnownMessage, phraseKey, readErrorParts } from "./copy.ts";
 import { FRIENDLY_ERRORS } from "./public-error.ts";
 
 /**
@@ -34,25 +35,42 @@ export function looksTechnical(message: string): boolean {
   return TECHNICAL.some((pattern) => pattern.test(message));
 }
 
+function soften(message: string): string {
+  return mapKnownMessage(message) ?? message;
+}
+
 /**
  * The sentence to show for a caught error. Keeps short, human messages
- * (validation, "That handle is already taken.") and swaps anything internal
- * for `fallback`. Use it at every `toast.error` / inline error that renders a
- * caught value.
+ * (validation, "That handle is already taken.") and swaps anything internal,
+ * plus raw auth or provider text, for a shopper sentence.
  */
 export function userMessage(error: unknown, fallback: string = FRIENDLY_ERRORS.generic): string {
-  const raw =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : error && typeof error === "object" && typeof (error as { message?: unknown }).message === "string"
-          ? (error as { message: string }).message
-          : "";
-  const message = raw.trim();
-  if (!message) return fallback;
+  const parts = readErrorParts(error);
+  const safeFallback = soften(fallback);
+  if (parts.status === 429) return COPY.rateLimit;
+  const fromCode = mapAuthCode(parts.code);
+  if (fromCode && fromCode !== COPY.generic) return fromCode;
+  const message = parts.message;
+  if (!message) return fromCode ?? safeFallback;
   if (message === "Unauthorized") return FRIENDLY_ERRORS.signIn;
   if (NETWORK.test(message)) return FRIENDLY_ERRORS.offline;
-  if (message.length > 200 || looksTechnical(message)) return fallback;
+  if (message.length > 200 || looksTechnical(message)) return safeFallback;
+  const known = mapKnownMessage(message);
+  if (known) return known;
+  if (looksLikeCode(message) || !/\s/.test(message)) return FRIENDLY_ERRORS.generic;
+  if (fromCode === COPY.generic && (looksLikeCode(parts.code) || phraseKey(message) === phraseKey(parts.code))) {
+    return FRIENDLY_ERRORS.generic;
+  }
+  if (looksLikeCode(parts.code) && phraseKey(message) === phraseKey(parts.code)) return FRIENDLY_ERRORS.generic;
   return message;
+}
+
+/** Sign-in and sign-out paths. Same map as userMessage, including status and code. */
+export function authErrorMessage(error: unknown, fallback: string = FRIENDLY_ERRORS.generic): string {
+  return userMessage(error, fallback);
+}
+
+/** Find and shop-search results. Never returns vendor or operator text. */
+export function presentFindError(error: unknown): string {
+  return userMessage(error, COPY.findUnavailable);
 }

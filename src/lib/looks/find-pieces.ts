@@ -1,3 +1,5 @@
+import { COPY } from "../errors/copy.ts";
+
 /**
  * "Find pieces in photo" availability (#203 Product lock a).
  * Pure so unit tests can drive every state.
@@ -10,9 +12,9 @@ export type FindPiecesState = "checking" | "free" | "gated" | "unavailable" | "q
 
 export const FIND_PIECES_COPY = {
   gatedTitle: "Sign in to find pieces",
-  unavailable: "AI find isn’t available right now.",
-  quota: "AI find limit reached — try again later.",
-  empty: "No pieces found — tap to pin",
+  unavailable: COPY.findUnavailable,
+  quota: COPY.findQuota,
+  empty: COPY.findEmpty,
   finding: "Finding…",
 } as const;
 
@@ -38,14 +40,18 @@ export function isAiQuotaError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const e = error as { status?: unknown; name?: unknown; message?: unknown };
   if (e.status === 429 || e.name === "RateLimitError") return true;
-  return typeof e.message === "string" && /too many ai searches|rate limit/i.test(e.message);
+  return (
+    typeof e.message === "string" &&
+    /too many ai searches|rate limit|today's find limit|find limit reached/i.test(e.message)
+  );
 }
 
 /**
- * Server-side "AI is not available" and raw provider failures ("Could not reach Grok.", "xAI API error 503")
- * → Unavailable helper copy. Vendor names never reach the UI (platform-agnostic).
+ * Provider failures and the old "not available" wording still classify as unavailable.
+ * The sentence a person sees is FIND_PIECES_COPY.unavailable.
  */
 export function isAiUnavailableMessage(message: string): boolean {
+  if (message === COPY.findUnavailable) return true;
   return /ai is not available|could not reach|\bapi error\b|\bgrok\b|\bxai\b/i.test(message);
 }
 

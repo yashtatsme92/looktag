@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
+import { InlineLoadError } from "@/components/errors/load-error";
 import { FadeLayer } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
@@ -60,7 +61,7 @@ export const Route = createFileRoute("/houses_/$labelId_/$collectionId_/$styleId
   },
   head: ({ loaderData }) => {
     if (!loaderData || isDeferred(loaderData) || loaderData.page || !loaderData.open) return {};
-    return { meta: [{ title: "Style not found — Looktag" }, { name: "robots", content: "noindex" }] };
+    return { meta: [{ title: "Style not found, Looktag" }, { name: "robots", content: "noindex" }] };
   },
   pendingMs: 300,
   pendingMinMs: 420,
@@ -84,6 +85,7 @@ function StylePage() {
     return (
       <AppShell title="Style" backTo={`/houses/${labelId}`}>
         <h1 className="ds-screen-title">Style not found</h1>
+        <p className="mt-3 text-muted-foreground">This style is not on Looktag yet.</p>
         <Button asChild className="mt-6">
           <Link to="/houses/$labelId" params={{ labelId }}>
             Back to house
@@ -99,7 +101,7 @@ function StylePage() {
     <AppShell title="Style" backTo={page ? `/houses/${page.labelId}/${page.lineSlug}` : `/houses/${labelId}/${collectionId}`}>
       <FadeLayer stateKey={stateKey}>
         {styleLoad.error ? (
-          <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
+          <InlineLoadError />
         ) : styleLoad.skeleton ? (
           <SkeletonGrid count={2} lead={false} />
         ) : pending ? (

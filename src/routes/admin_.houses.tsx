@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AdminGate } from "@/components/admin/admin-gate";
 import { AppShell } from "@/components/layout/app-shell";
 import { SaveStatus } from "@/components/ds/save-status";
+import { InlineLoadError } from "@/components/errors/load-error";
 import { SkeletonAdminRow } from "@/components/ds/skeleton";
 import { listAdminHouses, setHouseStatus, setLabelScouted, type AdminHouse } from "@/lib/labels/api";
 import { houseQueueActions, queueStatusLabel, type HouseQueueAction } from "@/lib/labels/model";
@@ -76,7 +77,7 @@ function Queue({
   return (
     <section className="ops-queue">
       <h2 className="ops-section">{title}</h2>
-      {phase === "error" ? <p className="ops-lead">Couldn't load houses.</p> : null}
+      {phase === "error" ? <InlineLoadError /> : null}
       {phase === "ready" && houses.length === 0 ? <p className="ops-lead">{empty}</p> : null}
       {phase === "skeleton" || (phase === "ready" && houses.length > 0) ? (
         <div className="ops-table" role="table" aria-label={title}>

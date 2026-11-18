@@ -12,6 +12,7 @@ import { SavedLooks } from "@/components/looks/saved-looks";
 import { Button } from "@/components/ui/button";
 import { isAdminEmail, resolveYouSessionState, youSessionSignedIn } from "@/lib/admin/access";
 import { authEnabled, signOut } from "@/lib/auth/client";
+import { COPY } from "@/lib/errors/copy";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getMyHouse } from "@/lib/labels/api";
 import { SCOUTED_FLAG, type FashionLabel } from "@/lib/labels/model";
@@ -56,6 +57,7 @@ function CreatorPage() {
   );
   const [house, setHouse] = useState<FashionLabel | null>(null);
   const [sessionAction, setSessionAction] = useState<"signout" | "switch" | null>(null);
+  const [signOutError, setSignOutError] = useState("");
   const mine = youSessionSignedIn(sessionState) && Boolean(user && user.id === userId);
   const allLooks = useLooksStore((s) => s.looks);
   const storeLooks = useMemo(
@@ -275,7 +277,11 @@ function CreatorPage() {
               className="flex min-h-14 w-full items-center gap-3 border-t border-border px-4 text-left text-sm font-medium transition-[box-shadow,border-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 first:border-t-0 disabled:opacity-60"
               onClick={() => {
                 setSessionAction("switch");
-                void signOut("/login").catch(() => setSessionAction(null));
+                setSignOutError("");
+                void signOut("/login").catch(() => {
+                  setSessionAction(null);
+                  setSignOutError(COPY.signOutFailed);
+                });
               }}
             >
               {sessionAction === "switch" ? "Switching account…" : "Switch account"}
@@ -288,13 +294,22 @@ function CreatorPage() {
               className="flex min-h-14 w-full items-center gap-3 border-t border-border px-4 text-left text-sm font-medium text-destructive transition-[box-shadow,border-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 first:border-t-0 disabled:opacity-60"
               onClick={() => {
                 setSessionAction("signout");
-                void signOut().catch(() => setSessionAction(null));
+                setSignOutError("");
+                void signOut().catch(() => {
+                  setSessionAction(null);
+                  setSignOutError(COPY.signOutFailed);
+                });
               }}
             >
               {sessionAction === "signout" ? "Signing out…" : "Sign out"}
             </button>
           ) : null}
         </div>
+      ) : null}
+      {signOutError ? (
+        <p role="alert" aria-live="assertive" className="mb-6 text-sm text-destructive">
+          {signOutError}
+        </p>
       ) : null}
 
       {looks.length > 0 ? (

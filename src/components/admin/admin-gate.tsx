@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { AccountSheet } from "@/components/home/account-sheet";
+import { couldNot } from "@/lib/errors/copy";
 import { AppShell } from "@/components/layout/app-shell";
 import { Skeleton } from "@/components/ds";
 import { FadeLayer } from "@/components/ds/fade-layer";
@@ -155,7 +156,7 @@ export function AdminHubBody({ linked }: { linked: boolean }) {
                     <span className="flag-row-meta">
                       <span className="flag-pill">{flag.scope}</span>
                       <span className="flag-row-state" aria-live="polite">
-                        {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : state === "error" ? flagError || "Could not save." : flagStatus(on, flag)}
+                        {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : state === "error" ? flagError || couldNot("save") : flagStatus(on, flag)}
                       </span>
                     </span>
                   </div>

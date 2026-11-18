@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { HouseCard } from "@/components/labels/house-card";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
+import { InlineLoadError } from "@/components/errors/load-error";
 import { FadeLayer } from "@/components/ds/fade-layer";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { HousesIndexPending } from "@/components/ds/route-pending";
@@ -153,7 +154,7 @@ function HousesPage() {
       </div>
       <FadeLayer stateKey={housesLoad.error ? "error" : housesLoad.skeleton ? "skeleton" : housesLoad.waiting ? "waiting" : "ready"}>
       {housesLoad.error ? (
-        <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
+        <InlineLoadError />
       ) : housesLoad.skeleton ? (
         <SkeletonGrid count={8} captions />
       ) : housesLoad.waiting ? (

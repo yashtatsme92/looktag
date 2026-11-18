@@ -1,3 +1,5 @@
+import { COPY } from "./copy.ts";
+
 /**
  * Error messages that are safe to show a person.
  *
@@ -9,12 +11,12 @@
  */
 
 export const FRIENDLY_ERRORS = {
-  generic: "Something went wrong on our side. Please try again in a moment.",
-  photoUpload: "We couldn't upload your photo right now. Please try again in a moment.",
-  offline: "We couldn't reach LookTag. Check your connection and try again.",
-  invalidInput: "Some of that didn't look right. Check it and try again.",
-  forbidden: "You don't have access to do that.",
-  signIn: "Sign in to continue.",
+  generic: COPY.generic,
+  photoUpload: COPY.photoUpload,
+  offline: COPY.offline,
+  invalidInput: COPY.invalidInput,
+  forbidden: COPY.forbidden,
+  signIn: COPY.signIn,
 } as const;
 
 export class PublicError extends Error {
