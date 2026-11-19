@@ -280,6 +280,7 @@ html.overlay-lock {
 .img-slot-fallback {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;

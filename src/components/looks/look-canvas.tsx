@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 
 import { ImagePlus } from "lucide-react";
 import { formatSrcSet, type LookImages } from "@/lib/looks/image-variants";
 import { TagPin } from "@/components/looks/tag-pin";
+import { PhotoPlaceholder } from "@/components/ds/photo-placeholder";
 import {
   inFrame,
   nudgePinInside,
@@ -64,6 +65,8 @@ export function LookCanvas({
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [frame, setFrame] = useState<{ w: number; h: number } | null>(null);
   const [maxPinY, setMaxPinY] = useState(100);
+  const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
+  const imageBroken = Boolean(imageSrc) && brokenSrc === imageSrc;
   const cropped = fit !== "natural";
   const avifSrcSet = images ? formatSrcSet(images, "avif") : "";
   const webpSrcSet = images ? formatSrcSet(images, "webp") : "";
@@ -102,12 +105,29 @@ export function LookCanvas({
     };
     read();
     const img = el.querySelector("img");
-    if (img?.complete && img.naturalWidth) {
-      setNatural({ w: img.naturalWidth, h: img.naturalHeight });
-    }
+    const mark = () => {
+      if (!img) return;
+      if (img.complete && img.naturalWidth === 0) {
+        setBrokenSrc(imageSrc);
+        return;
+      }
+      if (img.naturalWidth && img.naturalHeight) {
+        setBrokenSrc((current) => (current === imageSrc ? null : current));
+        setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+      }
+    };
+    mark();
+    img?.addEventListener("error", mark);
+    img?.addEventListener("load", mark);
+    const later = window.setTimeout(mark, 250);
     const ro = new ResizeObserver(read);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      window.clearTimeout(later);
+      img?.removeEventListener("error", mark);
+      img?.removeEventListener("load", mark);
+      ro.disconnect();
+    };
   }, [imageSrc]);
 
   const cropWindow =
@@ -202,6 +222,7 @@ export function LookCanvas({
       data-crop={crop ? JSON.stringify(crop) : undefined}
       data-visible-crop={JSON.stringify(cropWindow ?? (baked ? crop : null))}
       data-baked={baked ? "true" : undefined}
+      data-photo-state={imageSrc && imageBroken ? "broken" : undefined}
       className={cn(
         "relative overflow-hidden bg-muted",
         !imageSrc && "h-96",
@@ -212,7 +233,7 @@ export function LookCanvas({
       )}
       onClick={handleFrameClick}
     >
-      {imageSrc ? (
+      {imageSrc && !imageBroken ? (
         <picture className={images ? "contents" : undefined}>
           {avifSrcSet ? <source type="image/avif" srcSet={avifSrcSet} sizes={sizes} /> : null}
           {webpSrcSet ? <source type="image/webp" srcSet={webpSrcSet} sizes={sizes} /> : null}
@@ -225,9 +246,11 @@ export function LookCanvas({
             onLoad={(event) => {
               const img = event.currentTarget;
               if (img.naturalWidth && img.naturalHeight) {
+                setBrokenSrc((current) => (current === imageSrc ? null : current));
                 setNatural({ w: img.naturalWidth, h: img.naturalHeight });
               }
             }}
+            onError={() => setBrokenSrc(imageSrc)}
             style={
               imageStyle
                 ? imageStyle
@@ -244,6 +267,8 @@ export function LookCanvas({
             )}
           />
         </picture>
+      ) : imageSrc && imageBroken ? (
+        <PhotoPlaceholder />
       ) : (
         <button
           type="button"

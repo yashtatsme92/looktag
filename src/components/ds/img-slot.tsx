@@ -8,7 +8,7 @@ import {
   largestSource,
 } from "@/lib/media/feed-image";
 import { formatSrcSet, type LookImages } from "@/lib/looks/image-variants";
-import { COPY } from "@/lib/errors/copy";
+import { PhotoPlaceholder } from "@/components/ds/photo-placeholder";
 import { cn } from "@/lib/utils";
 
 type ImgSlotProps = ImgHTMLAttributes<HTMLImageElement> & {
@@ -136,7 +136,7 @@ export function ImgSlot({
         data-photo-state="broken"
         style={{ "--ar": aspectRatio } as CSSProperties}
       >
-        <p className="img-slot-fallback">{COPY.photoPlaceholder}</p>
+        <PhotoPlaceholder />
       </div>
     );
   }
