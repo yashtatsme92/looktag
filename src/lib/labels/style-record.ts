@@ -1,4 +1,5 @@
 import { PublicError } from "../errors/public-error.ts";
+import { couldNot } from "../errors/copy.ts";
 import type { Sql } from "@/lib/db";
 import {
   houseCoverDraft,
@@ -153,7 +154,7 @@ export async function saveStyleForHouse(
   `;
   await fillEmptyCover(sql, labelId, draft.imageSrc);
   const saved = await styleById(sql, labelId, id);
-  if (!saved) throw new PublicError("Could not save the style.");
+  if (!saved) throw new PublicError(couldNot("save the style"));
   return saved;
 }
 

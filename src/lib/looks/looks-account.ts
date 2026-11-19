@@ -1,4 +1,5 @@
 import { PublicError } from "../errors/public-error.ts";
+import { COPY } from "../errors/copy.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { hashPassword, verifyPassword } from "@/lib/providers/auth";
 import { authMiddleware } from "@/lib/auth/middleware";
@@ -63,13 +64,13 @@ export const updateMyProfile = createServerFn({ method: "POST" })
       if (!parsed.ok) throw new PublicError(parsed.error);
       const sql = await getSql();
       const current = await loadAccount(sql, context.userId);
-      if (!current) throw new PublicError("Could not load your account.");
+      if (!current) throw new PublicError(COPY.loadAccount);
 
       let email = parsed.value.email;
       if (current.emailLocked) email = current.email;
       if (email !== current.email) {
         if (isAdminEmail(email) && context.userId !== ADMIN_USER_ID) {
-          throw new PublicError("That email is reserved.");
+          throw new PublicError(COPY.emailReserved);
         }
         const taken = await sql<{ id: string }>`
           select id from "user" where email = ${email} and id <> ${context.userId} limit 1
@@ -78,7 +79,7 @@ export const updateMyProfile = createServerFn({ method: "POST" })
       }
 
       if (parsed.value.newPassword) {
-        if (!current.hasPassword) throw new PublicError("This account signs in without a password.");
+        if (!current.hasPassword) throw new PublicError(COPY.noPassword);
         const currentPassword = (data.currentPassword ?? "").trim();
         if (!currentPassword) throw new PublicError("Enter your current password to change it.");
         const accounts = await sql<{ password: string | null }>`
@@ -87,9 +88,9 @@ export const updateMyProfile = createServerFn({ method: "POST" })
           limit 1
         `;
         const hash = accounts[0]?.password;
-        if (!hash) throw new PublicError("This account signs in without a password.");
+        if (!hash) throw new PublicError(COPY.noPassword);
         const ok = await verifyPassword({ hash, password: currentPassword });
-        if (!ok) throw new PublicError("Current password is not right.");
+        if (!ok) throw new PublicError(COPY.currentPassword);
         const nextHash = await hashPassword(parsed.value.newPassword);
         const now = new Date();
         await sql`

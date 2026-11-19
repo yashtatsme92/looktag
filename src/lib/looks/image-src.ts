@@ -1,4 +1,5 @@
 import { PublicError } from "../errors/public-error.ts";
+import { COPY } from "../errors/copy.ts";
 /**
  * Server-side bounds for look `imageSrc` values persisted in Postgres.
  *
@@ -63,7 +64,7 @@ export function parseLookImageSrc(imageSrc: unknown): LookImageSrcParse {
   }
 
   if (imageSrc.length > MAX_LOOK_IMAGE_REF_CHARS) {
-    return { ok: false, error: "That photo link is too long." };
+    return { ok: false, error: COPY.photoLinkLong };
   }
 
   // Same-origin static / future CDN paths (seed looks use `/looks/*.jpg`).

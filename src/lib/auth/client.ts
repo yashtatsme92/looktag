@@ -1,5 +1,6 @@
 import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
+import { COPY } from "@/lib/errors/copy";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
 import { GROK_PROVIDERS } from "./providers";
 
@@ -126,9 +127,9 @@ export async function signIn(
   });
 
   if (inLivePreview()) {
-    if (!popup) throw new Error("Pop-up blocked — allow pop-ups for sign-in");
+    if (!popup) throw new Error(COPY.popupBlocked);
     const token = await waitForPopupToken(popup);
-    if (!token) throw new Error("Sign-in was cancelled or failed");
+    if (!token) throw new Error(COPY.signInCancelled);
     setBearerToken(token);
     // Refresh the client session store with the bearer attached (onRequest).
     // Avoid a full iframe reload when we're already on the destination — that
@@ -154,7 +155,7 @@ export async function signIn(
       callbackURL,
       errorCallbackURL,
     });
-    if (error) throw new Error(error.message ?? "Sign-in failed");
+    if (error) throw new Error(error.message ?? COPY.signInFailed);
     if (data?.url) window.location.href = data.url;
     return;
   }
@@ -164,7 +165,7 @@ export async function signIn(
     callbackURL,
     errorCallbackURL,
   });
-  if (error) throw new Error(error.message ?? "Sign-in failed");
+  if (error) throw new Error(error.message ?? COPY.signInFailed);
   if (data?.url) window.location.href = data.url;
 }
 
@@ -242,7 +243,7 @@ export async function signOut(redirectTo = "/"): Promise<void> {
     // failed response as a rejection for the sequence to act on.
     requestSignOut: async () => {
       const { error } = await authClient.signOut();
-      if (error) throw new Error(error.message ?? "Sign-out failed");
+      if (error) throw new Error(error.message ?? COPY.signOutFailed);
     },
     clearToken: () => setBearerToken(null),
     redirect: () => {

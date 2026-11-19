@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AdminGate } from "@/components/admin/admin-gate";
 import { BrowseBar, BrowsePager, useScrollPicked } from "@/components/admin/browse-bar";
 import { FadeLayer } from "@/components/ds/fade-layer";
+import { InlineLoadError } from "@/components/errors/load-error";
 import { SaveStatus } from "@/components/ds/save-status";
 import { SkeletonAdminRow } from "@/components/ds/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
@@ -322,7 +323,7 @@ function StudioAdmin() {
             />
             <FadeLayer stateKey={`${filter}:${sort}:${page}`}>
             {houseLoad.phase === "error" ? (
-              <p className="text-sm text-muted-foreground">Couldn't load houses.</p>
+              <InlineLoadError />
             ) : houseLoad.phase === "skeleton" ? (
               <div aria-hidden="true">
                 <SkeletonAdminRow />

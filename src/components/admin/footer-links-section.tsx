@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Switch } from "@/components/ui/switch";
+import { couldNot } from "@/lib/errors/copy";
 import {
   FOOTER_LINK_IDS,
   FOOTER_LINK_LABELS,
@@ -53,7 +54,7 @@ export function FooterLinksSection() {
           const status =
             phase === "saving" ? "Saving…"
             : phase === "saved" ? "Saved"
-            : phase === "error" ? "Could not save."
+            : phase === "error" ? couldNot("save")
             : envOn ? "On · set by FOOTER_LINKS_ENABLED"
             : missingHref ? (checked ? "On · hidden until its URL is set" : "Off · URL not set")
             : checked ? "On" : "Off · default";

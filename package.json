@@ -1,6 +1,6 @@
 {
   "name": "app-builder-workspace",
-  "version": "2.5.52",
+  "version": "2.5.53",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -42,6 +42,7 @@
     "test:e2e:ios-standalone": "node tests/e2e/ios-standalone.mjs",
     "test:e2e:feed-snap": "node tests/e2e/feed-snap.mjs",
     "test:e2e:look-detail-phone": "node tests/e2e/look-detail-phone.mjs",
+    "test:e2e:broken-photo": "node tests/e2e/broken-photo-phone.mjs",
     "test:e2e:follow-rule": "node tests/e2e/follow-rule.mjs",
     "test:e2e:aspect": "node --experimental-strip-types tests/e2e/aspect-ratio.mjs",
     "test:photos": "node --experimental-strip-types --test src/lib/looks/backfill-cropped-photos.test.ts src/lib/looks/image-encode.test.ts src/lib/looks/image-variants.test.ts src/lib/looks/pin-map.test.ts",

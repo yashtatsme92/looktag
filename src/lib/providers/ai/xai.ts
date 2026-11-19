@@ -1,3 +1,4 @@
+import { COPY } from "../../errors/copy.ts";
 import type { ProductSearchRequest, VisionResult } from "./types";
 
 export const XAI_CHAT_URL = "https://api.x.ai/v1/chat/completions";
@@ -25,7 +26,7 @@ export async function describeImage(
       body: JSON.stringify({ model: VISION_MODEL, ...body }),
     });
     if (!response.ok) {
-      return { ok: false, error: `xAI API error ${response.status}` };
+      return { ok: false, error: COPY.findUnavailable };
     }
     const json = (await response.json()) as {
       choices?: { message?: { content?: string } }[];
@@ -37,7 +38,7 @@ export async function describeImage(
       : [];
     return { ok: true, text, citations };
   } catch {
-    return { ok: false, error: "Could not reach Grok." };
+    return { ok: false, error: COPY.findUnavailable };
   }
 }
 

@@ -3,6 +3,7 @@ import { adminMiddleware } from "@/lib/auth/middleware";
 import { withSpan } from "@/lib/observability/instrument";
 import { pickSettingsPatch, type AppSettings } from "./model";
 import { isSplashId } from "../pwa/splash";
+import { COPY } from "@/lib/errors/copy";
 import { publicSignInSettings, serverProviderAvailability } from "@/lib/auth/method-gate";
 import { readSettings, writeSettings } from "./store.server";
 
@@ -23,7 +24,7 @@ export const saveAppSettings = createServerFn({ method: "POST" })
   .middleware([adminMiddleware])
   .validator((input: Partial<AppSettings>) => {
     if (input.splashId !== undefined && !isSplashId(input.splashId)) {
-      throw new Response("Invalid splash design.", { status: 400 });
+      throw new Response(COPY.splash, { status: 400 });
     }
     return pickSettingsPatch(input);
   })

@@ -5,6 +5,7 @@ import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { HousesClosed, useHousesClosed } from "@/components/labels/houses-closed";
 import { AppShell } from "@/components/layout/app-shell";
+import { InlineLoadError } from "@/components/errors/load-error";
 import { ScreenTitle } from "@/components/layout/screen-title";
 import { FadeLayer } from "@/components/ds/fade-layer";
 import { ImgSlot } from "@/components/ds/img-slot";
@@ -136,7 +137,7 @@ function LinePage() {
     >
       <FadeLayer stateKey={stateKey}>
         {lineLoad.error ? (
-          <p className="text-sm text-muted-foreground">Houses aren't available right now</p>
+          <InlineLoadError />
         ) : lineLoad.skeleton ? (
           <div className="house-lines-block">
             <h2 className="ops-section house-looks-title">Styles</h2>

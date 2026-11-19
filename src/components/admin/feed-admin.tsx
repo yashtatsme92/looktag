@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { SaveStatus } from "@/components/ds/save-status";
+import { InlineLoadError } from "@/components/errors/load-error";
+import { COPY } from "@/lib/errors/copy";
 import { SkeletonAdminRow } from "@/components/ds/skeleton";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
@@ -275,7 +277,7 @@ export function FeedAdmin() {
             <SkeletonAdminRow />
           </div>
         ) : modulesLoad.phase === "error" ? (
-          <p className="ops-lead">Couldn't load this.</p>
+          <InlineLoadError message={COPY.loadConnection} />
         ) : (
         FEED_FEATURES.map((feature) => {
           const on = feature.key in switchOn ? Boolean(switchOn[feature.key]) : Boolean(settings[feature.key]);

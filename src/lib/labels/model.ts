@@ -1,4 +1,5 @@
 import { PublicError } from "../errors/public-error.ts";
+import { COPY } from "../errors/copy.ts";
 import { isEditorialLook, type Look } from "../looks/types.ts";
 
 /** Portal-curated houses wear this mark on their profile. */
@@ -160,7 +161,7 @@ export function styleDraft(input: {
   const photos = [...new Set([input.imageSrc, ...(input.images ?? [])].map((item) => item.trim()).filter(isStylePhoto))];
   if (photos.length === 0) throw new PublicError("Add a photo.");
   if (photos.length > MAX_STYLE_PHOTOS) photos.length = MAX_STYLE_PHOTOS;
-  if (photos.some((src) => src.length > MAX_STYLE_PHOTO)) throw new PublicError("That photo is too large.");
+  if (photos.some((src) => src.length > MAX_STYLE_PHOTO)) throw new PublicError(COPY.photoTooLargeFormat);
   return {
     name: name.slice(0, 80),
     description: (input.description ?? "").trim().slice(0, 600),
@@ -172,7 +173,7 @@ export function styleDraft(input: {
 export function houseCoverDraft(src: string): string {
   const value = src.trim();
   if (!value) return "";
-  if (!isStylePhoto(value) || value.length > MAX_STYLE_PHOTO) throw new PublicError("Add a photo, or a smaller one.");
+  if (!isStylePhoto(value) || value.length > MAX_STYLE_PHOTO) throw new PublicError(COPY.photoTooLargeFormat);
   return value;
 }
 

@@ -1,3 +1,5 @@
+import { COPY } from "../errors/copy.ts";
+
 /**
  * Quotas and input guards for AI / shop-search server functions.
  * Pure module (no request imports) so unit tests can drive it directly.
@@ -5,7 +7,7 @@
 
 export class RateLimitError extends Error {
   readonly status = 429;
-  constructor(message = "Too many AI searches. Try again later.") {
+  constructor(message = COPY.findQuota) {
     super(message);
     this.name = "RateLimitError";
   }

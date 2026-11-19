@@ -1,4 +1,5 @@
 import { PublicError } from "../errors/public-error.ts";
+import { couldNot } from "../errors/copy.ts";
 import sharp from "sharp";
 import { storage } from "../providers/storage/index.ts";
 import type { ObjectStorage } from "../providers/storage/types.ts";
@@ -108,7 +109,7 @@ export async function persistStoredPhotoCrop(
   const previous = parseStoredLookImages(previousRaw);
   if (!previous?.original) return null;
   const original = await store.get(previous.original.key);
-  if (!original) throw new PublicError("Could not read the original look photo.");
+  if (!original) throw new PublicError(couldNot("read the original look photo"));
   const metadata = await sharp(original.body, { failOn: "none" }).metadata();
   const swapsDimensions = metadata.orientation !== undefined && [5, 6, 7, 8].includes(metadata.orientation);
   const width = swapsDimensions ? (metadata.height ?? 0) : (metadata.width ?? 0);

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getMyAccount, updateMyProfile, type AccountDetails } from "@/lib/looks/api";
+import { COPY, couldNot, messageField, offlineNow } from "@/lib/errors/copy";
 import { userMessage } from "@/lib/errors/user-message";
 
 export function ProfileForm({
@@ -36,6 +37,9 @@ export function ProfileForm({
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "handle" | "email" | "city" | "bio" | "password", string>>>({});
 
   useEffect(() => {
     let alive = true;
@@ -52,21 +56,48 @@ export function ProfileForm({
         setBio(row.bio);
       })
       .catch(() => {
-        if (alive) setLoaded(true);
+        if (alive) {
+          setLoaded(true);
+          setLoadError(true);
+        }
       });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [attempt]);
 
   if (!loaded) {
     return <Skeleton className="mb-8 h-48 rounded-xl" />;
+  }
+
+  if (loadError && !account) {
+    return (
+      <div className="mb-8 rounded-xl bg-card p-5 shadow-[var(--shadow-border)]" role="alert" aria-live="polite">
+        <p className="text-sm text-muted-foreground">{COPY.loadProfile}</p>
+        <button
+          type="button"
+          className="house-ghost mt-3"
+          onClick={() => {
+            setLoadError(false);
+            setLoaded(false);
+            setAttempt((value) => value + 1);
+          }}
+        >
+          {COPY.tryAgain}
+        </button>
+      </div>
+    );
   }
 
   if (!account) return null;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    setFieldErrors({});
+    if (offlineNow()) {
+      toast.error(COPY.offline);
+      return;
+    }
     setBusy(true);
     try {
       const saved = await updateMyProfile({
@@ -92,7 +123,10 @@ export function ProfileForm({
       onSaved?.(saved);
       toast.success("Profile saved");
     } catch (error) {
-      toast.error(userMessage(error, "Could not save your profile."));
+      const message = userMessage(error, couldNot("save your profile"));
+      const field = messageField(message);
+      if (field !== "form") setFieldErrors({ [field]: message });
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -108,7 +142,7 @@ export function ProfileForm({
         Name, handle, email, and city from sign-up. Edit any of them here.
       </p>
       <div className="flex flex-col gap-4">
-        <Field label="Name" htmlFor="profile-name">
+        <Field label="Name" htmlFor="profile-name" error={fieldErrors.name}>
           <Input
             id="profile-name"
             value={name}
@@ -119,7 +153,7 @@ export function ProfileForm({
             onChange={(event) => setName(event.target.value)}
           />
         </Field>
-        <Field label="Handle" htmlFor="profile-handle" hint="Letters, numbers, and hyphens.">
+        <Field label="Handle" htmlFor="profile-handle" hint="Letters, numbers, and hyphens." error={fieldErrors.handle}>
           <div className="flex h-11 items-center rounded-md border border-input bg-card shadow-sm transition-[box-shadow,border-color] duration-150 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
             <span className="pl-3 text-base text-muted-foreground">@</span>
             <input
@@ -141,6 +175,7 @@ export function ProfileForm({
           label="Email"
           htmlFor="profile-email"
           hint={account.emailLocked ? "This email is locked." : undefined}
+          error={fieldErrors.email}
         >
           <Input
             id="profile-email"
@@ -153,7 +188,7 @@ export function ProfileForm({
             onChange={(event) => setEmail(event.target.value)}
           />
         </Field>
-        <Field label="City" htmlFor="profile-city" hint="Optional. Shown on your profile.">
+        <Field label="City" htmlFor="profile-city" hint="Optional. Shown on your profile." error={fieldErrors.city}>
           <Input
             id="profile-city"
             value={city}
@@ -163,7 +198,7 @@ export function ProfileForm({
             onChange={(event) => setCity(event.target.value)}
           />
         </Field>
-        <Field label="About" htmlFor="profile-bio" hint="Optional. A line or two.">
+        <Field label="About" htmlFor="profile-bio" hint="Optional. A line or two." error={fieldErrors.bio}>
           <Textarea
             id="profile-bio"
             value={bio}
@@ -175,7 +210,7 @@ export function ProfileForm({
         </Field>
         {account.hasPassword ? (
           <>
-            <Field label="Current password" htmlFor="profile-current-password" hint="Only if you change the password.">
+            <Field label="Current password" htmlFor="profile-current-password" hint="Only if you change the password." error={fieldErrors.password}>
               <Input
                 id="profile-current-password"
                 type="password"
@@ -184,7 +219,7 @@ export function ProfileForm({
                 onChange={(event) => setCurrentPassword(event.target.value)}
               />
             </Field>
-            <Field label="New password" htmlFor="profile-new-password" hint="Leave blank to keep the current one.">
+            <Field label="New password" htmlFor="profile-new-password" hint="Leave blank to keep the current one." error={fieldErrors.password}>
               <Input
                 id="profile-new-password"
                 type="password"

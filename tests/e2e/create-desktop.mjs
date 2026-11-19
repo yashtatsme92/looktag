@@ -162,7 +162,7 @@ async function flow(page, width, height) {
     record(`create-desktop.find.unavailable-disabled${tag}`, (await find.getAttribute("aria-disabled")) === "true");
     record(
       `create-desktop.find.unavailable-copy${tag}`,
-      await page.getByText("AI find isn’t available right now.").isVisible(),
+      await page.getByText("We can't find pieces in the photo right now. You can still pin them yourself.").isVisible(),
     );
   } else if (state === "gated") {
     await find.click();

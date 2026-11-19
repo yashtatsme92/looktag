@@ -8,6 +8,7 @@ import {
   largestSource,
 } from "@/lib/media/feed-image";
 import { formatSrcSet, type LookImages } from "@/lib/looks/image-variants";
+import { PhotoPlaceholder } from "@/components/ds/photo-placeholder";
 import { cn } from "@/lib/utils";
 
 type ImgSlotProps = ImgHTMLAttributes<HTMLImageElement> & {
@@ -48,6 +49,7 @@ export function ImgSlot({
   feed = true,
   sizes,
   onLoad,
+  onError,
   src,
   alt = "",
   loading,
@@ -58,6 +60,7 @@ export function ImgSlot({
   ...imageProps
 }: ImgSlotProps) {
   const [loaded, setLoaded] = useState(false);
+  const [imageBroken, setImageBroken] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const entry = !images && feed ? feedEntryFor(typeof src === "string" ? src : "") : null;
   const box = entry ? feedBox(entry) : null;
@@ -84,8 +87,20 @@ export function ImgSlot({
 
   useEffect(() => {
     const image = imageRef.current;
-    setLoaded(Boolean(image?.complete && image.naturalWidth > 0));
-  }, [fallbackSrc]);
+    if (!image) return;
+    const mark = () => {
+      const failed = image.complete && image.naturalWidth === 0;
+      if (!onError) setImageBroken(failed);
+      setLoaded(image.complete && image.naturalWidth > 0);
+    };
+    mark();
+    image.addEventListener("error", mark);
+    image.addEventListener("load", mark);
+    return () => {
+      image.removeEventListener("error", mark);
+      image.removeEventListener("load", mark);
+    };
+  }, [fallbackSrc, onError]);
 
   const img = (
     <img
@@ -103,10 +118,28 @@ export function ImgSlot({
       className={cn(className, (loaded || still) && "is-loaded")}
       onLoad={(event) => {
         setLoaded(true);
+        setImageBroken(false);
         onLoad?.(event);
+      }}
+      onError={(event) => {
+        if (!onError) setImageBroken(true);
+        onError?.(event);
       }}
     />
   );
+
+  if (imageBroken && !onError) {
+    return (
+      <div
+        className={cn("img-slot", slotClassName)}
+        data-still={still ? "true" : undefined}
+        data-photo-state="broken"
+        style={{ "--ar": aspectRatio } as CSSProperties}
+      >
+        <PhotoPlaceholder />
+      </div>
+    );
+  }
 
   return (
     <div

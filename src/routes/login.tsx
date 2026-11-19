@@ -8,8 +8,9 @@ import { YouHome } from "@/components/you/you-home";
 import { SavedLooks } from "@/components/looks/saved-looks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { normalizeLoginEmail, resolveYouSessionState, youSessionSignedIn } from "@/lib/admin/access";
+import { Field } from "@/components/ds";
+import { COPY, messageField, offlineNow } from "@/lib/errors/copy";
+import { authErrorMessage } from "@/lib/errors/user-message";
 import { authClient, authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { clearPendingSave } from "@/lib/looks/pending-save";
@@ -19,7 +20,7 @@ import { parseHandle, suggestHandle } from "@/lib/looks/handle";
 import { signupMethodCount, visibleOauthProviders } from "@/lib/settings/model";
 import { useSettingsStore } from "@/lib/settings/store";
 import { cn } from "@/lib/utils";
-import { userMessage } from "@/lib/errors/user-message";
+import { normalizeLoginEmail, resolveYouSessionState, youSessionSignedIn } from "@/lib/admin/access";
 
 type LoginSearch = {
   next?: string;
@@ -95,6 +96,7 @@ function Login() {
   const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "handle" | "email" | "password" | "city", string>>>({});
   const [busy, setBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [adminEmailOpen, setAdminEmailOpen] = useState(false);
@@ -144,17 +146,31 @@ function Login() {
   async function goAfterAuth(displayName: string, userId?: string) {
     markStyleGuideDone({ coach: true });
     await withTimeout(authClient.getSession(), 2500, null);
-    await withTimeout(
-      ensureMyProfile({
-        data: {
-          displayName,
-          handle: mode === "signup" && parseHandle(handle).ok ? handle.trim() : undefined,
-          city: mode === "signup" && city.trim() ? city.trim() : undefined,
-        },
-      }).catch(() => null),
-      2500,
-      null,
-    );
+    if (mode === "signup") {
+      try {
+        const saved = await withTimeout(
+          ensureMyProfile({
+            data: {
+              displayName,
+              handle: parseHandle(handle).ok ? handle.trim() : undefined,
+              city: city.trim() ? city.trim() : undefined,
+            },
+          }).then(
+            (value) => ({ ok: true as const, value }),
+            (error: unknown) => ({ ok: false as const, error }),
+          ),
+          2500,
+          null,
+        );
+        if (saved == null) toast.error(COPY.signupProfile);
+        else if (!saved.ok) {
+          const shown = authErrorMessage(saved.error, COPY.signupProfile);
+          toast.error(shown === COPY.generic ? COPY.signupProfile : shown);
+        }
+      } catch {
+        toast.error(COPY.signupProfile);
+      }
+    }
     toast.success(mode === "signup" ? `Welcome, ${displayName}` : `Signed in as ${displayName}`);
     if (next === "/login") {
       setBusy(false);
@@ -176,13 +192,53 @@ function Login() {
     await navigate({ to: "/" });
   }
 
+  function showAuthFailure(err: unknown, fallback: string) {
+    const message = authErrorMessage(err, fallback);
+    const field = messageField(message);
+    if (field === "name" || field === "handle" || field === "email" || field === "password" || field === "city") {
+      setFieldErrors({ [field]: message });
+      setError("");
+      return;
+    }
+    setFieldErrors({});
+    setError(message);
+  }
+
   async function handleEmail(event: FormEvent) {
     event.preventDefault();
     setError("");
+    setFieldErrors({});
+    if (offlineNow()) {
+      setError(COPY.offline);
+      return;
+    }
     setBusy(true);
     markStyleGuideDone({ coach: true });
     const loginEmail = normalizeLoginEmail(email);
     const displayName = name.trim() || loginEmail.split("@")[0] || "Creator";
+    if (mode === "signup") {
+      if (name.trim().length < 2) {
+        setFieldErrors({ name: "Give your name." });
+        setBusy(false);
+        return;
+      }
+      const parsedHandle = parseHandle(handle);
+      if (!parsedHandle.ok) {
+        setFieldErrors({ handle: parsedHandle.error });
+        setBusy(false);
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+        setFieldErrors({ email: COPY.validEmail });
+        setBusy(false);
+        return;
+      }
+      if (password.length < 8) {
+        setFieldErrors({ password: COPY.passwordShort });
+        setBusy(false);
+        return;
+      }
+    }
     try {
       if (mode === "signup") {
         const result = await Promise.race([
@@ -193,10 +249,16 @@ function Login() {
           }),
           rejectAfter(15_000, "Creating the account is taking too long. Try again."),
         ]);
-        if (result.error) throw new Error(result.error.message ?? "Could not create the account.");
+        if (result.error) {
+          const failure = result.error as { message?: string; status?: number; code?: string };
+          const err = new Error(failure.message ?? COPY.accountCreateFailed) as Error & { status?: number; code?: string };
+          if (typeof failure.status === "number") err.status = failure.status;
+          if (failure.code) err.code = failure.code;
+          throw err;
+        }
         captureSessionToken(result.data?.token);
         if (!result.data?.user && !result.data?.token) {
-          throw new Error("Could not create the account.");
+          throw new Error(COPY.accountCreateFailed);
         }
         await goAfterAuth(displayName, result.data?.user?.id);
       } else {
@@ -207,10 +269,16 @@ function Login() {
           }),
           rejectAfter(15_000, "Sign-in is taking too long. Try again."),
         ]);
-        if (result.error) throw new Error(result.error.message ?? "Could not sign in.");
+        if (result.error) {
+          const failure = result.error as { message?: string; status?: number; code?: string };
+          const err = new Error(failure.message ?? COPY.couldNotSignIn) as Error & { status?: number; code?: string };
+          if (typeof failure.status === "number") err.status = failure.status;
+          if (failure.code) err.code = failure.code;
+          throw err;
+        }
         captureSessionToken(result.data?.token);
         if (!result.data?.user && !result.data?.token) {
-          throw new Error("Could not sign in.");
+          throw new Error(COPY.couldNotSignIn);
         }
         await goAfterAuth(
           result.data?.user?.name?.trim() || displayName,
@@ -218,7 +286,7 @@ function Login() {
         );
       }
     } catch (err) {
-      setError(userMessage(err, "Something went wrong."));
+      showAuthFailure(err, COPY.generic);
       setBusy(false);
     }
   }
@@ -231,6 +299,11 @@ function Login() {
           : undefined
         : undefined;
     setError("");
+    setFieldErrors({});
+    if (offlineNow()) {
+      setError(COPY.offline);
+      return;
+    }
     setBusy(true);
     markStyleGuideDone({ coach: true });
     const unlock = window.setTimeout(() => {
@@ -254,7 +327,7 @@ function Login() {
       })
       .catch((err) => {
         window.clearTimeout(unlock);
-        setError(userMessage(err, "Sign-in did not complete."));
+        setError(authErrorMessage(err, COPY.signInFailed));
         setBusy(false);
       });
   }
@@ -354,14 +427,14 @@ function Login() {
           {!authEnabled
             ? "Sign-in is disabled."
             : methodCount === 0
-              ? "Sign-up is turned off in Studio."
+              ? COPY.signupOff
               : emailOn
                 ? mode === "signup"
                   ? oauth.length
                     ? `Email always works. ${oauth.map((p) => p.label).join(" and ")} open a new window.`
                     : "Use email to create an account."
                   : "Use the same email you signed up with."
-                : "Choose an enabled provider, or use the admin sign-in option."}
+                : COPY.chooseMethod}
         </p>
         {authEnabled && methodCount > 0 ? (
           <div className="flex flex-col gap-5">
@@ -393,8 +466,7 @@ function Login() {
             >
                 {mode === "signup" ? (
                   <>
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="creator-name">Name</Label>
+                    <Field label="Name" htmlFor="creator-name" error={fieldErrors.name} live="assertive">
                       <Input
                         id="creator-name"
                         autoComplete="name"
@@ -406,12 +478,12 @@ function Login() {
                           const next = event.target.value;
                           setName(next);
                           if (!handleTouched) setHandle(suggestHandle(next));
+                          setFieldErrors((current) => ({ ...current, name: undefined }));
                         }}
                         placeholder="Your name"
                       />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="creator-handle">Handle</Label>
+                    </Field>
+                    <Field label="Handle" htmlFor="creator-handle" error={fieldErrors.handle} live="assertive">
                       <div className="flex h-11 items-center rounded-md border border-input bg-card shadow-sm transition-[box-shadow,border-color] duration-150 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
                         <span className="pl-3 text-base text-muted-foreground">@</span>
                         <input
@@ -426,12 +498,12 @@ function Login() {
                           onChange={(event) => {
                             setHandleTouched(true);
                             setHandle(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                            setFieldErrors((current) => ({ ...current, handle: undefined }));
                           }}
                         />
                       </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="creator-city">City</Label>
+                    </Field>
+                    <Field label="City" htmlFor="creator-city" error={fieldErrors.city} live="assertive">
                       <Input
                         id="creator-city"
                         autoComplete="address-level2"
@@ -440,11 +512,10 @@ function Login() {
                         onChange={(event) => setCity(event.target.value)}
                         placeholder="Lisbon"
                       />
-                    </div>
+                    </Field>
                   </>
                 ) : null}
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="creator-email">Email</Label>
+                <Field label="Email" htmlFor="creator-email" error={fieldErrors.email} live="assertive">
                   <Input
                     id="creator-email"
                     type={mode === "signup" ? "email" : "text"}
@@ -452,12 +523,14 @@ function Login() {
                     autoComplete="email"
                     required
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      setFieldErrors((current) => ({ ...current, email: undefined }));
+                    }}
                     placeholder={mode === "signin" ? "you@email.com or admin" : "you@email.com"}
                   />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="creator-password">Password</Label>
+                </Field>
+                <Field label="Password" htmlFor="creator-password" error={fieldErrors.password} live="assertive">
                   <Input
                     id="creator-password"
                     type="password"
@@ -465,11 +538,18 @@ function Login() {
                     required
                     minLength={mode === "signup" ? 8 : 5}
                     value={password}
-                    onChange={(event) => setPassword(event.target.value)}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      setFieldErrors((current) => ({ ...current, password: undefined }));
+                    }}
                     placeholder={mode === "signup" ? "At least 8 characters" : "Password"}
                   />
-                </div>
-                {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+                </Field>
+                {error ? (
+                  <p role="alert" aria-live="assertive" className="text-sm text-destructive">
+                    {error}
+                  </p>
+                ) : null}
                 <Button type="submit" disabled={busy} className="w-full">
                   {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in with email"}
                 </Button>

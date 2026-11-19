@@ -12,6 +12,7 @@ import { aiAvailable, readXaiApiKey } from "@/lib/providers/ai";
 import { searchOffers } from "./suggest-search";
 import { clampPercent, identifyPin, readLookPhoto } from "./suggest-vision";
 import type { SuggestedPiece, SuggestSearchConfig } from "./suggest-types";
+import { COPY } from "../errors/copy.ts";
 
 export type {
   CatalogShop,
@@ -53,10 +54,10 @@ export const suggestPieces = createServerFn({ method: "POST" })
         span.setAttribute("looktag.search.country", (data.search.country || "DE").toUpperCase());
         span.setAttribute("looktag.search.user", userId);
         const apiKey = readXaiApiKey();
-        if (!apiKey) return { ok: false as const, error: "AI is not available in this environment." };
+        if (!apiKey) return { ok: false as const, error: COPY.findUnavailable };
         const shops = data.search.retailers.filter((shop) => shop.domains.length > 0);
         if (shops.length === 0) {
-          return { ok: false as const, error: "Turn on at least one shop in Catalog before searching." };
+          return { ok: false as const, error: COPY.shopsNotReady };
         }
         const image = clampImageDataUrl(data.imageDataUrl);
         if (!image) {
@@ -64,7 +65,7 @@ export const suggestPieces = createServerFn({ method: "POST" })
             userId,
             length: data.imageDataUrl?.length ?? 0,
           });
-          return { ok: false as const, error: "That photo is too large to send." };
+          return { ok: false as const, error: COPY.photoTooLargeSearch };
         }
 
         const vision = await readLookPhoto(apiKey, image);
@@ -110,24 +111,24 @@ export const suggestShops = createServerFn({ method: "POST" })
         const apiKey = readXaiApiKey();
         const shops = data.search.retailers.filter((shop) => shop.domains.length > 0);
         if (shops.length === 0) {
-          return { ok: false as const, error: "Turn on at least one shop in Catalog before searching." };
+          return { ok: false as const, error: COPY.shopsNotReady };
         }
         const query = data.query.trim();
-        if (query.length < 2) return { ok: false as const, error: "Name the piece first." };
+        if (query.length < 2) return { ok: false as const, error: COPY.namePiece };
         if (data.search.engine === "xai" && !apiKey) {
-          return { ok: false as const, error: "AI is not available in this environment." };
+          return { ok: false as const, error: COPY.findUnavailable };
         }
         if (data.search.engine === "brave" && !data.search.braveApiKey.trim()) {
-          return { ok: false as const, error: "Add a Brave Search API key in Catalog." };
+          return { ok: false as const, error: COPY.searchUnavailable };
         }
         if (data.search.engine === "google" && (!data.search.googleApiKey.trim() || !data.search.googleCx.trim())) {
-          return { ok: false as const, error: "Add a Google API key and search engine ID in Catalog." };
+          return { ok: false as const, error: COPY.searchUnavailable };
         }
         const offers = await searchOffers(apiKey ?? "", query, data.search, shops);
         span.setAttribute("looktag.search.offers", offers.length);
         span.setAttribute("looktag.search.thumbs", offers.filter((offer) => offer.imageUrl).length);
         if (offers.length === 0) {
-          return { ok: false as const, error: "No item pages found in the shops that are turned on." };
+          return { ok: false as const, error: COPY.noItemPages };
         }
         return { ok: true as const, offers };
       },
@@ -157,7 +158,7 @@ export const searchPin = createServerFn({ method: "POST" })
         const apiKey = readXaiApiKey();
         const shops = data.search.retailers.filter((shop) => shop.domains.length > 0);
         if (shops.length === 0) {
-          return { ok: false as const, error: "Turn on at least one shop in Catalog before searching." };
+          return { ok: false as const, error: COPY.shopsNotReady };
         }
         const image = data.imageDataUrl ? clampImageDataUrl(data.imageDataUrl) : null;
         if (data.imageDataUrl && !image) {
@@ -184,12 +185,12 @@ export const searchPin = createServerFn({ method: "POST" })
         } else if (!named) {
           return {
             ok: false as const,
-            error: "Name the piece — colour and garment — then search.",
+            error: COPY.namePiece,
           };
         }
 
         if (query.trim().length < 2) {
-          return { ok: false as const, error: "Could not tell what is under that pin." };
+          return { ok: false as const, error: COPY.pinUnknown };
         }
 
         const offers = await searchOffers(apiKey ?? "", query, data.search, shops);
