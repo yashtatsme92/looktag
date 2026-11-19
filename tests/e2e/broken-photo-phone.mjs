@@ -92,7 +92,7 @@ try {
         Boolean(box && box.inside && box.state === "broken" && box.text === PLACEHOLDER && ratioOk),
         JSON.stringify(box),
       );
-      await page.screenshot({ path: "/workspace/screenshots/broken-canvas-390.png" });
+      await page.screenshot({ path: "/workspace/screenshots/broken-canvas-390.png" }).catch(() => {});
     },
     "broken-photo-look",
     { viewport },
