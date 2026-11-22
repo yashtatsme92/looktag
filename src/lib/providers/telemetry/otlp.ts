@@ -12,6 +12,7 @@ import {
   ATTR_TELEMETRY_SDK_VERSION,
   ATTR_URL_PATH,
 } from "@opentelemetry/semantic-conventions";
+export { ATTR_VCS_REF_HEAD_REVISION } from "@opentelemetry/semantic-conventions/incubating";
 
 export {
   ATTR_DEPLOYMENT_ENVIRONMENT_NAME,

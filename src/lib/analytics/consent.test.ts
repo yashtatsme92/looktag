@@ -37,7 +37,7 @@ describe("analytics consent gate", () => {
       assert.equal(loaded, false);
       assert.deepEqual(loads, []);
       assert.deepEqual(
-        fetches.filter((url) => url.includes("/ingest")),
+        fetches.filter((url) => url.includes("/ingest") || /posthog/i.test(url)),
         [],
       );
       track("look_saved");

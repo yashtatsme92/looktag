@@ -9,12 +9,16 @@
 #   APP_URL       Public origin for share / canonical links.
 #   NITRO_PRESET  Override at build time; this image always builds node-server.
 #   OTEL_EXPORTER_OTLP_ENDPOINT  Traces / metrics / logs collector.
+#   VITE_POSTHOG_KEY  Build arg only. Vite inlines it. Leave unset to ship with no key.
 
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# Declared with no default so the image never bakes a key that is not passed in.
+ARG VITE_POSTHOG_KEY
+ENV VITE_POSTHOG_KEY=$VITE_POSTHOG_KEY
 ENV NITRO_PRESET=node-server
 RUN npm run build
 # Fail the image build (not the first upload) if .output cannot load a server

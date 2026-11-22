@@ -1,6 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ATTR_SERVICE_NAME } from "../providers/telemetry/index.ts";
+import { readFileSync } from "node:fs";
+import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME, ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_TELEMETRY_SDK_VERSION, ATTR_VCS_REF_HEAD_REVISION } from "../providers/telemetry/index.ts";
+import { readPackageVersion, resolveRuntimeCommit } from "../build-commit.ts";
 import {
   clampSampleRatio,
   formatTraceparent,
@@ -13,7 +15,7 @@ import {
   sanitizeAttributes,
   unixNano,
 } from "./model.ts";
-import { encodeOtlpLogs, encodeOtlpMetrics, encodeOtlpTraces, otlpValue } from "./otlp.ts";
+import { encodeOtlpLogs, encodeOtlpMetrics, encodeOtlpTraces, otlpValue, resourceAttributes, traceResourceIdentity } from "./otlp.ts";
 import { installTraceparentFetch } from "./client-fetch.ts";
 import { flushSignals, setTelemetrySink, startSpan } from "./runtime.ts";
 
@@ -72,6 +74,33 @@ describe("OTLP encoding", () => {
     assert.equal(span?.status.code, 1);
     assert.equal(span?.traceId.length, 32);
     assert.ok(resource.some((attr) => attr.key === ATTR_SERVICE_NAME));
+    const version = resource.find((attr) => attr.key === ATTR_SERVICE_VERSION);
+    const commit = resource.find((attr) => attr.key === ATTR_VCS_REF_HEAD_REVISION);
+    const sdk = resource.find((attr) => attr.key === ATTR_TELEMETRY_SDK_VERSION);
+    const environment = resource.find((attr) => attr.key === ATTR_DEPLOYMENT_ENVIRONMENT_NAME);
+    assert.equal(version?.value && "stringValue" in version.value ? version.value.stringValue : "", traceResourceIdentity().version);
+    assert.equal(commit?.value && "stringValue" in commit.value ? commit.value.stringValue : "", traceResourceIdentity().commit);
+    assert.equal(sdk?.value && "stringValue" in sdk.value ? sdk.value.stringValue : "", traceResourceIdentity().version);
+    assert.notEqual(version?.value && "stringValue" in version.value ? version.value.stringValue : "", "1.0.0");
+    assert.ok(environment);
+    assert.equal(payload.resourceSpans[0]?.scopeSpans[0]?.scope.version, traceResourceIdentity().version);
+  });
+
+  it("sets service.version from package.json and the /api/version commit on the resource", () => {
+    const pkg = JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8")) as { version: string };
+    const identity = traceResourceIdentity({ RENDER_GIT_COMMIT: "0123456789abcdef0123456789abcdef01234567" });
+    assert.equal(identity.version, readPackageVersion(pkg));
+    assert.equal(identity.commit, resolveRuntimeCommit("unknown", { RENDER_GIT_COMMIT: "0123456789abcdef0123456789abcdef01234567" }));
+    const attrs = resourceAttributes("looktag", {
+      version: identity.version,
+      commit: "abc1234",
+      environment: "production",
+    });
+    assert.equal(attrs[ATTR_SERVICE_VERSION], pkg.version);
+    assert.equal(attrs[ATTR_TELEMETRY_SDK_VERSION], pkg.version);
+    assert.equal(attrs[ATTR_VCS_REF_HEAD_REVISION], "abc1234");
+    assert.equal(attrs[ATTR_DEPLOYMENT_ENVIRONMENT_NAME], "production");
+    assert.equal(attrs[ATTR_SERVICE_NAME], "looktag");
   });
 
   it("encodes metrics and logs with the same resource identity", () => {
