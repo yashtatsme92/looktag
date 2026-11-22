@@ -188,10 +188,25 @@ describe("OTLP destination", () => {
 });
 
 describe("config and sanitization", () => {
-  it("prefers saved settings over env, env over defaults", () => {
+  it("prefers env OTLP endpoint and headers over saved settings", () => {
+    const merged = mergeConfig(
+      { otlpEndpoint: "https://collector.internal", otlpHeaders: "Authorization=stored", serviceName: "stored-name" },
+      {
+        enabled: true,
+        serviceName: "from-env",
+        otlpEndpoint: "https://env.example",
+        otlpHeaders: "Authorization=from-env",
+      },
+    );
+    assert.equal(merged.serviceName, "stored-name");
+    assert.equal(merged.otlpEndpoint, "https://env.example");
+    assert.equal(merged.otlpHeaders, "Authorization=from-env");
+  });
+
+  it("keeps the saved OTLP endpoint when env does not set one", () => {
     const merged = mergeConfig(
       { otlpEndpoint: "https://collector.internal" },
-      { enabled: true, serviceName: "from-env", otlpEndpoint: "https://env.example" },
+      { serviceName: "from-env" },
     );
     assert.equal(merged.serviceName, "from-env");
     assert.equal(merged.otlpEndpoint, "https://collector.internal");

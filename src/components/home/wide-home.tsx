@@ -15,6 +15,7 @@ import { FEED_GRID_SIZES, FEED_LEAD_SIZES } from "@/lib/media/feed-image";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { StyleFrame } from "@/components/labels/style-frame";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, forYouOrder, recordEchoActivation, pieceLine } from "@/lib/home/echo";
+import { track } from "@/lib/analytics/runtime";
 import { useEchoLane } from "@/lib/home/use-echo-lane";
 import {
   ECHO_TRAIL_CHIPS,
@@ -229,18 +230,21 @@ export function WideHome({ looks }: { looks: Look[] }) {
         return;
       }
       const saved = toggleSaved(look.id);
+      track(saved ? "look_saved" : "look_unsaved");
       toast.success(saved ? "Saved" : "Removed from wardrobe");
     });
   }
 
   function echo(look: Look) {
     recordEchoActivation(look);
+    track("echo_used");
     setTrail([]);
     setAnchorId(look.id);
     setMode("lane");
   }
 
   function openFollowing() {
+    if (mode !== "following") track("feed_view_switched", { to: "following" });
     const ids = followingLooks(deck, followed).map((look) => look.id);
     const next = [...new Set([...readStoredIds(FOLLOWING_SEEN_KEY), ...ids])];
     writeStoredIds(FOLLOWING_SEEN_KEY, next);
@@ -264,6 +268,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
                 mode={mode === "following" ? "following" : "feed"}
                 unseen={unseen}
                 onFeed={() => {
+                  if (mode !== "feed") track("feed_view_switched", { to: "for_you" });
                   setTrail([]);
                   setMode("feed");
                   setAnchorId(null);
@@ -276,6 +281,7 @@ export function WideHome({ looks }: { looks: Look[] }) {
                 type="button"
                 className="wide-houses"
                 onClick={() => {
+                  track("feed_view_switched", { to: "for_you" });
                   setTrail([]);
                   setMode("feed");
                   setAnchorId(null);
@@ -429,7 +435,10 @@ export function WideHome({ looks }: { looks: Look[] }) {
         {mode === "following" ? (
           <div className="echo-end echo-end-ink">
             <p>That's everything from who you follow.</p>
-            <button type="button" className="house-ghost" onClick={() => setMode("feed")}>
+            <button type="button" className="house-ghost" onClick={() => {
+              track("feed_view_switched", { to: "for_you" });
+              setMode("feed");
+            }}>
               Back to For you
             </button>
           </div>

@@ -21,6 +21,7 @@ import {
   resolveBuildCommit,
   shortCommit,
 } from "./src/lib/build-commit.ts";
+import { proxyIngest } from "./src/lib/analytics/ingest-proxy.ts";
 
 /** Dev server for `/storage/*` (Nitro middleware covers production). */
 function localStorageDevPlugin(): Plugin {
@@ -37,6 +38,48 @@ function localStorageDevPlugin(): Plugin {
           res.statusCode = response.status;
           response.headers.forEach((value, key) => res.setHeader(key, value));
           if ((req.method ?? "GET").toUpperCase() === "HEAD") {
+            res.end();
+            return;
+          }
+          res.end(Buffer.from(await response.arrayBuffer()));
+        } catch (error) {
+          next(error);
+        }
+      });
+    },
+  };
+}
+
+/** Dev twin of server/middleware/ingest.ts. Production uses Nitro. */
+function ingestDevPlugin(): Plugin {
+  return {
+    name: "looktag-ingest-proxy",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const raw = req.url ?? "";
+        const path = raw.split("?")[0] ?? "";
+        if (path !== "/ingest" && !path.startsWith("/ingest/")) return next();
+        try {
+          const host = req.headers.host ?? "127.0.0.1";
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          const method = (req.method ?? "GET").toUpperCase();
+          const headers = new Headers();
+          const contentType = req.headers["content-type"];
+          if (typeof contentType === "string") headers.set("content-type", contentType);
+          const encoding = req.headers["content-encoding"];
+          if (typeof encoding === "string") headers.set("content-encoding", encoding);
+          const bodyless = method === "GET" || method === "HEAD";
+          const request = new Request(`http://${host}${raw}`, {
+            method,
+            headers,
+            body: bodyless ? undefined : Buffer.concat(chunks),
+          });
+          const response = await proxyIngest(request);
+          if (!response) return next();
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => res.setHeader(key, value));
+          if (method === "HEAD") {
             res.end();
             return;
           }
@@ -276,6 +319,7 @@ export default defineConfig(({ command, isPreview }) => ({
   plugins: [
     pgliteBootstrapPlugin(),
     localStorageDevPlugin(),
+    ingestDevPlugin(),
     {
       name: "looktag-provider-boot",
       configureServer() {
