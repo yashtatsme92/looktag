@@ -59,6 +59,7 @@ jobs:
           # No Google credentials on this server: no Google button (before any admin toggles).
           GOOGLE_EXPECT=off BASE_URL=http://127.0.0.1:8080 npm run test:e2e:google
           BASE_URL=http://127.0.0.1:8080 npm run test:e2e:splash
+          # Guest shared links (#123): signed out, phone / tablet / desktop.
           npm run test:e2e:guest
           node tests/e2e/feed-bandwidth.mjs
           npm run test:e2e:aspect
