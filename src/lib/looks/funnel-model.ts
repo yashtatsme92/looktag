@@ -51,6 +51,20 @@ export function lookCreatedAttributes(
   };
 }
 
+export function pinTapAttributes(
+  context: FunnelContext & { tagId: string },
+): FunnelAttrs {
+  return {
+    ...baseAttrs(context),
+    "looktag.funnel.tag_id": context.tagId,
+  };
+}
+
+/** Pointerdown and the click it produces are one tap. */
+export function acceptPinTap(lastAt: number, now: number, windowMs = 400): boolean {
+  return now - lastAt >= windowMs;
+}
+
 export function shopResultAttributes(
   context: FunnelContext & {
     offerCount: number;

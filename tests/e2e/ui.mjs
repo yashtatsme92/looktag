@@ -20,6 +20,19 @@ function hasNoPriceCopy(text) {
   return !/[€$£]|\bcheapest\b|\bfrom\b/i.test(text);
 }
 
+/** Pin tap opens the Shop sheet. Close it so the piece card and the next pin are reachable. */
+async function dismissPinShopSheet(page) {
+  const sheet = page.locator(".look-sheet");
+  const open = await sheet
+    .waitFor({ state: "visible", timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!open) return false;
+  await page.keyboard.press("Escape");
+  await sheet.waitFor({ state: "hidden", timeout: 4_000 }).catch(() => {});
+  return true;
+}
+
 const DRAFT = {
   id: "ui-draft",
   userId: "",
@@ -267,6 +280,7 @@ async function screenLookTabbar(page) {
     JSON.stringify(m),
   );
   await page.locator(".look-plate .tag-pin").nth(0).click();
+  await dismissPinShopSheet(page);
   await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 4_000 });
   await page.waitForTimeout(350);
   const s = await read();
@@ -392,6 +406,7 @@ async function screenLook(page) {
   record("screen.look.shop", /Shop/.test(text) && /Sunday Coat/.test(text));
   record("screen.look.share", (await page.getByRole("button", { name: "Share" }).count()) > 0);
   await page.locator(".tag-pin").nth(1).click();
+  await dismissPinShopSheet(page);
   const card = page.getByRole("dialog", { name: "Selected piece" });
   await card.waitFor({ timeout: 4_000 });
   const cardText = await card.innerText();
@@ -413,6 +428,7 @@ async function screenLook(page) {
   record("flow.look.spotlight-dismiss", (await card.count()) === 0);
   // Style-linked pin: Style name as the title, House beneath, ghost View Style beside Shop, no piece name.
   await page.locator(".tag-pin").nth(0).click();
+  await dismissPinShopSheet(page);
   await card.waitFor({ timeout: 4_000 });
   const viewStyle = card.getByRole("link", { name: "View Style" });
   await viewStyle.waitFor({ timeout: 6_000 });
@@ -459,8 +475,19 @@ async function screenLook(page) {
   record("flow.look.spotlight-esc", stillOpen && (await card.count()) === 0, `stillOpen=${stillOpen}`);
   record("flow.look.spotlight-focus-return", pinFocused);
   await page.locator(".look-plate-echo").click();
-  await page.waitForFunction(() => location.pathname === "/", null, { timeout: 8_000 });
-  record("flow.look.echo", new URL(page.url()).pathname === "/");
+  const echoGate = page.getByRole("heading", { name: /^Sign in to (save|follow)/ });
+  await echoGate.waitFor({ timeout: 5_000 });
+  await page.getByRole("button", { name: "Cancel", exact: true }).last().click();
+  await echoGate.waitFor({ state: "hidden", timeout: 4_000 });
+  record("flow.look.echo", new URL(page.url()).pathname === "/looks/seed-sunday-coat");
+  await page.evaluate(() => {
+    try {
+      sessionStorage.setItem("looktag-echo-from", "seed-sunday-coat");
+    } catch {
+      /* private mode */
+    }
+  });
+  await goto(page, "/");
   const laneLabel = page.locator(".echo-lane-label");
   await laneLabel.waitFor({ timeout: 4_000 });
   const laneLabelStyle = await laneLabel.evaluate((el) => {
@@ -489,6 +516,7 @@ async function flowEscAccountSheet(page, label) {
   const wide = page.viewportSize().width >= 768;
   const pin = page.locator(wide ? ".wide-plate-canvas .tag-pin" : ".look-plate .tag-pin").nth(1);
   await pin.click();
+  await dismissPinShopSheet(page);
   const card = page.getByRole("dialog", { name: "Selected piece" });
   if (wide) {
     await page.locator(".wide-prow.is-on").waitFor({ timeout: 4_000 });
@@ -521,6 +549,7 @@ async function flowSelectedPinClear(page, label) {
     const selections = [];
     for (let i = 0; i < total; i += 1) {
       await page.locator(pinSelector).nth(i).click();
+      await dismissPinShopSheet(page);
       const activeRow = page.locator(".wide-prow.is-on");
       await activeRow.waitFor({ timeout: 4_000 });
       selections.push(
@@ -550,6 +579,7 @@ async function flowSelectedPinClear(page, label) {
   const rows = [];
   for (let i = 0; i < total; i += 1) {
     await page.locator(pinSelector).nth(i).evaluate((node) => node.click());
+    await dismissPinShopSheet(page);
     await page.getByRole("dialog", { name: "Selected piece" }).waitFor({ timeout: 4_000 });
     await waitForPinCardPlacement(page);
     rows.push(
@@ -1199,6 +1229,7 @@ async function flowPinCardClear(page) {
       for (let index = 0; index < 4; index += 1) {
         const pin = page.locator(".wide-plate-canvas .tag-pin").nth(index);
         await pin.click();
+        await dismissPinShopSheet(page);
         await page.locator(".wide-prow.is-on").waitFor({ timeout: 4_000 });
         selectedRows.push(await pin.getAttribute("aria-pressed") === "true");
       }
@@ -1219,6 +1250,7 @@ async function flowPinCardClear(page) {
       });
       await waitForStableLookPins(page, 4);
       await page.locator(".look-plate .tag-pin").nth(index).click();
+      await dismissPinShopSheet(page);
       await card.waitFor({ timeout: 4_000 });
       await waitForPinCardPlacement(page);
       rows.push(
@@ -1247,6 +1279,7 @@ async function flowPinCardClear(page) {
   await pinsClear("phone");
   // Style-linked pin with no offers: Style name, House, View Style only. No "No close match yet", no Shop.
   await page.locator(".look-plate .tag-pin").nth(0).click();
+  await dismissPinShopSheet(page);
   const card = page.getByRole("dialog", { name: "Selected piece" });
   await card.getByRole("link", { name: "View Style" }).waitFor({ timeout: 6_000 });
   const text = (await card.innerText()).replace(/\s+/g, " ");
@@ -1958,6 +1991,10 @@ async function flowShopWholePhoneFlag(page) {
       spotlightWhole = await spotlight.count();
       spotlightBox = spotlightWhole ? await spotlight.boundingBox() : null;
       await page.keyboard.press("Escape");
+      const piece = page.getByRole("dialog", { name: "Selected piece" });
+      if (await piece.waitFor({ state: "visible", timeout: 2_000 }).then(() => true).catch(() => false)) {
+        await piece.getByRole("button", { name: "Dismiss" }).click();
+      }
     }
     const plateShop = page.locator(".look-plate-shop");
     if (await plateShop.isVisible()) {

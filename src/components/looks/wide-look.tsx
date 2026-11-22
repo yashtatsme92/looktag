@@ -15,7 +15,7 @@ import { useEchoLane } from "@/lib/home/use-echo-lane";
 import { markEditOpenedFromLook, shouldUseHistoryBack } from "@/lib/nav/back";
 import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { FollowButton } from "@/components/home/follow-button";
-import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
+import { hostFromUrl, recordOutboundShopClick, recordPinTap, acceptPinTap, type FunnelUserState } from "@/lib/looks/funnel";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
@@ -80,9 +80,43 @@ export function WideLook({
   const echoRef = useStaggerIn(`${look.id}:${echoLoad.phase}`);
 
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
+  const [restoreShopFocus, setRestoreShopFocus] = useState(true);
+  const pinTapAt = useRef(0);
   const shareRef = useRef<HTMLDivElement>(null);
 
   useOverlay(shareOpen, shareRef, () => setShareOpen(false));
+
+  function selectPin(id: string | null) {
+    setSelectedId(id);
+    if (!id) return;
+    setRestoreShopFocus(false);
+    setShopSheetOpen(true);
+    const now = Date.now();
+    if (!acceptPinTap(pinTapAt.current, now)) return;
+    pinTapAt.current = now;
+    recordPinTap({
+      chrome: chromeLayout(),
+      lookId: look.id,
+      tagId: id,
+      userState,
+    });
+  }
+
+  function startEcho() {
+    runSettled((sessionUser) => {
+      if (authEnabled && !sessionUser) {
+        setSheetOpen(true);
+        return;
+      }
+      recordEchoActivation(look);
+      try {
+        sessionStorage.setItem(ECHO_FROM_KEY, look.id);
+      } catch {
+        // private mode
+      }
+      void navigate({ to: "/" });
+    });
+  }
 
   function openShop(tag: ProductTag, source: "piece_shop" | "shop_look") {
     const target = visualShopTarget(tag);
@@ -168,8 +202,11 @@ export function WideLook({
               images={look.images}
               sizes="(min-width: 1024px) 40vw, 50vw"
               selectedId={selectedId}
-              onSelect={setSelectedId}
-              onHiddenPieces={() => setShopSheetOpen(true)}
+              onSelect={selectPin}
+              onHiddenPieces={() => {
+                setRestoreShopFocus(true);
+                setShopSheetOpen(true);
+              }}
               fit="cover"
               className="wide-plate-canvas"
             />
@@ -199,19 +236,7 @@ export function WideLook({
                 >
                   <HangtagIcon className="size-5" filled={saved} />
                 </button>
-                <button
-                  type="button"
-                  className="wide-btn wide-btn-ghost"
-                  onClick={() => {
-                    recordEchoActivation(look);
-                    try {
-                      sessionStorage.setItem(ECHO_FROM_KEY, look.id);
-                    } catch {
-                      // private mode
-                    }
-                    void navigate({ to: "/" });
-                  }}
-                >
+                <button type="button" className="wide-btn wide-btn-ghost" onClick={startEcho}>
                   <Radio className="size-4" />
                   Echo
                 </button>
@@ -282,7 +307,18 @@ export function WideLook({
               )}
             </div>
             <div className="wide-panel-ft">
-              <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={() => (look.tags.length ? setShopSheetOpen(true) : toast.message("No pieces on this look yet"))}>
+              <button
+                type="button"
+                className="wide-btn wide-btn-ghost wide-btn-block"
+                onClick={() => {
+                  if (!look.tags.length) {
+                    toast.message("No pieces on this look yet");
+                    return;
+                  }
+                  setRestoreShopFocus(true);
+                  setShopSheetOpen(true);
+                }}
+              >
                 Shop whole look
               </button>
             </div>
@@ -296,6 +332,7 @@ export function WideLook({
           onShopPiece={shopPiece}
           lookSrc={look.imageSrc}
           selectedId={selectedId}
+          restoreFocus={restoreShopFocus}
         />
 
         {echo.length > 0 ? (

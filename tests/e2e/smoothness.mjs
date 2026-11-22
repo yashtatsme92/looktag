@@ -227,7 +227,15 @@ check("phone sheet escape", (await phonePage.locator(".look-sheet").count()) ===
 const pin = phonePage.locator(".tag-pin").first();
 if (await pin.count()) {
   await pin.click();
+  const sheet = phonePage.locator(".look-sheet");
+  if (await sheet.waitFor({ timeout: 3_000 }).then(() => true).catch(() => false)) {
+    await phonePage.keyboard.press("Escape");
+    await sheet.waitFor({ state: "hidden", timeout: 4_000 }).catch(() => {});
+  }
   await phonePage.locator(".look-plate-piece").waitFor();
+  await phonePage
+    .waitForFunction(() => document.activeElement?.closest(".look-plate-piece") !== null, null, { timeout: 2_000 })
+    .catch(() => {});
   const focused = await phonePage.evaluate(() => document.activeElement?.closest(".look-plate-piece") !== null);
   await phonePage.keyboard.press("Escape");
   const gone = (await phonePage.locator(".look-plate-piece").count()) === 0;

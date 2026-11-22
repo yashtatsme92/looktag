@@ -4,6 +4,7 @@ import {
   lookCreatedAttributes,
   outboundShopClickAttributes,
   pinAddedAttributes,
+  pinTapAttributes,
   shopResultAttributes,
 } from "./funnel-model.ts";
 
@@ -24,7 +25,7 @@ function asAttributes(attributes: FunnelAttrs): Attributes {
   return safe;
 }
 
-export { funnelUserState, hostFromUrl } from "./funnel-model.ts";
+export { acceptPinTap, funnelUserState, hostFromUrl } from "./funnel-model.ts";
 export type { FunnelUserState } from "./funnel-model.ts";
 
 export function recordPinAdded(
@@ -32,6 +33,12 @@ export function recordPinAdded(
 ) {
   const count = Math.max(1, context.count ?? 1);
   emitFunnel("looktag.funnel.pin_added", pinAddedAttributes({ ...context, count }), count);
+}
+
+export function recordPinTap(
+  context: Parameters<typeof pinTapAttributes>[0],
+) {
+  emitFunnel("looktag.funnel.pin_tap", pinTapAttributes(context));
 }
 
 export function recordLookCreated(

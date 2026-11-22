@@ -4284,6 +4284,11 @@ html[data-chrome="phone"] .look-plate-canvas {
   border: 1px solid #111111;
   background: transparent;
   color: #111111;
+  text-decoration: none;
+}
+
+.look-sheet-shop:visited {
+  color: #111111;
 }
 
 .look-sheet-thumb {

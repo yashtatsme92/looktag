@@ -38,6 +38,11 @@ async function assertWidePinRows(page, label) {
     const pin = page.locator(".tag-pin").nth(index);
     const pinNumber = (await pin.locator(".tag-pin-dot").innerText()).trim();
     await pin.click();
+    const sheet = page.locator(".look-sheet");
+    if (await sheet.waitFor({ state: "visible", timeout: 4_000 }).then(() => true).catch(() => false)) {
+      await page.keyboard.press("Escape");
+      await sheet.waitFor({ state: "hidden", timeout: 4_000 }).catch(() => {});
+    }
     const selectedRow = page.locator(
       `.wide-prow.is-on .wide-prow-hit[aria-label^="Spotlight piece ${pinNumber},"]`,
     );
@@ -144,8 +149,11 @@ try {
     "tablet.wide-panel-pin-selects-piece",
     (await page.locator(".wide-prow.is-on").count()) === 1,
   );
-  await page.locator(".wide-panel-ft button").click();
-  await page.locator(".look-sheet").waitFor({ timeout: 6_000 });
+  const sheetOpen = page.locator(".look-sheet");
+  if (!(await sheetOpen.isVisible().catch(() => false))) {
+    await page.locator(".wide-panel-ft button").click();
+  }
+  await sheetOpen.waitFor({ timeout: 6_000 });
   await page.waitForTimeout(500);
   const sheet = await page.evaluate(() => {
     const rows = [...document.querySelectorAll(".look-sheet-row")];

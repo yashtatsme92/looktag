@@ -1,10 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  acceptPinTap,
   funnelUserState,
   lookCreatedAttributes,
   outboundShopClickAttributes,
   pinAddedAttributes,
+  pinTapAttributes,
   shopResultAttributes,
 } from "./funnel-model.ts";
 
@@ -35,6 +37,34 @@ describe("pinAddedAttributes", () => {
         "looktag.funnel.source": "suggest",
       },
     );
+  });
+});
+
+describe("pinTapAttributes", () => {
+  it("names the tapped pin once, with viewer state and chrome", () => {
+    assert.deepEqual(
+      pinTapAttributes({
+        chrome: "phone",
+        lookId: "seed-sunday-coat",
+        tagId: "sc-coat",
+        userState: "guest",
+      }),
+      {
+        "looktag.ui.chrome": "phone",
+        "looktag.look.id": "seed-sunday-coat",
+        "looktag.funnel.user_state": "guest",
+        "looktag.funnel.tag_id": "sc-coat",
+      },
+    );
+  });
+});
+
+describe("acceptPinTap", () => {
+  it("collapses the pointerdown and click of one tap, and records a later tap", () => {
+    assert.equal(acceptPinTap(0, 1_000), true);
+    assert.equal(acceptPinTap(1_000, 1_010), false);
+    assert.equal(acceptPinTap(1_000, 1_399), false);
+    assert.equal(acceptPinTap(1_000, 1_400), true);
   });
 });
 
