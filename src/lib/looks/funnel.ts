@@ -1,5 +1,6 @@
 import type { Attributes } from "../observability/model";
 import { recordMetric, startSpan } from "../observability/runtime.ts";
+import { track } from "../analytics/runtime.ts";
 import {
   lookCreatedAttributes,
   outboundShopClickAttributes,
@@ -33,6 +34,7 @@ export function recordPinAdded(
 ) {
   const count = Math.max(1, context.count ?? 1);
   emitFunnel("looktag.funnel.pin_added", pinAddedAttributes({ ...context, count }), count);
+  track("pin_added");
 }
 
 export function recordPinTap(
@@ -45,6 +47,7 @@ export function recordLookCreated(
   context: Parameters<typeof lookCreatedAttributes>[0],
 ) {
   emitFunnel("looktag.funnel.look_created", lookCreatedAttributes(context));
+  track("look_published");
 }
 
 export function recordShopResultShown(
@@ -57,4 +60,5 @@ export function recordOutboundShopClick(
   context: Parameters<typeof outboundShopClickAttributes>[0],
 ) {
   emitFunnel("looktag.funnel.shop_outbound_click", outboundShopClickAttributes(context));
+  track("shop_outbound_click", { look_id: context.lookId ?? "" });
 }

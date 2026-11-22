@@ -263,12 +263,17 @@ export function mergeConfig(
   stored: Partial<ObservabilityConfig> | null,
   env: Partial<ObservabilityConfig> = configFromEnv(),
 ): ObservabilityConfig {
-  return {
+  const merged: ObservabilityConfig = {
     ...DEFAULT_CONFIG,
     ...pickDefined(env),
     ...pickDefined(stored),
     filters: stored?.filters ?? DEFAULT_CONFIG.filters,
   };
+  // Endpoint and headers from the environment beat the stored row.
+  // Other fields stay stored-over-env. Blank env values stay unset.
+  if (env?.otlpEndpoint !== undefined) merged.otlpEndpoint = env.otlpEndpoint;
+  if (env?.otlpHeaders !== undefined) merged.otlpHeaders = env.otlpHeaders;
+  return merged;
 }
 
 function pickDefined<T extends object>(input: T | null | undefined): Partial<T> {

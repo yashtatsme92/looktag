@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useChromeLayout } from "@/lib/pwa/use-wide-layout";
 import { AppShell } from "@/components/layout/app-shell";
 import { LookPlate } from "@/components/looks/look-plate";
 import { WideLook } from "@/components/looks/wide-look";
 import { Button } from "@/components/ui/button";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { lookViewFrom } from "@/lib/analytics/events";
+import { track } from "@/lib/analytics/runtime";
 import { funnelUserState } from "@/lib/looks/funnel";
 import { getLookById } from "@/lib/looks/api";
 import { useLook } from "@/lib/looks/store";
@@ -49,6 +52,13 @@ function LookPage() {
     ssrLook?.id === lookId && ssrLook.images?.original && !lookFromStore?.images?.original
       ? ssrLook
       : lookFromStore ?? (ssrLook && ssrLook.id === lookId ? ssrLook : undefined);
+
+  useEffect(() => {
+    if (!look) return;
+    const from =
+      typeof document === "undefined" ? "deeplink" : lookViewFrom(document.referrer, window.location.origin);
+    track("look_viewed", { look_id: look.id, from });
+  }, [look?.id]);
 
   if (!look) {
     return (

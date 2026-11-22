@@ -16,6 +16,8 @@ import { markEditOpenedFromLook, shouldUseHistoryBack } from "@/lib/nav/back";
 import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { FollowButton } from "@/components/home/follow-button";
 import { hostFromUrl, recordOutboundShopClick, recordPinTap, acceptPinTap, type FunnelUserState } from "@/lib/looks/funnel";
+import { shareChannel } from "@/lib/analytics/events";
+import { track } from "@/lib/analytics/runtime";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
@@ -94,12 +96,15 @@ export function WideLook({
     const now = Date.now();
     if (!acceptPinTap(pinTapAt.current, now)) return;
     pinTapAt.current = now;
+    openShopSheet();
+    setRestoreShopFocus(false);
     recordPinTap({
       chrome: chromeLayout(),
       lookId: look.id,
       tagId: id,
       userState,
     });
+    track("pin_tapped", { look_id: look.id });
   }
 
   function startEcho() {
@@ -153,6 +158,7 @@ export function WideLook({
         return;
       }
       const next = toggleSaved(look.id);
+      track(next ? "look_saved" : "look_unsaved");
       toast.success(next ? "Saved" : "Removed from wardrobe");
     });
   }
@@ -165,10 +171,17 @@ export function WideLook({
       url,
       kind: "look",
     });
+    track("look_shared", { channel: shareChannel(result) });
     if (result === "copied") toast.success("Link copied");
     else if (result === "shared") toast.success("Shared");
     else toast.message("Share this look", { description: url });
     setShareOpen(false);
+  }
+
+  function openShopSheet() {
+    setRestoreShopFocus(true);
+    setShopSheetOpen(true);
+    track("shop_sheet_opened", { look_id: look.id });
   }
 
   return (
@@ -203,10 +216,7 @@ export function WideLook({
               sizes="(min-width: 1024px) 40vw, 50vw"
               selectedId={selectedId}
               onSelect={selectPin}
-              onHiddenPieces={() => {
-                setRestoreShopFocus(true);
-                setShopSheetOpen(true);
-              }}
+              onHiddenPieces={() => openShopSheet()}
               fit="cover"
               className="wide-plate-canvas"
             />
@@ -307,18 +317,7 @@ export function WideLook({
               )}
             </div>
             <div className="wide-panel-ft">
-              <button
-                type="button"
-                className="wide-btn wide-btn-ghost wide-btn-block"
-                onClick={() => {
-                  if (!look.tags.length) {
-                    toast.message("No pieces on this look yet");
-                    return;
-                  }
-                  setRestoreShopFocus(true);
-                  setShopSheetOpen(true);
-                }}
-              >
+              <button type="button" className="wide-btn wide-btn-ghost wide-btn-block" onClick={() => (look.tags.length ? openShopSheet() : toast.message("No pieces on this look yet"))}>
                 Shop whole look
               </button>
             </div>

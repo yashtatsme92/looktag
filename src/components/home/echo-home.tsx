@@ -19,6 +19,8 @@ import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/
 import { pickFeedStyle, type FashionCollection, type FashionLabel, type FashionStyle } from "@/lib/labels/model";
 import { SEED_STYLES } from "@/lib/labels/seed";
 import { beatLabel, creatorRun, ECHO_FROM_KEY, echoKicker, forYouOrder, recordEchoActivation, echoSnapIndex, echoSwipe, pieceLine } from "@/lib/home/echo";
+import { shareChannel } from "@/lib/analytics/events";
+import { track } from "@/lib/analytics/runtime";
 import { useEchoLane } from "@/lib/home/use-echo-lane";
 import {
   ECHO_TRAIL_CHIPS,
@@ -298,6 +300,7 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         return;
       }
       const saved = toggleSaved(look.id);
+      track(saved ? "look_saved" : "look_unsaved");
       toast.success(saved ? "Saved" : "Removed from wardrobe");
     });
   }
@@ -305,12 +308,14 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   async function share(look: Look) {
     const url = publicUrl(`/looks/${look.id}`);
     const result = await shareOrCopy({ title: look.title || "Look", url, kind: "look" });
+    track("look_shared", { channel: shareChannel(result) });
     if (result === "copied") toast.success("Link copied");
   }
 
   function openLane(look: Look) {
     if (deck.every((item) => item.id === look.id)) return;
     recordEchoActivation(look);
+    track("echo_used");
     setTrail([]);
     setAnchorId(look.id);
     setMode("lane");
@@ -322,12 +327,14 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   }
 
   function backToFeed() {
+    if (mode !== "feed") track("feed_view_switched", { to: "for_you" });
     setTrail([]);
     setMode("feed");
     setAnchorId(null);
   }
 
   function openFollowing() {
+    if (mode !== "following") track("feed_view_switched", { to: "following" });
     const ids = followingLooks(deck, followed).map((look) => look.id);
     const next = [...new Set([...readStoredIds(FOLLOWING_SEEN_KEY), ...ids])];
     writeStoredIds(FOLLOWING_SEEN_KEY, next);
@@ -435,7 +442,10 @@ export function EchoHome({ looks }: { looks: Look[] }) {
             variant="echo"
             mode={mode === "following" ? "following" : "feed"}
             unseen={unseen}
-            onFeed={() => setMode("feed")}
+            onFeed={() => {
+              if (mode !== "feed") track("feed_view_switched", { to: "for_you" });
+              setMode("feed");
+            }}
             onFollowing={openFollowing}
           />
         ) : null}
@@ -623,7 +633,10 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         {showFollowing && followingLoad.phase === "ready" ? (
           <div className="echo-end">
             <p>That's everything from who you follow.</p>
-            <button type="button" className="house-ghost" onClick={() => setMode("feed")}>
+            <button type="button" className="house-ghost" onClick={() => {
+              track("feed_view_switched", { to: "for_you" });
+              setMode("feed");
+            }}>
               Back to For you
             </button>
           </div>

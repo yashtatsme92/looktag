@@ -16,6 +16,8 @@ import { shouldUseHistoryBack, markEditOpenedFromLook } from "@/lib/nav/back";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { hostFromUrl, recordOutboundShopClick, recordPinTap, acceptPinTap, type FunnelUserState } from "@/lib/looks/funnel";
+import { shareChannel } from "@/lib/analytics/events";
+import { track } from "@/lib/analytics/runtime";
 import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
 import { nudgeCardForPointer, pinCardPointer, placePinCard, type PinPointer } from "@/lib/looks/pin-card";
 import { useOverlay } from "@/lib/overlay/use-overlay";
@@ -259,12 +261,15 @@ export function LookPlate({
     const now = Date.now();
     if (!acceptPinTap(pinTapAt.current, now)) return;
     pinTapAt.current = now;
+    openShopSheet(true);
+    setRestoreShopFocus(false);
     recordPinTap({
       chrome: chromeLayout(),
       lookId: look.id,
       tagId: id,
       userState,
     });
+    track("pin_tapped", { look_id: look.id });
   }
 
   function startEcho() {
@@ -290,6 +295,7 @@ export function LookPlate({
         return;
       }
       const next = toggleSaved(look.id);
+      track(next ? "look_saved" : "look_unsaved");
       toast.success(next ? "Saved" : "Removed from wardrobe");
     });
   }
@@ -302,6 +308,7 @@ export function LookPlate({
       url,
       kind: "look",
     });
+    track("look_shared", { channel: shareChannel(result) });
     if (result === "shared") toast.success("Shared");
     else if (result === "copied") toast.success("Link copied");
     else toast.message(url);
@@ -347,6 +354,7 @@ export function LookPlate({
     if (!keepSelection) setSelectedId(null);
     setRestoreShopFocus(true);
     setShopSheetOpen(true);
+    track("shop_sheet_opened", { look_id: look.id });
   }
 
   return (
@@ -582,11 +590,7 @@ export function LookPlate({
         onShopPiece={shop}
         onShopWhole={
           shopWholeOpensSheet(flagPhone)
-            ? () => {
-                setSelectedId(null);
-                setRestoreShopFocus(true);
-                setShopSheetOpen(true);
-              }
+            ? () => openShopSheet(false)
             : showShopWhole
               ? shopWholeLook
               : undefined

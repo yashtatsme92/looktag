@@ -14,6 +14,7 @@ import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { HouseProfilePending } from "@/components/ds/route-pending";
 import { authEnabled } from "@/lib/auth/client";
+import { track } from "@/lib/analytics/runtime";
 import { useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { getFashionLabel, getHousesAvailability, type FashionLabelPage } from "@/lib/labels/api";
 import { houseCoverSrc, publicLines, toggleHouseFollow, type FashionLabel } from "@/lib/labels/model";
@@ -139,6 +140,11 @@ function HouseProfile() {
     setFollows(readFollows());
   }, []);
 
+  useEffect(() => {
+    if (!data?.house?.label?.id) return;
+    track("house_viewed");
+  }, [data?.house?.label?.id]);
+
   if (closed) return <HousesClosed />;
 
   const house = data?.house ?? null;
@@ -187,6 +193,7 @@ function HouseProfile() {
       }
       const next = toggleHouseFollow(follows, label.id);
       setFollows(next);
+      if (next.includes(label.id)) track("house_followed");
       try {
         localStorage.setItem(FOLLOW_KEY, JSON.stringify(next));
       } catch {

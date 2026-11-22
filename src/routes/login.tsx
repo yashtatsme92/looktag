@@ -12,6 +12,7 @@ import { Field } from "@/components/ds";
 import { COPY, messageField, offlineNow } from "@/lib/errors/copy";
 import { authErrorMessage } from "@/lib/errors/user-message";
 import { authClient, authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
+import { identify, setAnalyticsSignedIn, track } from "@/lib/analytics/runtime";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { clearPendingSave } from "@/lib/looks/pending-save";
 import { captureSessionToken, postAuthPath, resumeCreateInsteadOfReplace, safeNext, withTimeout } from "@/lib/login-next";
@@ -144,6 +145,9 @@ function Login() {
   }, [next, user]);
 
   async function goAfterAuth(displayName: string, userId?: string) {
+    setAnalyticsSignedIn(true);
+    track(mode === "signup" ? "signup_completed" : "login_completed", { method: "email" });
+    if (userId) identify(userId);
     markStyleGuideDone({ coach: true });
     await withTimeout(authClient.getSession(), 2500, null);
     if (mode === "signup") {
@@ -206,6 +210,7 @@ function Login() {
 
   async function handleEmail(event: FormEvent) {
     event.preventDefault();
+    track("auth_method_chosen", { method: "email" });
     setError("");
     setFieldErrors({});
     if (offlineNow()) {
@@ -292,6 +297,7 @@ function Login() {
   }
 
   function handleOauth(provider: { providerId: string; idp: string }) {
+    if (provider.idp === "google") track("auth_method_chosen", { method: "google" });
     const social =
       provider.idp === "google" || provider.idp === "apple"
         ? settings.providers[provider.idp].credentials
