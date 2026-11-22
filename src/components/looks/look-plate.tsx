@@ -15,7 +15,7 @@ import { ECHO_FROM_KEY, echoKicker, pieceLine, recordEchoActivation } from "@/li
 import { shouldUseHistoryBack, markEditOpenedFromLook } from "@/lib/nav/back";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
-import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
+import { hostFromUrl, recordOutboundShopClick, recordPinTap, acceptPinTap, type FunnelUserState } from "@/lib/looks/funnel";
 import { shareChannel } from "@/lib/analytics/events";
 import { track } from "@/lib/analytics/runtime";
 import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
@@ -65,6 +65,7 @@ export function LookPlate({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
+  const [restoreShopFocus, setRestoreShopFocus] = useState(true);
   const feedFollow = useSettingsStore((s) => s.feedFollow);
   const shopWholeLookPhone = useSettingsStore((s) => s.shopWholeLookPhone);
   const flagPhone = useFlagPhone();
@@ -80,6 +81,7 @@ export function LookPlate({
   const plateRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const pinOpenerRef = useRef<HTMLElement | null>(null);
+  const pinTapAt = useRef(0);
   const lastIndexRef = useRef(0);
   const [plateSize, setPlateSize] = useState({ w: 0, h: 0, top: 0 });
   const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null);
@@ -218,7 +220,7 @@ export function LookPlate({
     }
     setCardPos({ top: plateRect.top + rect.top, left: plateRect.left + rect.left });
     setPointer(nextPointer);
-  }, [selectedId, look.tags, plateSize.w, plateSize.h, plateSize.top]);
+  }, [selectedId, shopSheetOpen, look.tags, plateSize.w, plateSize.h, plateSize.top]);
 
   useOverlay(Boolean(selectedId) && !sheetOpen && !shopSheetOpen, cardRef, () => setSelectedId(null), {
     returnTo: () => {
@@ -249,6 +251,41 @@ export function LookPlate({
     if (!target?.closest(".look-plate-canvas")) return;
     if (target.closest(".tag-pin, .look-plate-piece")) return;
     setSelectedId(null);
+  }
+
+  function selectPin(id: string | null) {
+    setSelectedId(id);
+    if (!id) return;
+    setRestoreShopFocus(false);
+    setShopSheetOpen(true);
+    const now = Date.now();
+    if (!acceptPinTap(pinTapAt.current, now)) return;
+    pinTapAt.current = now;
+    openShopSheet(true);
+    setRestoreShopFocus(false);
+    recordPinTap({
+      chrome: chromeLayout(),
+      lookId: look.id,
+      tagId: id,
+      userState,
+    });
+    track("pin_tapped", { look_id: look.id });
+  }
+
+  function startEcho() {
+    runSettled((sessionUser) => {
+      if (authEnabled && !sessionUser) {
+        setSheetOpen(true);
+        return;
+      }
+      recordEchoActivation(look);
+      try {
+        sessionStorage.setItem(ECHO_FROM_KEY, look.id);
+      } catch {
+        // private mode
+      }
+      void navigate({ to: "/" });
+    });
   }
 
   function save() {
@@ -315,6 +352,7 @@ export function LookPlate({
   /** `Shop this look`: the sheet lists every piece. Tablet keeps the pin card open underneath it. */
   function openShopSheet(keepSelection = false) {
     if (!keepSelection) setSelectedId(null);
+    setRestoreShopFocus(true);
     setShopSheetOpen(true);
     track("shop_sheet_opened", { look_id: look.id });
   }
@@ -337,15 +375,12 @@ export function LookPlate({
         images={look.images}
         sizes="(min-width: 768px) 50vw, 100vw"
         selectedId={selectedId}
-        onSelect={(id) => {
-          setSelectedId(id);
-          if (id) track("pin_tapped", { look_id: look.id });
-        }}
+        onSelect={selectPin}
         onHiddenPieces={() => openShopSheet(false)}
         fit="cover"
         className="look-plate-canvas"
       />
-      {spotlight ? <div className="look-plate-vignette" aria-hidden /> : null}
+      {spotlight && !shopSheetOpen ? <div className="look-plate-vignette" aria-hidden /> : null}
       {spotlight && !followOpen && typeof document !== "undefined"
         ? createPortal(
             <div
@@ -359,13 +394,24 @@ export function LookPlate({
                       left: cardPos.left,
                       right: "auto",
                       width: plateSize.w > 0 && plateSize.w < 768 ? plateSize.w - 32 : undefined,
-                      zIndex: 80,
+                      zIndex: shopSheetOpen ? 1 : 80,
+                      visibility: shopSheetOpen ? "hidden" : undefined,
+                      pointerEvents: shopSheetOpen ? "none" : undefined,
                     }
-                  : { position: "fixed", top: "54%", left: "1rem", right: "1rem", zIndex: 80 }
+                  : {
+                      position: "fixed",
+                      top: "54%",
+                      left: "1rem",
+                      right: "1rem",
+                      zIndex: shopSheetOpen ? 1 : 80,
+                      visibility: shopSheetOpen ? "hidden" : undefined,
+                      pointerEvents: shopSheetOpen ? "none" : undefined,
+                    }
               }
               tabIndex={-1}
               role="dialog"
               aria-label="Selected piece"
+              aria-hidden={shopSheetOpen ? true : undefined}
               data-overlay-root=""
               onPointerDown={(event) => {
                 swipeRef.current = event.clientX;
@@ -516,19 +562,7 @@ export function LookPlate({
             {pieceLine(look) ? (
               <p className="look-plate-pieces">{pieceLine(look)}</p>
             ) : null}
-            <button
-              type="button"
-              className="look-plate-echo"
-              onClick={() => {
-                recordEchoActivation(look);
-                try {
-                  sessionStorage.setItem(ECHO_FROM_KEY, look.id);
-                } catch {
-                  // private mode
-                }
-                void navigate({ to: "/" });
-              }}
-            >
+            <button type="button" className="look-plate-echo" onClick={startEcho}>
               <Radio className="size-4" />
               Echo
             </button>
@@ -548,7 +582,11 @@ export function LookPlate({
       <LookShopSheet
         tags={look.tags}
         open={shopSheetOpen}
-        onClose={() => setShopSheetOpen(false)}
+        onClose={() => {
+          const returnToPin = !restoreShopFocus;
+          setShopSheetOpen(false);
+          if (returnToPin) pinOpenerRef.current?.focus({ preventScroll: true });
+        }}
         onShopPiece={shop}
         onShopWhole={
           shopWholeOpensSheet(flagPhone)
@@ -560,6 +598,7 @@ export function LookPlate({
         phoneWholeLook={flagPhone}
         lookSrc={look.imageSrc}
         selectedId={selectedId}
+        restoreFocus={restoreShopFocus}
       />
 
       <AccountSheet

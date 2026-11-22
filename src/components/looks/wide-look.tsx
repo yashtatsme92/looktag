@@ -15,7 +15,7 @@ import { useEchoLane } from "@/lib/home/use-echo-lane";
 import { markEditOpenedFromLook, shouldUseHistoryBack } from "@/lib/nav/back";
 import { StyleViewLink, useStylePin } from "@/components/labels/style-pin-note";
 import { FollowButton } from "@/components/home/follow-button";
-import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
+import { hostFromUrl, recordOutboundShopClick, recordPinTap, acceptPinTap, type FunnelUserState } from "@/lib/looks/funnel";
 import { shareChannel } from "@/lib/analytics/events";
 import { track } from "@/lib/analytics/runtime";
 import { visualShopTarget } from "@/lib/looks/offers";
@@ -82,9 +82,46 @@ export function WideLook({
   const echoRef = useStaggerIn(`${look.id}:${echoLoad.phase}`);
 
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
+  const [restoreShopFocus, setRestoreShopFocus] = useState(true);
+  const pinTapAt = useRef(0);
   const shareRef = useRef<HTMLDivElement>(null);
 
   useOverlay(shareOpen, shareRef, () => setShareOpen(false));
+
+  function selectPin(id: string | null) {
+    setSelectedId(id);
+    if (!id) return;
+    setRestoreShopFocus(false);
+    setShopSheetOpen(true);
+    const now = Date.now();
+    if (!acceptPinTap(pinTapAt.current, now)) return;
+    pinTapAt.current = now;
+    openShopSheet();
+    setRestoreShopFocus(false);
+    recordPinTap({
+      chrome: chromeLayout(),
+      lookId: look.id,
+      tagId: id,
+      userState,
+    });
+    track("pin_tapped", { look_id: look.id });
+  }
+
+  function startEcho() {
+    runSettled((sessionUser) => {
+      if (authEnabled && !sessionUser) {
+        setSheetOpen(true);
+        return;
+      }
+      recordEchoActivation(look);
+      try {
+        sessionStorage.setItem(ECHO_FROM_KEY, look.id);
+      } catch {
+        // private mode
+      }
+      void navigate({ to: "/" });
+    });
+  }
 
   function openShop(tag: ProductTag, source: "piece_shop" | "shop_look") {
     const target = visualShopTarget(tag);
@@ -142,6 +179,7 @@ export function WideLook({
   }
 
   function openShopSheet() {
+    setRestoreShopFocus(true);
     setShopSheetOpen(true);
     track("shop_sheet_opened", { look_id: look.id });
   }
@@ -177,10 +215,7 @@ export function WideLook({
               images={look.images}
               sizes="(min-width: 1024px) 40vw, 50vw"
               selectedId={selectedId}
-              onSelect={(id) => {
-                setSelectedId(id);
-                if (id) track("pin_tapped", { look_id: look.id });
-              }}
+              onSelect={selectPin}
               onHiddenPieces={() => openShopSheet()}
               fit="cover"
               className="wide-plate-canvas"
@@ -211,19 +246,7 @@ export function WideLook({
                 >
                   <HangtagIcon className="size-5" filled={saved} />
                 </button>
-                <button
-                  type="button"
-                  className="wide-btn wide-btn-ghost"
-                  onClick={() => {
-                    recordEchoActivation(look);
-                    try {
-                      sessionStorage.setItem(ECHO_FROM_KEY, look.id);
-                    } catch {
-                      // private mode
-                    }
-                    void navigate({ to: "/" });
-                  }}
-                >
+                <button type="button" className="wide-btn wide-btn-ghost" onClick={startEcho}>
                   <Radio className="size-4" />
                   Echo
                 </button>
@@ -308,6 +331,7 @@ export function WideLook({
           onShopPiece={shopPiece}
           lookSrc={look.imageSrc}
           selectedId={selectedId}
+          restoreFocus={restoreShopFocus}
         />
 
         {echo.length > 0 ? (

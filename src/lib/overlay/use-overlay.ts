@@ -5,6 +5,8 @@ import { lockBackgroundScroll } from "./scroll-lock";
 type UseOverlayOptions = {
   /** Focus target when the control that opened the overlay is gone. */
   returnTo?: () => HTMLElement | null;
+  /** Set false when a surface that opens underneath should take focus itself. */
+  restoreFocus?: boolean;
 };
 
 const stack: Array<() => void> = [];
@@ -19,6 +21,8 @@ export function useOverlay(open: boolean, rootRef: RefObject<HTMLElement | null>
   onCloseRef.current = onClose;
   const returnToRef = useRef(options?.returnTo);
   returnToRef.current = options?.returnTo;
+  const restoreFocusRef = useRef(options?.restoreFocus !== false);
+  restoreFocusRef.current = options?.restoreFocus !== false;
 
   useEffect(() => {
     if (!open) return;
@@ -64,6 +68,7 @@ export function useOverlay(open: boolean, rootRef: RefObject<HTMLElement | null>
       const index = stack.lastIndexOf(token);
       if (index >= 0) stack.splice(index, 1);
       release();
+      if (!restoreFocusRef.current) return;
       const fallback = returnToRef.current?.() ?? null;
       const target = opener?.isConnected ? opener : fallback;
       requestAnimationFrame(() => target?.focus({ preventScroll: true }));

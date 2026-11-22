@@ -280,14 +280,6 @@ async function guestGate(page, viewport, action, click) {
     .catch(() => false);
   const afterPath = new URL(page.url()).pathname;
   if (!opened) {
-    if (action === "echo" && afterPath === "/" && beforePath !== "/") {
-      fixme(
-        name,
-        "Echo does not open a sign-in sheet or modal. It navigates home, so the guest loses the look.",
-        `${beforePath} -> ${afterPath}`,
-      );
-      return;
-    }
     fail(name, `no sign-in gate, url ${afterPath}`);
     await shot(page, name);
     return;
@@ -370,25 +362,19 @@ async function sharedLook(page, viewport, bodies) {
   } else {
     const pieceOpen = await piece.isVisible().catch(() => false);
     const selectedRow = await page.locator(".wide-prow.is-on").count();
-    const note = pieceOpen
-      ? "Pin tap opens the Selected piece card, not the Shop sheet."
-      : selectedRow > 0
-        ? "Pin tap selects a row in the shop panel that is already on the page. It does not open the Shop sheet."
-        : "Pin tap did not open the Shop sheet.";
-    fixme(`${viewport}.look.pin-opens-sheet`, note, pieceOpen ? "selected-piece" : `selected-rows=${selectedRow}`);
-    if (pieceOpen) await domClick(piece.getByRole("button", { name: "Dismiss" }));
-    if (viewport === "phone") await domClick(page.locator(".look-plate-shop"));
-    else await domClick(page.getByRole("button", { name: "Shop whole look" }));
-    const opened = await sheet
-      .waitFor({ state: "visible", timeout: 5_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!opened) {
-      fail(`${viewport}.look.shop-sheet`, "Shop sheet did not open from the Shop control");
-      await shot(page, `${viewport}-shop`);
-      return;
-    }
+    fail(
+      `${viewport}.look.pin-opens-sheet`,
+      pieceOpen
+        ? "selected-piece"
+        : selectedRow > 0
+          ? `selected-rows=${selectedRow}`
+          : "sheet stayed closed",
+    );
+    await shot(page, `${viewport}-shop`);
+    return;
   }
+
+  await sheet.locator(".look-sheet-shop").first().waitFor({ timeout: 4_000 }).catch(() => {});
 
   const sheetText = (await sheet.innerText()).replace(/\s+/g, " ");
   check(
@@ -399,35 +385,23 @@ async function sharedLook(page, viewport, bodies) {
 
   const href = await retailerHref(sheet);
   const shopButton = sheet.getByRole("button", { name: "Shop Oversized Wool Coat" });
+  const shopLink = sheet.locator('a[aria-label="Shop Oversized Wool Coat"]');
   const buttonCount = await shopButton.count();
+  const linkCount = await shopLink.count();
   if (href) pass(`${viewport}.look.retailer-href`, href);
-  if (buttonCount > 0) {
-    await domClick(shopButton.first());
-    const openedUrl = await page.evaluate(() => (window.__guestShopOpens || []).at(-1) || "");
-    if (!href) {
-      if (openedUrl) {
-        fixme(
-          `${viewport}.look.retailer-href`,
-          "Retailer control is a button that calls window.open. It has no href.",
-          openedUrl,
-        );
-      } else {
-        fail(`${viewport}.look.retailer-href`, "no href and window.open captured nothing");
-        await shot(page, `${viewport}-retailer`);
-      }
-    }
-  } else if (!href) {
-    fail(`${viewport}.look.retailer-href`, "no retailer href and no shop button");
+  else {
+    fail(`${viewport}.look.retailer-href`, "no retailer href");
     await shot(page, `${viewport}-retailer`);
   }
+  if (linkCount > 0) await domClick(shopLink.first());
+  else if (buttonCount > 0) await domClick(shopButton.first());
 
   const pinSignal = await waitForBody(bodies, (body) => PIN_SIGNAL_RE.test(body), 4_500, beforePin);
   if (pinSignal) pass(`${viewport}.funnel.pin-tap`, "ingest posted a pin-tap signal");
   else {
-    fixme(
+    fail(
       `${viewport}.funnel.pin-tap`,
-      "No pin-tap signal is posted to telemetry ingest. Funnel events are pin_added, look_created, shop_result_shown, and shop_outbound_click.",
-      `${bodies.length - beforePin} new ingest bodies`,
+      `no pin-tap ingest in ${bodies.length - beforePin} new bodies`,
     );
   }
 

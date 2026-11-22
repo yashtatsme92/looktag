@@ -24,6 +24,8 @@ type LookShopSheetProps = {
   phoneWholeLook?: boolean;
   lookSrc?: string;
   selectedId?: string | null;
+  /** Pin-opened sheets leave focus for the piece card. Shop-button sheets return it to the button. */
+  restoreFocus?: boolean;
 };
 
 /**
@@ -39,6 +41,7 @@ export function LookShopSheet({
   phoneWholeLook = false,
   lookSrc,
   selectedId,
+  restoreFocus = true,
 }: LookShopSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const tagsRef = useRef(tags);
@@ -51,6 +54,7 @@ export function LookShopSheet({
   /** Focus moves into the sheet on open and returns to the control that opened it on close. */
   useOverlay(open, sheetRef, onClose, {
     returnTo: () => document.querySelector<HTMLElement>(".look-plate-shop, .look-plate-shop-whole"),
+    restoreFocus,
   });
 
   if (!open) return null;
@@ -144,10 +148,20 @@ function SheetRow({
   const title = stylePin ? stylePin.styleName : pieceName;
   const sub = stylePin ? stylePin.houseName : target ? retailer : "No close match yet";
   const shop = target ? (
-    <button type="button" className="look-sheet-shop" aria-label={`Shop ${pieceName}`} onClick={onShop}>
+    <a
+      className="look-sheet-shop"
+      aria-label={`Shop ${pieceName}`}
+      href={target.url}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(event) => {
+        event.preventDefault();
+        onShop();
+      }}
+    >
       Shop
       <ExternalLink className="size-3.5" />
-    </button>
+    </a>
   ) : null;
   return (
     <li className={cn("look-sheet-row", selected && "is-on")} aria-current={selected ? "true" : undefined} data-style={stylePin ? "true" : undefined}>
