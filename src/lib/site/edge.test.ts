@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { HSTS_VALUE, canonicalRedirect, hstsHeader, publicHost } from "./edge.ts";
+import { HSTS_VALUE, CSP_REPORT_ONLY, canonicalRedirect, hstsHeader, publicHost } from "./edge.ts";
 
 const APP = { APP_URL: "https://thelooktag.com" };
 
@@ -58,3 +58,18 @@ describe("public host", () => {
     assert.equal(publicHost({}, "localhost:8080"), "localhost:8080");
   });
 });
+
+describe("CSP report-only", () => {
+  it("covers self, images, Google sign-in, fonts, and PostHog EU", () => {
+    assert.match(CSP_REPORT_ONLY, /default-src 'self'/);
+    assert.match(CSP_REPORT_ONLY, /https:\/\/img\.thelooktag\.com/);
+    assert.match(CSP_REPORT_ONLY, /https:\/\/accounts\.google\.com/);
+    assert.match(CSP_REPORT_ONLY, /https:\/\/appleid\.apple\.com/);
+    assert.match(CSP_REPORT_ONLY, /https:\/\/fonts\.googleapis\.com/);
+    assert.match(CSP_REPORT_ONLY, /https:\/\/fonts\.gstatic\.com/);
+    assert.match(CSP_REPORT_ONLY, /https:\/\/eu\.i\.posthog\.com/);
+    assert.match(CSP_REPORT_ONLY, /https:\/\/eu-assets\.i\.posthog\.com/);
+    assert.equal(CSP_REPORT_ONLY.includes("Content-Security-Policy "), false);
+  });
+});
+

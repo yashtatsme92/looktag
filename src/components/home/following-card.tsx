@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ImgSlot } from "@/components/ds/img-slot";
+import { track } from "@/lib/analytics/runtime";
 import type { FollowingHouseCard } from "@/lib/home/engagement";
 
 export function FollowingHousePlate({ card }: { card: FollowingHouseCard }) {
@@ -13,6 +14,7 @@ export function FollowingHousePlate({ card }: { card: FollowingHouseCard }) {
           params={{ ...params, styleId: card.styleId }}
           className="echo-photo"
           aria-label={`${card.title}, ${kicker}`}
+          onClick={() => track("style_card_tapped")}
         >
           <ImgSlot src={card.imageSrc} alt="" slotClassName="img-slot-fill" />
         </Link>
@@ -51,6 +53,7 @@ export function FollowingHouseTile({ card }: { card: FollowingHouseCard }) {
         params={{ ...params, styleId: card.styleId }}
         className="wide-tile following-house"
         aria-label={`${card.title}, ${kicker}`}
+        onClick={() => track("style_card_tapped")}
       >
         {inner}
       </Link>

@@ -9,6 +9,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
+import { AnalyticsBridge } from "@/lib/analytics/bridge";
 import { TelemetryProvider } from "@/lib/observability/client";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { BootSplash, StaticBootSplash } from "@/components/layout/boot-splash";
@@ -255,6 +256,7 @@ function RootDocument() {
         <PreviewHostBridge />
         <AuthProvider>
           <TelemetryProvider>
+            <AnalyticsBridge />
             <ThemeSync />
             <ViewportLock />
             <ScrollRestore />

@@ -4,6 +4,8 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GROK_PROVIDERS, signIn } from "@/lib/auth/client";
+import { authGateSource } from "@/lib/analytics/events";
+import { track } from "@/lib/analytics/runtime";
 import { clearPendingSave, rememberPendingSave } from "@/lib/looks/pending-save";
 import { visibleOauthProviders } from "@/lib/settings/model";
 import { useSettingsStore } from "@/lib/settings/store";
@@ -53,6 +55,15 @@ export function AccountSheet({
     hydrateSettings();
   }, [hydrateSettings]);
 
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpen.current) {
+      const source = authGateSource({ intent, title });
+      if (source) track("auth_gate_shown", { source });
+    }
+    wasOpen.current = open;
+  }, [open, intent, title]);
+
   function onSheetOpenChange(nextOpen: boolean) {
     if (nextOpen) {
       continuing.current = false;
@@ -63,6 +74,7 @@ export function AccountSheet({
   }
 
   function prepareEmailContinuation() {
+    track("auth_method_chosen", { method: "email" });
     clearPendingSave();
     if (intent === "save" && pendingSave) rememberPendingSave(pendingSave);
     continuing.current = true;
@@ -77,6 +89,7 @@ export function AccountSheet({
   }
 
   function continueWithProvider(provider: (typeof oauth)[number]) {
+    if (provider.idp === "google") track("auth_method_chosen", { method: "google" });
     clearPendingSave();
     if (intent === "save" && pendingSave) rememberPendingSave(pendingSave);
     continuing.current = true;

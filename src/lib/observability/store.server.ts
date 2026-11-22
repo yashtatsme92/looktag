@@ -27,6 +27,7 @@ import {
   type TraceGraph,
 } from "./graph";
 import { encodeOtlpLogs, encodeOtlpMetrics, encodeOtlpTraces, encodeProbe } from "./otlp";
+import { currentLastExport, noteExportResults } from "./export-state";
 import { setTelemetrySink } from "./runtime";
 
 const SETTINGS_ID = "default";
@@ -231,18 +232,26 @@ async function exportSignals(signals: TelemetrySignal[], config: ObservabilityCo
   const spans = signals.filter((s): s is Extract<TelemetrySignal, { kind: "span" }> => s.kind === "span");
   const metrics = signals.filter((s): s is Extract<TelemetrySignal, { kind: "metric" }> => s.kind === "metric");
   const logs = signals.filter((s): s is Extract<TelemetrySignal, { kind: "log" }> => s.kind === "log");
-  const posts: Array<Promise<void>> = [];
+  const posts: Array<Promise<boolean>> = [];
   if (spans.length) posts.push(postOtlpPayload(urls.traces, headers, encodeOtlpTraces(spans, config.serviceName)));
   if (metrics.length) posts.push(postOtlpPayload(urls.metrics, headers, encodeOtlpMetrics(metrics, config.serviceName)));
   if (logs.length) posts.push(postOtlpPayload(urls.logs, headers, encodeOtlpLogs(logs, config.serviceName)));
-  await Promise.all(posts);
+  if (!posts.length) return;
+  const results = await Promise.all(posts);
+  noteExportResults(results);
 }
 
-async function postOtlpPayload(url: string, headers: Record<string, string>, body: unknown): Promise<void> {
+async function postOtlpPayload(url: string, headers: Record<string, string>, body: unknown): Promise<boolean> {
   try {
-    await postOtlp(url, headers, body);
+    const response = await postOtlp(url, headers, body);
+    if (response.ok) return true;
+    captureException(new Error(`[telemetry] collector status ${response.status}`), {
+      where: "[telemetry] collector unreachable",
+    });
+    return false;
   } catch (error) {
     captureException(error, { where: "[telemetry] collector unreachable" });
+    return false;
   }
 }
 
@@ -335,7 +344,7 @@ export async function summarizeSignals(): Promise<TelemetrySummary> {
     logs: rows.filter((row) => row.kind === "log").length,
     traces: traces.size,
     p95Ms: p95,
-    lastExport: "",
+    lastExport: currentLastExport(),
   };
 }
 
