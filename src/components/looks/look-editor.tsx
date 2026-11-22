@@ -27,6 +27,8 @@ import {
   type CreateResumeIntent,
 } from "@/lib/looks/create-draft";
 import { authEnabled } from "@/lib/auth/client";
+import { resumeSource } from "@/lib/analytics/events";
+import { track } from "@/lib/analytics/runtime";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { isUnauthorized } from "@/lib/looks/api";
 import { funnelUserState, recordPinAdded, recordShopResultShown } from "@/lib/looks/funnel";
@@ -165,6 +167,7 @@ export function LookEditor({
     if (!user || !hydrated) return;
     const intent = takeCreateResume();
     if (!intent) return;
+    track("auth_action_resumed", { source: resumeSource(intent) });
     const id = window.setTimeout(() => {
       if (intent === "find") {
         setPhoneStep("pins");
@@ -348,12 +351,17 @@ export function LookEditor({
   }
 
   function requestFind() {
-    if (findState === "unavailable" || findState === "checking") return;
+    if (findState === "unavailable" || findState === "checking") {
+      if (findState === "unavailable") track("find_pieces_used", { result: "unavailable" });
+      return;
+    }
     if (findState === "gated") {
+      track("find_pieces_used", { result: "gated" });
       openAccount("find");
       return;
     }
     if (findState === "quota") {
+      track("find_pieces_used", { result: "quota" });
       setFindMessage(FIND_PIECES_COPY.quota);
       return;
     }
@@ -374,6 +382,7 @@ export function LookEditor({
       if (!result.ok) {
         if (isAiUnavailableMessage(result.error)) {
           setProviderError(true);
+          track("find_pieces_used", { result: "unavailable" });
           return;
         }
         setFindMessage(presentFindError(result.error));
@@ -383,6 +392,7 @@ export function LookEditor({
         setSuggestNote(FIND_PIECES_COPY.empty);
         return;
       }
+      track("find_pieces_used", { result: "ok" });
       if (phone) {
         pinSuggestions(result.pieces, { note: true });
         return;
@@ -391,17 +401,21 @@ export function LookEditor({
       setSuggestOpen(true);
     } catch (error) {
       if (isUnauthorized(error)) {
+        track("find_pieces_used", { result: "gated" });
         openAccount("find");
         return;
       }
       if (isAiQuotaError(error)) {
         setQuotaHit(true);
+        track("find_pieces_used", { result: "quota" });
         setFindMessage(FIND_PIECES_COPY.quota);
         return;
       }
       const message = userMessage(error, COPY.findUnavailable);
-      if (isAiUnavailableMessage(message)) setProviderError(true);
-      else setFindMessage(message);
+      if (isAiUnavailableMessage(message)) {
+        setProviderError(true);
+        track("find_pieces_used", { result: "unavailable" });
+      } else setFindMessage(message);
     } finally {
       setFindingPieces(false);
     }
@@ -498,6 +512,7 @@ export function LookEditor({
       return;
     }
     if (!look.title.trim()) {
+      track("title_missing_blocked");
       toast.error("Give the look a name.");
       return;
     }
@@ -616,6 +631,7 @@ export function LookEditor({
 
   function continueDetails() {
     if (!look.title.trim()) {
+      track("title_missing_blocked");
       setTitleError(true);
       document.getElementById("create-title")?.focus();
       return;
@@ -648,8 +664,10 @@ export function LookEditor({
   function keepDraft() {
     const result = draftSavedMessage(persistCreateDraft({ ...lookRef.current, updatedAt: Date.now() }));
     setDraftNote(result.text);
-    if (result.ok) toast.success("Draft kept in this tab");
-    else toast.error(result.text);
+    if (result.ok) {
+      track("draft_saved");
+      toast.success("Draft kept in this tab");
+    } else toast.error(result.text);
   }
 
   return (

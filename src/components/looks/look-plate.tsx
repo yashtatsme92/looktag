@@ -16,6 +16,8 @@ import { shouldUseHistoryBack, markEditOpenedFromLook } from "@/lib/nav/back";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { hostFromUrl, recordOutboundShopClick, type FunnelUserState } from "@/lib/looks/funnel";
+import { shareChannel } from "@/lib/analytics/events";
+import { track } from "@/lib/analytics/runtime";
 import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
 import { nudgeCardForPointer, pinCardPointer, placePinCard, type PinPointer } from "@/lib/looks/pin-card";
 import { useOverlay } from "@/lib/overlay/use-overlay";
@@ -256,6 +258,7 @@ export function LookPlate({
         return;
       }
       const next = toggleSaved(look.id);
+      track(next ? "look_saved" : "look_unsaved");
       toast.success(next ? "Saved" : "Removed from wardrobe");
     });
   }
@@ -268,6 +271,7 @@ export function LookPlate({
       url,
       kind: "look",
     });
+    track("look_shared", { channel: shareChannel(result) });
     if (result === "shared") toast.success("Shared");
     else if (result === "copied") toast.success("Link copied");
     else toast.message(url);
@@ -312,6 +316,7 @@ export function LookPlate({
   function openShopSheet(keepSelection = false) {
     if (!keepSelection) setSelectedId(null);
     setShopSheetOpen(true);
+    track("shop_sheet_opened", { look_id: look.id });
   }
 
   return (
@@ -332,7 +337,10 @@ export function LookPlate({
         images={look.images}
         sizes="(min-width: 768px) 50vw, 100vw"
         selectedId={selectedId}
-        onSelect={(id) => setSelectedId(id)}
+        onSelect={(id) => {
+          setSelectedId(id);
+          if (id) track("pin_tapped", { look_id: look.id });
+        }}
         onHiddenPieces={() => openShopSheet(false)}
         fit="cover"
         className="look-plate-canvas"
@@ -544,10 +552,7 @@ export function LookPlate({
         onShopPiece={shop}
         onShopWhole={
           shopWholeOpensSheet(flagPhone)
-            ? () => {
-                setSelectedId(null);
-                setShopSheetOpen(true);
-              }
+            ? () => openShopSheet(false)
             : showShopWhole
               ? shopWholeLook
               : undefined

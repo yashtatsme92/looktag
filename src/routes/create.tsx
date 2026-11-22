@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { LookEditor } from "@/components/looks/look-editor";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { track } from "@/lib/analytics/runtime";
 import { isUnauthorized } from "@/lib/looks/api";
 import { chromeLayout } from "@/lib/pwa/use-wide-layout";
 import { funnelUserState, recordLookCreated } from "@/lib/looks/funnel";
@@ -68,6 +69,10 @@ function CreateLook() {
   useLayoutEffect(() => {
     setLook(loadDraft() ?? emptyLook({ creator: "You" }));
     setDraftReady(true);
+  }, []);
+
+  useEffect(() => {
+    track("create_started");
   }, []);
 
   useEffect(() => {

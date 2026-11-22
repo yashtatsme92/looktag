@@ -1,6 +1,7 @@
 import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { COPY } from "@/lib/errors/copy";
+import { resetAnalytics, setAnalyticsSignedIn, track } from "@/lib/analytics/runtime";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
 import { GROK_PROVIDERS } from "./providers";
 
@@ -113,6 +114,7 @@ export async function signIn(
   // (including signOut). Awaiting first drops user-gesture privilege in some
   // browsers when the opener is a cross-origin live-preview iframe.
   const popup = inLivePreview() ? openSignInPopup(providerId) : null;
+  resetAnalytics();
 
   // Clear any prior session so switching providers actually switches identity.
   // Bounded because the popup is already open — a request that never settles
@@ -139,6 +141,10 @@ export async function signIn(
     } catch {
       /* session store will recover on next useSession fetch */
     }
+    if (opts.social === "google" || providerId === "grok-google") {
+      setAnalyticsSignedIn(true);
+      track("login_completed", { method: "google" });
+    }
     if (typeof window !== "undefined") {
       const dest = new URL(callbackURL, window.location.origin);
       const here = window.location;
@@ -156,6 +162,10 @@ export async function signIn(
       errorCallbackURL,
     });
     if (error) throw new Error(error.message ?? COPY.signInFailed);
+    if (opts.social === "google" || providerId === "grok-google") {
+      setAnalyticsSignedIn(true);
+      track("login_completed", { method: "google" });
+    }
     if (data?.url) window.location.href = data.url;
     return;
   }
@@ -166,6 +176,10 @@ export async function signIn(
     errorCallbackURL,
   });
   if (error) throw new Error(error.message ?? COPY.signInFailed);
+  if (providerId === "grok-google") {
+    setAnalyticsSignedIn(true);
+    track("login_completed", { method: "google" });
+  }
   if (data?.url) window.location.href = data.url;
 }
 
@@ -236,6 +250,7 @@ function waitForPopupToken(popup: Window): Promise<string | null> {
  * preview the local clear is sufficient, so it always resolves.
  */
 export async function signOut(redirectTo = "/"): Promise<void> {
+  resetAnalytics();
   await runSignOut({
     livePreview: inLivePreview(),
     hasBearer: Boolean(getBearerToken()),

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
 import { authEnabled } from "@/lib/auth/client";
+import { track } from "@/lib/analytics/runtime";
 import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { CREATOR_FOLLOWS_KEY, omitSelfFollow, readStoredIds, toggleStoredId, viewerCanFollow, writeStoredIds } from "@/lib/home/follows";
 
@@ -56,6 +57,7 @@ export function FollowButton({
       const next = toggleStoredId(ids, creatorId);
       writeStoredIds(CREATOR_FOLLOWS_KEY, next);
       setIds(next);
+      track(next.includes(creatorId) ? "creator_followed" : "creator_unfollowed");
       toast.success(next.includes(creatorId) ? `Following ${name}` : `Unfollowed ${name}`);
     });
   }
