@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import {
   ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
   ATTR_SERVICE_NAME,
@@ -5,8 +6,10 @@ import {
   ATTR_TELEMETRY_SDK_LANGUAGE,
   ATTR_TELEMETRY_SDK_NAME,
   ATTR_TELEMETRY_SDK_VERSION,
+  ATTR_VCS_REF_HEAD_REVISION,
   appEnv,
 } from "../providers/telemetry/index.ts";
+import { readPackageVersion, resolveRuntimeCommit } from "../build-commit.ts";
 import type {
   AttrValue,
   Attributes,
@@ -61,14 +64,36 @@ export function otlpAttributes(attrs: Attributes): OtlpKeyValue[] {
   return Object.entries(attrs).map(([key, value]) => ({ key, value: otlpValue(value) }));
 }
 
-export function resourceAttributes(serviceName: string): Attributes {
-  const envName = typeof process === "undefined" ? "development" : appEnv();
+export type TraceResourceIdentity = {
+  version: string;
+  commit: string;
+  environment?: string;
+};
+
+/** Same version and commit `/api/version` reports. Vite bakes both; runtime env fills an unknown commit. */
+export function traceResourceIdentity(
+  env: NodeJS.ProcessEnv = typeof process === "undefined" ? {} : process.env,
+): Pick<TraceResourceIdentity, "version" | "commit"> {
+  const bakedVersion = typeof __APP_VERSION__ === "string" ? __APP_VERSION__.trim() : "";
+  const version = bakedVersion || readPackageVersion(
+    JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8")) as { version?: unknown },
+  );
+  const bakedCommit = typeof __APP_COMMIT__ === "string" && __APP_COMMIT__.trim() ? __APP_COMMIT__ : "unknown";
+  return { version, commit: resolveRuntimeCommit(bakedCommit, env) };
+}
+
+export function resourceAttributes(serviceName: string, identity?: TraceResourceIdentity): Attributes {
+  const defaults = identity ? null : traceResourceIdentity();
+  const version = identity?.version ?? defaults?.version ?? "unknown";
+  const commit = identity?.commit ?? defaults?.commit ?? "unknown";
+  const envName = identity?.environment ?? (typeof process === "undefined" ? "development" : appEnv());
   return {
     [ATTR_SERVICE_NAME]: serviceName || "looktag",
-    [ATTR_SERVICE_VERSION]: "1.0.0",
+    [ATTR_SERVICE_VERSION]: version,
+    [ATTR_VCS_REF_HEAD_REVISION]: commit,
     [ATTR_TELEMETRY_SDK_NAME]: "looktag",
     [ATTR_TELEMETRY_SDK_LANGUAGE]: "javascript",
-    [ATTR_TELEMETRY_SDK_VERSION]: "1.0.0",
+    [ATTR_TELEMETRY_SDK_VERSION]: version,
     [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: String(envName),
   };
 }
@@ -77,8 +102,9 @@ function resource(serviceName: string) {
   return { attributes: otlpAttributes(resourceAttributes(serviceName)) };
 }
 
-function scope() {
-  return { name: "looktag", version: "1.0.0" };
+function scope(serviceName: string) {
+  const version = String(resourceAttributes(serviceName)[ATTR_SERVICE_VERSION] ?? "");
+  return { name: "looktag", version };
 }
 
 export function encodeOtlpTraces(spans: CompletedSpan[], serviceName: string) {
@@ -88,7 +114,7 @@ export function encodeOtlpTraces(spans: CompletedSpan[], serviceName: string) {
         resource: resource(serviceName),
         scopeSpans: [
           {
-            scope: scope(),
+            scope: scope(serviceName),
             spans: spans.map((span) => ({
               traceId: span.traceId,
               spanId: span.spanId,
@@ -136,7 +162,7 @@ export function encodeOtlpMetrics(points: MetricPoint[], serviceName: string) {
         resource: resource(serviceName),
         scopeMetrics: [
           {
-            scope: scope(),
+            scope: scope(serviceName),
             metrics: points.map((point) => {
               const attributes = otlpAttributes(point.attributes);
               if (point.type === "histogram") {
@@ -206,7 +232,7 @@ export function encodeOtlpLogs(records: LogRecord[], serviceName: string) {
         resource: resource(serviceName),
         scopeLogs: [
           {
-            scope: scope(),
+            scope: scope(serviceName),
             logRecords: records.map((record) => ({
               timeUnixNano: record.timeUnixNano,
               severityNumber: SEVERITY[record.severity],

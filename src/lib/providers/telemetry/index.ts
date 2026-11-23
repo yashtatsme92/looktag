@@ -13,6 +13,7 @@ export {
   ATTR_TELEMETRY_SDK_NAME,
   ATTR_TELEMETRY_SDK_VERSION,
   ATTR_URL_PATH,
+  ATTR_VCS_REF_HEAD_REVISION,
   appEnv,
   postOtlp,
   resolveTelemetryProvider,
