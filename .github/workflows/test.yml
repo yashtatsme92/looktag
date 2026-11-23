@@ -74,6 +74,7 @@ jobs:
           npm run test:e2e:detail
           npm run test:e2e:auth-methods
           npm run test:ui
+          npm run test:e2e:saved
           BASE_URL=http://127.0.0.1:8080 npm run test:e2e:domain
           # Links ON: wheel-scroll + footer hit-test at phone/tablet/desktop (#188 r2).
           kill "$app_pid" 2>/dev/null || true; pkill -f "vite dev" || true

@@ -20,6 +20,7 @@ import { shareChannel } from "@/lib/analytics/events";
 import { track } from "@/lib/analytics/runtime";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
+import { commitLookSave } from "@/lib/looks/commit-save";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
@@ -54,7 +55,6 @@ export function WideLook({
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const saved = useSavedLooks((s) => s.ids.includes(look.id));
-  const toggleSaved = useSavedLooks((s) => s.toggle);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -153,13 +153,13 @@ export function WideLook({
 
   function save() {
     runSettled((sessionUser) => {
-      if (authEnabled && !sessionUser) {
+      const { saved, promptSignIn } = commitLookSave(look, !authEnabled || Boolean(sessionUser));
+      track(saved ? "look_saved" : "look_unsaved");
+      if (promptSignIn) {
         setSheetOpen(true);
         return;
       }
-      const next = toggleSaved(look.id);
-      track(next ? "look_saved" : "look_unsaved");
-      toast.success(next ? "Saved" : "Removed from wardrobe");
+      toast.success(saved ? "Saved" : "Removed from wardrobe");
     });
   }
 

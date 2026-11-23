@@ -22,6 +22,7 @@ import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
 import { nudgeCardForPointer, pinCardPointer, placePinCard, type PinPointer } from "@/lib/looks/pin-card";
 import { useOverlay } from "@/lib/overlay/use-overlay";
 import { retailerLabel } from "@/lib/looks/retailers";
+import { commitLookSave } from "@/lib/looks/commit-save";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { firstShopTag, plateShowsBarShop, shopWholeOpensSheet } from "@/lib/looks/shop-whole";
@@ -61,7 +62,6 @@ export function LookPlate({
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const saved = useSavedLooks((s) => s.ids.includes(look.id));
-  const toggleSaved = useSavedLooks((s) => s.toggle);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
@@ -290,13 +290,13 @@ export function LookPlate({
 
   function save() {
     runSettled((sessionUser) => {
-      if (authEnabled && !sessionUser) {
+      const { saved, promptSignIn } = commitLookSave(look, !authEnabled || Boolean(sessionUser));
+      track(saved ? "look_saved" : "look_unsaved");
+      if (promptSignIn) {
         setSheetOpen(true);
         return;
       }
-      const next = toggleSaved(look.id);
-      track(next ? "look_saved" : "look_unsaved");
-      toast.success(next ? "Saved" : "Removed from wardrobe");
+      toast.success(saved ? "Saved" : "Removed from wardrobe");
     });
   }
 

@@ -49,6 +49,7 @@ import { settleLoad } from "@/lib/loading/test-delay";
 import { listFashionCollections, listFashionLabels, listFashionStyles } from "@/lib/labels/api";
 import { pickFeedStyle, type FashionCollection, type FashionLabel, type FashionStyle } from "@/lib/labels/model";
 import { SEED_COLLECTIONS, SEED_LABELS, SEED_STYLES } from "@/lib/labels/seed";
+import { commitLookSave } from "@/lib/looks/commit-save";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import type { Look } from "@/lib/looks/types";
@@ -92,7 +93,6 @@ export function WideHome({ looks }: { looks: Look[] }) {
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const savedIds = useSavedLooks((s) => s.ids);
-  const toggleSaved = useSavedLooks((s) => s.toggle);
 
   useEffect(() => {
     hydrateSaved();
@@ -224,13 +224,13 @@ export function WideHome({ looks }: { looks: Look[] }) {
 
   function save(look: Look) {
     runSettled((sessionUser) => {
-      if (authEnabled && !sessionUser) {
+      const { saved, promptSignIn } = commitLookSave(look, !authEnabled || Boolean(sessionUser));
+      track(saved ? "look_saved" : "look_unsaved");
+      if (promptSignIn) {
         setPendingSaveId(look.id);
         setSheetOpen(true);
         return;
       }
-      const saved = toggleSaved(look.id);
-      track(saved ? "look_saved" : "look_unsaved");
       toast.success(saved ? "Saved" : "Removed from wardrobe");
     });
   }

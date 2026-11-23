@@ -52,6 +52,7 @@ import { loadingCache } from "@/lib/loading/cache";
 import { useDelayedLoad } from "@/lib/loading/delayed-load";
 import { settleLoad } from "@/lib/loading/test-delay";
 import { shareOrCopy } from "@/lib/looks/share";
+import { commitLookSave } from "@/lib/looks/commit-save";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import type { Look } from "@/lib/looks/types";
@@ -77,7 +78,6 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   useResumePendingSave(Boolean(user));
   const hydrateSaved = useSavedLooks((s) => s.hydrate);
   const savedIds = useSavedLooks((s) => s.ids);
-  const toggleSaved = useSavedLooks((s) => s.toggle);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
   const [styles, setStyles] = useState<FashionStyle[]>(SEED_STYLES);
   const [collections, setCollections] = useState<FashionCollection[]>([]);
@@ -294,13 +294,13 @@ export function EchoHome({ looks }: { looks: Look[] }) {
 
   function save(look: Look) {
     runSettled((sessionUser) => {
-      if (authEnabled && !sessionUser) {
+      const { saved, promptSignIn } = commitLookSave(look, !authEnabled || Boolean(sessionUser));
+      track(saved ? "look_saved" : "look_unsaved");
+      if (promptSignIn) {
         setPendingSaveId(look.id);
         setSheetOpen(true);
         return;
       }
-      const saved = toggleSaved(look.id);
-      track(saved ? "look_saved" : "look_unsaved");
       toast.success(saved ? "Saved" : "Removed from wardrobe");
     });
   }

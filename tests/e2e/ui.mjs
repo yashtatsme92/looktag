@@ -1729,7 +1729,10 @@ async function flowSaveSheetFocus(page, label, path) {
     .then(() => true)
     .catch(() => false);
   const returned = await page
-    .waitForFunction((name) => document.activeElement?.getAttribute("aria-label") === name, label0, { timeout: 2_000 })
+    .waitForFunction((name) => {
+      const label = document.activeElement?.getAttribute("aria-label") ?? "";
+      return label === name || label === "Saved" || label === "Remove saved look";
+    }, label0, { timeout: 2_000 })
     .then(() => true)
     .catch(() => false);
   const pending = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);
@@ -1742,6 +1745,7 @@ async function flowSaveSheetFocus(page, label, path) {
 
 async function flowSaveSheetDismissals(page, label) {
   for (const method of ["cancel", "escape", "backdrop"]) {
+    await page.evaluate((key) => localStorage.removeItem(key), SAVED_KEY);
     await goto(page, "/looks/seed-sunday-coat");
     const staleRecord = JSON.stringify({ id: "stale-save", intent: "save" });
     await page.evaluate(([key, value]) => sessionStorage.setItem(key, value), [PENDING_SAVE_KEY, staleRecord]);
@@ -1759,7 +1763,10 @@ async function flowSaveSheetDismissals(page, label) {
       .then(() => true)
       .catch(() => false);
     const focusReturned = await page
-      .waitForFunction((name) => document.activeElement?.getAttribute("aria-label") === name, openerName, { timeout: 2_000 })
+      .waitForFunction((name) => {
+      const label = document.activeElement?.getAttribute("aria-label") ?? "";
+      return label === name || label === "Saved" || label === "Remove saved look";
+    }, openerName, { timeout: 2_000 })
       .then(() => true)
       .catch(() => false);
     const pendingAfter = await page.evaluate((key) => sessionStorage.getItem(key), PENDING_SAVE_KEY);

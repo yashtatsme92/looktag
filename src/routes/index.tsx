@@ -34,7 +34,12 @@ function Home() {
     document.documentElement.dataset.feedReady = "true";
     window.dispatchEvent(new Event(BOOT_FEED_READY_EVENT));
     if (loaded.looks.length > 0) {
-      useLooksStore.setState({ looks: loaded.looks, hydrated: true });
+      useLooksStore.setState({
+        looks: loaded.looks,
+        publishedLooks: loaded.looks,
+        catalogSettled: true,
+        hydrated: true,
+      });
     }
     return () => {
       delete document.documentElement.dataset.feedReady;

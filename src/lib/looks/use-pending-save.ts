@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics/runtime";
 import { takePendingSave } from "@/lib/looks/pending-save";
-import { useSavedLooks } from "@/lib/looks/saved";
+import { carryOverSave, useSavedLooks } from "@/lib/looks/saved";
 
-/** After sign-in, finish the save the guest started. */
+/** After sign-in, finish the save the guest started. An id already stored is not added twice. */
 export function useResumePendingSave(signedIn: boolean) {
   useEffect(() => {
     if (!signedIn) return;
@@ -13,9 +13,9 @@ export function useResumePendingSave(signedIn: boolean) {
     track("auth_action_resumed", { source: "save" });
     const store = useSavedLooks.getState();
     store.hydrate();
-    if (!store.has(id)) {
-      store.toggle(id);
-      toast.success("Saved");
-    }
+    const current = useSavedLooks.getState().ids;
+    const merged = carryOverSave(current, id);
+    if (merged.length !== current.length) store.replace(merged);
+    toast.success("Saved");
   }, [signedIn]);
 }

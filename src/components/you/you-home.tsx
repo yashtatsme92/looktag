@@ -12,8 +12,7 @@ import type { AppUser } from "@/lib/auth/use-current-user";
 import { useAdminStatus } from "@/lib/admin/admin-status";
 import { resetFeedTuning } from "@/lib/home/follows";
 import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
-import { useSavedLooks } from "@/lib/looks/saved";
-import { useLooksStore } from "@/lib/looks/store";
+import { useSavedLookList } from "@/lib/looks/use-saved-list";
 import type { Look } from "@/lib/looks/types";
 import { useCachedLoad } from "@/lib/loading/cached-load";
 
@@ -29,7 +28,7 @@ type DraftCard = {
 export function YouHome({ user }: { user: AppUser | null }) {
   const [pane, setPane] = useState<YouPane>("saved");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const saved = useSavedItems();
+  const { looks: saved, pending: savedPending } = useSavedLookList();
   const draft = useCreateDraft();
   const guest = !user;
 
@@ -63,7 +62,7 @@ export function YouHome({ user }: { user: AppUser | null }) {
       </div>
 
       {pane === "saved" ? (
-        <SavedPane saved={saved} guest={guest} onSignIn={() => setSheetOpen(true)} />
+        <SavedPane saved={saved} pending={savedPending} guest={guest} onSignIn={() => setSheetOpen(true)} />
       ) : null}
       {pane === "drafts" ? <DraftsPane draft={draft} /> : null}
       {pane === "profile" ? <ProfilePane user={user} onSignIn={() => setSheetOpen(true)} /> : null}
@@ -82,15 +81,17 @@ export function YouHome({ user }: { user: AppUser | null }) {
 
 function SavedPane({
   saved,
+  pending,
   guest,
   onSignIn,
 }: {
   saved: Look[];
+  pending: boolean;
   guest: boolean;
   onSignIn: () => void;
 }) {
   const savedLoad = useCachedLoad(saved, `you:saved:${saved.map((look) => look.id).join(",") || "empty"}`);
-  if (savedLoad.skeleton) return <SkeletonGrid count={4} captions />;
+  if (pending || savedLoad.skeleton) return <SkeletonGrid count={4} captions />;
   if (savedLoad.error) {
     return (
       <div className="you-empty-body" role="alert" aria-live="polite">
@@ -257,16 +258,6 @@ function ResetFeedTuning() {
       </Dialog>
     </>
   );
-}
-
-function useSavedItems(): Look[] {
-  const hydrate = useSavedLooks((s) => s.hydrate);
-  const ids = useSavedLooks((s) => s.ids);
-  const looks = useLooksStore((s) => s.looks);
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
-  return ids.map((id) => looks.find((look) => look.id === id)).filter((look): look is Look => Boolean(look));
 }
 
 function useCreateDraft(): DraftCard | null {
