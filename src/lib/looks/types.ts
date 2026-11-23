@@ -1,4 +1,9 @@
-import { EDITORIAL_USER_ID, type Look, type ProductOffer, type ProductTag } from "@looktag/shared";
+import {
+  EDITORIAL_USER_ID,
+  type Look,
+  type ProductOffer,
+  type ProductTag,
+} from "@looktag/shared/look-types";
 export {
   EDITORIAL_USER_ID,
   type CropRect,
@@ -6,7 +11,7 @@ export {
   type LookImages,
   type ProductOffer,
   type ProductTag,
-} from "@looktag/shared";
+} from "@looktag/shared/look-types";
 
 export function isSeedCreatorId(userId: string | null | undefined): boolean {
   return Boolean(userId) && (userId === EDITORIAL_USER_ID || String(userId).startsWith("seed-"));

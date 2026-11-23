@@ -14,6 +14,7 @@ import { ImgSlot } from "@/components/ds/img-slot";
 import { SkeletonGrid } from "@/components/ds/skeleton";
 import { HouseProfilePending } from "@/components/ds/route-pending";
 import { authEnabled } from "@/lib/auth/client";
+import { HOUSE_FOLLOWS_KEY } from "@looktag/shared/follows";
 import { track } from "@/lib/analytics/runtime";
 import { useSettledSessionAction } from "@/lib/auth/use-current-user";
 import { getFashionLabel, getHousesAvailability, type FashionLabelPage } from "@/lib/labels/api";
@@ -29,8 +30,6 @@ import {
   shareHead,
 } from "@/lib/share-meta";
 
-const FOLLOW_KEY = "looktag-followed-houses-v1";
-
 type HouseProfileData = {
   open: boolean;
   house: FashionLabelPage | null;
@@ -39,7 +38,7 @@ type HouseProfileData = {
 
 function readFollows(): string[] {
   try {
-    const raw = localStorage.getItem(FOLLOW_KEY);
+    const raw = localStorage.getItem(HOUSE_FOLLOWS_KEY);
     const parsed = raw ? (JSON.parse(raw) as unknown) : [];
     return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
   } catch {
@@ -198,7 +197,7 @@ function HouseProfile() {
       setFollows(next);
       if (next.includes(label.id)) track("house_followed");
       try {
-        localStorage.setItem(FOLLOW_KEY, JSON.stringify(next));
+        localStorage.setItem(HOUSE_FOLLOWS_KEY, JSON.stringify(next));
       } catch {
         // private mode
       }

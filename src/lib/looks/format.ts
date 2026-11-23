@@ -1,1 +1,1 @@
-export * from "@looktag/shared";
+export * from "@looktag/shared/format";

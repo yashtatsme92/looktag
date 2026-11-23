@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { isSameSiteAllowed } from "@/lib/auth/same-site";
-import { looksApiErrorSchema, meResponseSchema } from "@looktag/shared";
+import { looksApiErrorSchema, meResponseSchema } from "@looktag/shared/api-contract";
 import { getRequestUser } from "@/server/services/profiles";
 
 const json = (body: unknown, status: number) =>

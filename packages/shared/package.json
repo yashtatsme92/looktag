@@ -4,7 +4,17 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./account-api-contract": "./src/account-api-contract.ts",
+    "./api-contract": "./src/api-contract.ts",
+    "./design-system": "./src/design-system.ts",
+    "./follows": "./src/follows.ts",
+    "./format": "./src/format.ts",
+    "./look-types": "./src/look-types.ts",
+    "./offers": "./src/offers.ts",
+    "./region": "./src/region.ts",
+    "./retailers": "./src/retailers.ts",
+    "./saved-contract": "./src/saved-contract.ts"
   },
   "peerDependencies": {
     "zod": "^4.6.6"

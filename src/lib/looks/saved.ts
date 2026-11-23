@@ -4,7 +4,7 @@ import {
   mergeSavedLookIds,
   parseSavedLookIds,
   toggleSavedLookId,
-} from "@looktag/shared";
+} from "@looktag/shared/saved-contract";
 
 function readIds(): string[] {
   try {
