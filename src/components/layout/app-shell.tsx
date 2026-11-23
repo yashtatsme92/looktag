@@ -11,6 +11,9 @@ import { WebHeader } from "@/components/layout/web-header";
 import { Button } from "@/components/ui/button";
 import { useCatalogStore } from "@/lib/looks/catalog";
 import { useLooksStore } from "@/lib/looks/store";
+import { authEnabled } from "@/lib/auth/client";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { mergeDeviceIntoAccount, useAccountLibrary } from "@/lib/account/library";
 import { requestInstallSheet, startInstallCapture } from "@/lib/pwa/display";
 import { useStandaloneDisplay } from "@/lib/pwa/use-display";
 import { useSettingsStore } from "@/lib/settings/store";
@@ -86,6 +89,7 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
   const hydrateLooks = useLooksStore((s) => s.hydrate);
   const hydrateCatalog = useCatalogStore((s) => s.hydrate);
   const hydrateSettings = useSettingsStore((s) => s.hydrate);
+  const { user } = useCurrentUserState();
   const standalone = useStandaloneDisplay();
   const chrome = useChromeLayout();
   const screenRef = useRef<HTMLDivElement>(null);
@@ -102,6 +106,15 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
     hydrateSettings();
     startInstallCapture();
   }, [hydrateLooks, hydrateCatalog, hydrateSettings]);
+
+  useEffect(() => {
+    if (!authEnabled) return;
+    if (!user?.id) {
+      useAccountLibrary.getState().clear();
+      return;
+    }
+    void mergeDeviceIntoAccount(user.id);
+  }, [user?.id]);
 
   useEffect(() => {
     const sync = () => setOffline(offlineNow());

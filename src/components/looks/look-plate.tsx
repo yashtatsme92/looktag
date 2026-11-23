@@ -22,7 +22,7 @@ import { tagOffers, visualShopTarget } from "@/lib/looks/offers";
 import { nudgeCardForPointer, pinCardPointer, placePinCard, type PinPointer } from "@/lib/looks/pin-card";
 import { useOverlay } from "@/lib/overlay/use-overlay";
 import { retailerLabel } from "@/lib/looks/retailers";
-import { useSavedLooks } from "@/lib/looks/saved";
+import { toggleLookSave, useSavedLookIds } from "@/lib/account/library";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { firstShopTag, plateShowsBarShop, shopWholeOpensSheet } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
@@ -59,9 +59,7 @@ export function LookPlate({
   const { user } = useCurrentUserState();
   const runSettled = useSettledSessionAction();
   useResumePendingSave(Boolean(user));
-  const hydrateSaved = useSavedLooks((s) => s.hydrate);
-  const saved = useSavedLooks((s) => s.ids.includes(look.id));
-  const toggleSaved = useSavedLooks((s) => s.toggle);
+  const saved = useSavedLookIds().includes(look.id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
@@ -73,9 +71,7 @@ export function LookPlate({
   /** Below 768px the sheet footer shows Shop whole look only when the flag is on. Wider layouts keep the sheet. */
   const showShopWhole = !flagPhone || shopWholeLookPhone;
 
-  useEffect(() => {
-    hydrateSaved();
-  }, [hydrateSaved]);
+
 
   const swipeRef = useRef<number | null>(null);
   const plateRef = useRef<HTMLDivElement>(null);
@@ -294,9 +290,13 @@ export function LookPlate({
         setSheetOpen(true);
         return;
       }
-      const next = toggleSaved(look.id);
-      track(next ? "look_saved" : "look_unsaved");
-      toast.success(next ? "Saved" : "Removed from wardrobe");
+      void toggleLookSave(sessionUser, look.id)
+        .then((next) => {
+          if (next === "guest") return;
+          track(next ? "look_saved" : "look_unsaved");
+          toast.success(next ? "Saved" : "Removed from wardrobe");
+        })
+        .catch(() => undefined);
     });
   }
 

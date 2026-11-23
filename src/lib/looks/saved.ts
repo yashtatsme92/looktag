@@ -30,6 +30,15 @@ type SavedState = {
   toggle: (id: string) => boolean;
 };
 
+export function resetDeviceSaves() {
+  try {
+    localStorage.removeItem(SAVED_KEY);
+  } catch {
+    // private mode
+  }
+  useSavedLooks.setState({ ids: [], hydrated: true });
+}
+
 export const useSavedLooks = create<SavedState>((set, get) => ({
   ids: [],
   hydrated: false,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { publicUrl } from "@/lib/site/public-url";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
@@ -20,7 +20,7 @@ import { shareChannel } from "@/lib/analytics/events";
 import { track } from "@/lib/analytics/runtime";
 import { visualShopTarget } from "@/lib/looks/offers";
 import { retailerLabel } from "@/lib/looks/retailers";
-import { useSavedLooks } from "@/lib/looks/saved";
+import { toggleLookSave, useSavedLookIds } from "@/lib/account/library";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import { LookShopSheet } from "@/components/looks/look-shop-sheet";
 import { PieceThumb } from "@/components/looks/piece-thumb";
@@ -52,18 +52,13 @@ export function WideLook({
   const { user } = useCurrentUserState();
   const runSettled = useSettledSessionAction();
   useResumePendingSave(Boolean(user));
-  const hydrateSaved = useSavedLooks((s) => s.hydrate);
-  const saved = useSavedLooks((s) => s.ids.includes(look.id));
-  const toggleSaved = useSavedLooks((s) => s.toggle);
+  const savedIds = useSavedLookIds();
+  const saved = savedIds.includes(look.id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  useEffect(() => {
-    hydrateSaved();
-  }, [hydrateSaved]);
 
-  const savedIds = useSavedLooks((s) => s.ids);
   const feedSavesOn = useSettingsStore((s) => s.feedSaves);
   const feedFreshOn = useSettingsStore((s) => s.feedFresh);
   const freshWindow = useSettingsStore((s) => s.feedFreshWindow);
@@ -157,9 +152,13 @@ export function WideLook({
         setSheetOpen(true);
         return;
       }
-      const next = toggleSaved(look.id);
-      track(next ? "look_saved" : "look_unsaved");
-      toast.success(next ? "Saved" : "Removed from wardrobe");
+      void toggleLookSave(sessionUser, look.id)
+        .then((next) => {
+          if (next === "guest") return;
+          track(next ? "look_saved" : "look_unsaved");
+          toast.success(next ? "Saved" : "Removed from wardrobe");
+        })
+        .catch(() => undefined);
     });
   }
 
