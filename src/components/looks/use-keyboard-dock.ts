@@ -18,6 +18,7 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
 function release(root: HTMLElement) {
   delete root.dataset.kb;
   root.style.removeProperty("--kb-pad");
+  root.style.removeProperty("--kb-inset");
   const dock = root.querySelector<HTMLElement>("[data-kb-dock]");
   dock?.style.removeProperty("top");
 }
@@ -51,6 +52,7 @@ export function useKeyboardDock() {
       const dock = root.querySelector<HTMLElement>("[data-kb-dock]");
       const scroller = scrollParent(field);
       root.dataset.kb = "open";
+      root.style.setProperty("--kb-inset", `${Math.max(0, root.getBoundingClientRect().bottom - bottom)}px`);
       let dockHeight = 0;
       if (dock) {
         const screenTop = dock.closest(".native-screen")?.getBoundingClientRect().top ?? 0;

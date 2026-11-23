@@ -1,8 +1,19 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { completedPhoneSteps, initialPhoneStep, phoneStepBlock } from "./create-steps.ts";
+import { completedPhoneSteps, discardEmptyPin, initialPhoneStep, phoneStepBlock } from "./create-steps.ts";
+import { emptyLook, emptyTag } from "./types.ts";
 
 const empty = { imageSrc: "", title: "", tagCount: 0 };
+
+it("starts a new look without pins and discards a blank pin", () => {
+  assert.deepEqual(emptyLook().tags, []);
+  const blank = emptyTag(50, 50);
+  assert.deepEqual(discardEmptyPin([blank], blank.id), []);
+  assert.deepEqual(discardEmptyPin([{ ...blank, brand: "Retailer" }], blank.id), []);
+  assert.equal(discardEmptyPin([{ ...blank, name: "Coat" }], blank.id).length, 1);
+  assert.equal(discardEmptyPin([{ ...blank, url: "https://example.com/item" }], blank.id).length, 1);
+  assert.equal(discardEmptyPin([blank], null).length, 1);
+});
 
 describe("initialPhoneStep", () => {
   it("starts on the photo when nothing is chosen", () => {

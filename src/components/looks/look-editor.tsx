@@ -40,10 +40,11 @@ import {
 import { getMyHouse, listMyCollections } from "@/lib/labels/api";
 import type { FashionCollection } from "@/lib/labels/model";
 import { formatCreateUploadError, getCreateUploadPresentation } from "@/lib/looks/create-upload";
-import { initialPhoneStep, type PhoneCreateStepId } from "@/lib/looks/create-steps";
+import { discardEmptyPin, initialPhoneStep, type PhoneCreateStepId } from "@/lib/looks/create-steps";
 import type { CropRect } from "@/lib/looks/crop";
 import { useCatalogStore } from "@/lib/looks/catalog";
-import { imageSrcToDataUrl, readLookImage } from "@/lib/looks/image";
+import { imageSrcToDataUrl, validateLookImage } from "@/lib/looks/image";
+import { compressLookPhoto } from "@/lib/looks/compress-photo";
 import { UploadProgress } from "@/components/ds/upload-progress";
 import { MOODS } from "@/lib/looks/moods";
 import { replaceSystemOffers, tagOffers, wornLink } from "@/lib/looks/offers";
@@ -258,10 +259,11 @@ export function LookEditor({
     setReadingPhoto(true);
     setUploadProgress(0);
     try {
-      const imageSrc = await readLookImage(file, (percent) => {
-        if (uploadTokenRef.current === token) setUploadProgress(percent);
-      });
+      validateLookImage(file);
+      setUploadProgress(10);
+      const imageSrc = await compressLookPhoto(file);
       if (uploadTokenRef.current !== token) return;
+      setUploadProgress(100);
       patch({ imageSrc, crop: undefined });
       setCropBase(null);
       setCropReady(false);
@@ -292,7 +294,10 @@ export function LookEditor({
   function addTag(x: number, y: number) {
     const tag = emptyTag(x, y);
     setSelectedId(tag.id);
-    patch({ tags: [...lookRef.current.tags, tag] });
+    const tags = phoneStep === "piece"
+      ? discardEmptyPin(lookRef.current.tags, selectedId)
+      : lookRef.current.tags;
+    patch({ tags: [...tags, tag] });
     // A new pin opens its piece card (right pane on desktop) instead of stacking silently (#203).
     setSuggestNote(null);
     setPhoneStep("piece");
@@ -556,6 +561,14 @@ export function LookEditor({
     setPhoneStep(mode === "edit" ? "publish" : "details");
   }
 
+  function changePhoneStep(step: PhoneCreateStepId) {
+    if (phoneStep === "piece" && step !== "piece") {
+      patch({ tags: discardEmptyPin(lookRef.current.tags, selectedId) });
+      setSelectedId(null);
+    }
+    setPhoneStep(step);
+  }
+
   function editCrop() {
     cropOriginalRef.current = lookRef.current.crop;
     cropReturnStepRef.current = phoneStep;
@@ -699,7 +712,7 @@ export function LookEditor({
           photoError={photoError}
           dragOver={dragOver}
           saveLabel={saveLabel}
-          onStep={setPhoneStep}
+          onStep={changePhoneStep}
           cropBase={cropBase}
           cropReady={cropReady}
           cropEditing={cropEditing}
@@ -720,6 +733,9 @@ export function LookEditor({
           onPatch={patch}
           onSelect={(id) => {
             if (!id) return;
+            if (phoneStep === "piece" && id !== selectedId) {
+              patch({ tags: discardEmptyPin(lookRef.current.tags, selectedId) });
+            }
             setSelectedId(id);
             setPhoneStep("piece");
           }}

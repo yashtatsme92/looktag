@@ -39,7 +39,7 @@ export function persistCreateDraft<T extends { imageSrc: string }>(
 /** Honest copy for Save draft — drafts live in this browser tab, not the account. */
 export function draftSavedMessage(result: DraftPersistResult): { ok: boolean; text: string } {
   if (result === "full") return { ok: true, text: "Draft kept in this browser tab. Publish to save it to your account." };
-  if (result === "no-photo") return { ok: false, text: "Draft kept without the photo — it was too large to store here." };
+  if (result === "no-photo") return { ok: false, text: "Draft kept without the photo. It was too large to store here." };
   return { ok: false, text: "Couldn’t keep a draft in this browser. Publish to save the look." };
 }
 
