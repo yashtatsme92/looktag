@@ -7,6 +7,8 @@ export type AnalyticsClient = {
   capture: (event: string, props?: Record<string, unknown>) => void;
   identify: (id: string) => void;
   reset: () => void;
+  optOut?: () => void;
+  optIn?: () => void;
 };
 
 let client: AnalyticsClient | null = null;
@@ -61,6 +63,13 @@ export function identify(userId: string): void {
 export function resetAnalytics(): void {
   signedIn = false;
   client?.reset();
+}
+
+/** Stop a loaded client and drop the binding so a later grant can boot again. */
+export function withdrawAnalytics(): void {
+  client?.optOut?.();
+  client?.reset();
+  bindAnalytics(null);
 }
 
 export function resetAnalyticsForTests(): void {

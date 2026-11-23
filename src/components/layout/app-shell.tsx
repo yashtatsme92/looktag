@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { InstallSheet } from "@/components/layout/install-sheet";
 import { NativeHeader } from "@/components/layout/native-header";
 import { NativePortalProvider } from "@/components/layout/native-portal";
+import { ConsentPhoneDock } from "@/components/consent/consent-ui";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { StatusBar } from "@/components/layout/status-bar";
 import { TabBar } from "@/components/layout/tab-bar";
@@ -156,6 +157,7 @@ export function AppShell({ children, title, backTo, onBack, trailing, largeTitle
             {children}
             <SiteFooter />
           </main>
+          <ConsentPhoneDock />
           {isFocusedRoute(pathname) ? null : <TabBar />}
           <InstallSheet />
         </div>

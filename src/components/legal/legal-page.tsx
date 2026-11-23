@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { PrivacyArticle } from "@/components/legal/privacy-article";
 
 export type LegalKind = "impressum" | "privacy" | "terms" | "about";
 
@@ -15,12 +16,7 @@ function Body({ kind, email }: { kind: LegalKind; email: string }) {
     return <p>Looktag. Contact: {mail}.</p>;
   }
   if (kind === "privacy") {
-    return (
-      <p>
-        Looktag stores the account details you give it (name, email) and the looks you publish.
-        Questions or deletion requests: {mail}.
-      </p>
-    );
+    return null;
   }
   if (kind === "terms") {
     return <p>By using Looktag you agree to post only images you have the right to share. Questions: {mail}.</p>;
@@ -29,6 +25,13 @@ function Body({ kind, email }: { kind: LegalKind; email: string }) {
 }
 
 export function LegalPage({ kind, email }: { kind: LegalKind; email: string }) {
+  if (kind === "privacy") {
+    return (
+      <AppShell title={TITLES.privacy} backTo="/">
+        <PrivacyArticle email={email} />
+      </AppShell>
+    );
+  }
   return (
     <AppShell title={TITLES[kind]} backTo="/">
       <article className="mx-auto max-w-prose py-6 text-sm leading-relaxed" data-testid={`legal-${kind}`}>

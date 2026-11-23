@@ -29,6 +29,7 @@ import { Route as AdminLookRouteImport } from './routes/admin_.look'
 import { Route as AdminObservabilityRouteImport } from './routes/admin_.observability'
 import { Route as AdminShopsRouteImport } from './routes/admin_.shops'
 import { Route as AdminStudioRouteImport } from './routes/admin_.studio'
+import { Route as ApiConsentRouteImport } from './routes/api/consent'
 import { Route as ApiVersionRouteImport } from './routes/api/version'
 import { Route as CreatorsUserIdRouteImport } from './routes/creators.$userId'
 import { Route as HousesLabelIdRouteImport } from './routes/houses_.$labelId'
@@ -142,6 +143,11 @@ const AdminStudioRoute = AdminStudioRouteImport.update({
   path: '/admin/studio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiConsentRoute = ApiConsentRouteImport.update({
+  id: '/api/consent',
+  path: '/api/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVersionRoute = ApiVersionRouteImport.update({
   id: '/api/version',
   path: '/api/version',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/admin/observability': typeof AdminObservabilityRoute
   '/admin/shops': typeof AdminShopsRoute
   '/admin/studio': typeof AdminStudioRoute
+  '/api/consent': typeof ApiConsentRoute
   '/api/version': typeof ApiVersionRoute
   '/creators/$userId': typeof CreatorsUserIdRoute
   '/houses/$labelId': typeof HousesLabelIdRoute
@@ -260,6 +267,7 @@ export interface FileRoutesByTo {
   '/admin/observability': typeof AdminObservabilityRoute
   '/admin/shops': typeof AdminShopsRoute
   '/admin/studio': typeof AdminStudioRoute
+  '/api/consent': typeof ApiConsentRoute
   '/api/version': typeof ApiVersionRoute
   '/creators/$userId': typeof CreatorsUserIdRoute
   '/houses/$labelId': typeof HousesLabelIdRoute
@@ -295,6 +303,7 @@ export interface FileRoutesById {
   '/admin_/observability': typeof AdminObservabilityRoute
   '/admin_/shops': typeof AdminShopsRoute
   '/admin_/studio': typeof AdminStudioRoute
+  '/api/consent': typeof ApiConsentRoute
   '/api/version': typeof ApiVersionRoute
   '/creators/$userId': typeof CreatorsUserIdRoute
   '/houses_/$labelId': typeof HousesLabelIdRoute
@@ -331,6 +340,7 @@ export interface FileRouteTypes {
     | '/admin/observability'
     | '/admin/shops'
     | '/admin/studio'
+    | '/api/consent'
     | '/api/version'
     | '/creators/$userId'
     | '/houses/$labelId'
@@ -365,6 +375,7 @@ export interface FileRouteTypes {
     | '/admin/observability'
     | '/admin/shops'
     | '/admin/studio'
+    | '/api/consent'
     | '/api/version'
     | '/creators/$userId'
     | '/houses/$labelId'
@@ -399,6 +410,7 @@ export interface FileRouteTypes {
     | '/admin_/observability'
     | '/admin_/shops'
     | '/admin_/studio'
+    | '/api/consent'
     | '/api/version'
     | '/creators/$userId'
     | '/houses_/$labelId'
@@ -434,6 +446,7 @@ export interface RootRouteChildren {
   AdminObservabilityRoute: typeof AdminObservabilityRoute
   AdminShopsRoute: typeof AdminShopsRoute
   AdminStudioRoute: typeof AdminStudioRoute
+  ApiConsentRoute: typeof ApiConsentRoute
   ApiVersionRoute: typeof ApiVersionRoute
   CreatorsUserIdRoute: typeof CreatorsUserIdRoute
   HousesLabelIdRoute: typeof HousesLabelIdRoute
@@ -589,6 +602,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminStudioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/consent': {
+      id: '/api/consent'
+      path: '/api/consent'
+      fullPath: '/api/consent'
+      preLoaderRoute: typeof ApiConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/version': {
       id: '/api/version'
       path: '/api/version'
@@ -709,6 +729,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminObservabilityRoute: AdminObservabilityRoute,
   AdminShopsRoute: AdminShopsRoute,
   AdminStudioRoute: AdminStudioRoute,
+  ApiConsentRoute: ApiConsentRoute,
   ApiVersionRoute: ApiVersionRoute,
   CreatorsUserIdRoute: CreatorsUserIdRoute,
   HousesLabelIdRoute: HousesLabelIdRoute,

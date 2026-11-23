@@ -16,6 +16,7 @@ import { useSavedLooks } from "@/lib/looks/saved";
 import { useLooksStore } from "@/lib/looks/store";
 import type { Look } from "@/lib/looks/types";
 import { useCachedLoad } from "@/lib/loading/cached-load";
+import { useConsent } from "@/components/consent/consent-ui";
 
 type YouPane = "saved" | "drafts" | "profile";
 
@@ -32,6 +33,7 @@ export function YouHome({ user }: { user: AppUser | null }) {
   const saved = useSavedItems();
   const draft = useCreateDraft();
   const guest = !user;
+  const { openChoices, analyticsOn } = useConsent();
 
   return (
     <div className="you-home">
@@ -67,6 +69,14 @@ export function YouHome({ user }: { user: AppUser | null }) {
       ) : null}
       {pane === "drafts" ? <DraftsPane draft={draft} /> : null}
       {pane === "profile" ? <ProfilePane user={user} onSignIn={() => setSheetOpen(true)} /> : null}
+
+      <div className="you-privacy">
+        <button type="button" className="you-privacy-row" onClick={openChoices}>
+          <span>Privacy choices</span>
+          <span className="you-privacy-state">{analyticsOn ? "Analytics on" : "Analytics off"} ›</span>
+        </button>
+        <a className="you-privacy-policy" href="/privacy">Privacy policy</a>
+      </div>
 
       <AccountSheet
         open={sheetOpen}

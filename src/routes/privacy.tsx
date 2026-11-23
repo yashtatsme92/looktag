@@ -1,13 +1,12 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { LegalPage } from "@/components/legal/legal-page";
 import { isFooterLinkOn } from "@/lib/site/api";
 
-/** Behind its footer toggle: 404 until "privacy" is switched on (#183). */
+/** Privacy is on by default. The page resolves even if other footer links are off. */
 export const Route = createFileRoute("/privacy")({
   loader: async () => {
     const result = await isFooterLinkOn({ data: "privacy" });
-    if (!result.on) throw notFound();
-    return result;
+    return { contactEmail: result.contactEmail };
   },
   head: () => ({ meta: [{ title: "Privacy — Looktag" }] }),
   component: function Page() {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { parseFooterIds, visibleFooterLinks, type FooterLink } from "@/config/footer";
+import { useConsent } from "@/components/consent/consent-ui";
 import { memoPromise } from "@/lib/loading/memo-promise";
 import { useSettingsStore } from "@/lib/settings/store";
 import { getSiteConfig } from "@/lib/site/api";
@@ -28,30 +29,38 @@ export function SiteFooter() {
 
   const adminOn = new Set(parseFooterIds(adminIds, () => {}));
   const links = visibleFooterLinks(
-    catalog.map((link) => ({ ...link, enabled: link.enabled || adminOn.has(link.id) })),
+    catalog.map((link) => ({ ...link, enabled: link.id === "privacy" || link.enabled || adminOn.has(link.id) })),
   );
+  const others = links.filter((link) => link.id !== "privacy");
+  const { openChoices } = useConsent();
 
   return (
-    <footer className="site-footer" data-testid="site-footer" data-links={links.length}>
-      {links.length > 0 ? (
-        <nav aria-label="Footer">
-          <ul className="site-footer-list">
-            {links.map((link) => (
-              <li key={link.id}>
-                <a
-                  href={link.href}
-                  data-footer-link={link.id}
-                  {...(link.external && !link.href.startsWith("mailto:")
-                    ? { target: "_blank", rel: "noopener noreferrer" }
-                    : {})}
-                >
-                  {link.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      ) : null}
+    <footer className="site-footer" data-testid="site-footer" data-links={others.length + 2}>
+      <nav aria-label="Footer">
+        <ul className="site-footer-list">
+          <li>
+            <a href="/privacy" data-footer-link="privacy">Privacy</a>
+          </li>
+          <li>
+            <button type="button" className="consent-footer-choice" data-footer-link="privacy-choices" onClick={openChoices}>
+              Privacy choices
+            </button>
+          </li>
+          {others.map((link) => (
+            <li key={link.id}>
+              <a
+                href={link.href}
+                data-footer-link={link.id}
+                {...(link.external && !link.href.startsWith("mailto:")
+                  ? { target: "_blank", rel: "noopener noreferrer" }
+                  : {})}
+              >
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </footer>
   );
 }

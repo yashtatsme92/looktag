@@ -17,11 +17,11 @@ const ENV = {
 };
 
 describe("footer links", () => {
-  it("all off by default", () => {
+  it("ships Privacy on and every other link off", () => {
     const links = resolveFooterLinks({ env: { ...ENV } });
     assert.equal(links.length, FOOTER_LINK_IDS.length);
-    assert.ok(links.every((l) => !l.enabled));
-    assert.deepEqual(visibleFooterLinks(links), []);
+    assert.deepEqual(visibleFooterLinks(links).map((l) => l.id), ["privacy"]);
+    assert.ok(links.filter((l) => l.id !== "privacy").every((l) => !l.enabled));
   });
 
   it("some on via admin toggles", () => {
@@ -45,7 +45,7 @@ describe("footer links", () => {
 
   it("FOOTER_LINKS_ENABLED overrides on", () => {
     const links = resolveFooterLinks({ env: { ...ENV, FOOTER_LINKS_ENABLED: " Terms , impressum " } });
-    assert.deepEqual(visibleFooterLinks(links).map((l) => l.id), ["impressum", "terms"]);
+    assert.deepEqual(visibleFooterLinks(links).map((l) => l.id), ["impressum", "privacy", "terms"]);
   });
 
   it("ignores unknown ids and warns with the id only", () => {
@@ -60,7 +60,7 @@ describe("footer links", () => {
 
   it("hides links with no href (social URL unset, no APP_URL)", () => {
     const links = visibleFooterLinks(resolveFooterLinks({ adminIds: "instagram,x,domain,about", env: {} }));
-    assert.deepEqual(links.map((l) => l.id), ["about"]);
+    assert.deepEqual(links.map((l) => l.id), ["privacy", "about"]);
   });
 
   it("contact email defaults and validates", () => {

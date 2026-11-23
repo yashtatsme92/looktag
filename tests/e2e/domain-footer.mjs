@@ -118,7 +118,7 @@ try {
         if (EXPECT_ALL) {
           await page.locator('[data-testid="site-footer"] a').first().waitFor({ timeout: 15_000 });
         } else {
-          await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+          await page.locator('[data-footer-link="privacy"]').waitFor({ timeout: 15_000 });
         }
         const links = footer.locator("a");
         const count = await links.count();
@@ -131,7 +131,11 @@ try {
             assert.ok(!/tbd/i.test(text + href), "no placeholder links");
           }
         } else {
-          assert.equal(count, 0, "every footer link is off by default");
+          const privacy = footer.locator('[data-footer-link="privacy"]');
+          const choices = footer.locator('[data-footer-link="privacy-choices"]');
+          assert.equal(await privacy.count(), 1, "Privacy stays on");
+          assert.equal(await choices.count(), 1, "Privacy choices stays on");
+          assert.equal(await privacy.getAttribute("href"), "/privacy");
         }
         if (EXPECT_ALL && WHEEL_WIDTHS.has(vp.width) && WHEEL_PAGES.has(path)) {
           await assertWheelScrolls(page, vp);

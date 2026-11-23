@@ -1,16 +1,16 @@
 import { appVersion } from "../build-info";
 import { useSettingsStore } from "../settings/store";
 import { bootAnalytics } from "./boot";
-import { CONSENT_STORAGE_KEY } from "./consent";
+import { readBootFromDocument, mirrorConsentCache } from "../consent/client";
+import { consentView } from "../consent/policy";
 import { enabledFeedFeatures, surfaceFrom } from "./context";
 import { configureAnalytics } from "./runtime";
 
 function pageConsent(): string | null {
-  try {
-    return globalThis.localStorage?.getItem(CONSENT_STORAGE_KEY) ?? null;
-  } catch {
-    return null;
-  }
+  if (typeof document === "undefined") return null;
+  const view = consentView(readBootFromDocument());
+  mirrorConsentCache(view.load ? "granted" : view.effectiveValue === "denied" ? "denied" : null);
+  return view.load ? "granted" : null;
 }
 
 function readSurface() {
@@ -55,6 +55,12 @@ export function bootAnalyticsFromEnv(): Promise<boolean> {
         },
         reset() {
           posthog.reset();
+        },
+        optOut() {
+          posthog.opt_out_capturing();
+        },
+        optIn() {
+          posthog.opt_in_capturing();
         },
       };
     },
