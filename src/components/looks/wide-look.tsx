@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { publicUrl } from "@/lib/site/public-url";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { ConsentLookStrip } from "@/components/consent/consent-ui";
 import { ChevronLeft, Radio, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { AccountSheet } from "@/components/home/account-sheet";
@@ -203,6 +204,7 @@ export function WideLook({
             <ChevronLeft className="size-4" />
             Back
           </button>
+          <ConsentLookStrip />
         </div>
         <div className="wide-split">
           <div className="wide-plate">

@@ -1,4 +1,4 @@
-/** Consent gate for PostHog. Nothing writes this flag yet. */
+/** Consent gate for PostHog. The server cookie lt_consent is the source of truth. */
 
 export const CONSENT_STORAGE_KEY = "lt_consent";
 export const CONSENT_GRANTED = "granted";

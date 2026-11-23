@@ -24,6 +24,8 @@ import { useOverlay } from "@/lib/overlay/use-overlay";
 import { retailerLabel } from "@/lib/looks/retailers";
 import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
+import { useConsentLookDock } from "@/components/consent/consent-ui";
+import { bindLookShop } from "@/lib/consent/look-shop";
 import { firstShopTag, plateShowsBarShop, shopWholeOpensSheet } from "@/lib/looks/shop-whole";
 import { shareOrCopy } from "@/lib/looks/share";
 import type { Look, ProductTag } from "@/lib/looks/types";
@@ -357,6 +359,16 @@ export function LookPlate({
     track("shop_sheet_opened", { look_id: look.id });
   }
 
+  const consentLookDock = useConsentLookDock();
+  const openShopRef = useRef(openShopSheet);
+  openShopRef.current = openShopSheet;
+  useEffect(() => {
+    return bindLookShop(() => {
+      if (look.tags.length) openShopRef.current(Boolean(spotlight) && !flagPhone);
+      else toast.message("No pieces on this look yet");
+    });
+  }, [look.tags.length, spotlight, flagPhone]);
+
   return (
     <div
       className="look-plate"
@@ -567,7 +579,7 @@ export function LookPlate({
               Echo
             </button>
           </div>
-          {plateShowsBarShop(flagPhone, Boolean(spotlight)) ? (
+          {plateShowsBarShop(flagPhone, Boolean(spotlight)) && !consentLookDock ? (
             <button
               type="button"
               className="look-plate-shop look-plate-shop-ink look-plate-shop-full"

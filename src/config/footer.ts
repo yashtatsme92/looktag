@@ -118,7 +118,10 @@ export function resolveFooterLinks({
     ...parseFooterIds(adminIds, warn),
     ...parseFooterIds(env.FOOTER_LINKS_ENABLED, warn),
   ]);
-  return footerLinkCatalog(env).map((link) => ({ ...link, enabled: on.has(link.id) }));
+  return footerLinkCatalog(env).map((link) => ({
+    ...link,
+    enabled: link.id === "privacy" || on.has(link.id),
+  }));
 }
 
 /** Only links that are on and have a non-empty label and a real href. */

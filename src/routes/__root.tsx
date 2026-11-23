@@ -10,6 +10,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { AnalyticsBridge } from "@/lib/analytics/bridge";
+import { ConsentProvider } from "@/components/consent/consent-ui";
+import { readBootFromDocument, type ConsentBoot } from "@/lib/consent/client";
 import { TelemetryProvider } from "@/lib/observability/client";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { BootSplash, StaticBootSplash } from "@/components/layout/boot-splash";
@@ -114,6 +116,37 @@ const fetchChrome = createServerFn({ method: "GET" }).handler(async () => {
   return { splashId: settings.splashId, themeId: settings.themeId };
 });
 
+const CONSENT_BOOT_FALLBACK: ConsentBoot = {
+  region: "eu",
+  stored: { value: null, basis: null, at: null, version: null },
+  gpc: false,
+};
+
+/** Classify CF-IPCountry once per document and remember it for client navigations. */
+const fetchConsentBoot = createServerFn({ method: "GET" }).handler(async (): Promise<ConsentBoot> => {
+  const { getRequest, setCookie } = await import("@tanstack/react-start/server");
+  const { classifyCountry, countryFromHeaders, gpcFromHeaders } = await import("@/lib/consent/region");
+  const { storedFromCookieHeader } = await import("@/lib/consent/cookies");
+  const { CONSENT_MAX_AGE_SECONDS, REGION_COOKIE } = await import("@/lib/consent/policy");
+  const request = getRequest();
+  const region = classifyCountry(countryFromHeaders(request.headers));
+  const stored = storedFromCookieHeader(request.headers.get("cookie"));
+  const gpc = gpcFromHeaders(request.headers);
+  try {
+    const secure = new URL(request.url).protocol === "https:";
+    setCookie(REGION_COOKIE, region, {
+      path: "/",
+      httpOnly: false,
+      secure,
+      sameSite: "lax",
+      maxAge: CONSENT_MAX_AGE_SECONDS,
+    });
+  } catch {
+    // The region is still on the document. A missed cookie must not fail the page.
+  }
+  return { region, stored, gpc };
+});
+
 export const Route = createRootRoute({
   beforeLoad: async () => {
     // Never block a client navigation on the session round trip. The value is
@@ -131,6 +164,7 @@ export const Route = createRootRoute({
         sessionUser,
         splashId: readStoredSplash(),
         themeId: readStoredTheme(),
+        consentBoot: readBootFromDocument(),
       };
     }
     const sessionUser = await withTimeout(fetchSessionUser(), 2000, null);
@@ -139,10 +173,12 @@ export const Route = createRootRoute({
       splashId: DEFAULT_SPLASH,
       themeId: DEFAULT_THEME,
     });
+    const consentBoot = await withTimeout(fetchConsentBoot(), 800, CONSENT_BOOT_FALLBACK);
     return {
       sessionUser,
       splashId: parseSplashId(chrome?.splashId),
       themeId: parseThemeId(chrome?.themeId),
+      consentBoot: consentBoot ?? CONSENT_BOOT_FALLBACK,
     };
   },
   head: ({ match }) => {
@@ -241,6 +277,8 @@ function RootDocument() {
       className="antialiased"
       data-splash={splashId}
       data-theme={themeId}
+      data-lt-region={ctx.consentBoot?.region ?? "eu"}
+      data-lt-gpc={ctx.consentBoot?.gpc ? "1" : "0"}
       suppressHydrationWarning
     >
       <head>
@@ -256,14 +294,16 @@ function RootDocument() {
         <PreviewHostBridge />
         <AuthProvider>
           <TelemetryProvider>
-            <AnalyticsBridge />
-            <ThemeSync />
-            <ViewportLock />
-            <ScrollRestore />
-            <RoutePendingDim />
-            <BootSplash initialSplash={splashId}>
-              <Outlet />
-            </BootSplash>
+            <ConsentProvider boot={ctx.consentBoot ?? CONSENT_BOOT_FALLBACK}>
+              <AnalyticsBridge />
+              <ThemeSync />
+              <ViewportLock />
+              <ScrollRestore />
+              <RoutePendingDim />
+              <BootSplash initialSplash={splashId}>
+                <Outlet />
+              </BootSplash>
+            </ConsentProvider>
           </TelemetryProvider>
         </AuthProvider>
         <Toaster
