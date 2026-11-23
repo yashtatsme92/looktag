@@ -34,8 +34,8 @@ export const ensureMyProfile = createServerFn({ method: "POST" })
 export const getMyAccount = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    const sql = await getSql();
-    return loadAccount(sql, context.userId);
+    const { getMyAccount: get } = await import("@/server/services/profiles");
+    return get(context.userId);
   });
 
 export const updateMyProfile = createServerFn({ method: "POST" })

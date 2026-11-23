@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { listFashionCollections, listFashionLabels } from "@/lib/labels/api";
 import { collectionPath } from "@/lib/labels/model";
-import { listPublicLooks } from "@/lib/looks/api";
+import { listFashionCollections as listCollectionsService, listFashionLabels as listLabelsService } from "@/server/services/houses";
+import { listPublicLooks as listLooksService } from "@/server/services/looks";
 import { withSpan } from "@/lib/observability/instrument";
 import { absoluteUrl, canonicalOrigin } from "@/lib/share-meta";
 
@@ -16,9 +16,9 @@ export const Route = createFileRoute("/sitemap.xml")({
         const xml = await withSpan("looktag.sitemap", async (span) => {
           const origin = canonicalOrigin(request);
           const [looks, labels, collections] = await Promise.all([
-            listPublicLooks(),
-            listFashionLabels(),
-            listFashionCollections(),
+            listLooksService(),
+            listLabelsService(),
+            listCollectionsService(),
           ]);
           span.setAttribute("looktag.sitemap.looks", looks.length);
           span.setAttribute("looktag.sitemap.houses", labels.length);

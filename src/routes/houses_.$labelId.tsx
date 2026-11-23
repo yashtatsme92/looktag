@@ -56,9 +56,12 @@ function cachedHouse(labelId: string): { label: FashionLabel; cover: string } | 
 
 async function loadHouseProfile(labelId: string): Promise<HouseProfileData> {
   try {
-    const open = await getHousesAvailability();
+    const service = import.meta.env.SSR ? await import("@/server/services/houses") : null;
+    const open = service ? await service.getHousesAvailability() : await getHousesAvailability();
     if (!open) return { open: false, house: null, origin: "" };
-    const data = await getFashionLabel({ data: labelId });
+    const data = service
+      ? await service.getFashionLabel(labelId)
+      : await getFashionLabel({ data: labelId });
     const share = await recordShareView({
       data: { kind: "house", id: labelId, found: Boolean(data) },
     });

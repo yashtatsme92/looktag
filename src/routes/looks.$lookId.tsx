@@ -24,7 +24,9 @@ export const Route = createFileRoute("/looks/$lookId")({
   ssr: true,
   loader: async ({ params }) => {
     try {
-      const look = await getLookById({ data: params.lookId });
+      const look = import.meta.env.SSR
+        ? await (await import("@/server/services/looks")).getLookById(params.lookId)
+        : await getLookById({ data: params.lookId });
       const share = await recordShareView({
         data: { kind: "look", id: params.lookId, found: Boolean(look) },
       });
