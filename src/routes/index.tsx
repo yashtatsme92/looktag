@@ -14,7 +14,13 @@ import { BOOT_FEED_READY_EVENT } from "@/lib/pwa/boot";
 export const Route = createFileRoute("/")({
   loader: async () => {
     try {
-      return { looks: await memoPromise("looks", () => listPublicLooks()) };
+      return {
+        looks: await memoPromise("looks", async () =>
+          import.meta.env.SSR
+            ? (await import("@/server/services/looks")).listPublicLooks()
+            : listPublicLooks(),
+        ),
+      };
     } catch {
       return { looks: [] };
     }

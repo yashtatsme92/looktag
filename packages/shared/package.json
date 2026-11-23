@@ -1,0 +1,12 @@
+{
+  "name": "@looktag/shared",
+  "version": "2.5.58",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "zod": "^4.6.6"
+  }
+}

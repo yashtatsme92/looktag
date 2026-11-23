@@ -5,6 +5,7 @@ import {
   lookResponseSchema,
   looksApiErrorSchema,
 } from "@/lib/looks/api-contract";
+import { listPublicLooks } from "@/server/services/looks";
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -21,7 +22,6 @@ export const Route = createFileRoute("/api/v1/looks")({
         }
         try {
           listLooksRequestSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
-          const { listPublicLooks } = await import("@/lib/looks/looks-read");
           const looks = await listPublicLooks();
           const response = [];
           for (const look of looks) {

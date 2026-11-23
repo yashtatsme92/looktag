@@ -20,6 +20,7 @@ import { BOOT_MAX_WAIT_MS, BOOT_ROUTE_READY_EVENT, BOOT_STATIC_FINISH_EVENT } fr
 import { parseThemeId, DEFAULT_THEME, readStoredTheme } from "@/lib/design/themes";
 import { withTimeout } from "@/lib/login-next";
 import { APP_VIEWPORT } from "@/lib/pwa/viewport";
+import { rootSeoMeta } from "@/lib/share-meta";
 import {
   DEFAULT_SPLASH,
   EARLY_CHROME_SCRIPT,
@@ -154,12 +155,7 @@ export const Route = createRootRoute({
           name: "viewport",
           content: APP_VIEWPORT,
         },
-        { title: APP_NAME },
-        {
-          name: "description",
-          content:
-            "Shoppable looks on the web and on your phone. Pin product pages from Zalando, Zara, COS and more — tap a piece to shop its product page.",
-        },
+        ...rootSeoMeta,
         { name: "theme-color", content: "#F4F4F4" },
         { name: "mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-capable", content: "yes" },

@@ -8,6 +8,7 @@ import {
   isSharePath,
   lookShareMeta,
   originFromRequestLike,
+  rootSeoMeta,
   shareCacheHeaders,
   shareHead,
   shareKindFromPath,
@@ -79,6 +80,128 @@ describe("shareCacheHeaders", () => {
   it("makes found share pages public and missing ones private", () => {
     assert.equal(shareCacheHeaders(true)["Cache-Control"]?.includes("public"), true);
     assert.equal(shareCacheHeaders(false)["X-Robots-Tag"], "noindex");
+  });
+});
+
+describe("public head snapshots", () => {
+  it("keeps the feed's root title and description without share metadata", () => {
+    assert.deepEqual(rootSeoMeta, [
+      { title: "Looktag" },
+      {
+        name: "description",
+        content:
+          "Shoppable looks on the web and on your phone. Pin product pages from Zalando, Zara, COS and more — tap a piece to shop its product page.",
+      },
+    ]);
+  });
+
+  it("keeps a look's head tags, canonical, JSON-LD, and cache policy", () => {
+    const meta = lookShareMeta(
+      {
+        id: "seed-snapshot-look",
+        userId: "editorial",
+        title: "Sunday Coat",
+        caption: "Camel wool.",
+        creator: "Maya Chen",
+        imageSrc: "/looks/sunday-coat.jpg",
+        createdAt: 1,
+        updatedAt: 1,
+        tags: [
+          {
+            id: "coat",
+            x: 50,
+            y: 40,
+            name: "Camel Coat",
+            brand: "COS",
+            price: "279",
+            currency: "EUR",
+            url: "https://www.cos.com/coat",
+            retailerId: "cos",
+          },
+        ],
+      },
+      "https://looktag.example",
+    );
+    assert.deepEqual(shareHead(meta), {
+      meta: [
+        { title: "Sunday Coat — Looktag" },
+        { name: "description", content: "Camel wool." },
+        { name: "robots", content: "index,follow" },
+        { name: "looktag:share", content: "look" },
+        { property: "og:site_name", content: "Looktag" },
+        { property: "og:title", content: "Sunday Coat — Looktag" },
+        { property: "og:description", content: "Camel wool." },
+        { property: "og:url", content: "https://looktag.example/looks/seed-snapshot-look" },
+        { property: "og:type", content: "article" },
+        { property: "og:image", content: "https://looktag.example/looks/sunday-coat.jpg" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: "Sunday Coat — Looktag" },
+        { name: "twitter:description", content: "Camel wool." },
+        { name: "twitter:image", content: "https://looktag.example/looks/sunday-coat.jpg" },
+      ],
+      links: [{ rel: "canonical", href: "https://looktag.example/looks/seed-snapshot-look" }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children:
+            '{"@context":"https://schema.org","@type":"ItemPage","name":"Sunday Coat","description":"Camel wool.","url":"https://looktag.example/looks/seed-snapshot-look","image":"https://looktag.example/looks/sunday-coat.jpg","author":{"@type":"Person","name":"Maya Chen"},"isPartOf":{"@type":"WebSite","name":"Looktag","url":"https://looktag.example"},"mainEntity":{"@type":"ItemList","name":"Sunday Coat","numberOfItems":1,"itemListElement":[{"@type":"ListItem","position":1,"item":{"@type":"Product","name":"Camel Coat","brand":{"@type":"Brand","name":"COS"},"url":"https://www.cos.com/coat","offers":{"@type":"Offer","url":"https://www.cos.com/coat","price":"279","priceCurrency":"EUR","availability":"https://schema.org/InStock"}}}]}}',
+        },
+      ],
+    });
+    assert.deepEqual(shareCacheHeaders(true), {
+      "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+      "X-Robots-Tag": "index, follow",
+      Vary: "Accept",
+    });
+  });
+
+  it("keeps a House's head tags, canonical, JSON-LD, and cache policy", () => {
+    const meta = houseShareMeta(
+      {
+        id: "label-atelier-noir",
+        name: "Atelier Noir",
+        handle: "ateliernoir",
+        bio: "Evening tailoring.",
+        city: "Paris",
+        moods: ["evening"],
+        scouted: true,
+        status: "approved",
+        createdAt: 1,
+      },
+      "https://looktag.example",
+      "/looks/atelier-noir.jpg",
+    );
+    assert.deepEqual(shareHead(meta), {
+      meta: [
+        { title: "Atelier Noir — Scouted on Looktag" },
+        { name: "description", content: "Evening tailoring." },
+        { name: "robots", content: "index,follow" },
+        { name: "looktag:share", content: "house" },
+        { property: "og:site_name", content: "Looktag" },
+        { property: "og:title", content: "Atelier Noir — Scouted on Looktag" },
+        { property: "og:description", content: "Evening tailoring." },
+        { property: "og:url", content: "https://looktag.example/houses/label-atelier-noir" },
+        { property: "og:type", content: "profile" },
+        { property: "og:image", content: "https://looktag.example/looks/atelier-noir.jpg" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: "Atelier Noir — Scouted on Looktag" },
+        { name: "twitter:description", content: "Evening tailoring." },
+        { name: "twitter:image", content: "https://looktag.example/looks/atelier-noir.jpg" },
+      ],
+      links: [{ rel: "canonical", href: "https://looktag.example/houses/label-atelier-noir" }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children:
+            '{"@context":"https://schema.org","@type":"Brand","name":"Atelier Noir","description":"Evening tailoring.","url":"https://looktag.example/houses/label-atelier-noir","image":"https://looktag.example/looks/atelier-noir.jpg","slogan":"Scouted","address":{"@type":"PostalAddress","addressLocality":"Paris"}}',
+        },
+      ],
+    });
+    assert.deepEqual(shareCacheHeaders(true), {
+      "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+      "X-Robots-Tag": "index, follow",
+      Vary: "Accept",
+    });
   });
 });
 

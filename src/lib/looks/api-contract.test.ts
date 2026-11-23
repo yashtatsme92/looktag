@@ -5,6 +5,7 @@ import {
   getLookResponseSchema,
   listLooksRequestSchema,
   listLooksResponseSchema,
+  meResponseSchema,
   lookIdSchema,
 } from "./api-contract.ts";
 
@@ -37,5 +38,15 @@ describe("looks API contracts", () => {
     assert.deepEqual(listLooksResponseSchema.parse([look]), [look]);
     assert.deepEqual(getLookResponseSchema.parse(look), look);
     assert.equal(listLooksResponseSchema.safeParse([{ ...look, title: 1 }]).success, false);
+  });
+
+  it("pins the signed-in me response shape", () => {
+    assert.deepEqual(
+      meResponseSchema.parse({
+        user: { id: "user-1", email: "creator@example.com", emailVerified: true },
+      }),
+      { user: { id: "user-1", email: "creator@example.com", emailVerified: true } },
+    );
+    assert.equal(meResponseSchema.safeParse({ user: { id: "user-1" } }).success, false);
   });
 });

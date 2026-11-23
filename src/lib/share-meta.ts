@@ -6,6 +6,15 @@ export { isSharePath };
 
 const APP_NAME = "Looktag";
 
+export const rootSeoMeta = [
+  { title: APP_NAME },
+  {
+    name: "description",
+    content:
+      "Shoppable looks on the web and on your phone. Pin product pages from Zalando, Zara, COS and more — tap a piece to shop its product page.",
+  },
+] as const;
+
 export type SharePageKind = "look" | "house" | "collection";
 
 export function shareKindFromPath(pathname: string): SharePageKind | "app" {

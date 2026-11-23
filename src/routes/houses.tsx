@@ -22,12 +22,13 @@ type HousesIndex = {
 
 async function loadHousesIndex(): Promise<HousesIndex> {
   try {
-    const open = await getHousesAvailability();
+    const service = import.meta.env.SSR ? await import("@/server/services/houses") : null;
+    const open = service ? await service.getHousesAvailability() : await getHousesAvailability();
     if (!open) return { open: false, labels: [], covers: {}, drop: null };
     const [labels, collections, styles] = await Promise.all([
-      listFashionLabels(),
-      listFashionCollections(),
-      listFashionStyles(),
+      service ? service.listFashionLabels() : listFashionLabels(),
+      service ? service.listFashionCollections() : listFashionCollections(),
+      service ? service.listFashionStyles() : listFashionStyles(),
     ]);
     const covers: Record<string, string> = {};
     for (const label of labels) {

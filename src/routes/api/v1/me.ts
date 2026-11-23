@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { isSameSiteAllowed } from "@/lib/auth/same-site";
+import { looksApiErrorSchema, meResponseSchema } from "@looktag/shared";
+import { getRequestUser } from "@/server/services/profiles";
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -12,12 +14,11 @@ export const Route = createFileRoute("/api/v1/me")({
     handlers: {
       GET: async ({ request }) => {
         if (!isSameSiteAllowed(request.headers, request.method)) {
-          return json({ error: "Forbidden" }, 403);
+          return json(looksApiErrorSchema.parse({ error: "Forbidden" }), 403);
         }
-        const { userFromRequest } = await import("@/lib/auth/request-user.server");
-        const user = await userFromRequest(request);
-        if (!user) return json({ error: "Unauthorized" }, 401);
-        return json({ user }, 200);
+        const user = await getRequestUser(request);
+        if (!user) return json(looksApiErrorSchema.parse({ error: "Unauthorized" }), 401);
+        return json(meResponseSchema.parse({ user }), 200);
       },
     },
   },

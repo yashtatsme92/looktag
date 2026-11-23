@@ -1,14 +1,14 @@
 import { create } from "zustand";
-
-const SAVED_KEY = "looktag-saved-v1";
+import {
+  SAVED_LOOKS_KEY,
+  mergeSavedLookIds,
+  parseSavedLookIds,
+  toggleSavedLookId,
+} from "@looktag/shared";
 
 function readIds(): string[] {
   try {
-    const raw = localStorage.getItem(SAVED_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((id): id is string => typeof id === "string");
+    return parseSavedLookIds(localStorage.getItem(SAVED_LOOKS_KEY));
   } catch {
     return [];
   }
@@ -16,7 +16,7 @@ function readIds(): string[] {
 
 function writeIds(ids: string[]) {
   try {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(ids));
+    localStorage.setItem(SAVED_LOOKS_KEY, JSON.stringify(ids));
   } catch {
     // private mode
   }
@@ -37,14 +37,13 @@ export const useSavedLooks = create<SavedState>((set, get) => ({
     if (get().hydrated) return;
     const stored = readIds();
     set((state) => ({
-      ids: [...new Set([...state.ids, ...stored])],
+      ids: mergeSavedLookIds(state.ids, stored),
       hydrated: true,
     }));
   },
   has: (id) => get().ids.includes(id),
   toggle: (id) => {
-    const ids = get().ids;
-    const next = ids.includes(id) ? ids.filter((item) => item !== id) : [id, ...ids];
+    const next = toggleSavedLookId(get().ids, id);
     writeIds(next);
     set({ ids: next, hydrated: true });
     return next.includes(id);

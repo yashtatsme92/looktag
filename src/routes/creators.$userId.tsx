@@ -31,7 +31,8 @@ export const Route = createFileRoute("/creators/$userId")({
   loader: async ({ params }) => {
     if (!import.meta.env?.SSR) return { exists: true };
     try {
-      return { exists: Boolean(await getCreator({ data: params.userId })) };
+      const { getCreator: get } = await import("@/server/services/profiles");
+      return { exists: Boolean(await get(params.userId)) };
     } catch {
       return { exists: true };
     }

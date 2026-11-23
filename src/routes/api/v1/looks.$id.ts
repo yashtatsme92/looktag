@@ -5,6 +5,7 @@ import {
   getLookResponseSchema,
   looksApiErrorSchema,
 } from "@/lib/looks/api-contract";
+import { getLookById } from "@/server/services/looks";
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -22,8 +23,7 @@ export const Route = createFileRoute("/api/v1/looks/$id")({
         const parsed = getLookRequestSchema.safeParse(params);
         if (!parsed.success) return json(looksApiErrorSchema.parse({ error: "Bad request" }), 400);
         try {
-          const { getLookById } = await import("@/lib/looks/looks-read");
-          const look = await getLookById({ data: parsed.data.id });
+          const look = await getLookById(parsed.data.id);
           if (!look) return json(looksApiErrorSchema.parse({ error: "Not found" }), 404);
           const response = getLookResponseSchema.safeParse(look);
           if (!response.success) {
