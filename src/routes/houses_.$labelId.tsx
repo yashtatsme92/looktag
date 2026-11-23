@@ -15,7 +15,9 @@ import { SkeletonGrid } from "@/components/ds/skeleton";
 import { HouseProfilePending } from "@/components/ds/route-pending";
 import { authEnabled } from "@/lib/auth/client";
 import { track } from "@/lib/analytics/runtime";
-import { useSettledSessionAction } from "@/lib/auth/use-current-user";
+import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
+import { useAccountLibrary } from "@/lib/account/library";
+import { HOUSE_FOLLOWS_KEY, readStoredIds, writeStoredIds } from "@/lib/home/follows";
 import { getFashionLabel, getHousesAvailability, type FashionLabelPage } from "@/lib/labels/api";
 import { houseCoverSrc, publicLines, toggleHouseFollow, type FashionLabel } from "@/lib/labels/model";
 import { loadingCache } from "@/lib/loading/cache";
@@ -29,23 +31,11 @@ import {
   shareHead,
 } from "@/lib/share-meta";
 
-const FOLLOW_KEY = "looktag-followed-houses-v1";
-
 type HouseProfileData = {
   open: boolean;
   house: FashionLabelPage | null;
   origin: string;
 };
-
-function readFollows(): string[] {
-  try {
-    const raw = localStorage.getItem(FOLLOW_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
-  } catch {
-    return [];
-  }
-}
 
 function cachedHouse(labelId: string): { label: FashionLabel; cover: string } | null {
   const entry = loadingCache.get<{ labels: FashionLabel[]; covers: Record<string, string> }>("houses:index");
@@ -131,14 +121,17 @@ function HouseProfile() {
   const houseLoad = useRouteLoad(seeded, `house:${labelId}`, () => loadHouseProfile(labelId));
   const data = houseLoad.data;
   const closed = useHousesClosed(data ? data.open : true);
+  const { user } = useCurrentUserState();
   const runSettled = useSettledSessionAction();
   const [sharing, setSharing] = useState(false);
   const [follows, setFollows] = useState<string[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const accountHouses = useAccountLibrary((s) => s.houses);
 
   useEffect(() => {
-    setFollows(readFollows());
-  }, []);
+    if (authEnabled && user?.id) return;
+    setFollows(readStoredIds(HOUSE_FOLLOWS_KEY));
+  }, [user?.id]);
 
   useEffect(() => {
     if (!data?.house?.label?.id) return;
@@ -165,7 +158,11 @@ function HouseProfile() {
   }
 
   const lines = house ? publicLines(house.lines, house.styles) : [];
-  const following = label ? follows.includes(label.id) : false;
+  const following = label
+    ? authEnabled && user
+      ? accountHouses.includes(label.id)
+      : follows.includes(label.id)
+    : false;
   const cover = house ? houseCoverSrc(lines, house.label.coverSrc) : (cached?.cover ?? "");
   const stateKey = houseLoad.error ? "error" : houseLoad.skeleton ? "skeleton" : pending ? "waiting" : "ready";
 
@@ -191,14 +188,21 @@ function HouseProfile() {
         setSheetOpen(true);
         return;
       }
+      if (authEnabled && sessionUser) {
+        void useAccountLibrary
+          .getState()
+          .toggleHouse(label.id)
+          .then((on) => {
+            if (on) track("house_followed");
+            toast.success(on ? `Following ${label.name}` : `Unfollowed ${label.name}`);
+          })
+          .catch(() => undefined);
+        return;
+      }
       const next = toggleHouseFollow(follows, label.id);
       setFollows(next);
       if (next.includes(label.id)) track("house_followed");
-      try {
-        localStorage.setItem(FOLLOW_KEY, JSON.stringify(next));
-      } catch {
-        // private mode
-      }
+      writeStoredIds(HOUSE_FOLLOWS_KEY, next);
       toast.success(next.includes(label.id) ? `Following ${label.name}` : `Unfollowed ${label.name}`);
     });
   }

@@ -48,11 +48,11 @@ import {
 } from "@/lib/home/follows";
 import { authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
+import { toggleLookSave, useAccountLibrary, useSavedLookIds } from "@/lib/account/library";
 import { loadingCache } from "@/lib/loading/cache";
 import { useDelayedLoad } from "@/lib/loading/delayed-load";
 import { settleLoad } from "@/lib/loading/test-delay";
 import { shareOrCopy } from "@/lib/looks/share";
-import { useSavedLooks } from "@/lib/looks/saved";
 import { useResumePendingSave } from "@/lib/looks/use-pending-save";
 import type { Look } from "@/lib/looks/types";
 import { useSettingsStore } from "@/lib/settings/store";
@@ -75,9 +75,10 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   const { user } = useCurrentUserState();
   const runSettled = useSettledSessionAction();
   useResumePendingSave(Boolean(user));
-  const hydrateSaved = useSavedLooks((s) => s.hydrate);
-  const savedIds = useSavedLooks((s) => s.ids);
-  const toggleSaved = useSavedLooks((s) => s.toggle);
+  const savedIds = useSavedLookIds();
+  const accountCreators = useAccountLibrary((s) => s.creators);
+  const accountHouses = useAccountLibrary((s) => s.houses);
+  const accountReady = useAccountLibrary((s) => s.status === "ready" && s.userId === user?.id);
   const [labels, setLabels] = useState<FashionLabel[]>([]);
   const [styles, setStyles] = useState<FashionStyle[]>(SEED_STYLES);
   const [collections, setCollections] = useState<FashionCollection[]>([]);
@@ -121,10 +122,6 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   });
 
   useEffect(() => {
-    hydrateSaved();
-  }, [hydrateSaved]);
-
-  useEffect(() => {
     let alive = true;
     void listFashionLabels()
       .then((rows) => {
@@ -152,14 +149,21 @@ export function EchoHome({ looks }: { looks: Look[] }) {
   }, [housesOn]);
 
   useEffect(() => {
-    const stored = readStoredIds(CREATOR_FOLLOWS_KEY);
-    const next = omitSelfFollow(stored, user?.id);
-    if (user?.id && next.length !== stored.length) writeStoredIds(CREATOR_FOLLOWS_KEY, next);
-    setFollowed(next);
-    setHouseFollows(readStoredIds(HOUSE_FOLLOWS_KEY));
+    if (authEnabled && user?.id) {
+      if (accountReady) {
+        setFollowed(omitSelfFollow(accountCreators, user.id));
+        setHouseFollows(accountHouses);
+      }
+    } else {
+      const stored = readStoredIds(CREATOR_FOLLOWS_KEY);
+      const next = omitSelfFollow(stored, user?.id);
+      if (user?.id && next.length !== stored.length) writeStoredIds(CREATOR_FOLLOWS_KEY, next);
+      setFollowed(next);
+      setHouseFollows(readStoredIds(HOUSE_FOLLOWS_KEY));
+    }
     setSeen(readStoredIds(FOLLOWING_SEEN_KEY));
     setLessIds(readStoredIds(FEED_LESS_KEY));
-  }, [mode, user?.id]);
+  }, [accountCreators, accountHouses, accountReady, mode, user?.id]);
 
   useEffect(() => {
     if (!user || !feedFreshOn) return;
@@ -299,9 +303,13 @@ export function EchoHome({ looks }: { looks: Look[] }) {
         setSheetOpen(true);
         return;
       }
-      const saved = toggleSaved(look.id);
-      track(saved ? "look_saved" : "look_unsaved");
-      toast.success(saved ? "Saved" : "Removed from wardrobe");
+      void toggleLookSave(sessionUser, look.id)
+        .then((saved) => {
+          if (saved === "guest") return;
+          track(saved ? "look_saved" : "look_unsaved");
+          toast.success(saved ? "Saved" : "Removed from wardrobe");
+        })
+        .catch(() => undefined);
     });
   }
 

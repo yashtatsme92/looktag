@@ -43,6 +43,20 @@ export function hasPendingSave(store: StoreLike | null = session()): boolean {
   }
 }
 
+/** Read the pending save without clearing it. */
+export function peekPendingSave(store: StoreLike | null = session()): string | null {
+  try {
+    const raw = store?.getItem(PENDING_SAVE_KEY) ?? null;
+    if (!raw) return null;
+    const pending = JSON.parse(raw) as Partial<PendingSave>;
+    return pending.intent === "save" && typeof pending.id === "string" && pending.id.length > 0
+      ? pending.id
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Read and clear the pending save, so it resumes exactly once. */
 export function takePendingSave(store: StoreLike | null = session()): string | null {
   try {

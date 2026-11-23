@@ -1879,11 +1879,16 @@ async function flowSaveResume(page, label, path) {
       [SAVED_KEY, PENDING_SAVE_KEY],
     );
   await page.waitForFunction(
-    ({ savedKey, pendingKey, lookId }) =>
-      JSON.parse(localStorage.getItem(savedKey) ?? "[]").includes(lookId) &&
-      sessionStorage.getItem(pendingKey) === null,
+    ({ savedKey, pendingKey, lookId }) => {
+      const ids = JSON.parse(localStorage.getItem(savedKey) ?? "[]");
+      return (
+        !ids.includes(lookId) &&
+        sessionStorage.getItem(pendingKey) === null &&
+        Boolean(document.querySelector('[aria-label="Remove saved look"]'))
+      );
+    },
     { savedKey: SAVED_KEY, pendingKey: PENDING_SAVE_KEY, lookId: pendingAtLogin.id },
-    { timeout: 10_000 },
+    { timeout: 15_000 },
   );
   await page.locator("[data-sonner-toast]").filter({ hasText: /^Saved$/ }).waitFor({ timeout: 5_000 });
   const after = await read();
@@ -1891,13 +1896,13 @@ async function flowSaveResume(page, label, path) {
   const later = await read();
   const savedToasts = await page.locator("[data-sonner-toast]").filter({ hasText: /^Saved$/ }).count();
   await goto(page, path);
-  await page.waitForTimeout(800);
+  await page.locator('[aria-label="Remove saved look"]').waitFor({ timeout: 15_000 });
   const reloaded = await read();
   record(
     `flow.save-resume.saved-and-toasted-once-${label}`,
-    after.ids.filter((id) => id === pendingAtLogin.id).length === 1 &&
-      later.ids.filter((id) => id === pendingAtLogin.id).length === 1 &&
-      reloaded.ids.filter((id) => id === pendingAtLogin.id).length === 1 &&
+    after.ids.includes(pendingAtLogin.id) === false &&
+      later.ids.includes(pendingAtLogin.id) === false &&
+      reloaded.ids.includes(pendingAtLogin.id) === false &&
       after.pending === null &&
       reloaded.pending === null &&
       savedToasts === 1,

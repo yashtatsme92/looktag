@@ -40,7 +40,13 @@ import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
 import { Route as HousesLabelIdCollectionIdRouteImport } from './routes/houses_.$labelId_.$collectionId'
 import { Route as LooksLookIdEditRouteImport } from './routes/looks.$lookId_.edit'
 import { Route as ApiV1LooksIdRouteImport } from './routes/api/v1/looks.$id'
+import { Route as ApiV1MeFollowsRouteImport } from './routes/api/v1/me.follows'
+import { Route as ApiV1MeMergeGuestRouteImport } from './routes/api/v1/me.merge-guest'
+import { Route as ApiV1MeSavesRouteImport } from './routes/api/v1/me.saves'
 import { Route as HousesLabelIdCollectionIdStyleIdRouteImport } from './routes/houses_.$labelId_.$collectionId_.$styleId'
+import { Route as ApiV1MeSavesLookIdRouteImport } from './routes/api/v1/me.saves.$lookId'
+import { Route as ApiV1MeFollowsCreatorsUserIdRouteImport } from './routes/api/v1/me.follows.creators.$userId'
+import { Route as ApiV1MeFollowsHousesLabelIdRouteImport } from './routes/api/v1/me.follows.houses.$labelId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -198,11 +204,43 @@ const ApiV1LooksIdRoute = ApiV1LooksIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiV1LooksRoute,
 } as any)
+const ApiV1MeFollowsRoute = ApiV1MeFollowsRouteImport.update({
+  id: '/follows',
+  path: '/follows',
+  getParentRoute: () => ApiV1MeRoute,
+} as any)
+const ApiV1MeMergeGuestRoute = ApiV1MeMergeGuestRouteImport.update({
+  id: '/merge-guest',
+  path: '/merge-guest',
+  getParentRoute: () => ApiV1MeRoute,
+} as any)
+const ApiV1MeSavesRoute = ApiV1MeSavesRouteImport.update({
+  id: '/saves',
+  path: '/saves',
+  getParentRoute: () => ApiV1MeRoute,
+} as any)
 const HousesLabelIdCollectionIdStyleIdRoute =
   HousesLabelIdCollectionIdStyleIdRouteImport.update({
     id: '/houses_/$labelId_/$collectionId_/$styleId',
     path: '/houses/$labelId/$collectionId/$styleId',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiV1MeSavesLookIdRoute = ApiV1MeSavesLookIdRouteImport.update({
+  id: '/$lookId',
+  path: '/$lookId',
+  getParentRoute: () => ApiV1MeSavesRoute,
+} as any)
+const ApiV1MeFollowsCreatorsUserIdRoute =
+  ApiV1MeFollowsCreatorsUserIdRouteImport.update({
+    id: '/creators/$userId',
+    path: '/creators/$userId',
+    getParentRoute: () => ApiV1MeFollowsRoute,
+  } as any)
+const ApiV1MeFollowsHousesLabelIdRoute =
+  ApiV1MeFollowsHousesLabelIdRouteImport.update({
+    id: '/houses/$labelId',
+    path: '/houses/$labelId',
+    getParentRoute: () => ApiV1MeFollowsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -233,11 +271,17 @@ export interface FileRoutesByFullPath {
   '/looks/$lookId': typeof LooksLookIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/v1/looks': typeof ApiV1LooksRouteWithChildren
-  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/me': typeof ApiV1MeRouteWithChildren
   '/houses/$labelId/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId/edit': typeof LooksLookIdEditRoute
   '/api/v1/looks/$id': typeof ApiV1LooksIdRoute
+  '/api/v1/me/follows': typeof ApiV1MeFollowsRouteWithChildren
+  '/api/v1/me/merge-guest': typeof ApiV1MeMergeGuestRoute
+  '/api/v1/me/saves': typeof ApiV1MeSavesRouteWithChildren
   '/houses/$labelId/$collectionId/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
+  '/api/v1/me/saves/$lookId': typeof ApiV1MeSavesLookIdRoute
+  '/api/v1/me/follows/creators/$userId': typeof ApiV1MeFollowsCreatorsUserIdRoute
+  '/api/v1/me/follows/houses/$labelId': typeof ApiV1MeFollowsHousesLabelIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -267,11 +311,17 @@ export interface FileRoutesByTo {
   '/looks/$lookId': typeof LooksLookIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/v1/looks': typeof ApiV1LooksRouteWithChildren
-  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/me': typeof ApiV1MeRouteWithChildren
   '/houses/$labelId/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId/edit': typeof LooksLookIdEditRoute
   '/api/v1/looks/$id': typeof ApiV1LooksIdRoute
+  '/api/v1/me/follows': typeof ApiV1MeFollowsRouteWithChildren
+  '/api/v1/me/merge-guest': typeof ApiV1MeMergeGuestRoute
+  '/api/v1/me/saves': typeof ApiV1MeSavesRouteWithChildren
   '/houses/$labelId/$collectionId/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
+  '/api/v1/me/saves/$lookId': typeof ApiV1MeSavesLookIdRoute
+  '/api/v1/me/follows/creators/$userId': typeof ApiV1MeFollowsCreatorsUserIdRoute
+  '/api/v1/me/follows/houses/$labelId': typeof ApiV1MeFollowsHousesLabelIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -302,11 +352,17 @@ export interface FileRoutesById {
   '/looks/$lookId': typeof LooksLookIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/v1/looks': typeof ApiV1LooksRouteWithChildren
-  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/me': typeof ApiV1MeRouteWithChildren
   '/houses_/$labelId_/$collectionId': typeof HousesLabelIdCollectionIdRoute
   '/looks/$lookId_/edit': typeof LooksLookIdEditRoute
   '/api/v1/looks/$id': typeof ApiV1LooksIdRoute
+  '/api/v1/me/follows': typeof ApiV1MeFollowsRouteWithChildren
+  '/api/v1/me/merge-guest': typeof ApiV1MeMergeGuestRoute
+  '/api/v1/me/saves': typeof ApiV1MeSavesRouteWithChildren
   '/houses_/$labelId_/$collectionId_/$styleId': typeof HousesLabelIdCollectionIdStyleIdRoute
+  '/api/v1/me/saves/$lookId': typeof ApiV1MeSavesLookIdRoute
+  '/api/v1/me/follows/creators/$userId': typeof ApiV1MeFollowsCreatorsUserIdRoute
+  '/api/v1/me/follows/houses/$labelId': typeof ApiV1MeFollowsHousesLabelIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -342,7 +398,13 @@ export interface FileRouteTypes {
     | '/houses/$labelId/$collectionId'
     | '/looks/$lookId/edit'
     | '/api/v1/looks/$id'
+    | '/api/v1/me/follows'
+    | '/api/v1/me/merge-guest'
+    | '/api/v1/me/saves'
     | '/houses/$labelId/$collectionId/$styleId'
+    | '/api/v1/me/saves/$lookId'
+    | '/api/v1/me/follows/creators/$userId'
+    | '/api/v1/me/follows/houses/$labelId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -376,7 +438,13 @@ export interface FileRouteTypes {
     | '/houses/$labelId/$collectionId'
     | '/looks/$lookId/edit'
     | '/api/v1/looks/$id'
+    | '/api/v1/me/follows'
+    | '/api/v1/me/merge-guest'
+    | '/api/v1/me/saves'
     | '/houses/$labelId/$collectionId/$styleId'
+    | '/api/v1/me/saves/$lookId'
+    | '/api/v1/me/follows/creators/$userId'
+    | '/api/v1/me/follows/houses/$labelId'
   id:
     | '__root__'
     | '/'
@@ -410,7 +478,13 @@ export interface FileRouteTypes {
     | '/houses_/$labelId_/$collectionId'
     | '/looks/$lookId_/edit'
     | '/api/v1/looks/$id'
+    | '/api/v1/me/follows'
+    | '/api/v1/me/merge-guest'
+    | '/api/v1/me/saves'
     | '/houses_/$labelId_/$collectionId_/$styleId'
+    | '/api/v1/me/saves/$lookId'
+    | '/api/v1/me/follows/creators/$userId'
+    | '/api/v1/me/follows/houses/$labelId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -441,7 +515,7 @@ export interface RootRouteChildren {
   LooksLookIdRoute: typeof LooksLookIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiV1LooksRoute: typeof ApiV1LooksRouteWithChildren
-  ApiV1MeRoute: typeof ApiV1MeRoute
+  ApiV1MeRoute: typeof ApiV1MeRouteWithChildren
   HousesLabelIdCollectionIdRoute: typeof HousesLabelIdCollectionIdRoute
   LooksLookIdEditRoute: typeof LooksLookIdEditRoute
   HousesLabelIdCollectionIdStyleIdRoute: typeof HousesLabelIdCollectionIdStyleIdRoute
@@ -666,12 +740,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1LooksIdRouteImport
       parentRoute: typeof ApiV1LooksRoute
     }
+    '/api/v1/me/follows': {
+      id: '/api/v1/me/follows'
+      path: '/follows'
+      fullPath: '/api/v1/me/follows'
+      preLoaderRoute: typeof ApiV1MeFollowsRouteImport
+      parentRoute: typeof ApiV1MeRoute
+    }
+    '/api/v1/me/merge-guest': {
+      id: '/api/v1/me/merge-guest'
+      path: '/merge-guest'
+      fullPath: '/api/v1/me/merge-guest'
+      preLoaderRoute: typeof ApiV1MeMergeGuestRouteImport
+      parentRoute: typeof ApiV1MeRoute
+    }
+    '/api/v1/me/saves': {
+      id: '/api/v1/me/saves'
+      path: '/saves'
+      fullPath: '/api/v1/me/saves'
+      preLoaderRoute: typeof ApiV1MeSavesRouteImport
+      parentRoute: typeof ApiV1MeRoute
+    }
     '/houses_/$labelId_/$collectionId_/$styleId': {
       id: '/houses_/$labelId_/$collectionId_/$styleId'
       path: '/houses/$labelId/$collectionId/$styleId'
       fullPath: '/houses/$labelId/$collectionId/$styleId'
       preLoaderRoute: typeof HousesLabelIdCollectionIdStyleIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/me/saves/$lookId': {
+      id: '/api/v1/me/saves/$lookId'
+      path: '/$lookId'
+      fullPath: '/api/v1/me/saves/$lookId'
+      preLoaderRoute: typeof ApiV1MeSavesLookIdRouteImport
+      parentRoute: typeof ApiV1MeSavesRoute
+    }
+    '/api/v1/me/follows/creators/$userId': {
+      id: '/api/v1/me/follows/creators/$userId'
+      path: '/creators/$userId'
+      fullPath: '/api/v1/me/follows/creators/$userId'
+      preLoaderRoute: typeof ApiV1MeFollowsCreatorsUserIdRouteImport
+      parentRoute: typeof ApiV1MeFollowsRoute
+    }
+    '/api/v1/me/follows/houses/$labelId': {
+      id: '/api/v1/me/follows/houses/$labelId'
+      path: '/houses/$labelId'
+      fullPath: '/api/v1/me/follows/houses/$labelId'
+      preLoaderRoute: typeof ApiV1MeFollowsHousesLabelIdRouteImport
+      parentRoute: typeof ApiV1MeFollowsRoute
     }
   }
 }
@@ -687,6 +803,47 @@ const ApiV1LooksRouteChildren: ApiV1LooksRouteChildren = {
 const ApiV1LooksRouteWithChildren = ApiV1LooksRoute._addFileChildren(
   ApiV1LooksRouteChildren,
 )
+
+interface ApiV1MeFollowsRouteChildren {
+  ApiV1MeFollowsCreatorsUserIdRoute: typeof ApiV1MeFollowsCreatorsUserIdRoute
+  ApiV1MeFollowsHousesLabelIdRoute: typeof ApiV1MeFollowsHousesLabelIdRoute
+}
+
+const ApiV1MeFollowsRouteChildren: ApiV1MeFollowsRouteChildren = {
+  ApiV1MeFollowsCreatorsUserIdRoute: ApiV1MeFollowsCreatorsUserIdRoute,
+  ApiV1MeFollowsHousesLabelIdRoute: ApiV1MeFollowsHousesLabelIdRoute,
+}
+
+const ApiV1MeFollowsRouteWithChildren = ApiV1MeFollowsRoute._addFileChildren(
+  ApiV1MeFollowsRouteChildren,
+)
+
+interface ApiV1MeSavesRouteChildren {
+  ApiV1MeSavesLookIdRoute: typeof ApiV1MeSavesLookIdRoute
+}
+
+const ApiV1MeSavesRouteChildren: ApiV1MeSavesRouteChildren = {
+  ApiV1MeSavesLookIdRoute: ApiV1MeSavesLookIdRoute,
+}
+
+const ApiV1MeSavesRouteWithChildren = ApiV1MeSavesRoute._addFileChildren(
+  ApiV1MeSavesRouteChildren,
+)
+
+interface ApiV1MeRouteChildren {
+  ApiV1MeFollowsRoute: typeof ApiV1MeFollowsRouteWithChildren
+  ApiV1MeMergeGuestRoute: typeof ApiV1MeMergeGuestRoute
+  ApiV1MeSavesRoute: typeof ApiV1MeSavesRouteWithChildren
+}
+
+const ApiV1MeRouteChildren: ApiV1MeRouteChildren = {
+  ApiV1MeFollowsRoute: ApiV1MeFollowsRouteWithChildren,
+  ApiV1MeMergeGuestRoute: ApiV1MeMergeGuestRoute,
+  ApiV1MeSavesRoute: ApiV1MeSavesRouteWithChildren,
+}
+
+const ApiV1MeRouteWithChildren =
+  ApiV1MeRoute._addFileChildren(ApiV1MeRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -716,7 +873,7 @@ const rootRouteChildren: RootRouteChildren = {
   LooksLookIdRoute: LooksLookIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiV1LooksRoute: ApiV1LooksRouteWithChildren,
-  ApiV1MeRoute: ApiV1MeRoute,
+  ApiV1MeRoute: ApiV1MeRouteWithChildren,
   HousesLabelIdCollectionIdRoute: HousesLabelIdCollectionIdRoute,
   LooksLookIdEditRoute: LooksLookIdEditRoute,
   HousesLabelIdCollectionIdStyleIdRoute: HousesLabelIdCollectionIdStyleIdRoute,

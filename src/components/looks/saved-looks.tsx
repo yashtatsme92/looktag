@@ -1,26 +1,22 @@
-import { useLayoutEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { LookCard } from "@/components/looks/look-card";
-import { useSavedLooks } from "@/lib/looks/saved";
+import { useAccountSavedLoading, useSavedLookIds } from "@/lib/account/library";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useLooksStore } from "@/lib/looks/store";
 import type { Look } from "@/lib/looks/types";
 
 function useSavedLookItems(): Look[] {
-  const hydrate = useSavedLooks((s) => s.hydrate);
-  const ids = useSavedLooks((s) => s.ids);
+  const ids = useSavedLookIds();
   const looks = useLooksStore((s) => s.looks);
-
-  useLayoutEffect(() => {
-    hydrate();
-  }, [hydrate]);
-
   return ids
     .map((id) => looks.find((look) => look.id === id))
     .filter((look): look is Look => Boolean(look));
 }
 
 export function SavedLooks({ variant }: { variant: "rail" | "grid" }) {
+  const { user } = useCurrentUserState();
   const saved = useSavedLookItems();
+  const loading = useAccountSavedLoading(user?.id);
 
   if (variant === "rail") {
     return (
@@ -29,7 +25,7 @@ export function SavedLooks({ variant }: { variant: "rail" | "grid" }) {
           <h2 className="font-display text-2xl leading-none">Saved</h2>
           <p className="text-xs tabular-nums text-muted-foreground">{saved.length}</p>
         </div>
-        {saved.length === 0 ? (
+        {loading && saved.length === 0 ? null : saved.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Tap the bookmark on a look to keep it here.
           </p>
@@ -66,7 +62,7 @@ export function SavedLooks({ variant }: { variant: "rail" | "grid" }) {
   return (
     <section className="mt-8">
       <h2 className="mb-3 font-display text-2xl leading-none">Saved</h2>
-      {saved.length === 0 ? (
+      {loading && saved.length === 0 ? null : saved.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Tap the bookmark on a look to keep it here.
         </p>

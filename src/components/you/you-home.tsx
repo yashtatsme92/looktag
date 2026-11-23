@@ -12,7 +12,7 @@ import type { AppUser } from "@/lib/auth/use-current-user";
 import { useAdminStatus } from "@/lib/admin/admin-status";
 import { resetFeedTuning } from "@/lib/home/follows";
 import { CREATE_DRAFT_KEY } from "@/lib/looks/create-draft";
-import { useSavedLooks } from "@/lib/looks/saved";
+import { useAccountSavedLoading, useSavedLookIds } from "@/lib/account/library";
 import { useLooksStore } from "@/lib/looks/store";
 import type { Look } from "@/lib/looks/types";
 import { useCachedLoad } from "@/lib/loading/cached-load";
@@ -29,7 +29,7 @@ type DraftCard = {
 export function YouHome({ user }: { user: AppUser | null }) {
   const [pane, setPane] = useState<YouPane>("saved");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const saved = useSavedItems();
+  const saved = useSavedItems(user?.id ?? null);
   const draft = useCreateDraft();
   const guest = !user;
 
@@ -63,7 +63,7 @@ export function YouHome({ user }: { user: AppUser | null }) {
       </div>
 
       {pane === "saved" ? (
-        <SavedPane saved={saved} guest={guest} onSignIn={() => setSheetOpen(true)} />
+        <SavedPane saved={saved.looks} loading={saved.loading} guest={guest} onSignIn={() => setSheetOpen(true)} />
       ) : null}
       {pane === "drafts" ? <DraftsPane draft={draft} /> : null}
       {pane === "profile" ? <ProfilePane user={user} onSignIn={() => setSheetOpen(true)} /> : null}
@@ -82,15 +82,17 @@ export function YouHome({ user }: { user: AppUser | null }) {
 
 function SavedPane({
   saved,
+  loading,
   guest,
   onSignIn,
 }: {
   saved: Look[];
+  loading: boolean;
   guest: boolean;
   onSignIn: () => void;
 }) {
   const savedLoad = useCachedLoad(saved, `you:saved:${saved.map((look) => look.id).join(",") || "empty"}`);
-  if (savedLoad.skeleton) return <SkeletonGrid count={4} captions />;
+  if (loading || savedLoad.skeleton) return <SkeletonGrid count={4} captions />;
   if (savedLoad.error) {
     return (
       <div className="you-empty-body" role="alert" aria-live="polite">
@@ -259,14 +261,14 @@ function ResetFeedTuning() {
   );
 }
 
-function useSavedItems(): Look[] {
-  const hydrate = useSavedLooks((s) => s.hydrate);
-  const ids = useSavedLooks((s) => s.ids);
+function useSavedItems(userId: string | null): { looks: Look[]; loading: boolean } {
+  const ids = useSavedLookIds();
   const looks = useLooksStore((s) => s.looks);
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
-  return ids.map((id) => looks.find((look) => look.id === id)).filter((look): look is Look => Boolean(look));
+  const loading = useAccountSavedLoading(userId);
+  return {
+    looks: ids.map((id) => looks.find((look) => look.id === id)).filter((look): look is Look => Boolean(look)),
+    loading,
+  };
 }
 
 function useCreateDraft(): DraftCard | null {

@@ -4,6 +4,7 @@ import { AccountSheet } from "@/components/home/account-sheet";
 import { authEnabled } from "@/lib/auth/client";
 import { track } from "@/lib/analytics/runtime";
 import { useCurrentUserState, useSettledSessionAction } from "@/lib/auth/use-current-user";
+import { useAccountLibrary } from "@/lib/account/library";
 import { CREATOR_FOLLOWS_KEY, omitSelfFollow, readStoredIds, toggleStoredId, viewerCanFollow, writeStoredIds } from "@/lib/home/follows";
 
 export function FollowButton({
@@ -22,11 +23,13 @@ export function FollowButton({
   const runSettled = useSettledSessionAction();
   const [ids, setIds] = useState<string[]>([]);
   const [sheet, setSheet] = useState(false);
+  const accountCreators = useAccountLibrary((s) => s.creators);
   useEffect(() => {
     onSheetChange?.(sheet);
   }, [sheet, onSheetChange]);
   const self = !viewerCanFollow(user?.id, creatorId);
   useEffect(() => {
+    if (authEnabled && user?.id) return;
     const stored = readStoredIds(CREATOR_FOLLOWS_KEY);
     if (user?.id && user.id === creatorId) {
       const next = omitSelfFollow(stored, user.id);
@@ -36,7 +39,7 @@ export function FollowButton({
     setIds(stored);
   }, [creatorId, user?.id]);
   if (self) return null;
-  const on = ids.includes(creatorId);
+  const on = authEnabled && user ? accountCreators.includes(creatorId) : ids.includes(creatorId);
   const label = on ? "Following ✓" : "Follow";
   const className =
     variant === "profile"
@@ -52,6 +55,17 @@ export function FollowButton({
       if (!viewerCanFollow(sessionUser?.id, creatorId)) return;
       if (authEnabled && !sessionUser) {
         setSheet(true);
+        return;
+      }
+      if (authEnabled && sessionUser) {
+        void useAccountLibrary
+          .getState()
+          .toggleCreator(creatorId)
+          .then((following) => {
+            track(following ? "creator_followed" : "creator_unfollowed");
+            toast.success(following ? `Following ${name}` : `Unfollowed ${name}`);
+          })
+          .catch(() => undefined);
         return;
       }
       const next = toggleStoredId(ids, creatorId);
