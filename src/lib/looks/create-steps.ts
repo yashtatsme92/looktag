@@ -11,6 +11,21 @@ export type PhoneCreateStepId =
   | "piece"
   | "details";
 
+export function discardEmptyPin<T extends {
+  id: string;
+  name: string;
+  url: string;
+  wornUrl?: string;
+  offers?: { url: string }[];
+  styleId?: string;
+}>(tags: T[], id: string | null): T[] {
+  return tags.filter((tag) =>
+    tag.id !== id ||
+    Boolean(tag.name.trim() || tag.url.trim() || tag.wornUrl?.trim() ||
+      tag.offers?.some((offer) => offer.url.trim()) || tag.styleId),
+  );
+}
+
 type LookProgress = {
   imageSrc: string;
   title: string;

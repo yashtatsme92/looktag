@@ -62,6 +62,7 @@ export function LookCanvas({
 }: LookCanvasProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
+  const framePointerDown = useRef(false);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [frame, setFrame] = useState<{ w: number; h: number } | null>(null);
   const [maxPinY, setMaxPinY] = useState(100);
@@ -176,6 +177,9 @@ export function LookCanvas({
   }
 
   function handleFrameClick(event: MouseEvent<HTMLDivElement>) {
+    const startedOnFrame = framePointerDown.current;
+    framePointerDown.current = false;
+    if (!startedOnFrame) return;
     if (!editable || !imageSrc) return;
     if (dragRef.current?.moved) return;
     const point = pointToImagePercent(event.clientX, event.clientY);
@@ -231,6 +235,8 @@ export function LookCanvas({
         editable && imageSrc && "cursor-crosshair",
         className,
       )}
+      onPointerDown={() => { framePointerDown.current = true; }}
+      onPointerCancel={() => { framePointerDown.current = false; }}
       onClick={handleFrameClick}
     >
       {imageSrc && !imageBroken ? (

@@ -341,7 +341,12 @@ function PieceChip({
 }) {
   const retailer = getRetailer(tag.retailerId)?.name || tag.brand;
   return (
-    <div className="create-piece" role="dialog" aria-label="Edit piece">
+    <div className="create-piece" role="dialog" aria-label="Edit piece" onKeyDown={(event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onDone();
+      }
+    }}>
       <div className="create-piece-row">
         <PieceThumb lookSrc={look.imageSrc} x={tag.x} y={tag.y} alt="" size="sm" />
         <div className="create-piece-fields">

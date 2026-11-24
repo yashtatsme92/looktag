@@ -1500,7 +1500,7 @@ html[data-theme="moss"] {
     border: 0;
     padding: 0;
     color: #6b6b6b;
-    font-size: 0.8125rem;
+    font-size: 1rem;
   }
 
   .create-piece-link {
@@ -1508,7 +1508,7 @@ html[data-theme="moss"] {
     border: 1px solid #e0e0e0;
     border-radius: 0.75rem;
     padding: 0 0.75rem;
-    font-size: 0.875rem;
+    font-size: 1rem;
   }
 
   .create-piece-remove {
@@ -1667,6 +1667,18 @@ html[data-theme="moss"] {
     margin: 0.75rem 1rem 0;
   }
 
+  html[data-chrome="phone"] .create-details-photo,
+  html[data-chrome="phone"] .create-ready-photo {
+    align-self: center;
+    aspect-ratio: 3 / 4;
+    max-width: 100%;
+  }
+
+  html[data-chrome="phone"] .create-ready-photo {
+    width: min(calc(100% - 2rem), max(0px, calc((var(--app-height, 100dvh) - 18rem) * 0.75)));
+    flex: 0 0 auto;
+  }
+
   .create-kicker {
     display: block;
     margin-bottom: -0.25rem;
@@ -1736,6 +1748,11 @@ html[data-theme="moss"] {
 
   [data-kb="open"] .create-piece {
     max-height: 100%;
+  }
+
+  html[data-chrome="phone"] [data-kb="open"] .create-piece {
+    bottom: var(--kb-inset, 0px);
+    max-height: calc(100% - var(--kb-inset, 0px));
   }
 
   [data-kb="open"] .create-piece [data-kb-dock] {

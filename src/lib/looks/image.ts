@@ -3,6 +3,15 @@ import { couldNot } from "../errors/copy.ts";
 const AI_EDGE = 960;
 const AI_QUALITY = 0.72;
 
+export function validateLookImage(file: File): void {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Choose a photo (JPG, PNG, or WebP).");
+  }
+  if (file.size > 12 * 1024 * 1024) {
+    throw new Error("That file is too large. Try one under 12 MB.");
+  }
+}
+
 export async function readLookImage(file: File, onProgress?: (percent: number) => void): Promise<string> {
   let last = -1;
   const report = (value: number) => {
@@ -12,12 +21,7 @@ export async function readLookImage(file: File, onProgress?: (percent: number) =
     onProgress?.(next);
   };
   report(0);
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Choose a photo (JPG, PNG, or WebP).");
-  }
-  if (file.size > 12 * 1024 * 1024) {
-    throw new Error("That file is too large. Try one under 12 MB.");
-  }
+  validateLookImage(file);
   const bytes = await readFileBytes(file, (ratio) => report(ratio * 70));
   report(80);
   report(95);
