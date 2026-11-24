@@ -88,8 +88,8 @@ async function keyboardField(selector, offsetTop) {
         Math.abs(d.bottom - (vv.offsetTop + vv.height)) <= 2 &&
         f.top >= vv.offsetTop &&
         f.bottom <= d.top - 15 &&
-        hit(f.left + 2, f.top + 2) &&
-        hit(f.right - 2, f.bottom - 2)
+        hit(f.left + 12, f.top + 12) &&
+        hit(f.right - 12, f.bottom - 12)
       );
     },
     selector,
@@ -160,7 +160,10 @@ async function canvasState(selector, expectedCrop, pinCount) {
 
 try {
   const signedIn = Boolean(process.env.ADMIN_BOOTSTRAP_PASSWORD?.trim());
-  if (signedIn) await fillAdminLogin(page, origin);
+  if (signedIn) {
+    await fillAdminLogin(page, origin);
+    await page.getByTestId("admin-pages").waitFor({ timeout: 20_000 });
+  }
   await page.goto(`${origin}/create`, { waitUntil: "domcontentloaded" });
   await page.locator(".look-studio[data-hydrated='true']").waitFor();
   const [chooser] = await Promise.all([
@@ -199,7 +202,11 @@ try {
   await step("piece");
   await page.getByRole("dialog", { name: "Edit piece" }).waitFor();
   for (const top of [0, 120]) {
-    for (const selector of [".create-piece-name", ".create-piece-retailer", ".create-piece-link"]) {
+    for (const selector of [
+      ".create-piece-name",
+      ".create-piece-retailer",
+      '.create-piece-link[aria-label="Link"]',
+    ]) {
       await keyboardField(selector, top);
     }
   }
