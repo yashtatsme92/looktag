@@ -3,6 +3,7 @@ import { keyboardInset } from "@/lib/pwa/viewport";
 
 const FIELD = "input, textarea";
 const CLEARANCE = 16;
+const ACCESSORY_CLEARANCE = 120;
 const MIN_KEYBOARD = 80;
 
 function scrollParent(el: HTMLElement): HTMLElement | null {
@@ -32,6 +33,7 @@ export function useKeyboardDock() {
   useEffect(() => {
     const vv = window.visualViewport;
     let timer = 0;
+    let animationTimer = 0;
 
     function sync() {
       const vv = window.visualViewport;
@@ -60,10 +62,11 @@ export function useKeyboardDock() {
         dockHeight = dock.offsetHeight;
       }
       const hidden = scroller ? Math.max(0, scroller.getBoundingClientRect().bottom - bottom) : 0;
-      root.style.setProperty("--kb-pad", `${Math.ceil(dockHeight + hidden + CLEARANCE)}px`);
+      const clearance = Math.max(ACCESSORY_CLEARANCE, dockHeight + CLEARANCE);
+      root.style.setProperty("--kb-pad", `${Math.ceil(hidden + clearance)}px`);
       if (!scroller) return;
       const rect = field.getBoundingClientRect();
-      const limit = bottom - dockHeight - CLEARANCE;
+      const limit = bottom - clearance;
       if (rect.bottom > limit) {
         scroller.scrollTop += rect.bottom - limit;
       } else if (rect.top < scroller.getBoundingClientRect().top + CLEARANCE) {
@@ -79,6 +82,8 @@ export function useKeyboardDock() {
     function focused() {
       sync();
       later();
+      window.clearTimeout(animationTimer);
+      animationTimer = window.setTimeout(sync, 350);
     }
 
     document.addEventListener("focusin", focused);
@@ -88,6 +93,7 @@ export function useKeyboardDock() {
     window.addEventListener("resize", sync);
     return () => {
       window.clearTimeout(timer);
+      window.clearTimeout(animationTimer);
       document.removeEventListener("focusin", focused);
       document.removeEventListener("focusout", later);
       vv?.removeEventListener("resize", sync);

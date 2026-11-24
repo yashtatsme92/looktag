@@ -69,32 +69,50 @@ async function step(name) {
 }
 
 async function keyboardField(selector, offsetTop) {
+  const field = page.locator(selector);
+  assert.equal(await field.getAttribute("autocomplete"), "off");
+  assert.ok(await field.getAttribute("inputmode"));
+  assert.ok(await field.getAttribute("enterkeyhint"));
   await page.evaluate((top) => {
     window.visualViewport.height = 508;
     window.visualViewport.offsetTop = top;
   }, offsetTop);
-  await page.locator(selector).focus();
+  await field.focus();
   await page.evaluate(() => window.visualViewport.dispatchEvent(new Event("resize")));
-  await page.waitForFunction(
-    (sel) => {
-      const field = document.querySelector(sel);
-      const dock = field?.closest("[data-kb-root]")?.querySelector("[data-kb-dock]");
-      if (!field || !dock || document.activeElement !== field) return false;
-      const f = field.getBoundingClientRect();
-      const d = dock.getBoundingClientRect();
-      const vv = window.visualViewport;
-      const hit = (x, y) => document.elementsFromPoint(x, y)[0] === field;
-      return (
-        Math.abs(d.bottom - (vv.offsetTop + vv.height)) <= 2 &&
-        f.top >= vv.offsetTop &&
-        f.bottom <= d.top - 15 &&
-        hit(f.left + 12, f.top + 12) &&
-        hit(f.right - 12, f.bottom - 12)
-      );
-    },
-    selector,
-    { timeout: 5_000 },
-  );
+  async function assertVisible() {
+    await page.waitForFunction(
+      (sel) => {
+        const field = document.querySelector(sel);
+        const dock = field?.closest("[data-kb-root]")?.querySelector("[data-kb-dock]");
+        if (!field || !dock || document.activeElement !== field) return false;
+        const f = field.getBoundingClientRect();
+        const d = dock.getBoundingClientRect();
+        const vv = window.visualViewport;
+        const hit = (x, y) => document.elementsFromPoint(x, y)[0] === field;
+        return (
+          Math.abs(d.bottom - (vv.offsetTop + vv.height)) <= 2 &&
+          f.top >= vv.offsetTop &&
+          f.bottom <= vv.offsetTop + vv.height - 119 &&
+          f.bottom <= d.top - 15 &&
+          hit(f.left + 12, f.top + 12) &&
+          hit(f.right - 12, f.bottom - 12)
+        );
+      },
+      selector,
+      { timeout: 5_000 },
+    );
+  }
+  await assertVisible();
+  await page.evaluate(() => {
+    window.visualViewport.height = 468;
+    window.visualViewport.dispatchEvent(new Event("scroll"));
+  });
+  await assertVisible();
+  if (selector === "#create-caption" && offsetTop === 0) {
+    await page.waitForTimeout(80);
+    await page.locator(".create-details").evaluate((scroller) => { scroller.scrollTop = 0; });
+    await assertVisible();
+  }
   console.log(`ok  iphone.keyboard ${selector} offset=${offsetTop}`);
   await page.evaluate(() => {
     document.activeElement?.blur();

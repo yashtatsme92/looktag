@@ -356,6 +356,8 @@ function PieceChip({
             value={tag.name}
             placeholder="Piece name"
             autoComplete="off"
+            inputMode="text"
+            enterKeyHint="next"
             onChange={(event) => onChange({ ...tag, name: event.target.value })}
           />
           <input
@@ -364,6 +366,8 @@ function PieceChip({
             value={retailer}
             placeholder="Retailer"
             autoComplete="off"
+            inputMode="text"
+            enterKeyHint="next"
             onChange={(event) => onChange(applyRetailer(tag, event.target.value))}
           />
         </div>
@@ -373,6 +377,8 @@ function PieceChip({
         aria-label="Link"
         placeholder="Link (optional)"
         inputMode="url"
+        enterKeyHint="done"
+        autoComplete="off"
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}
@@ -449,6 +455,8 @@ function DetailsStep({
           placeholder="Name this look"
           autoComplete="off"
           autoCapitalize="sentences"
+          inputMode="text"
+          enterKeyHint="next"
           required
           aria-invalid={titleError && !hasTitle ? "true" : undefined}
           aria-describedby={titleError && !hasTitle ? "create-title-error" : undefined}
@@ -471,6 +479,10 @@ function DetailsStep({
           value={look.caption}
           placeholder="Press linen for Friday."
           rows={3}
+          autoComplete="off"
+          autoCapitalize="sentences"
+          inputMode="text"
+          enterKeyHint="enter"
           onChange={(event) => onPatch({ caption: event.target.value })}
         />
         <button type="button" className="create-btn-ghost create-details-crop" onClick={onEditCrop}>
